@@ -10,10 +10,13 @@
 ├── .git/                 git 数据（不要手动删）
 ├── .gitignore            忽略规则
 ├── git-commit.ps1        一键提交脚本（先校验，后提交）
+├── GIT-使用说明.md        本文件
 ├── 声明.txt
 ├── 家教计划.pdf
 └── ds-course/            课件本体（15 讲 + assets + tools）
 ```
+
+当前状态：**51 个文件已入库**，历史 2 条，标签 `v0000`（课件完整版）、`v0001`（建立 git 管理）。
 
 ## 一键提交（推荐）
 
@@ -79,9 +82,33 @@ node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
 1. **批量改名千万不要用会静默覆盖的方式**（`fs.renameSync`、`mv`）。
    链式改名（`ch01→ch02`、`ch02→ch03`…）会互相覆盖、成批丢文件。
    正确做法：先检测目标是否存在 → 存在就中止；或先复制到临时目录、在副本上改名、最后整体替换。
-   **改名/批量替换前先跑一次 `git add -A; git commit`，出问题直接 `git reset --hard` 就能回来。**
+   **改名/批量替换前先 `.\git-commit.ps1 "改名前存档"`，出问题直接 `git reset --hard` 就能回来。**
 2. 改名后要同步四处：各页 `DS_PAGE.id`、`<script src>` 引用、`course.js` 的 `PAGES` 注册表、
    `tools/check.mjs` 的页面清单。
+
+## 两个技术细节（避免以后再踩）
+
+- **`.ps1` 脚本必须保存为「UTF-8 带 BOM」**。Windows PowerShell 5.1 会把无 BOM 的 UTF-8 当成本地
+  代码页（GBK）读取，脚本里的中文会变成乱码、字符串甚至被截断导致语法错误。
+  `git-commit.ps1` 已带 BOM（文件头 `EF BB BF`）。如果以后用编辑器另存，请确认保留 BOM。
+- 本仓库 `core.autocrlf = true`（Windows 常规设置，入库统一存 CRLF、工作区也是 CRLF），
+  所以不会出现"什么都没改却显示被修改"的情况。
+
+## 备份建议
+
+目前是**纯本地仓库**，没有远程。`.git` 就在 `家教` 目录里，如果整个目录被误删就全没了。
+建议二选一：
+
+1. **定期打包备份**：把整个 `家教` 目录（含 `.git`）复制到网盘 / U 盘 / 另一个盘；
+2. **加一个远程仓库**（GitHub / Gitee / 自建均可）：
+
+```powershell
+git remote add origin <你的仓库地址>
+git push -u origin main --tags
+```
+
+之后每次提交完 `git push --tags` 即可。因为我是在你的机器上直接操作本地仓库，
+**创建远程仓库并推送需要你自己授权**（要账号凭据），这一步我没有代做。
 
 ## 仓库身份配置
 
