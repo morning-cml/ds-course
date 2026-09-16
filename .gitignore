@@ -35,3 +35,10 @@ tools/_tmpcpp*/
 
 # 注意：课件本体（*.html / assets / tools / *.md / package.json）必须全部入库，
 # 不要在这里忽略它们，否则回退时会缺文件。
+
+# ������ʷ���ݣ������ֿ⣩
+_history-backup-*.bundle
+
+# ---------- 私人材料：只留在本地，不入库、不推送 ----------
+声明.txt
+家教计划.pdf
