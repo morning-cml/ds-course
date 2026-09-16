@@ -96,6 +96,43 @@ node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
 
 `cpp-check.mjs` 需要系统里有 `g++`（本机已具备）；其余几个只需要 Node.js。
 
+## 私人材料：只在本地，绝不入库
+
+`声明.txt` 与 `家教计划.pdf` **已加入 `.gitignore`**，不会被提交、也不会被推送。
+文件本体仍然在你本地（和以前一样能打开），只是不进版本控制。
+
+> 教训：建仓时我把整个目录都纳入了版本控制，而仓库是**公开**的，这两个私人材料就一起被推上去了。
+> 正确做法是**建公开仓库前先确认哪些文件不该公开**，或建仓时就把课程无关的个人材料排除。
+
+### 万一以后又不小心提交了私人文件，处理步骤
+
+```powershell
+# 1) 从所有历史提交里移除（本仓库自带工具，纯 git 命令实现，不依赖 sh.exe）
+.\tools\scrub.ps1 -Paths "要删的文件" -Apply
+
+# 2) 清理引用日志与不可达对象，否则旧提交还在本地
+git update-ref -d refs/remotes/origin/main     # 远端跟踪引用会"吊住"旧历史
+git reflog expire --expire=now --expire-unreachable=now --all
+git gc --prune=now
+
+# 3) 强制推送覆盖远端
+git push --force origin main
+git push --force --tags origin
+```
+
+**注意**：强推只能改掉"引用"，GitHub 上的旧对象在一段时间内**仍能通过具体 commit SHA 读到**。
+要立刻消除这个窗口，最可靠的是**删库重建**：
+
+```powershell
+gh auth refresh -h github.com -s delete_repo   # 需要 delete_repo 权限，只做一次
+gh repo delete <账号>/<仓库> --yes
+gh repo create <仓库> --public --description "..."
+git push -u origin main; git push --tags origin
+```
+
+本仓库已经走过一遍这个流程，并用 `tools\verify-private.ps1` 逐项验证过
+（在 main、各标签、以及多个旧 SHA 下都读不到私人文件）。
+
 ## 两条经验（本仓库踩过的坑）
 
 1. **批量改名千万不要用会静默覆盖的方式**（`fs.renameSync`、`mv`）。
