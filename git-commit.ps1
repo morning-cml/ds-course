@@ -4,6 +4,7 @@
 
   用法（在 家教 目录下执行）：
       .\git-commit.ps1 "第 12 讲动画重做"
+      .\git-commit.ps1 "第 12 讲动画重做" -Push      # 提交后顺便推到 GitHub
       .\git-commit.ps1 "只改了 PDF" -SkipCheck      # 跳过校验
       .\git-commit.ps1 "调整样式" -NoTag            # 本次不打标签
       .\git-commit.ps1 "试验性改动" -DryRun         # 只看会提交什么
@@ -12,6 +13,7 @@
     1. 运行 node ds-course/tools/batch-check.mjs（结构 / 导航 / 动画逐帧 / C++ 编译 / 需求覆盖）
     2. 校验不通过就中止，不把坏状态写进历史
     3. 通过后提交，提交信息自动带时间戳，并打标签 v0001、v0002 …（便于按版本回退）
+    4. 带 -Push 时，提交完自动推到 origin（含标签）
 
   注意：本文件必须保存为「UTF-8 带 BOM」，否则 Windows PowerShell 5.1 会把中文读成乱码。
 #>
@@ -19,7 +21,8 @@ param(
     [Parameter(Mandatory = $true, Position = 0)][string]$Message,
     [switch]$SkipCheck,
     [switch]$NoTag,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Push
 )
 
 $ErrorActionPreference = "Stop"
@@ -94,7 +97,18 @@ if (-not $NoTag) {
     if ($LASTEXITCODE -eq 0) { Good "已打标签：$tag" } else { Warn "打标签失败：$tag" }
 }
 
-# ---------- 5. 提示 ----------
+# ---------- 5. 推送到 GitHub ----------
+if ($Push) {
+    if (@(git remote).Count -eq 0) {
+        Warn "没有配置远端，跳过推送。可先执行：git remote add origin <仓库地址>"
+    } else {
+        Info "`n正在推送到 origin…"
+        git push origin HEAD --tags
+        if ($LASTEXITCODE -eq 0) { Good "已推送（含标签）" } else { Warn "推送失败，本地提交仍然安全，稍后可重试 git push" }
+    }
+}
+
+# ---------- 6. 提示 ----------
 Info "`n最近 8 条提交："
 git log --oneline -8
 Info "`n回退方法："
