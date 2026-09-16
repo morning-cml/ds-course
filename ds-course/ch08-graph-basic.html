@@ -435,54 +435,82 @@
       <p style="margin:6px 0">（补充：10 个顶点、每点度数为 3 的图叫 3-正则图，是存在的，例如 Petersen 图与五棱柱图。）</p>
     </div>
 
-    <pre data-lang="cpp" data-file="graph_handshake.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="graph_handshake.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
    握手定理的代码验证：Σdeg(v) == 2e
-   顺便演示“能否构成无向图”的判定
+   顺便演示"能否构成无向图"的判定
+
+   竞赛写法：链式前向星（数组模拟邻接表），
+   与第 08 讲 8.4 节、第 09 讲 graph_base.cpp 完全同一套模板：
+       head[u] = u 的第一条出边下标（-1 表示没有）
+       to[i] / nxt[i] = 第 i 条边的终点 / 同起点的下一条边
+   另外用 eu[] / ev[] 存下每条边的两个端点，deg[] 顺手统计度数。
    ============================================================ */
-struct Graph {
-    int n;
-    vector&lt;pair&lt;int,int&gt; &gt; edges;
-    vector&lt;int&gt; deg;
-    Graph(int n_) : n(n_), deg(n_, 0) {}
-    void addEdge(int u, int v) {
-        edges.push_back(make_pair(u, v));
-        deg[u]++; deg[v]++;              // 无向边给两个端点各 +1
-    }
-    int sumDeg() const {
-        int s = 0;
-        for (int d : deg) s += d;
-        return s;
-    }
-};
+
+const int MAXN = 100005;        /* 顶点数上限 */
+const int MAXM = 200005;        /* 边数上限（无向图要开 2 倍） */
+
+int head[MAXN], to[MAXM], nxt[MAXM];
+int eu[MAXM], ev[MAXM];         /* 第 i 条边的两个端点（无向边只记一次） */
+int deg[MAXN];                  /* deg[v] = 顶点 v 的度数 */
+int n, etot = 0;                /* n 个顶点，etot 条边 */
+
+void initGraph(int n_) {
+    n = n_;
+    memset(head, -1, sizeof(head));    /* -1 表示"链表为空"，加边前必须做 */
+    memset(deg, 0, sizeof(deg));
+    etot = 0;
+}
+
+/* 加一条无向边：给两个端点各 +1 度，注意在无向图里这是一条边，不是两条 */
+void addEdge(int u, int v) {
+    eu[etot] = u; ev[etot] = v;
+
+    to[etot] = v; nxt[etot] = head[u]; head[u] = etot; ++etot;   /* u -&gt; v */
+    to[etot] = u; nxt[etot] = head[v]; head[v] = etot; ++etot;   /* v -&gt; u */
+
+    deg[u]++; deg[v]++;                /* 无向边给两个端点各 +1 */
+}
+
+int sumDeg() {
+    int s = 0;
+    for (int v = 0; v &lt; n; ++v) s += deg[v];
+    return s;
+}
 
 /* 给定度数序列，判断是否存在一个无向简单图（只用必要条件做快速否定） */
 bool possible(const vector&lt;int&gt;&amp; d) {
-    int n = d.size(), s = 0, odd = 0;
-    for (int x : d) { s += x; if (x &amp; 1) odd++; if (x &lt; 0 || x &gt;= n) return false; }
+    int cnt = d.size(), s = 0, odd = 0;
+    for (int x : d) { s += x; if (x &amp; 1) odd++; if (x &lt; 0 || x &gt;= cnt) return false; }
     if (s % 2 != 0) return false;        // 度数之和必须是偶数
     if (odd % 2 != 0) return false;      // 奇度顶点个数必须是偶数（上一条的推论）
     return true;                         // 只是必要条件，充分性要用 Havel-Hakimi
 }
 
 int main() {
-    Graph g(8);
+    initGraph(8);
     int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
-    for (int i = 0; i &lt; 9; ++i) g.addEdge(E[i][0], E[i][1]);
+    for (int i = 0; i &lt; 9; ++i) addEdge(E[i][0], E[i][1]);
 
-    cout &lt;&lt; "e = " &lt;&lt; (int)g.edges.size() &lt;&lt; "\n";          // 9
-    for (int v = 0; v &lt; g.n; ++v) cout &lt;&lt; g.deg[v] &lt;&lt; " ";    // 2 3 2 2 2 3 2 2
-    cout &lt;&lt; "\nΣdeg = " &lt;&lt; g.sumDeg() &lt;&lt; " , 2e = " &lt;&lt; 2 * (int)g.edges.size() &lt;&lt; "\n";  // 18 18
+    cout &lt;&lt; "e = " &lt;&lt; etot / 2 &lt;&lt; "\n";                     // 9（无向边存了两条弧，别忘除以 2）
+    for (int v = 0; v &lt; n; ++v) cout &lt;&lt; deg[v] &lt;&lt; " ";      // 2 3 2 2 2 3 2 2
+    cout &lt;&lt; "\nΣdeg = " &lt;&lt; sumDeg() &lt;&lt; " , 2e = " &lt;&lt; 2 * (etot / 2) &lt;&lt; "\n";  // 18 18
+
+    /* 顺带验证链式前向星没建错：顶点 0 的邻接点个数应当等于 deg[0] */
+    int cnt0 = 0;
+    for (int i = head[0]; i != -1; i = nxt[i]) ++cnt0;
+    if (cnt0 != deg[0]) printf("forward star error!\n");   /* 正常情况不会打印 */
 
     vector&lt;int&gt; d1 = {3,3,3,3,3,3,3,3,3,3};
     vector&lt;int&gt; d2 = {3,3,3,3,3,3,3,3,3,2};
     cout &lt;&lt; possible(d1) &lt;&lt; "\n";        // 1：10 个 3 度点，和为 30，可行
     cout &lt;&lt; possible(d2) &lt;&lt; "\n";        // 0：和为 29 是奇数，不可能
     return 0;
-}</pre>
+}
+</pre>
 
     <h3 id="s2-4">8.2.4 路径、简单路径、回路与简单回路</h3>
     <p>

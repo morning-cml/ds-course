@@ -1797,42 +1797,49 @@ int main() {
     </ol>
     <p>于是递推式是标准的 <code>T(n) = 2T(n/2) + O(n)</code>，主定理第二种情形给出 <code>O(n log n)</code>。</p>
 
-    <pre data-lang="cpp" data-file="closest_pair.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
-#include &lt;cmath&gt;
+    <pre data-lang="cpp" data-file="closest_pair.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
    最近点对（分治法，O(n log n)）
    关键：合并时只检查中线两侧宽度 d 的带状区域，
         且每个点最多与按 y 排序后的后 7 个点比较 → 合并为 O(n)
-   ============================================================ */
-struct P { double x, y; };
 
-double dist(const P&amp; a, const P&amp; b) {
+   竞赛写法：点的集合就是全局数组 p[] + 个数 n，
+   dist / solve 都是作用在全局量上的自由函数，
+   struct Point 只描述"一个点长什么样"，属于结点型，保留。
+   ============================================================ */
+
+struct Point { double x, y; };
+
+const int MAXN = 100005;        /* 点数上限：数组开够（竞赛里按题目上限开） */
+Point p[MAXN];
+int n;
+
+double dist(const Point&amp; a, const Point&amp; b) {
     double dx = a.x - b.x, dy = a.y - b.y;
     return sqrt(dx * dx + dy * dy);
 }
 
-/* 按 x 排序的点集 pts，返回 [l, r] 区间内的最小距离 */
-double solve(vector&lt;P&gt;&amp; pts, int l, int r) {
+/* p 已按 x 排序，返回 [l, r] 区间内的最小距离 */
+double solve(int l, int r) {
     if (r - l + 1 &lt;= 3) {                       // 小规模直接暴力，避免递归开销
         double best = 1e100;
         for (int i = l; i &lt;= r; ++i)
             for (int j = i + 1; j &lt;= r; ++j)
-                best = min(best, dist(pts[i], pts[j]));
+                best = min(best, dist(p[i], p[j]));
         return best;
     }
     int mid = (l + r) / 2;
-    double midx = pts[mid].x;                   /* ① 划分线 */
-    double d = min(solve(pts, l, mid), solve(pts, mid + 1, r));   /* ② 分别求解 */
+    double midx = p[mid].x;                     /* ① 划分线 */
+    double d = min(solve(l, mid), solve(mid + 1, r));   /* ② 分别求解 */
 
     /* ③ 合并：取出带状区域内的点，按 y 排序 */
-    vector&lt;P&gt; strip;
+    vector&lt;Point&gt; strip;
     for (int i = l; i &lt;= r; ++i)
-        if (fabs(pts[i].x - midx) &lt; d) strip.push_back(pts[i]);
-    sort(strip.begin(), strip.end(), [](const P&amp; a, const P&amp; b) { return a.y &lt; b.y; });
+        if (fabs(p[i].x - midx) &lt; d) strip.push_back(p[i]);
+    sort(strip.begin(), strip.end(), [](const Point&amp; a, const Point&amp; b) { return a.y &lt; b.y; });
 
     for (size_t i = 0; i &lt; strip.size(); ++i)
         for (size_t j = i + 1; j &lt; strip.size() &amp;&amp; j &lt;= i + 7; ++j) {   // 只比后 7 个
@@ -1843,11 +1850,14 @@ double solve(vector&lt;P&gt;&amp; pts, int l, int r) {
 }
 
 int main() {
-    vector&lt;P&gt; pts = {{2, 3}, {12, 30}, {40, 50}, {5, 1}, {12, 10}, {3, 4}};
-    sort(pts.begin(), pts.end(), [](const P&amp; a, const P&amp; b) { return a.x &lt; b.x; });
-    printf("%.4f\n", solve(pts, 0, (int)pts.size() - 1));   // 1.4142（点 (2,3) 与 (3,4)）
+    Point a[6] = {{2, 3}, {12, 30}, {40, 50}, {5, 1}, {12, 10}, {3, 4}};
+    n = 6;
+    for (int i = 0; i &lt; n; ++i) p[i] = a[i];
+    sort(p, p + n, [](const Point&amp; a, const Point&amp; b) { return a.x &lt; b.x; });
+    printf("%.4f\n", solve(0, n - 1));   // 1.4142（点 (2,3) 与 (3,4)）
     return 0;
-}</pre>
+}
+</pre>
 
     <h3 id="s3-7">13.3.7 主定理（Master Theorem）</h3>
     <p>

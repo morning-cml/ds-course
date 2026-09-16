@@ -2252,13 +2252,15 @@ int main() {
       它其实就是「按列扫描 + 全表查找」这个笨办法的代价：
     </p>
 
-    <pre data-lang="cpp" data-file="sparse_triplet_transpose.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="sparse_triplet_transpose.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   稀疏矩阵的三元组顺序表 + 朴素转置
+   稀疏矩阵的三元组顺序表 + 朴素转置（竞赛写法：全局数组 + 自由函数）
    三元组：(row, col, value)，按"行优先"排列（行号升序，同行按列号升序）。
+   struct Triple 只描述"一个非零元长什么样"，属于结点型，保留；
+   矩阵本体就是一个三元组数组 + 三个计数器（mu / nu / tu），不必再套一层 struct。
 
    朴素转置的思路：
        转置后 T 的第 col 行 = M 的第 col 列。
@@ -2267,60 +2269,65 @@ using namespace std;
        扫描次数 = nu * tu，所以时间复杂度 O(nu * tu)。
    ============================================================ */
 
-struct Triple {
+struct Triple {                 /* 结点型：一个非零元 = 行号 + 列号 + 值 */
     int r, c, v;
 };
 
-struct SparseMatrix {
-    int mu, nu, tu;                    /* 行数、列数、非零元个数 */
-    vector&lt;Triple&gt; data;
+const int MAXT = 100;           /* 数组开够：本题非零元个数 ≤ 100（竞赛里按题目上限开） */
 
-    SparseMatrix(int m = 0, int n = 0) : mu(m), nu(n), tu(0) {}
-    void push(int r, int c, int v) {
-        Triple t; t.r = r; t.c = c; t.v = v;
-        data.push_back(t); ++tu;
-    }
-    void print(const char* name) const {
-        cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
-        for (int p = 0; p &lt; tu; ++p)
-            cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; data[p].r &lt;&lt; ", " &lt;&lt; data[p].c
-                 &lt;&lt; ", " &lt;&lt; data[p].v &lt;&lt; ")\n";
-    }
-};
+Triple t[MAXT];                 /* 转置结果 T 的三元组表 */
+int mu, nu, tu;                 /* T 的行数、列数、非零元个数 */
 
-/* 朴素转置：O(nu * tu) */
-SparseMatrix naiveTranspose(const SparseMatrix&amp; M) {
-    SparseMatrix T(M.nu, M.mu);
-    T.tu = M.tu;
-    T.data.resize(M.tu);
-    if (M.tu == 0) return T;
+/* 往 T 里追加一个非零元 —— 三元组表的"插入"就是这一步 */
+void pushTriple(int r, int c, int v) {
+    t[tu].r = r; t[tu].c = c; t[tu].v = v;
+    ++tu;
+}
+
+void printMatrix(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
+    for (int p = 0; p &lt; tu; ++p)
+        cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; t[p].r &lt;&lt; ", " &lt;&lt; t[p].c
+             &lt;&lt; ", " &lt;&lt; t[p].v &lt;&lt; ")\n";
+}
+
+/* 朴素转置：把 src（stu 个非零元、smu 行 snu 列）转置后存进全局的 t[]，O(snu * stu) */
+void naiveTranspose(const Triple src[], int stu, int smu, int snu) {
+    mu = snu; nu = smu;                 /* 行列互换 */
+    tu = stu;
+    if (stu == 0) return;
     int q = 0;
-    for (int col = 0; col &lt; M.nu; ++col)              /* 枚举 M 的每一列 */
-        for (int p = 0; p &lt; M.tu; ++p)                /* 每列都重扫整个三元组表 */
-            if (M.data[p].c == col) {
-                T.data[q].r = M.data[p].c;            /* 行列互换 */
-                T.data[q].c = M.data[p].r;
-                T.data[q].v = M.data[p].v;
+    for (int col = 0; col &lt; snu; ++col)               /* 枚举原矩阵的每一列 */
+        for (int p = 0; p &lt; stu; ++p)                 /* 每列都重扫整个三元组表 */
+            if (src[p].c == col) {
+                t[q].r = src[p].c;                    /* 行列互换 */
+                t[q].c = src[p].r;
+                t[q].v = src[p].v;
                 ++q;
             }
-    return T;
 }
 
 int main() {
     /* 4 行 5 列，6 个非零元；总元素 20 个，稀疏度 30%（教学用小例子，真实场景常 &lt; 5%） */
-    SparseMatrix M(4, 5);
-    M.push(0, 1, 3);
-    M.push(0, 4, 7);
-    M.push(1, 2, 5);
-    M.push(2, 0, 4);
-    M.push(2, 3, 6);
-    M.push(3, 1, 2);
-    M.print("M");
+    Triple M[MAXT];
+    int Mtu = 0;
+    M[Mtu++] = {0, 1, 3};
+    M[Mtu++] = {0, 4, 7};
+    M[Mtu++] = {1, 2, 5};
+    M[Mtu++] = {2, 0, 4};
+    M[Mtu++] = {2, 3, 6};
+    M[Mtu++] = {3, 1, 2};
 
-    SparseMatrix T = naiveTranspose(M);
-    T.print("T = M^T (naive transpose)");
+    /* 为了能同框打印两个矩阵，把 M 的内容也放进全局表里，用 printMatrix 输出 */
+    mu = 4; nu = 5; tu = 0;
+    for (int p = 0; p &lt; Mtu; ++p) pushTriple(M[p].r, M[p].c, M[p].v);
+    printMatrix("M");
+
+    naiveTranspose(M, Mtu, 4, 5);
+    printMatrix("T = M^T (naive transpose)");
     return 0;
-}</pre>
+}
+</pre>
 
     <h3 id="s7-3">6.7.3 转置：朴素算法为什么慢</h3>
     <p>
@@ -2460,86 +2467,98 @@ int main() {
 
     <p>快速转置的完整实现如下，三个步骤在注释里标了序号：</p>
 
-    <pre data-lang="cpp" data-file="sparse_fast_transpose.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="sparse_fast_transpose.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   稀疏矩阵的快速转置 O(nu + tu)
+   稀疏矩阵的快速转置 O(nu + tu)（竞赛写法：全局数组 + 自由函数）
    核心：先算出"转置后每一行从哪里开始放"，就能一次扫描直接定位。
 
-   num[col]  = M 中第 col 列的非零元个数（也就是 T 中第 col 行的元素个数）
-   cpot[col] = T 中第 col 行第一个元素在 T.data[] 中的下标（cpot = column position）
+   num[col]  = 原矩阵第 col 列的非零元个数（也就是 T 中第 col 行的元素个数）
+   cpot[col] = T 中第 col 行第一个元素在 t[] 中的下标（cpot = column position）
        递推：cpot[0] = 0
              cpot[col] = cpot[col-1] + num[col-1]     (col = 1 .. nu-1)
 
-   然后按 M.data[] 原有的顺序扫一遍：
-       对每个三元组 (r, c, v)，它应该放在 T.data[cpot[c]]，
+   然后按原三元组表的顺序扫一遍：
+       对每个三元组 (r, c, v)，它应该放在 t[cpot[c]]，
        放完后 ++cpot[c]，因为这一行的下一个元素要往后挪一格。
    ============================================================ */
 
-struct Triple { int r, c, v; };
+struct Triple { int r, c, v; };   /* 结点型：一个非零元 */
 
-struct SparseMatrix {
-    int mu, nu, tu;
-    vector&lt;Triple&gt; data;
-    SparseMatrix(int m = 0, int n = 0) : mu(m), nu(n), tu(0) {}
-    void push(int r, int c, int v) { Triple t; t.r = r; t.c = c; t.v = v; data.push_back(t); ++tu; }
-    void print(const char* name) const {
-        cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
-        for (int p = 0; p &lt; tu; ++p)
-            cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; data[p].r &lt;&lt; ", " &lt;&lt; data[p].c &lt;&lt; ", " &lt;&lt; data[p].v &lt;&lt; ")\n";
-    }
-};
+const int MAXT = 100;             /* 数组开够：本题非零元个数 ≤ 100 */
+const int MAXC = 100;             /* 列数上限：num / cpot 的长度依据 */
 
-SparseMatrix fastTranspose(const SparseMatrix&amp; M, bool verbose = false) {
-    SparseMatrix T(M.nu, M.mu);
-    T.tu = M.tu;
-    T.data.assign(M.tu, Triple());
-    if (M.tu == 0) return T;
+Triple t[MAXT];                   /* 转置结果 T 的三元组表 */
+int mu, nu, tu;                   /* T 的行数、列数、非零元个数 */
+int num[MAXC], cpot[MAXC];        /* ① 每列非零元个数  ② 每行起始下标 */
 
-    vector&lt;int&gt; num(M.nu, 0), cpot(M.nu, 0);
+void pushTriple(int r, int c, int v) {   /* 三元组表的插入操作 */
+    t[tu].r = r; t[tu].c = c; t[tu].v = v;
+    ++tu;
+}
 
-    for (int p = 0; p &lt; M.tu; ++p) ++num[M.data[p].c];      /* ① 统计每列的非零元个数 */
+void printMatrix(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
+    for (int p = 0; p &lt; tu; ++p)
+        cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; t[p].r &lt;&lt; ", " &lt;&lt; t[p].c &lt;&lt; ", " &lt;&lt; t[p].v &lt;&lt; ")\n";
+}
 
-    if (M.nu &gt; 0) cpot[0] = 0;
-    for (int col = 1; col &lt; M.nu; ++col)                    /* ② 递推每行的起始位置 */
+/* 就地求 num[] / cpot[]：把 src 的列统计出来，供按行定位使用 */
+void buildNumCpot(const Triple src[], int stu, int snu) {
+    for (int col = 0; col &lt; snu; ++col) num[col] = 0;
+    for (int p = 0; p &lt; stu; ++p) ++num[src[p].c];          /* ① 统计每列的非零元个数 */
+
+    if (snu &gt; 0) cpot[0] = 0;
+    for (int col = 1; col &lt; snu; ++col)                     /* ② 递推每行的起始位置 */
         cpot[col] = cpot[col - 1] + num[col - 1];
+}
 
+void fastTranspose(const Triple src[], int stu, int smu, int snu, bool verbose = false) {
+    mu = snu; nu = smu;                                     /* 行列互换 */
+    tu = stu;
+    if (stu == 0) return;
+
+    buildNumCpot(src, stu, snu);
     if (verbose) {
-        cout &lt;&lt; "col :"; for (int c = 0; c &lt; M.nu; ++c) cout &lt;&lt; "  " &lt;&lt; c; cout &lt;&lt; "\n";
-        cout &lt;&lt; "num :"; for (int c = 0; c &lt; M.nu; ++c) cout &lt;&lt; "  " &lt;&lt; num[c]; cout &lt;&lt; "\n";
-        cout &lt;&lt; "cpot:"; for (int c = 0; c &lt; M.nu; ++c) cout &lt;&lt; "  " &lt;&lt; cpot[c]; cout &lt;&lt; "\n";
+        cout &lt;&lt; "col :"; for (int c = 0; c &lt; snu; ++c) cout &lt;&lt; "  " &lt;&lt; c; cout &lt;&lt; "\n";
+        cout &lt;&lt; "num :"; for (int c = 0; c &lt; snu; ++c) cout &lt;&lt; "  " &lt;&lt; num[c]; cout &lt;&lt; "\n";
+        cout &lt;&lt; "cpot:"; for (int c = 0; c &lt; snu; ++c) cout &lt;&lt; "  " &lt;&lt; cpot[c]; cout &lt;&lt; "\n";
     }
 
-    for (int p = 0; p &lt; M.tu; ++p) {                        /* ③ 一次扫描，直接定位 */
-        int col = M.data[p].c;
+    for (int p = 0; p &lt; stu; ++p) {                         /* ③ 一次扫描，直接定位 */
+        int col = src[p].c;
         int q = cpot[col];
-        T.data[q].r = M.data[p].c;
-        T.data[q].c = M.data[p].r;
-        T.data[q].v = M.data[p].v;
+        t[q].r = src[p].c;
+        t[q].c = src[p].r;
+        t[q].v = src[p].v;
         ++cpot[col];                                        /* 该行的下一个空位 */
     }
-    return T;
 }
 
 int main() {
-    SparseMatrix M(4, 5);
-    M.push(0, 1, 3);
-    M.push(0, 4, 7);
-    M.push(1, 2, 5);
-    M.push(2, 0, 4);
-    M.push(2, 3, 6);
-    M.push(3, 1, 2);
-    M.print("M");
+    Triple M[MAXT];
+    int Mtu = 0;
+    M[Mtu++] = {0, 1, 3};
+    M[Mtu++] = {0, 4, 7};
+    M[Mtu++] = {1, 2, 5};
+    M[Mtu++] = {2, 0, 4};
+    M[Mtu++] = {2, 3, 6};
+    M[Mtu++] = {3, 1, 2};
 
-    SparseMatrix T = fastTranspose(M, true);
-    T.print("T = M^T (fast transpose)");
+    mu = 4; nu = 5; tu = 0;
+    for (int p = 0; p &lt; Mtu; ++p) pushTriple(M[p].r, M[p].c, M[p].v);
+    printMatrix("M");
+
+    fastTranspose(M, Mtu, 4, 5, true);
+    printMatrix("T = M^T (fast transpose)");
 
     /* 快速转置的结果与"按行扫描"的期望完全一致：
        T 的第 0 行来自 M 的第 0 列 ... 依次类推 */
     return 0;
-}</pre>
+}
+</pre>
 
     <div class="note danger">
       <span class="note-title">易错：最后一遍扫描的顺序不能乱</span>
@@ -2586,101 +2605,140 @@ int main() {
       列号小的先输出、列号相等就相加。复杂度 <code>O(tuA + tuB)</code>。
     </p>
 
-    <pre data-lang="cpp" data-file="sparse_rpos_add.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="sparse_rpos_add.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
    行逻辑链接的顺序表（Row-Logical Linked List）
    在三元组顺序表上增加一个 rpos[] 数组：
-       rpos[i] = 第 i 行第一个非零元在 data[] 中的下标，rpos[mu] = tu
+       rpos[i] = 第 i 行第一个非零元在 t[] 中的下标，rpos[mu] = tu
    递推：先数出每行的非零元个数，再做前缀和。
    有了 rpos[]，遍历第 i 行只需 O(该行非零元个数)，不用再扫全表。
-
    有了它，稀疏矩阵加法就能按行归并：O(tuA + tuB)。
+
+   竞赛写法：A、B、C 三个矩阵各用"一组全局数组 + 三个计数器"表示，
+   不再有 SparseMatrix 这层 struct 壳；struct Triple 描述非零元，保留。
    ============================================================ */
 
-struct Triple { int r, c, v; };
+struct Triple { int r, c, v; };   /* 结点型：一个非零元 = 行号 + 列号 + 值 */
 
-struct SparseMatrix {
-    int mu, nu, tu;
-    vector&lt;Triple&gt; data;
-    vector&lt;int&gt; rpos;
-    SparseMatrix(int m = 0, int n = 0) : mu(m), nu(n), tu(0) {}
-    void push(int r, int c, int v) { Triple t; t.r = r; t.c = c; t.v = v; data.push_back(t); ++tu; }
-    void print(const char* name) const {
-        cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
-        for (int p = 0; p &lt; tu; ++p)
-            cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; data[p].r &lt;&lt; ", " &lt;&lt; data[p].c &lt;&lt; ", " &lt;&lt; data[p].v &lt;&lt; ")\n";
-        if (!rpos.empty()) {
-            cout &lt;&lt; "   rpos =";
-            for (size_t i = 0; i &lt; rpos.size(); ++i) cout &lt;&lt; " " &lt;&lt; rpos[i];
-            cout &lt;&lt; "\n";
-        }
-    }
-};
+const int MAXT = 100;             /* 数组开够：每个矩阵非零元个数 ≤ 100 */
+const int MAXR = 100;             /* 行数上限：rpos 的长度依据 */
 
-/* 建立 rpos[]：两遍扫描，O(mu + tu) */
-void buildRpos(SparseMatrix&amp; M) {
-    M.rpos.assign(M.mu + 1, 0);
-    for (int p = 0; p &lt; M.tu; ++p) ++M.rpos[M.data[p].r + 1];      /* ① 数每行的个数 */
-    for (int i = 1; i &lt;= M.mu; ++i) M.rpos[i] += M.rpos[i - 1];    /* ② 前缀和 */
+/* ---------- A ---------- */
+Triple ta[MAXT];
+int muA, nuA, tuA;
+int rposA[MAXR];
+/* ---------- B ---------- */
+Triple tb[MAXT];
+int muB, nuB, tuB;
+int rposB[MAXR];
+/* ---------- C = A + B ---------- */
+Triple tc[MAXT];
+int muC, nuC, tuC;
+int rposC[MAXR];
+
+void pushA(int r, int c, int v) { ta[tuA].r = r; ta[tuA].c = c; ta[tuA].v = v; ++tuA; }
+void pushB(int r, int c, int v) { tb[tuB].r = r; tb[tuB].c = c; tb[tuB].v = v; ++tuB; }
+void pushC(int r, int c, int v) { tc[tuC].r = r; tc[tuC].c = c; tc[tuC].v = v; ++tuC; }
+
+/* 建 rpos[]：两遍扫描，O(mu + tu) */
+void buildRposA() {
+    for (int i = 0; i &lt;= muA; ++i) rposA[i] = 0;
+    for (int p = 0; p &lt; tuA; ++p) ++rposA[ta[p].r + 1];       /* ① 数每行的个数 */
+    for (int i = 1; i &lt;= muA; ++i) rposA[i] += rposA[i - 1];  /* ② 前缀和 */
+}
+void buildRposB() {
+    for (int i = 0; i &lt;= muB; ++i) rposB[i] = 0;
+    for (int p = 0; p &lt; tuB; ++p) ++rposB[tb[p].r + 1];
+    for (int i = 1; i &lt;= muB; ++i) rposB[i] += rposB[i - 1];
+}
+void buildRposC() {
+    for (int i = 0; i &lt;= muC; ++i) rposC[i] = 0;
+    for (int p = 0; p &lt; tuC; ++p) ++rposC[tc[p].r + 1];
+    for (int i = 1; i &lt;= muC; ++i) rposC[i] += rposC[i - 1];
 }
 
-/* 按行访问：打印第 i 行的所有非零元，复杂度 O(该行非零元个数) */
-void printRow(const SparseMatrix&amp; M, int i) {
+void printA(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muA &lt;&lt; " x " &lt;&lt; nuA &lt;&lt; ", tu = " &lt;&lt; tuA &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuA; ++p)
+        cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; ta[p].r &lt;&lt; ", " &lt;&lt; ta[p].c &lt;&lt; ", " &lt;&lt; ta[p].v &lt;&lt; ")\n";
+    cout &lt;&lt; "   rpos =";
+    for (int i = 0; i &lt;= muA; ++i) cout &lt;&lt; " " &lt;&lt; rposA[i];
+    cout &lt;&lt; "\n";
+}
+void printB(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muB &lt;&lt; " x " &lt;&lt; nuB &lt;&lt; ", tu = " &lt;&lt; tuB &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuB; ++p)
+        cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; tb[p].r &lt;&lt; ", " &lt;&lt; tb[p].c &lt;&lt; ", " &lt;&lt; tb[p].v &lt;&lt; ")\n";
+    cout &lt;&lt; "   rpos =";
+    for (int i = 0; i &lt;= muB; ++i) cout &lt;&lt; " " &lt;&lt; rposB[i];
+    cout &lt;&lt; "\n";
+}
+void printC(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muC &lt;&lt; " x " &lt;&lt; nuC &lt;&lt; ", tu = " &lt;&lt; tuC &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuC; ++p)
+        cout &lt;&lt; "   [" &lt;&lt; p &lt;&lt; "] (" &lt;&lt; tc[p].r &lt;&lt; ", " &lt;&lt; tc[p].c &lt;&lt; ", " &lt;&lt; tc[p].v &lt;&lt; ")\n";
+    cout &lt;&lt; "   rpos =";
+    for (int i = 0; i &lt;= muC; ++i) cout &lt;&lt; " " &lt;&lt; rposC[i];
+    cout &lt;&lt; "\n";
+}
+
+/* 按行访问 A：打印第 i 行的所有非零元，复杂度 O(该行非零元个数) */
+void printRowA(int i) {
     cout &lt;&lt; "row " &lt;&lt; i &lt;&lt; " :";
-    for (int p = M.rpos[i]; p &lt; M.rpos[i + 1]; ++p)
-        cout &lt;&lt; "  col" &lt;&lt; M.data[p].c &lt;&lt; "=" &lt;&lt; M.data[p].v;
+    for (int p = rposA[i]; p &lt; rposA[i + 1]; ++p)
+        cout &lt;&lt; "  col" &lt;&lt; ta[p].c &lt;&lt; "=" &lt;&lt; ta[p].v;
     cout &lt;&lt; "\n";
 }
 
 /* 稀疏矩阵加法 C = A + B（同型），按行归并，O(tuA + tuB) */
-SparseMatrix addMatrix(const SparseMatrix&amp; A, const SparseMatrix&amp; B) {
-    if (A.mu != B.mu || A.nu != B.nu) throw invalid_argument("shape mismatch");
-    SparseMatrix C(A.mu, A.nu);
-    for (int i = 0; i &lt; A.mu; ++i) {
-        int pa = A.rpos[i], ea = A.rpos[i + 1];
-        int pb = B.rpos[i], eb = B.rpos[i + 1];
+void addMatrix() {
+    if (muA != muB || nuA != nuB) { printf("shape mismatch\n"); return; }
+    muC = muA; nuC = nuA; tuC = 0;
+    for (int i = 0; i &lt; muA; ++i) {
+        int pa = rposA[i], ea = rposA[i + 1];     /* A 的第 i 行区间 */
+        int pb = rposB[i], eb = rposB[i + 1];     /* B 的第 i 行区间 */
         while (pa &lt; ea &amp;&amp; pb &lt; eb) {
-            int ca = A.data[pa].c, cb = B.data[pb].c;
-            if (ca &lt; cb) { C.push(i, ca, A.data[pa].v); ++pa; }
-            else if (ca &gt; cb) { C.push(i, cb, B.data[pb].v); ++pb; }
+            int ca = ta[pa].c, cb = tb[pb].c;
+            if (ca &lt; cb) { pushC(i, ca, ta[pa].v); ++pa; }
+            else if (ca &gt; cb) { pushC(i, cb, tb[pb].v); ++pb; }
             else {
-                int s = A.data[pa].v + B.data[pb].v;
-                if (s != 0) C.push(i, ca, s);      /* 相加为 0 就不必存了 —— 稀疏矩阵加法的关键细节 */
+                int s = ta[pa].v + tb[pb].v;
+                if (s != 0) pushC(i, ca, s);   /* 相加为 0 就不必存了 —— 稀疏矩阵加法的关键细节 */
                 ++pa; ++pb;
             }
         }
-        for (; pa &lt; ea; ++pa) C.push(i, A.data[pa].c, A.data[pa].v);
-        for (; pb &lt; eb; ++pb) C.push(i, B.data[pb].c, B.data[pb].v);
+        for (; pa &lt; ea; ++pa) pushC(i, ta[pa].c, ta[pa].v);
+        for (; pb &lt; eb; ++pb) pushC(i, tb[pb].c, tb[pb].v);
     }
-    buildRpos(C);
-    return C;
 }
 
 int main() {
-    SparseMatrix A(4, 5), B(4, 5);
-    A.push(0, 1, 3); A.push(0, 4, 7); A.push(1, 2, 5);
-    A.push(2, 0, 4); A.push(2, 3, 6); A.push(3, 1, 2);
+    muA = 4; nuA = 5; tuA = 0;
+    pushA(0, 1, 3); pushA(0, 4, 7); pushA(1, 2, 5);
+    pushA(2, 0, 4); pushA(2, 3, 6); pushA(3, 1, 2);
 
-    B.push(0, 4, -7); B.push(1, 2, 5); B.push(2, 0, -4);
-    B.push(2, 3, 6);  B.push(3, 2, 9);
+    muB = 4; nuB = 5; tuB = 0;
+    pushB(0, 4, -7); pushB(1, 2, 5); pushB(2, 0, -4);
+    pushB(2, 3, 6);  pushB(3, 2, 9);
 
-    buildRpos(A); buildRpos(B);
-    A.print("A"); B.print("B");
+    buildRposA(); buildRposB();
+    printA("A"); printB("B");
 
-    printRow(A, 0);
-    printRow(A, 2);
+    printRowA(0);
+    printRowA(2);
 
-    SparseMatrix C = addMatrix(A, B);
-    C.print("C = A + B");
+    addMatrix();
+    buildRposC();
+    printC("C = A + B");
 
     /* 注意看：C 的第 0 行只剩 (0,1,3)，
        因为 A(0,4,7) + B(0,4,-7) = 0，这个位置直接"消失"了。 */
     return 0;
-}</pre>
+}
+</pre>
 
     <p>
       运行结果里最值得看的一处是：<code>C</code> 的第 0 行只剩下 <code>(0,1,3)</code> 一项，
@@ -3148,84 +3206,118 @@ int main() {
       用来 <code>O(1)</code> 定位 <code>B</code> 的每一行：
     </p>
 
-    <pre data-lang="cpp" data-file="sparse_multiply.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="sparse_multiply.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   稀疏矩阵乘法 C = A x B（行逻辑链接版）
+   稀疏矩阵乘法 C = A x B（行逻辑链接版，竞赛写法：全局数组 + 自由函数）
    设 A 是 m x n，B 是 n x p。
    思路：对 A 的第 i 行的每个非零元 a[i][k]，
          把它乘到 B 的第 k 行的每个非零元 b[k][j] 上，
          结果累加到临时行 ctemp[j] 里；第 i 行处理完，
          把 ctemp 中的非零项收集成 C 的第 i 行。
    复杂度：O(m*p + sum_{a[i][k] != 0} (B 第 k 行的非零元个数))
+
+   这里 A、B、C 各用"三元组全局数组 + rpos[] + 三个计数器"表示；
+   struct Triple 只描述非零元，属于结点型，保留。
    ============================================================ */
 
-struct Triple { int r, c, v; };
+struct Triple { int r, c, v; };   /* 结点型：一个非零元 */
 
-struct SparseMatrix {
-    int mu, nu, tu;
-    vector&lt;Triple&gt; data;
-    vector&lt;int&gt; rpos;
-    SparseMatrix(int m = 0, int n = 0) : mu(m), nu(n), tu(0) {}
-    void push(int r, int c, int v) { Triple t; t.r = r; t.c = c; t.v = v; data.push_back(t); ++tu; }
-    void print(const char* name) const {
-        cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; mu &lt;&lt; " x " &lt;&lt; nu &lt;&lt; ", tu = " &lt;&lt; tu &lt;&lt; "\n";
-        for (int p = 0; p &lt; tu; ++p)
-            cout &lt;&lt; "   (" &lt;&lt; data[p].r &lt;&lt; ", " &lt;&lt; data[p].c &lt;&lt; ", " &lt;&lt; data[p].v &lt;&lt; ")\n";
-    }
-};
+const int MAXT = 100;             /* 数组开够：每个矩阵非零元个数 ≤ 100 */
+const int MAXR = 100;             /* 行数上限：rpos 的长度依据 */
+const int MAXC = 100;             /* 列数上限：ctemp 的长度依据 */
 
-void buildRpos(SparseMatrix&amp; M) {
-    M.rpos.assign(M.mu + 1, 0);
-    for (int p = 0; p &lt; M.tu; ++p) ++M.rpos[M.data[p].r + 1];
-    for (int i = 1; i &lt;= M.mu; ++i) M.rpos[i] += M.rpos[i - 1];
+/* ---------- A ---------- */
+Triple ta[MAXT];
+int muA, nuA, tuA, rposA[MAXR];
+/* ---------- B ---------- */
+Triple tb[MAXT];
+int muB, nuB, tuB, rposB[MAXR];
+/* ---------- C = A x B ---------- */
+Triple tc[MAXT];
+int muC, nuC, tuC, rposC[MAXR];
+
+int ctemp[MAXC];                  /* 累加 C 当前这一行的结果 */
+
+void pushA(int r, int c, int v) { ta[tuA].r = r; ta[tuA].c = c; ta[tuA].v = v; ++tuA; }
+void pushB(int r, int c, int v) { tb[tuB].r = r; tb[tuB].c = c; tb[tuB].v = v; ++tuB; }
+void pushC(int r, int c, int v) { tc[tuC].r = r; tc[tuC].c = c; tc[tuC].v = v; ++tuC; }
+
+void buildRposA() {
+    for (int i = 0; i &lt;= muA; ++i) rposA[i] = 0;
+    for (int p = 0; p &lt; tuA; ++p) ++rposA[ta[p].r + 1];
+    for (int i = 1; i &lt;= muA; ++i) rposA[i] += rposA[i - 1];
+}
+void buildRposB() {
+    for (int i = 0; i &lt;= muB; ++i) rposB[i] = 0;
+    for (int p = 0; p &lt; tuB; ++p) ++rposB[tb[p].r + 1];
+    for (int i = 1; i &lt;= muB; ++i) rposB[i] += rposB[i - 1];
+}
+void buildRposC() {
+    for (int i = 0; i &lt;= muC; ++i) rposC[i] = 0;
+    for (int p = 0; p &lt; tuC; ++p) ++rposC[tc[p].r + 1];
+    for (int i = 1; i &lt;= muC; ++i) rposC[i] += rposC[i - 1];
 }
 
-SparseMatrix multiply(const SparseMatrix&amp; A, const SparseMatrix&amp; B) {
-    if (A.nu != B.mu) throw invalid_argument("shape mismatch: A.nu != B.mu");
-    SparseMatrix C(A.mu, B.nu);
-    if (A.tu == 0 || B.tu == 0) { buildRpos(C); return C; }
+void printA(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muA &lt;&lt; " x " &lt;&lt; nuA &lt;&lt; ", tu = " &lt;&lt; tuA &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuA; ++p)
+        cout &lt;&lt; "   (" &lt;&lt; ta[p].r &lt;&lt; ", " &lt;&lt; ta[p].c &lt;&lt; ", " &lt;&lt; ta[p].v &lt;&lt; ")\n";
+}
+void printB(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muB &lt;&lt; " x " &lt;&lt; nuB &lt;&lt; ", tu = " &lt;&lt; tuB &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuB; ++p)
+        cout &lt;&lt; "   (" &lt;&lt; tb[p].r &lt;&lt; ", " &lt;&lt; tb[p].c &lt;&lt; ", " &lt;&lt; tb[p].v &lt;&lt; ")\n";
+}
+void printC(const char* name) {
+    cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; muC &lt;&lt; " x " &lt;&lt; nuC &lt;&lt; ", tu = " &lt;&lt; tuC &lt;&lt; "\n";
+    for (int p = 0; p &lt; tuC; ++p)
+        cout &lt;&lt; "   (" &lt;&lt; tc[p].r &lt;&lt; ", " &lt;&lt; tc[p].c &lt;&lt; ", " &lt;&lt; tc[p].v &lt;&lt; ")\n";
+}
 
-    vector&lt;int&gt; ctemp(B.nu, 0);                   /* 累加 C 当前这一行的结果 */
-    for (int i = 0; i &lt; A.mu; ++i) {
-        fill(ctemp.begin(), ctemp.end(), 0);
-        for (int pa = A.rpos[i]; pa &lt; A.rpos[i + 1]; ++pa) {
-            int k = A.data[pa].c;                 /* A 的列 = B 的行 */
-            for (int pb = B.rpos[k]; pb &lt; B.rpos[k + 1]; ++pb) {
-                int j = B.data[pb].c;
-                ctemp[j] += A.data[pa].v * B.data[pb].v;
+void multiply() {
+    if (nuA != muB) { printf("shape mismatch: A.nu != B.mu\n"); return; }
+    muC = muA; nuC = nuB; tuC = 0;
+    if (tuA == 0 || tuB == 0) return;
+
+    for (int i = 0; i &lt; muA; ++i) {
+        for (int j = 0; j &lt; nuB; ++j) ctemp[j] = 0;    /* 清空累加器 */
+        for (int pa = rposA[i]; pa &lt; rposA[i + 1]; ++pa) {
+            int k = ta[pa].c;                         /* A 的列 = B 的行 */
+            for (int pb = rposB[k]; pb &lt; rposB[k + 1]; ++pb) {
+                int j = tb[pb].c;
+                ctemp[j] += ta[pa].v * tb[pb].v;
             }
         }
-        for (int j = 0; j &lt; B.nu; ++j)
-            if (ctemp[j] != 0) C.push(i, j, ctemp[j]);   /* 只保留非零元 */
+        for (int j = 0; j &lt; nuB; ++j)
+            if (ctemp[j] != 0) pushC(i, j, ctemp[j]);  /* 只保留非零元 */
     }
-    buildRpos(C);
-    return C;
+    buildRposC();
 }
 
 int main() {
-    SparseMatrix A(3, 4), B(4, 2);
-    A.push(0, 0, 1); A.push(0, 2, 2); A.push(1, 1, 3);
-    A.push(2, 0, 4); A.push(2, 3, 5);
+    muA = 3; nuA = 4; tuA = 0;
+    pushA(0, 0, 1); pushA(0, 2, 2); pushA(1, 1, 3);
+    pushA(2, 0, 4); pushA(2, 3, 5);
 
-    B.push(0, 0, 1); B.push(0, 1, 2); B.push(1, 1, 1);
-    B.push(2, 0, 3); B.push(3, 0, 1); B.push(3, 1, 1);
+    muB = 4; nuB = 2; tuB = 0;
+    pushB(0, 0, 1); pushB(0, 1, 2); pushB(1, 1, 1);
+    pushB(2, 0, 3); pushB(3, 0, 1); pushB(3, 1, 1);
 
-    buildRpos(A); buildRpos(B);
-    A.print("A"); B.print("B");
+    buildRposA(); buildRposB();
+    printA("A"); printB("B");
 
-    SparseMatrix C = multiply(A, B);
-    C.print("C = A x B");
+    multiply();
+    printC("C = A x B");
     /* 手算对照：
        C[0][0] = 1*1 + 2*3 = 7      C[0][1] = 1*2 + 2*0 = 2
        C[1][0] = 3*0 = 0（不存）    C[1][1] = 3*1 = 3
        C[2][0] = 4*1 + 5*1 = 9      C[2][1] = 4*2 + 5*1 = 13  */
     return 0;
-}</pre>
+}
+</pre>
 
     <h3 id="s7-9">6.7.9 动画演示：稀疏矩阵到三元组表的转换</h3>
     <p>

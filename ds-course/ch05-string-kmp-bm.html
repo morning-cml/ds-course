@@ -847,90 +847,101 @@ int main() {
       （只保留坏字符规则、或者用 Horspool 变体只比较最后一个字符），但完整版才体现 BM 的威力。
     </p>
 
-    <pre data-lang="cpp" data-file="bm.cpp">#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
+    <pre data-lang="cpp" data-file="bm.cpp">
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
    Boyer-Moore 字符串匹配（完整版：坏字符 + 好后缀）
    返回 P 在 S 中第一次出现的下标，找不到返回 -1
+
+   竞赛写法：模式串与两张预处理表都是"一次预处理、多次查询"的全局量，
+   所以直接开全局 string P + 两个全局表 + 两个自由函数，
+   不必再套一层 BM 结构体（struct 只留给结点型数据）。
+   用法：先 cin / 赋值给 P，再 buildBM()，之后可以任意次 bmSearch(S)。
    ============================================================ */
-struct BM {
-    string P;
-    int m;
-    vector&lt;int&gt; badChar;        // 坏字符表：字符 c 在 P 中最后出现的下标（用 256 覆盖全部字节）
-    vector&lt;int&gt; goodSuffix;     // 好后缀表：gs[i] = 当 P[i] 处失配时应右移的距离
 
-    explicit BM(const string&amp; pat) : P(pat), m(pat.size()) { build(); }
+string P;                   /* 模式串 */
+int m;                      /* |P| */
+int badChar[256];           /* 坏字符表：字符 c 在 P 中最后出现的下标（用 256 覆盖全部字节） */
+int goodSuffix[100];        /* 好后缀表：gs[i] = 当 P[i] 处失配时应右移的距离 */
 
-    void build() {
-        /* ---------- 1. 坏字符表 ---------- */
-        badChar.assign(256, -1);
-        for (int i = 0; i &lt; m; ++i)
-            badChar[(unsigned char)P[i]] = i;
+/* ---------- 1. 坏字符表 ---------- */
+void buildBadChar() {
+    for (int c = 0; c &lt; 256; ++c) badChar[c] = -1;
+    for (int i = 0; i &lt; m; ++i)
+        badChar[(unsigned char)P[i]] = i;
+}
 
-        /* ---------- 2. 好后缀表 ----------
-           设 P[i] 处失配，则好后缀是 P[i+1 .. m-1]。
-           把模式串整体右移 s 格后，好后缀的新起点是 (i+1-s)，
-           要求新位置上与之等长的一段逐字符相等，且不能与原位重叠。
-           取满足条件的最小正 s。 */
-        goodSuffix.assign(m, 1);
-        for (int i = 0; i &lt; m - 1; ++i) {          // 失配位置 i（最后一位失配时无好后缀）
-            int suffixLen = m - 1 - i;
-            if (suffixLen == 0) { goodSuffix[i] = 1; continue; }
-            int best = 0;
-            for (int s = 1; s &lt;= m - 1 &amp;&amp; !best; ++s) {
-                int start = i + 1 - s;             // 好后缀右移 s 后的新起点
-                if (start &lt; 0) break;
-                bool ok = true;
-                for (int t = 0; t &lt; suffixLen; ++t) {
-                    int pos = start + t;
-                    if (pos &gt;= m || pos &gt;= start + s) { ok = false; break; }  // 不得与原位重叠
-                    if (P[pos] != P[i + 1 + t]) { ok = false; break; }
-                }
-                if (ok) best = s;
+/* ---------- 2. 好后缀表 ----------
+   设 P[i] 处失配，则好后缀是 P[i+1 .. m-1]。
+   把模式串整体右移 s 格后，好后缀的新起点是 (i+1-s)，
+   要求新位置上与之等长的一段逐字符相等，且不能与原位重叠。
+   取满足条件的最小正 s。 */
+void buildGoodSuffix() {
+    for (int i = 0; i &lt; m; ++i) goodSuffix[i] = 1;
+    for (int i = 0; i &lt; m - 1; ++i) {          /* 失配位置 i（最后一位失配时无好后缀） */
+        int suffixLen = m - 1 - i;
+        if (suffixLen == 0) { goodSuffix[i] = 1; continue; }
+        int best = 0;
+        for (int s = 1; s &lt;= m - 1 &amp;&amp; !best; ++s) {
+            int start = i + 1 - s;             /* 好后缀右移 s 后的新起点 */
+            if (start &lt; 0) break;
+            bool ok = true;
+            for (int t = 0; t &lt; suffixLen; ++t) {
+                int pos = start + t;
+                if (pos &gt;= m || pos &gt;= start + s) { ok = false; break; }  /* 不得与原位重叠 */
+                if (P[pos] != P[i + 1 + t]) { ok = false; break; }
             }
-            if (!best) {
-                /* 兜底：好后缀的某个后缀若等于模式串的前缀，则滑到该前缀对齐 */
-                for (int len = suffixLen - 1; len &gt; 0 &amp;&amp; !best; --len) {
-                    if (P.compare(0, len, P, m - len, len) == 0)
-                        best = i + 1 + (suffixLen - len);
-                }
-                if (!best) best = i + 1;
+            if (ok) best = s;
+        }
+        if (!best) {
+            /* 兜底：好后缀的某个后缀若等于模式串的前缀，则滑到该前缀对齐 */
+            for (int len = suffixLen - 1; len &gt; 0 &amp;&amp; !best; --len) {
+                if (P.compare(0, len, P, m - len, len) == 0)
+                    best = i + 1 + (suffixLen - len);
             }
-            goodSuffix[i] = best;
+            if (!best) best = i + 1;
         }
+        goodSuffix[i] = best;
     }
+}
 
-    int search(const string&amp; S) const {
-        int n = S.size();
-        if (m == 0) return 0;
-        if (n &lt; m) return -1;
-        int align = 0;                              // 模式串左端在主串中的对齐位置
-        while (align &lt;= n - m) {
-            int j = m - 1;
-            while (j &gt;= 0 &amp;&amp; P[j] == S[align + j]) --j;   // 从右往左比较
-            if (j &lt; 0) return align;                        // 完全匹配
+/* 一次把两张表都建好；P 和 m 要先设置好 */
+void buildBM() {
+    m = P.size();
+    buildBadChar();
+    buildGoodSuffix();
+}
 
-            int bad = badChar[(unsigned char)S[align + j]];
-            int shiftBad = j - bad;
-            if (shiftBad &lt; 1) shiftBad = 1;                 // 坏字符在右边时兜底
-            int shiftGood = goodSuffix[j];
-            align += max(shiftBad, shiftGood);              // 两条规则取较大值
-        }
-        return -1;
+int bmSearch(const string&amp; S) {
+    int n = S.size();
+    if (m == 0) return 0;
+    if (n &lt; m) return -1;
+    int align = 0;                              /* 模式串左端在主串中的对齐位置 */
+    while (align &lt;= n - m) {
+        int j = m - 1;
+        while (j &gt;= 0 &amp;&amp; P[j] == S[align + j]) --j;   /* 从右往左比较 */
+        if (j &lt; 0) return align;                        /* 完全匹配 */
+
+        int b = badChar[(unsigned char)S[align + j]];
+        int shiftBad = j - b;
+        if (shiftBad &lt; 1) shiftBad = 1;                 /* 坏字符在右边时兜底 */
+        int shiftGood = goodSuffix[j];
+        align += max(shiftBad, shiftGood);              /* 两条规则取较大值 */
     }
-};
+    return -1;
+}
 
 int main() {
-    string S = "HERE IS A SIMPLE EXAMPLE", P = "EXAMPLE";
-    BM bm(P);
-    cout &lt;&lt; bm.search(S) &lt;&lt; "\n";     // 17
-    cout &lt;&lt; bm.search("NO MATCH HERE") &lt;&lt; "\n";   // -1
+    string S = "HERE IS A SIMPLE EXAMPLE";
+    P = "EXAMPLE";
+    buildBM();
+    cout &lt;&lt; bmSearch(S) &lt;&lt; "\n";     // 17
+    cout &lt;&lt; bmSearch("NO MATCH HERE") &lt;&lt; "\n";   // -1
     return 0;
-}</pre>
+}
+</pre>
 
     <div class="note warn">
       <span class="note-title">易错：坏字符规则可能给出非正位移</span>
