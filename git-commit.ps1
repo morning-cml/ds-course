@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
   课件仓库的一键提交脚本：先跑校验，通过后提交并打标签。
