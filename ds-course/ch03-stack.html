@@ -1,0 +1,3518 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 03 讲　栈及其经典应用 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch03', title: '栈及其经典应用' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch03-viz.js" defer></script>
+<style>
+  /* 本页专用：补齐 course.css 里没有的 viz 状态类，颜色一律走 CSS 变量 */
+  .vz-box.warn   { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2.4; }
+  .vz-box.ok     { fill: var(--ok-soft);     stroke: var(--ok);     stroke-width: 2.2; }
+  .vz-box.dash   { fill: none; stroke: var(--border-strong); stroke-dasharray: 5 4; }
+  .vz-box.ghost  { fill: var(--bg-soft); stroke: var(--border); stroke-dasharray: 4 3; }
+  .vz-box.dim    { opacity: .35; }
+  .vz-text.sm    { font-size: 11.5px; }
+  .vz-text.lg    { font-size: 15px; font-weight: 700; }
+  .vz-text.brand { fill: var(--brand); }
+  .vz-text.ok    { fill: var(--ok); }
+  .vz-text.bad   { fill: var(--danger); }
+  .vz-text.soft  { fill: var(--text-soft); }
+  .vz-text.faint { fill: var(--text-faint); }
+  .viz-desc code { background: var(--bg-soft); padding: 0 4px; border-radius: 4px; font-size: .92em; }
+  .mini-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .mini-grid .card { margin: 0; }
+  .mini-grid svg { display: block; margin: 0 auto 6px; }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">线性结构 · 第 03 讲</div>
+      <h1>第 03 讲　栈及其经典应用</h1>
+      <p class="lede">
+        栈是「后进先出」的受限线性表，也是整个数据结构课程里<strong>性价比最高</strong>的一章：
+        它的结构简单到只有一句话，却能解决括号匹配、进制转换、表达式求值、递归消除、迷宫回溯、单调栈优化这一长串经典问题。
+        本讲把栈的三种存储实现讲透，再用<strong>可单步、可播放</strong>的动画把每个应用的执行过程拆开给你看。
+      </p>
+      <div class="meta">
+        <span>预计 120 分钟</span>
+        <span>前置：第 02 讲 线性表（顺序表与链表）</span>
+        <span>关键词：LIFO · 顺序栈 · 共享栈 · 链栈 · 中缀转后缀 · 单调栈</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:6px 0 0">
+        <li><b>概念层</b>：栈的定义、LIFO 特性、为什么必须「只在栈顶操作」，栈顶 / 栈底 / 空栈 / 上溢 / 下溢五个术语，以及栈的 ADT 七个操作。</li>
+        <li><b>存储层</b>：顺序栈 <code>SeqStack&lt;T&gt;</code>（含 <code>top</code> 的两种约定与动态扩容）、共享栈（两个栈抢一个数组）、链栈 <code>LinkStack&lt;T&gt;</code>，三者放在一张表里对比。</li>
+        <li><b>应用层</b>：括号匹配 → 进制转换 → <b>表达式求值（中缀转后缀 / 后缀求值 / 双栈直接求值）</b> → 栈与递归 → 迷宫回溯 → 单调栈。</li>
+        <li><b>动画层</b>：6 个交互动画，全部支持「▶ 播放 / ◀ 上一步 / 下一步 ▶ / ⏮ 重来 / ⏭ 末帧」与速度调节，建议逐帧对着说明栏看。</li>
+        <li><b>代码层</b>：16 段可直接编译运行的 C++ 代码，全部按 C++11/14 编写，含完整函数与 <code>main</code> 测试。</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">3.1　栈的定义与抽象数据类型</h2>
+
+    <p>
+      先别看代码，想一个每天都在发生的场景：食堂里一摞洗干净的盘子。阿姨把新洗好的盘子放在<b>最上面</b>，
+      同学取盘子也从<b>最上面</b>拿。没有谁会从中间抽一个出来 —— 一抽整摞就塌了。
+      这摞盘子就是一个栈 <b>stack</b>，它的规矩只有两条：<b>插入和删除都只能在同一端进行</b>，这一端叫<b>栈顶</b>；
+      另一端被封死，叫<b>栈底</b>。
+    </p>
+    <p>
+      因为只在一端操作，元素进出的顺序被强制成了<b>后进先出</b>（Last In First Out，<b>LIFO</b>）：
+      最后放进去的元素，一定最先被取出来；最先放进去的元素，一定最后才出来。
+      注意 —— 这与第 02 讲的线性表并不矛盾：栈在逻辑上仍然是线性表，只是<b>操作被限制了</b>。
+      所以我们把栈称为<b>操作受限的线性表</b>（restricted linear list）。限制不是缺陷，而是威力所在：
+      正因为只允许在一端动，栈的每一个操作都能做到 <code>O(1)</code>，而且「最近的未完成事项」这种信息天然被记住 ——
+      这正是括号匹配、递归回溯、撤销操作这些问题的共同结构。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 306" width="740" height="306" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m31in" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m31out" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="m31t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <text x="30" y="24" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">栈 stack：只允许在同一端插入与删除</text>
+
+        <!-- 杯子（顶部开口） -->
+        <path d="M96,66 L96,266 L276,266 L276,66" fill="var(--panel-2)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="96" y1="66" x2="276" y2="66" stroke="var(--border)" stroke-width="1" stroke-dasharray="5 4"/>
+
+        <!-- 四个元素 -->
+        <rect x="106" y="212" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="186" y="240" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">12</text>
+        <rect x="106" y="164" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="186" y="192" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">7</text>
+        <rect x="106" y="116" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="186" y="144" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">25</text>
+        <rect x="106" y="68" width="160" height="44" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+        <text x="186" y="96" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="Consolas, monospace">3</text>
+
+        <!-- 入栈 / 出栈 箭头 -->
+        <line x1="146" y1="40" x2="146" y2="60" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m31in)"/>
+        <text x="60" y="56" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">Push 入栈</text>
+        <line x1="230" y1="60" x2="230" y2="40" stroke="var(--accent)" stroke-width="2.4" marker-end="url(#m31out)"/>
+        <text x="240" y="48" fill="var(--accent)" font-size="13" font-family="Consolas, monospace">Pop 出栈</text>
+
+        <!-- 标注 -->
+        <text x="290" y="100" fill="var(--ok)" font-size="13" font-family="Consolas, monospace">← 栈顶 top（唯一可操作端）</text>
+        <text x="290" y="240" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">← 栈底 bottom（封死）</text>
+
+        <!-- 右侧说明面板 -->
+        <rect x="470" y="60" width="250" height="206" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="486" y="86" fill="var(--text)" font-size="13.5" font-weight="700">LIFO：后进先出</text>
+        <text x="486" y="112" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">入栈序：12 → 7 → 25 → 3</text>
+        <text x="486" y="134" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">出栈序：3 → 25 → 7 → 12</text>
+        <text x="486" y="162" fill="var(--text-faint)" font-size="12">· 只能在栈顶插入 / 删除</text>
+        <text x="486" y="184" fill="var(--text-faint)" font-size="12">· 栈底元素最先入栈、最后出栈</text>
+        <text x="486" y="206" fill="var(--text-faint)" font-size="12">· 不允许按下标随机访问</text>
+        <text x="486" y="228" fill="var(--text-faint)" font-size="12">· 所有基本操作都是 O(1)</text>
+        <text x="486" y="252" fill="var(--danger)" font-size="12">· 空栈 Pop = 下溢；满栈 Push = 上溢</text>
+      </svg>
+      <figcaption>图 3-1　栈的 LIFO 特性：入栈与出栈都发生在栈顶，出栈序列恰好是入栈序列的逆序</figcaption>
+    </div>
+
+    <h3 id="s1-term">3.1.1　五个必须背下来的术语</h3>
+
+    <p>
+      术语不是用来考试的装饰品，而是后面读代码时判断「这句话在说什么」的坐标。请把下面五条一次记牢。
+    </p>
+
+    <dl class="def">
+      <dt>栈 stack</dt>
+      <dd>限定仅在表尾进行插入和删除操作的线性表。表尾叫栈顶，表头叫栈底。逻辑结构仍是线性表，物理结构可以顺序也可以链式。</dd>
+
+      <dt>栈顶 top</dt>
+      <dd>允许插入和删除的那一端，是栈里唯一「活着」的位置。所有操作（Push / Pop / GetTop）都围绕它展开，因此代码里几乎每一行都有 <code>top</code>。</dd>
+
+      <dt>栈底 bottom</dt>
+      <dd>不允许操作的那一端。栈底元素是第一个入栈的元素，也只有当栈里其他元素全部弹出后，它才能出栈。</dd>
+
+      <dt>空栈 empty</dt>
+      <dd>不含任何元素的栈。顺序栈里通常写作 <code>top == -1</code>（top 指向栈顶元素下标）或 <code>top == 0</code>（top 指向栈顶上方空位）。<b>判空是 Pop 与 GetTop 的第一道防线。</b></dd>
+
+      <dt>上溢 / 下溢</dt>
+      <dd><b>上溢 overflow</b>：栈满时继续 Push，数组已经没有空位；<b>下溢 underflow</b>：栈空时继续 Pop 或 GetTop，根本没有元素可取。
+      上溢是空间不够，下溢是逻辑错误 —— 前者可以靠扩容或换链栈避免，后者只能靠程序员自己检查。</dd>
+    </dl>
+
+    <div class="note warn">
+      <span class="note-title">易错：上溢不是「数组越界」那么简单</span>
+      顺序栈的 <code>Push</code> 必须先判满。C++ 里对 <code>std::vector</code> 用 <code>v[++top]</code> 越界写是<b>未定义行为</b>，
+      在 Release 下可能「看起来能跑」，考试时却会直接判错。正确顺序永远是：<b>先判满 → 再移动 top → 最后写入</b>；
+      出栈则是：<b>先判空 → 再取值 → 最后移动 top</b>。
+    </div>
+
+    <h3 id="s1-adt">3.1.2　栈的 ADT 与操作集</h3>
+
+    <p>
+      <b>ADT</b>（Abstract Data Type，抽象数据类型）回答的是「这个结构能做什么」，而不回答「它怎么做到的」。
+      学数据结构最忌讳一上来就背数组下标 —— 先把 ADT 想清楚，你会发现顺序栈、链栈、共享栈的<b>接口完全一样</b>，
+      只是实现不同，甚至可以互相替换而调用方毫不知情。这正是抽象的价值。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>操作</th><th>语义</th><th>前置条件</th><th>时间复杂度</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>InitStack(&amp;S)</code></td><td>构造一个空栈（初始化）</td><td>—</td><td>O(1)</td></tr>
+          <tr><td><code>StackEmpty(S)</code></td><td>判空：空返回 <code>true</code></td><td>栈已存在</td><td>O(1)</td></tr>
+          <tr><td><code>StackFull(S)</code></td><td>判满：满返回 <code>true</code>（链栈恒为 <code>false</code>）</td><td>顺序栈才有意义</td><td>O(1)</td></tr>
+          <tr><td><code>Push(&amp;S, e)</code></td><td>入栈：把 e 放到栈顶，成为新的栈顶</td><td><b>栈不满</b>，否则上溢</td><td>O(1)</td></tr>
+          <tr><td><code>Pop(&amp;S, &amp;e)</code></td><td>出栈：删除栈顶元素并用 e 带回</td><td><b>栈不空</b>，否则下溢</td><td>O(1)</td></tr>
+          <tr><td><code>GetTop(S)</code></td><td>取栈顶：只读，<b>不删除</b></td><td>栈不空</td><td>O(1)</td></tr>
+          <tr><td><code>ClearStack(&amp;S)</code></td><td>清空：回到初始空栈状态</td><td>—</td><td>O(1)（顺序栈置 top；链栈需逐个释放）</td></tr>
+          <tr><td><code>StackLength(S)</code></td><td>求长度：返回元素个数</td><td>—</td><td>O(1)（顺序栈）；O(n)（不带头结点的链栈）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      用 C++ 表达这份 ADT，最自然的写法是抽象基类 + 纯虚函数。这样我们就能写出<b>与实现无关</b>的算法：
+      同一个 <code>PrintReverse</code> 函数，既能处理顺序栈也能处理链栈。
+    </p>
+
+    <pre data-lang="cpp" data-file="stack_adt.hpp">// stack_adt.hpp —— 栈的抽象数据类型（ADT）：只规定「能做什么」，不规定「怎么存」
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;stdexcept&gt;
+
+template &lt;class T&gt;
+class StackADT {                              // 抽象基类 = 接口规范
+public:
+    virtual ~StackADT() {}
+
+    virtual void InitStack() = 0;             // 初始化：构造一个空栈
+    virtual bool StackEmpty() const = 0;      // 判空：空返回 true
+    virtual bool StackFull()  const = 0;      // 判满：链栈永远返回 false
+    virtual void Push(const T&amp; e) = 0;         // 入栈：e 成为新的栈顶
+    virtual T    Pop() = 0;                   // 出栈：删除并返回栈顶元素
+    virtual T&amp;   GetTop() = 0;                 // 取栈顶：只读，不删除
+    virtual void ClearStack() = 0;            // 清空：回到空栈
+    virtual int  StackLength() const = 0;     // 求长度：元素个数
+};
+
+// 有了 ADT，就能写出「与实现无关」的算法：把栈中元素依次弹出并打印
+// 注意参数类型是 StackADT&lt;T&gt;&amp;：顺序栈、链栈、共享栈都能传进来
+template &lt;class T&gt;
+void PrintReverse(StackADT&lt;T&gt;&amp; S) {
+    while (!S.StackEmpty()) {
+        std::cout &lt;&lt; S.Pop() &lt;&lt; ' ';
+    }
+    std::cout &lt;&lt; '\n';
+}
+
+// 一个通用小工具：判断字符串里的括号是否配对（后面 3.5 节会给出完整版本）
+// 这里只演示「用 ADT 编程」的写法，不需要知道栈是数组还是链表
+template &lt;class T&gt;
+bool CheckPair(StackADT&lt;T&gt;&amp; S, const std::string&amp; str);   // 声明，实现在 3.5 节
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">学习顺序建议</span>
+      这一节只要记住一句话：<b>栈 = 只能在栈顶进出的线性表</b>。剩下的全是实现细节。
+      接下来 3.2 / 3.3 / 3.4 分别讲三种实现，3.5 之后全是应用 —— 每个应用都会回到这句话来解释「为什么必须用栈」。
+    </div>
+
+    <h2 id="s2">3.2　顺序栈：用数组实现</h2>
+
+    <p>
+      顺序栈（sequential stack）的思路朴素到不能再朴素：<b>申请一段连续的数组空间，再用一个整型变量 top 记录栈顶在哪</b>。
+      入栈就是「top 往后挪一格，把新元素写进去」，出栈就是「把 top 那格的元素交出去，top 往前挪一格」。
+      没有指针、没有内存分配、没有分支跳转，所以顺序栈的 Push / Pop 是常数级操作里最便宜的那种。
+    </p>
+    <p>
+      它还有一个经常被忽略的优势：<b>缓存局部性 cache locality</b>。数组元素在内存里紧挨着，
+      连续几次 Push 写入的是同一段缓存行，CPU 几乎不需要访问主存；
+      而链栈每次都要访问一个新 <code>new</code> 出来的结点，指针跳来跳去，常数因子明显更大。
+      所以在「元素个数上限能预估」的场合，顺序栈几乎总是首选。
+    </p>
+    <p>
+      但顺序栈有一个绕不开的问题：<b>到底让 top 指向哪儿？</b>不同的教材给出了两种约定，代码长得不一样，
+      考试里两种都会出现。你必须两种都看得懂，并且在自己的代码里<b>始终坚持同一种</b> ——
+      混用是初学者最常见的 bug 来源。
+    </p>
+
+    <h3 id="s2-conv">3.2.1　top 的两种约定与它们的差别</h3>
+
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">约定 A：top 指向「栈顶元素的下标」</h4>
+        <ul style="margin-bottom:0">
+          <li>空栈：<code>top == -1</code></li>
+          <li>栈满：<code>top == MaxSize - 1</code></li>
+          <li>入栈：<code>S[++top] = e</code></li>
+          <li>出栈：<code>e = S[top--]</code></li>
+          <li>取栈顶：<code>S[top]</code></li>
+          <li>长度：<code>top + 1</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">约定 B：top 指向「栈顶上方空位」</h4>
+        <ul style="margin-bottom:0">
+          <li>空栈：<code>top == 0</code></li>
+          <li>栈满：<code>top == MaxSize</code></li>
+          <li>入栈：<code>S[top++] = e</code></li>
+          <li>出栈：<code>e = S[--top]</code></li>
+          <li>取栈顶：<code>S[top - 1]</code></li>
+          <li>长度：<code>top</code>（本身就是长度）</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 336" width="740" height="336" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m32a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m32b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <!-- 约定 A -->
+        <rect x="16" y="16" width="348" height="304" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="32" y="42" fill="var(--brand)" font-size="13.5" font-weight="700">约定 A：top 指向栈顶元素（本章代码采用）</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="32" y="62" width="46" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="55" y="88" text-anchor="middle" fill="var(--text)">12</text>
+          <rect x="82" y="62" width="46" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="105" y="88" text-anchor="middle" fill="var(--text)">7</text>
+          <rect x="132" y="62" width="46" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+          <text x="155" y="88" text-anchor="middle" fill="var(--text)" font-weight="700">25</text>
+          <rect x="182" y="62" width="46" height="40" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="232" y="62" width="46" height="40" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="282" y="62" width="46" height="40" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="55" y="118">0</text><text x="105" y="118">1</text><text x="155" y="118">2</text>
+          <text x="205" y="118">3</text><text x="255" y="118">4</text><text x="305" y="118">5</text>
+        </g>
+        <line x1="155" y1="162" x2="155" y2="132" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m32a)"/>
+        <text x="166" y="160" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 2</text>
+        <g fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">
+          <text x="32" y="196">空栈：top = −1</text>
+          <text x="32" y="220">栈满：top = MaxSize − 1</text>
+          <text x="32" y="244">入栈：S[++top] = e</text>
+          <text x="32" y="268">出栈：e = S[top−−]</text>
+          <text x="32" y="292">长度：top + 1 = 3</text>
+        </g>
+        <text x="32" y="314" fill="var(--text-faint)" font-size="11.5">空栈是 −1，所以「判空」要写成 top == −1</text>
+
+        <!-- 约定 B -->
+        <rect x="376" y="16" width="348" height="304" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="392" y="42" fill="var(--accent)" font-size="13.5" font-weight="700">约定 B：top 指向栈顶上方空位</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="392" y="62" width="46" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="415" y="88" text-anchor="middle" fill="var(--text)">12</text>
+          <rect x="442" y="62" width="46" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="465" y="88" text-anchor="middle" fill="var(--text)">7</text>
+          <rect x="492" y="62" width="46" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="515" y="88" text-anchor="middle" fill="var(--text)">25</text>
+          <rect x="542" y="62" width="46" height="40" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2.4" stroke-dasharray="5 3"/>
+          <rect x="592" y="62" width="46" height="40" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="642" y="62" width="46" height="40" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="415" y="118">0</text><text x="465" y="118">1</text><text x="515" y="118">2</text>
+          <text x="565" y="118">3</text><text x="615" y="118">4</text><text x="665" y="118">5</text>
+        </g>
+        <line x1="565" y1="162" x2="565" y2="132" stroke="var(--accent)" stroke-width="2.4" marker-end="url(#m32b)"/>
+        <text x="576" y="160" fill="var(--accent)" font-size="12.5" font-family="Consolas, monospace">top = 3（下一格空位）</text>
+        <g fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">
+          <text x="392" y="196">空栈：top = 0</text>
+          <text x="392" y="220">栈满：top = MaxSize</text>
+          <text x="392" y="244">入栈：S[top++] = e</text>
+          <text x="392" y="268">出栈：e = S[−−top]</text>
+          <text x="392" y="292">长度：top = 3（天然等于长度）</text>
+        </g>
+        <text x="392" y="314" fill="var(--text-faint)" font-size="11.5">空栈是 0，判空写成 top == 0，与数组下标无关</text>
+      </svg>
+      <figcaption>图 3-2　同一个数组、同样的三个元素，两种 top 约定下 top 的位置与公式完全不同</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>比较项</th><th>约定 A：top 指向栈顶元素</th><th>约定 B：top 指向栈顶上方空位</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>空栈判定</td><td><code>top == -1</code></td><td><code>top == 0</code></td></tr>
+          <tr><td>栈满判定</td><td><code>top == MaxSize - 1</code></td><td><code>top == MaxSize</code></td></tr>
+          <tr><td>入栈</td><td><code>S[++top] = e</code>（先加后用）</td><td><code>S[top++] = e</code>（先用后加）</td></tr>
+          <tr><td>出栈</td><td><code>e = S[top--]</code>（先用后减）</td><td><code>e = S[--top]</code>（先减后用）</td></tr>
+          <tr><td>取栈顶</td><td><code>S[top]</code></td><td><code>S[top - 1]</code></td></tr>
+          <tr><td>求长度</td><td><code>top + 1</code>（每次都要记得 +1）</td><td><code>top</code>（top 就是长度，最不容易错）</td></tr>
+          <tr><td>直观性</td><td><b>好</b>：top 明确指着栈顶那个元素，画图方便</td><td><b>好</b>：top 就是元素个数，长度、判空公式极简</td></tr>
+          <tr><td>典型教材</td><td>严蔚敏《数据结构》、本章全部代码</td><td>多数 C++ 标准库实现、部分考研题</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">最坑的一处：++ / -- 与 top 的先后顺序</span>
+      约定 A 的入栈是 <code>S[++top] = e</code>，写成 <code>S[top++] = e</code> 就会<b>先写旧位置再把 top 加一</b>：
+      第一次 Push 会写到 <code>S[-1]</code>（数组越界），同时 top 变成 0，让「空栈」的判定彻底失效。
+      出栈同理：约定 A 必须写 <code>e = S[top--]</code>，写成 <code>e = S[--top]</code> 就会先减再取，<b>永远丢掉栈顶那一个元素</b>。
+      口诀：<b>A 约定「加上用减」——++top 在用之前、top-- 在用之后；B 约定反过来</b>。
+      读别人代码时，先找 <code>top</code> 的初值，一切公式就都推出来了。
+    </div>
+
+    <h3 id="s2-impl">3.2.2　SeqStack&lt;T&gt; 完整实现（约定 A + 动态扩容）</h3>
+
+    <p>
+      下面这份实现采用<b>约定 A</b>，并且加入了三样工程上必备的东西：<b>动态扩容</b>（满栈时容量翻倍而不是直接失败）、
+      <b>深拷贝</b>（拷贝构造与赋值运算符，避免两个栈共用一块内存导致 double free）、
+      <b>异常保护</b>（空栈 Pop / GetTop 抛 <code>std::underflow_error</code>，而不是返回垃圾值）。
+      代码里的 <code>main</code> 把入栈、取栈顶、连续出栈、下溢四种情况都跑了一遍。
+    </p>
+
+    <pre data-lang="cpp" data-file="seq_stack.hpp">// seq_stack.hpp —— 顺序栈：top 指向「栈顶元素的下标」，空栈 top == -1
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+
+template &lt;class T&gt;
+class SeqStack {
+public:
+    explicit SeqStack(int initCap = 10)
+        : data(new T[initCap]), cap(initCap), top(-1) {}
+
+    SeqStack(const SeqStack&amp; o) : data(new T[o.cap]), cap(o.cap), top(o.top) {  // 深拷贝
+        for (int i = 0; i &lt;= top; ++i) data[i] = o.data[i];
+    }
+    SeqStack&amp; operator=(const SeqStack&amp; o) {
+        if (this == &amp;o) return *this;
+        T* nd = new T[o.cap];
+        for (int i = 0; i &lt;= o.top; ++i) nd[i] = o.data[i];
+        delete[] data; data = nd; cap = o.cap; top = o.top;
+        return *this;
+    }
+    ~SeqStack() { delete[] data; }
+
+    /* ---------- ADT 的七个操作 ---------- */
+    void InitStack() { top = -1; }                       // 清空：只挪 top，不擦数据
+    bool StackEmpty() const { return top == -1; }
+    bool StackFull()  const { return top == cap - 1; }
+    int  StackLength() const { return top + 1; }
+    int  Capacity()   const { return cap; }
+
+    void Push(const T&amp; e) {
+        if (StackFull()) Grow();                         // 满 → 2 倍扩容
+        data[++top] = e;                                 // 先 ++top，再写入
+    }
+    T Pop() {
+        if (StackEmpty()) throw std::underflow_error("Pop: 栈空（下溢）");
+        return data[top--];                              // 先取出，再 --top
+    }
+    T&amp; GetTop() {
+        if (StackEmpty()) throw std::underflow_error("GetTop: 栈空");
+        return data[top];                                // 只读，不动 top
+    }
+    void ClearStack() { top = -1; }
+
+    void Print(const char* name) const {
+        std::cout &lt;&lt; name &lt;&lt; " [底";
+        for (int i = 0; i &lt;= top; ++i) std::cout &lt;&lt; ' ' &lt;&lt; data[i];
+        std::cout &lt;&lt; " 顶]  top=" &lt;&lt; top &lt;&lt; "  长度=" &lt;&lt; StackLength()
+                  &lt;&lt; "  容量=" &lt;&lt; cap &lt;&lt; '\n';
+    }
+
+private:
+    T*  data;      // 连续存储空间
+    int cap;       // 容量 MaxSize
+    int top;       // 栈顶元素下标；-1 表示空栈
+
+    void Grow() {                                        // 扩容：2 倍 + 搬移旧数据
+        T* nd = new T[cap * 2];
+        for (int i = 0; i &lt;= top; ++i) nd[i] = data[i];
+        delete[] data;
+        data = nd;
+        cap *= 2;
+    }
+};
+
+int main() {
+    SeqStack&lt;int&gt; S(4);                                  // 故意给一个小容量，方便看扩容
+    std::cout &lt;&lt; "初始："; S.Print("S =");
+    int a[] = {12, 7, 25, 3, 9};
+    for (int i = 0; i &lt; 5; ++i) {
+        S.Push(a[i]);
+        std::cout &lt;&lt; "Push(" &lt;&lt; a[i] &lt;&lt; ") → "; S.Print("S =");
+    }
+    std::cout &lt;&lt; "GetTop() = " &lt;&lt; S.GetTop()
+              &lt;&lt; "，长度仍为 " &lt;&lt; S.StackLength() &lt;&lt; "（取栈顶不删除元素）\n";
+    while (!S.StackEmpty()) std::cout &lt;&lt; "Pop() = " &lt;&lt; S.Pop() &lt;&lt; '\n';
+    std::cout &lt;&lt; "弹空后 StackEmpty() = " &lt;&lt; (S.StackEmpty() ? "true" : "false") &lt;&lt; '\n';
+    try { S.Pop(); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "空栈 Pop 被捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <h3 id="s2-anim">3.2.3　动画：顺序栈的入栈、取栈顶与出栈</h3>
+
+    <p>
+      下面这个动画把「top 指针」和「数组内容」放在同一张图里同步演示：注意看每次 Push 时 top 先加一、再写值；
+      每次 Pop 时先把值交出来、top 再减一；以及 <b>GetTop 只让 top 那一格闪橙色、位置完全不动</b>。
+      最后一段演示的是空栈 Pop 引起的<b>下溢</b>。建议先点「▶ 播放」看整体节奏，再用「下一步 ▶」逐帧对照说明栏。
+    </p>
+
+    <div id="viz-stack-basic"></div>
+
+    <div class="note tip">
+      <span class="note-title">看动画时请盯住三个数字</span>
+      ① <code>top</code> 的值；② 数组里「属于这个栈」的格子数（也就是长度 <code>top + 1</code>）；
+      ③ 底部状态行的 <code>StackEmpty</code> / <code>StackFull</code>。
+      出栈后数组里那个旧值<b>并没有被清除</b>，只是不再属于这个栈 —— 这一点在动画里看得很清楚，
+      也是「顺序栈清空只需 top = -1」的原因。
+    </div>
+
+    <h3 id="s2-grow">3.2.4　栈满、动态扩容与摊还分析</h3>
+
+    <p>
+      顺序栈的容量是编译期或初始化时定死的，一旦满了再 Push 就上溢。工程上有三条出路：
+      <b>① 直接报错</b>（适合容量确定、绝不该溢出的场景，如表达式求值里的运算符栈）；
+      <b>② 动态扩容</b>（容量翻倍 + 搬移，适合容量无法预估的场景，<code>std::vector</code> 就是这么做的）；
+      <b>③ 换成链栈</b>（根本没有「满」这个概念）。下面这份代码用<b>约定 B</b> 实现了一个固定容量的顺序栈，
+      并示范了「上溢 / 下溢用返回值报告」这种不用异常的写法 —— 请对照 3.2.1 的表格检查每一行公式。
+    </p>
+
+    <pre data-lang="cpp" data-file="seq_stack_v2.cpp">// seq_stack_v2.cpp —— 同一个数组，另一种约定：top 指向「栈顶上方空位」
+// 空栈 top == 0；栈满 top == MaxSize；长度 = top；入栈 S[top++] = e；出栈 e = S[--top]
+#include &lt;iostream&gt;
+
+const int MaxSize = 5;
+
+template &lt;class T&gt;
+class SeqStack2 {
+public:
+    SeqStack2() : top(0) {}
+
+    bool StackEmpty() const { return top == 0; }          // 空栈条件最简单
+    bool StackFull()  const { return top == MaxSize; }
+    int  StackLength() const { return top; }              // top 天然就是长度
+
+    bool Push(const T&amp; e) {                                // 返回 false 表示上溢
+        if (StackFull()) return false;
+        data[top++] = e;                                  // 先写入 S[top]，再 top++
+        return true;
+    }
+    bool Pop(T&amp; e) {                                       // 返回 false 表示下溢
+        if (StackEmpty()) return false;
+        e = data[--top];                                  // 先 --top，再取值
+        return true;
+    }
+    bool GetTop(T&amp; e) const {
+        if (StackEmpty()) return false;
+        e = data[top - 1];                                // 注意是 top − 1
+        return true;
+    }
+    void ClearStack() { top = 0; }
+
+    void Print(const char* name) const {
+        std::cout &lt;&lt; name &lt;&lt; " [底";
+        for (int i = 0; i &lt; top; ++i) std::cout &lt;&lt; ' ' &lt;&lt; data[i];
+        std::cout &lt;&lt; " 顶]  top=" &lt;&lt; top &lt;&lt; "（= 长度）\n";
+    }
+
+private:
+    T   data[MaxSize];
+    int top;
+};
+
+int main() {
+    SeqStack2&lt;int&gt; S;
+    for (int i = 1; i &lt;= 5; ++i) S.Push(i * 10);          // 10 20 30 40 50，恰好装满
+    S.Print("S =");
+    std::cout &lt;&lt; "再 Push(60) 返回 " &lt;&lt; (S.Push(60) ? "true" : "false")
+              &lt;&lt; "　→ 上溢被挡住，栈内数据没有损坏\n";
+    int e = 0;
+    S.GetTop(e);
+    std::cout &lt;&lt; "GetTop 读到 " &lt;&lt; e &lt;&lt; "，长度仍是 " &lt;&lt; S.StackLength() &lt;&lt; '\n';
+    while (S.Pop(e)) std::cout &lt;&lt; "Pop = " &lt;&lt; e &lt;&lt; '\n';
+    std::cout &lt;&lt; "空栈时 Pop 返回 " &lt;&lt; (S.Pop(e) ? "true" : "false")
+              &lt;&lt; "　→ 下溢同样被挡住\n";
+    return 0;
+}
+</pre>
+
+    <p>
+      看到两种约定的代码摆在一起，你应该能体会到「约定」二字的分量：<b>它们都对，但绝不能混</b>。
+      本讲从 3.2.2 起的全部代码<b>统一采用约定 A</b>（top 指向栈顶元素），因为它在画图时最直观。
+    </p>
+
+    <h4 id="s2-amortized">为什么扩容要「翻倍」而不是「加一」？</h4>
+
+    <p>
+      如果每次满了只加一个格子，那么连续 n 次 Push 就要搬移 <code>1 + 2 + 3 + … + n = O(n²)</code> 次元素，
+      单次操作的<b>平均代价</b>是 O(n)，顺序栈就退化成顺序表插入了。
+      改成容量翻倍后，第 k 次扩容搬移 <code>2^k</code> 个元素，而它能支撑接下来 <code>2^k</code> 次 Push，
+      于是总搬移量是 <code>1 + 2 + 4 + … + 2^m ≈ 2^(m+1) < 2n</code>，
+      连续 n 次 Push 的总代价是 O(n)，<b>平均每次 O(1)</b>。
+      这就是<b>摊还分析 amortized analysis</b> 的经典结论：
+    </p>
+
+    <div class="formula center" data-math="n 次 Push 的总代价 = n 次写入 + O(n) 次搬移 = O(n)  ⟹  单次摊还代价 O(1)"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：摊还 O(1) ≠ 最坏 O(1)</span>
+      顺序栈 Push 的<b>最坏</b>时间复杂度是 O(n)（正好触发扩容那一次），<b>摊还</b>时间复杂度才是 O(1)。
+      考题里问「顺序栈入栈的时间复杂度」，标准答案是「O(1)（若采用动态扩容则为摊还 O(1)，单次最坏 O(n)）」。
+      而链栈的 Push 是严格的 O(1)，因为不需要搬移 —— 这是链栈唯一在复杂度上「赢」顺序栈的地方。
+    </div>
+
+    <div class="figure" data-steps>
+      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m33a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+        </defs>
+        <text x="24" y="26" fill="var(--brand)" font-size="13" font-weight="700">① 初始状态：Push(12)、Push(7)、Push(25) 之后，top = 2，长度 3</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
+          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
+          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+          <text x="166" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">25</text>
+          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
+          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
+        </g>
+        <line x1="166" y1="142" x2="166" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33a)"/>
+        <text x="178" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 2</text>
+        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">S[0..2] 有效，S[3..5] 是空位</text>
+        <text x="420" y="98" fill="var(--text-faint)" font-size="12">栈底 fixed 在 S[0]，栈顶随 top 浮动</text>
+      </svg>
+
+      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m33b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+        </defs>
+        <text x="24" y="26" fill="var(--brand)" font-size="13" font-weight="700">② Push(9)：先 ++top（top 由 2 变 3），再执行 S[3] = 9</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
+          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
+          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="166" y="72" text-anchor="middle" fill="var(--text)">25</text>
+          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+          <text x="224" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">9</text>
+          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
+          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
+        </g>
+        <line x1="224" y1="142" x2="224" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33b)"/>
+        <text x="236" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 3（长度变成 4）</text>
+        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">入栈只做了两件事：top++ 与一次写入</text>
+        <text x="420" y="98" fill="var(--text-faint)" font-size="12">没有搬移任何已有元素 → O(1)</text>
+      </svg>
+
+      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m33c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+          </marker>
+        </defs>
+        <text x="24" y="26" fill="var(--danger)" font-size="13" font-weight="700">③ Pop()：先取出 S[3] = 9 交给调用者，再 --top（top 由 3 回到 2）</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
+          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
+          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+          <text x="166" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">25</text>
+          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 3"/>
+          <text x="224" y="72" text-anchor="middle" fill="var(--text-faint)">9</text>
+          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
+          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
+        </g>
+        <line x1="166" y1="142" x2="166" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33c)"/>
+        <text x="178" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 2</text>
+        <text x="420" y="70" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">S[3] 里的 9 还在，但已不属于栈</text>
+        <text x="420" y="98" fill="var(--text-faint)" font-size="12">下次 Push 会直接覆盖它，无需清理</text>
+      </svg>
+
+      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m33d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+        <text x="24" y="26" fill="var(--ok)" font-size="13" font-weight="700">④ ClearStack()：只需一条 top = −1，整栈立刻变成空栈（O(1) 清空）</text>
+        <g font-family="Consolas, monospace" font-size="14">
+          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="50" y="72" text-anchor="middle" fill="var(--text-faint)">12</text>
+          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="108" y="72" text-anchor="middle" fill="var(--text-faint)">7</text>
+          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="166" y="72" text-anchor="middle" fill="var(--text-faint)">25</text>
+          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="224" y="72" text-anchor="middle" fill="var(--text-faint)">9</text>
+          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
+          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
+        </g>
+        <line x1="50" y1="142" x2="50" y2="114" stroke="var(--ok)" stroke-width="2.4" marker-end="url(#m33d)"/>
+        <text x="62" y="140" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">top = −1：全部格子失效</text>
+        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">旧值残留在数组里不影响正确性</text>
+        <text x="420" y="98" fill="var(--text-faint)" font-size="12">若元素是指针 / 对象，应改用逐个 Pop 以免内存泄漏</text>
+      </svg>
+      <figcaption>图 3-3　入栈、出栈与清空时 top 与数组内容的变化（点「下一步 ▶」逐步查看）</figcaption>
+    </div>
+
+    <h3 id="s2-clear">3.2.5　清空与析构：ClearStack 到底该怎么写？</h3>
+
+    <p>
+      顺序栈的 <code>ClearStack</code> 有两种写法，选哪种取决于 <code>T</code> 是什么：
+    </p>
+    <ul>
+      <li>
+        <b>写法一：<code>top = -1;</code></b>　O(1) 完成。适用于 <code>T</code> 是 <code>int</code>、<code>double</code>
+        这类「平凡类型」的情况 —— 旧值留在数组里既不影响正确性，也不占额外资源。
+      </li>
+      <li>
+        <b>写法二：循环 <code>Pop()</code> 直到空</b>　O(n)。当 <code>T</code> 是 <code>std::string</code>、含指针的类、
+        智能指针时，必须让每个元素的<b>析构函数</b>跑一遍，否则它们持有的堆内存就会泄漏。
+        C++ 里更地道的做法是用 <code>std::vector&lt;T&gt;</code> 当底层容器，<code>v.clear()</code> 会自动完成这件事。
+      </li>
+    </ul>
+
+    <div class="note danger">
+      <span class="note-title">易错：用 <code>memset</code> / <code>calloc</code> 清空栈</span>
+      有些教材用 <code>memset(S.data, 0, sizeof(S.data))</code> 来「清空」栈。对 <code>int</code> 数组它能跑，
+      但它<b>不会调用元素的析构函数</b>，一旦 <code>T</code> 是带资源的类型就直接内存泄漏；
+      如果 <code>T</code> 里含有虚函数表指针，还会把对象彻底写坏（未定义行为）。
+      记住：<b>清空栈 = 让 top 回到空栈状态</b>，该释放的资源交给析构函数或 <code>pop_back()</code> / <code>clear()</code>。
+    </div>
+
+    <p>
+      三种实现的横向对比放在 3.4.3 节（链栈之后）一起给出，因为对比表里需要用到链栈的结论。
+      先把顺序栈的两条结论记住：<b>Push / Pop / GetTop 都是 O(1)（动态扩容为摊还 O(1)）；清空是 O(1)（平凡类型）。</b>
+    </p>
+
+    <h2 id="s3">3.3　共享栈：两个栈共用一个数组</h2>
+
+    <p>
+      先看一个真实的尴尬场景：程序里需要两个栈，一个存运算符、一个存操作数，
+      结果运算符栈老是满（上溢），操作数栈却常年空着一大半。能不能让它们<b>共用同一段空间、互相借</b>？
+      能 —— 这就是<b>共享栈</b>（也叫双栈共享空间、两栈共享存储空间）。
+    </p>
+    <p>
+      做法是：仍然只申请一个数组 <code>data[0..MaxSize-1]</code>，
+      但让<b>0 号栈的栈底固定在左端</b>、<b>1 号栈的栈底固定在右端</b>，两个栈顶各自向中间生长。
+      0 号栈入栈时 <code>top0</code> 右移，1 号栈入栈时 <code>top1</code> 左移；
+      只有当两个栈顶<b>迎面撞上</b>、中间一个空位都不剩时，才算「整个数组满了」。
+      也就是说，<b>只有当一个栈占满整个数组时才会真的上溢</b>，而这个临界点比「各自一半」远得多。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 320" width="740" height="320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m34a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m34b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--purple)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="26" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">一个数组 data[0 .. 7]，两个栈底分别钉在两端，两个栈顶向中间长</text>
+
+        <!-- 左栈标注 -->
+        <text x="150" y="56" fill="var(--brand)" font-size="13" font-weight="700">0 号栈（左端 → 右）</text>
+        <text x="440" y="56" fill="var(--purple)" font-size="13" font-weight="700" text-anchor="end">1 号栈（右端 → 左）</text>
+
+        <!-- 数组单元 -->
+        <g font-family="Consolas, monospace" font-size="14" text-anchor="middle">
+          <rect x="150" y="72" width="50" height="50" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="175" y="104" fill="var(--text)">12</text>
+          <rect x="206" y="72" width="50" height="50" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="231" y="104" fill="var(--text)">7</text>
+          <rect x="262" y="72" width="50" height="50" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+          <text x="287" y="104" fill="var(--text)" font-weight="700">25</text>
+          <rect x="318" y="72" width="50" height="50" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="374" y="72" width="50" height="50" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <rect x="430" y="72" width="50" height="50" rx="6" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2.4"/>
+          <text x="455" y="104" fill="var(--text)" font-weight="700">5</text>
+          <rect x="486" y="72" width="50" height="50" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="511" y="104" fill="var(--text)">42</text>
+          <rect x="542" y="72" width="50" height="50" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="567" y="104" fill="var(--text)">88</text>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="175" y="140">0</text><text x="231" y="140">1</text><text x="287" y="140">2</text>
+          <text x="343" y="140">3</text><text x="399" y="140">4</text><text x="455" y="140">5</text>
+          <text x="511" y="140">6</text><text x="567" y="140">7</text>
+        </g>
+
+        <!-- 栈顶指针 -->
+        <line x1="287" y1="196" x2="287" y2="150" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m34a)"/>
+        <text x="287" y="214" fill="var(--brand)" font-size="12.5" text-anchor="middle" font-family="Consolas, monospace">top0 = 2</text>
+        <line x1="455" y1="196" x2="455" y2="150" stroke="var(--purple)" stroke-width="2.4" marker-end="url(#m34b)"/>
+        <text x="455" y="214" fill="var(--purple)" font-size="12.5" text-anchor="middle" font-family="Consolas, monospace">top1 = 5</text>
+
+        <!-- 空闲区 -->
+        <text x="371" y="66" fill="var(--text-faint)" font-size="11.5" text-anchor="middle">空闲 2 格</text>
+
+        <!-- 结论面板 -->
+        <rect x="24" y="234" width="692" height="72" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="260" fill="var(--text)" font-size="13" font-weight="700">栈满判定</text>
+        <text x="40" y="286" fill="var(--brand)" font-size="13.5" font-family="Consolas, monospace">top0 + 1 == top1　（两个栈顶之间再无空位）</text>
+        <text x="420" y="260" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">0 号栈空：top0 == −1</text>
+        <text x="420" y="286" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">1 号栈空：top1 == MaxSize</text>
+      </svg>
+      <figcaption>图 3-4　共享栈：两个栈底固定在数组两端，栈顶向中间生长，只有「撞上」才算满</figcaption>
+    </div>
+
+    <div class="note">
+      <span class="note-title">关于「栈满条件」的两种写法</span>
+      如果按「0 号栈在左、1 号栈在右」的记法，栈满条件是 <code>top0 + 1 == top1</code>；
+      有些教材把右边那个栈记作 0 号、左边记作 1 号，于是同一个条件就写成 <code>top1 + 1 == top0</code>。
+      <b>两个式子是同一件事</b>，区别只在编号约定。做题时先看题目的图示与 top 初值，别死记字母。
+      本讲统一采用「<b>0 号栈在左、1 号栈在右，满 ⇔ top0 + 1 == top1</b>」。
+    </div>
+
+    <pre data-lang="cpp" data-file="shared_stack.cpp">// shared_stack.cpp —— 共享栈：两个栈共用一个数组，从两端向中间生长
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+#include &lt;initializer_list&gt;
+
+template &lt;class T&gt;
+class SharedStack {
+public:
+    explicit SharedStack(int c = 8) : data(new T[c]), cap(c), top0(-1), top1(c) {}
+    ~SharedStack() { delete[] data; }
+    SharedStack(const SharedStack&amp;) = delete;             // 简化：禁止拷贝
+    SharedStack&amp; operator=(const SharedStack&amp;) = delete;
+
+    bool Empty(int i) const { return i == 0 ? (top0 == -1) : (top1 == cap); }
+    bool Full()  const { return top0 + 1 == top1; }       // ← 栈满的唯一条件
+    int  Length(int i) const { return i == 0 ? (top0 + 1) : (cap - top1); }
+    int  Free()  const { return top1 - top0 - 1; }         // 中间还剩几个空位
+
+    void Push(int i, const T&amp; e) {
+        if (Full()) throw std::overflow_error("共享栈已满（上溢）");
+        if (i == 0) data[++top0] = e;                      // 0 号栈：向右长
+        else        data[--top1] = e;                      // 1 号栈：向左长
+    }
+    T Pop(int i) {
+        if (Empty(i)) throw std::underflow_error("该栈为空（下溢）");
+        return i == 0 ? data[top0--] : data[top1++];       // 只执行其中一个分支
+    }
+    T&amp; Top(int i) {
+        if (Empty(i)) throw std::underflow_error("该栈为空");
+        return i == 0 ? data[top0] : data[top1];
+    }
+    void ClearStack() { top0 = -1; top1 = cap; }
+
+    void Print() const {
+        std::cout &lt;&lt; "数组 [";
+        for (int k = 0; k &lt; cap; ++k) {
+            if (k &lt;= top0 || k &gt;= top1) std::cout &lt;&lt; data[k]; else std::cout &lt;&lt; '_';
+            if (k + 1 &lt; cap) std::cout &lt;&lt; ' ';
+        }
+        std::cout &lt;&lt; "]  top0=" &lt;&lt; top0 &lt;&lt; " top1=" &lt;&lt; top1
+                  &lt;&lt; "  0号长=" &lt;&lt; Length(0) &lt;&lt; "  1号长=" &lt;&lt; Length(1)
+                  &lt;&lt; "  空闲=" &lt;&lt; Free() &lt;&lt; (Full() ? "  【已满】" : "") &lt;&lt; '\n';
+    }
+
+private:
+    T*  data;
+    int cap, top0, top1;
+};
+
+int main() {
+    SharedStack&lt;int&gt; S(8);
+    S.Print();
+    for (int v : {12, 7, 25}) S.Push(0, v);                // 0 号栈：12 7 25
+    for (int v : {88, 42, 5}) S.Push(1, v);                // 1 号栈：88 42 5
+    S.Print();                                             // 中间还剩 2 格
+    S.Push(0, 33); S.Push(1, 66);                          // 各再挤一格 → 撞上
+    S.Print();
+    try { S.Push(0, 99); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "再入栈 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    std::cout &lt;&lt; "弹出 0 号栈顶 " &lt;&lt; S.Pop(0) &lt;&lt; "，弹出 1 号栈顶 " &lt;&lt; S.Pop(1) &lt;&lt; '\n';
+    S.Print();
+    S.ClearStack(); S.Print();
+    return 0;
+}
+</pre>
+
+    <p>
+      运行这段程序你会看到：<b>8 个格子里塞进 6 个元素时仍然不算满</b>（只剩 2 个空位，两个栈各占一半还多），
+      一直要到 <code>top0 + 1 == top1</code> 才报上溢。这就是共享栈最实在的价值 ——
+      <b>用同一块空间同时服务两个「此消彼长」的栈，把「一个撑死、一个饿死」的概率降到最低</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>场景</th><th>两个独立顺序栈（各 n/2）</th><th>共享栈（共 n）</th></tr></thead>
+        <tbody>
+          <tr><td>两个栈都恰好用 n/2</td><td class="c-ok">都能装下</td><td class="c-ok">都能装下</td></tr>
+          <tr><td>0 号栈用 n，1 号栈空</td><td class="c-bad">0 号栈上溢</td><td class="c-ok">能装下</td></tr>
+          <tr><td>0 号栈用 0.7n，1 号栈用 0.3n</td><td class="c-bad">0 号栈上溢（浪费 0.2n）</td><td class="c-ok">能装下</td></tr>
+          <tr><td>两栈元素总数超过 n</td><td class="c-bad">上溢</td><td class="c-bad">上溢（不可避免）</td></tr>
+          <tr><td>空间利用率</td><td>最坏 50%</td><td>接近 100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：共享栈的判满与长度</span>
+      ① 判满 <code>top0 + 1 == top1</code>；② 0 号栈长度 <code>top0 + 1</code>，1 号栈长度 <code>MaxSize - top1</code>；
+      ③ 空闲个数 <code>top1 - top0 - 1</code>；④ 共享栈的意义是<b>提高空间利用率、减少上溢概率</b>，
+      但它<b>不会降低时间复杂度</b>，所有操作仍是 O(1)。考选择题时，「共享栈的入栈操作比普通顺序栈慢」是错的。
+    </div>
+
+    <h2 id="s4">3.4　链栈：用单链表实现</h2>
+
+    <p>
+      顺序栈的容量是死的，链栈则完全跟着需求长。做法简单到一句话：
+      <b>把单链表的「头」当栈顶，只在头部插入和删除</b>。
+      入栈 = 头插法建表（新结点插在第一个位置），出栈 = 删除首元结点。
+      因为单链表在头部插入 / 删除只要改两个指针，所以 <b>Push / Pop 都是严格 O(1)</b>，
+      既不需要搬移元素，也不需要扩容，更不存在「栈满」。
+    </p>
+    <p>
+      为什么不能把链表尾当栈顶？因为单链表只有 <code>next</code> 没有 <code>prev</code>：
+      要在尾部删除，必须先从头走一遍找到倒数第二个结点，那是 <code>O(n)</code>。
+      一句话：<b>单链表的「头」是天然的栈顶，「尾」是天然的队尾</b>（这就是第 04 讲链队列的由来）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 250" width="740" height="250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m35a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m35b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="26" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">LinkStack：top 指向首元结点，栈底结点的 next == nullptr</text>
+
+        <!-- top 指针 -->
+        <text x="24" y="104" fill="var(--brand)" font-size="14" font-weight="700" font-family="Consolas, monospace">top</text>
+        <line x1="66" y1="100" x2="132" y2="100" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m35a)"/>
+
+        <!-- 结点 1：25 -->
+        <rect x="140" y="76" width="86" height="48" rx="8" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
+        <line x1="196" y1="76" x2="196" y2="124" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="168" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="Consolas, monospace">25</text>
+        <text x="213" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">•</text>
+        <line x1="226" y1="100" x2="292" y2="100" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#m35b)"/>
+
+        <!-- 结点 2：7 -->
+        <rect x="300" y="76" width="86" height="48" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="356" y1="76" x2="356" y2="124" stroke="var(--border-strong)" stroke-width="1.4"/>
+        <text x="328" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">7</text>
+        <text x="373" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">•</text>
+        <line x1="386" y1="100" x2="452" y2="100" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#m35b)"/>
+
+        <!-- 结点 3：12 -->
+        <rect x="460" y="76" width="86" height="48" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="516" y1="76" x2="516" y2="124" stroke="var(--border-strong)" stroke-width="1.4"/>
+        <text x="488" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">12</text>
+        <text x="533" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">∧</text>
+
+        <text x="168" y="70" fill="var(--brand)" font-size="11.5" text-anchor="middle">栈顶 top</text>
+        <text x="488" y="70" fill="var(--text-faint)" font-size="11.5" text-anchor="middle">栈底 bottom</text>
+
+        <!-- 操作说明 -->
+        <rect x="24" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="176" fill="var(--ok)" font-size="13" font-weight="700">Push(e)：头插，O(1)</text>
+        <text x="40" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = new Node(e); p-&gt;next = top; top = p;</text>
+        <text x="40" y="222" fill="var(--text-faint)" font-size="12">只有这两步，与栈里已有多少元素无关</text>
+
+        <rect x="386" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="402" y="176" fill="var(--danger)" font-size="13" font-weight="700">Pop()：删除首元结点，O(1)</text>
+        <text x="402" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = top; top = top-&gt;next; delete p;</text>
+        <text x="402" y="222" fill="var(--text-faint)" font-size="12">必须先保存 top，再把 top 后移，最后释放</text>
+      </svg>
+      <figcaption>图 3-5　链栈：单链表的头部就是栈顶，入栈出栈都只改两个指针</figcaption>
+    </div>
+
+    <h3 id="s4-why">3.4.1　为什么链栈通常不需要头结点，也不需要判满</h3>
+
+    <p>
+      这是本章最容易被问到、也最容易答错的两个「为什么」，我们分开说透。
+    </p>
+    <p>
+      <b>第一，为什么可以不要头结点。</b>头结点（dummy head）在单链表里的作用是<b>统一「第一个位置」和「其他位置」的操作</b>：
+      插入到第 1 个位置和插入到第 5 个位置都需要「修改前驱的 next」，有了头结点，第 1 个位置的前驱就是头结点，
+      代码不必特判。但栈<b>永远只在头部操作</b>，压根不存在「其他位置」，这个统一作用就用不上了。
+      相反，带上头结点还会带来额外负担：判空从 <code>top == nullptr</code> 变成 <code>head-&gt;next == nullptr</code>，
+      取栈顶要多跳一次 <code>head-&gt;next-&gt;data</code>，还要多 <code>new</code> 一个结点、在析构时多 <code>delete</code> 一次。
+      所以链栈的通行写法是<b>不带头结点，<code>top</code> 直接指向首元结点</b>，空栈就是 <code>top == nullptr</code>。
+      本节仍然先给一份<b>带头结点</b>的完整实现（因为很多教材和考题就是这么写的，你必须看得懂），
+      再给一份<b>不带头结点</b>的版本，对照着看你就明白取舍在哪里。
+    </p>
+    <p>
+      <b>第二，为什么不需要判满。</b>顺序栈的「满」来自「数组下标有上限」这一物理事实。
+      链栈的结点是运行时用 <code>new</code> 从堆上要来的，<b>只要堆还有内存就能继续 Push</b>，
+      所以 <code>StackFull()</code> 可以永远返回 <code>false</code>（或者干脆不提供这个操作）。
+      严格地说，链栈在<b>堆内存耗尽、<code>new</code> 抛 <code>std::bad_alloc</code></b> 时也会「上溢」，
+      但这不是数据结构层面的容量限制，而是整个进程的资源限制 —— 这时提醒用户「栈满了」没有意义，
+      因为程序已经处于不可恢复的状态。因此工程上链栈的 Push 只处理 <code>bad_alloc</code>，不做判满。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">易错：出栈时先删结点还是先移动 top？</span>
+      错误写法：<code>delete top; top = top-&gt;next;</code> —— <code>delete</code> 之后 <code>top</code> 指向的内存已经归还给系统，
+      再读 <code>top-&gt;next</code> 就是<b>访问已释放内存（use after free）</b>，程序可能崩溃、可能「碰巧正常」，
+      是最难查的一类 bug。正确顺序是<b>先保存、再前移、最后释放</b>：
+      <code>Node* p = top; top = top-&gt;next; delete p;</code>。
+    </div>
+
+    <pre data-lang="cpp" data-file="link_stack.cpp">// link_stack.cpp —— 链栈：用「带头结点」的单链表实现，只在头部插入与删除
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+#include &lt;initializer_list&gt;
+
+template &lt;class T&gt;
+struct Node {
+    T     data;
+    Node* next;
+    Node(const T&amp; d, Node* n = nullptr) : data(d), next(n) {}
+};
+
+template &lt;class T&gt;
+class LinkStack {
+public:
+    LinkStack() { head = new Node&lt;T&gt;(T()); }        // 头结点：不放有效数据
+    ~LinkStack() { ClearStack(); delete head; }      // 先释放数据结点，再释放头结点
+
+    bool StackEmpty()  const { return head-&gt;next == nullptr; }
+    bool StackFull()   const { return false; }        // 链栈没有「满」这个概念
+    int  StackLength() const {                        // 带头结点只能遍历，O(n)
+        int n = 0;
+        for (Node&lt;T&gt;* p = head-&gt;next; p; p = p-&gt;next) ++n;
+        return n;
+    }
+
+    void Push(const T&amp; e) { head-&gt;next = new Node&lt;T&gt;(e, head-&gt;next); }   // 头插，O(1)
+    T Pop() {
+        if (StackEmpty()) throw std::underflow_error("Pop: 栈空（下溢）");
+        Node&lt;T&gt;* p = head-&gt;next;      // ① 记住要删的结点
+        T e = p-&gt;data;                // ② 取出数据
+        head-&gt;next = p-&gt;next;         // ③ 摘链
+        delete p;                     // ④ 释放
+        return e;
+    }
+    T&amp; GetTop() {
+        if (StackEmpty()) throw std::underflow_error("GetTop: 栈空");
+        return head-&gt;next-&gt;data;
+    }
+    void ClearStack() {
+        Node&lt;T&gt;* p = head-&gt;next;
+        while (p) { Node&lt;T&gt;* q = p-&gt;next; delete p; p = q; }
+        head-&gt;next = nullptr;
+    }
+
+    void Print(const char* name) const {
+        std::cout &lt;&lt; name &lt;&lt; " 头结点 -&gt; ";
+        for (Node&lt;T&gt;* p = head-&gt;next; p; p = p-&gt;next) std::cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
+        std::cout &lt;&lt; "∧   （长度 " &lt;&lt; StackLength() &lt;&lt; "，头结点不计入）\n";
+    }
+
+private:
+    Node&lt;T&gt;* head;      // 头结点：它的 next 才是真正的栈顶
+};
+
+int main() {
+    LinkStack&lt;int&gt; S;
+    std::cout &lt;&lt; "初始 StackEmpty = " &lt;&lt; (S.StackEmpty() ? "true" : "false") &lt;&lt; '\n';
+    for (int v : {12, 7, 25, 3}) {                   // 注意：栈顶最后是 3
+        S.Push(v);
+        std::cout &lt;&lt; "Push(" &lt;&lt; v &lt;&lt; ") → "; S.Print("S:");
+    }
+    std::cout &lt;&lt; "GetTop = " &lt;&lt; S.GetTop() &lt;&lt; "，长度 " &lt;&lt; S.StackLength() &lt;&lt; '\n';
+    while (!S.StackEmpty()) std::cout &lt;&lt; "Pop = " &lt;&lt; S.Pop() &lt;&lt; '\n';
+    try { S.Pop(); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "空栈 Pop → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <pre data-lang="cpp" data-file="link_stack_nohdr.cpp">// link_stack_nohdr.cpp —— 工程上更常见的写法：不带头结点的链栈（推荐）
+// 优点：判空即 top == nullptr；取栈顶少跳一次指针；少 new / delete 一个结点
+// 额外维护一个计数器 cnt，把「求长度」从 O(n) 降到 O(1)
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+#include &lt;initializer_list&gt;
+
+template &lt;class T&gt;
+struct LNode {
+    T      data;
+    LNode* next;
+    explicit LNode(const T&amp; d) : data(d), next(nullptr) {}
+};
+
+template &lt;class T&gt;
+class LinkStack2 {
+public:
+    LinkStack2() : top(nullptr), cnt(0) {}
+    ~LinkStack2() { ClearStack(); }
+
+    bool StackEmpty()  const { return top == nullptr; }
+    bool StackFull()   const { return false; }
+    int  StackLength() const { return cnt; }          // O(1)，靠计数器
+
+    void Push(const T&amp; e) {
+        LNode&lt;T&gt;* p = new LNode&lt;T&gt;(e);
+        p-&gt;next = top;                               // 新结点指向原栈顶
+        top = p;                                     // 新结点成为新栈顶
+        ++cnt;
+    }
+    T Pop() {
+        if (StackEmpty()) throw std::underflow_error("Pop: 栈空（下溢）");
+        LNode&lt;T&gt;* p = top;                            // ① 记住
+        T e = p-&gt;data;                                // ② 取值
+        top = p-&gt;next;                                // ③ 前移
+        delete p;                                    // ④ 释放
+        --cnt;
+        return e;
+    }
+    T&amp; GetTop() {
+        if (StackEmpty()) throw std::underflow_error("GetTop: 栈空");
+        return top-&gt;data;
+    }
+    void ClearStack() {
+        while (top) { LNode&lt;T&gt;* q = top-&gt;next; delete top; top = q; }
+        cnt = 0;
+    }
+    void Print(const char* name) const {
+        std::cout &lt;&lt; name &lt;&lt; " top -&gt; ";
+        for (LNode&lt;T&gt;* p = top; p; p = p-&gt;next) std::cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
+        std::cout &lt;&lt; "∧   （长度 " &lt;&lt; cnt &lt;&lt; "）\n";
+    }
+
+private:
+    LNode&lt;T&gt;* top;      // 栈顶 = 首元结点；nullptr 表示空栈
+    int       cnt;      // 元素个数
+};
+
+int main() {
+    LinkStack2&lt;int&gt; S;
+    for (int v : {12, 7, 25, 3}) S.Push(v);
+    S.Print("S:");
+    std::cout &lt;&lt; "StackEmpty = " &lt;&lt; (S.StackEmpty() ? "true" : "false")
+              &lt;&lt; "，StackLength = " &lt;&lt; S.StackLength() &lt;&lt; "（O(1) 得到）\n";
+    S.ClearStack();
+    S.Print("ClearStack 之后：");
+    std::cout &lt;&lt; "StackLength = " &lt;&lt; S.StackLength() &lt;&lt; '\n';
+    return 0;
+}
+</pre>
+
+    <h3 id="s4-cmp">3.4.2　顺序栈 vs 链栈：一张表说清所有取舍</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>比较维度</th><th>顺序栈 SeqStack</th><th>链栈 LinkStack</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>存储方式</td>
+            <td>一段连续数组 + top 下标</td>
+            <td>一组离散结点，每个结点含数据域与指针域</td>
+          </tr>
+          <tr>
+            <td>Push / Pop / GetTop</td>
+            <td class="c-ok">O(1)（动态扩容时为摊还 O(1)，单次最坏 O(n)）</td>
+            <td class="c-ok">严格 O(1)，无扩容、无搬移</td>
+          </tr>
+          <tr>
+            <td>求长度 StackLength</td>
+            <td class="c-ok">O(1)：<code>top + 1</code></td>
+            <td class="c-warn">不带头结点 + 计数器可 O(1)；带头结点或不设计数器为 O(n)</td>
+          </tr>
+          <tr>
+            <td>清空 ClearStack</td>
+            <td class="c-ok">O(1)：<code>top = -1</code>（平凡类型）</td>
+            <td class="c-warn">O(n)：必须逐个 <code>delete</code>，否则内存泄漏</td>
+          </tr>
+          <tr>
+            <td>是否需预分配容量</td>
+            <td class="c-bad">需要（或在运行中扩容搬移）</td>
+            <td class="c-ok">不需要，随用随申请</td>
+          </tr>
+          <tr>
+            <td>是否有上溢</td>
+            <td class="c-bad">有：<code>top == MaxSize - 1</code> 时 Push 上溢</td>
+            <td class="c-ok">无容量上溢；只有堆耗尽时 <code>new</code> 抛 <code>bad_alloc</code></td>
+          </tr>
+          <tr>
+            <td>是否有下溢</td>
+            <td class="c-bad">有：空栈 Pop / GetTop</td>
+            <td class="c-bad">有：空栈 Pop / GetTop（<code>top == nullptr</code>）</td>
+          </tr>
+          <tr>
+            <td>空间开销</td>
+            <td class="c-ok">无额外指针；但可能预留过多或不足</td>
+            <td class="c-warn">每个元素多一个指针域（64 位下 8 字节）+ 分配器管理开销</td>
+          </tr>
+          <tr>
+            <td>缓存局部性</td>
+            <td class="c-ok">好：连续内存，命中率高，常数因子小</td>
+            <td class="c-bad">差：指针跳转 + 频繁 <code>new/delete</code>，易产生内存碎片</td>
+          </tr>
+          <tr>
+            <td>典型适用场景</td>
+            <td>容量可预估、追求速度：表达式求值、括号匹配、单调栈、递归模拟、DFS</td>
+            <td>容量完全无法预估、元素体积大、数量剧烈波动：通用容器、解析器、符号表</td>
+          </tr>
+          <tr>
+            <td>实现难度</td>
+            <td class="c-ok">低（只需当心 <code>++/--</code> 顺序与扩容）</td>
+            <td class="c-warn">高（指针、内存管理、异常安全）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">一句话选型</span>
+      <b>能预估容量就用顺序栈</b>（本讲后面所有应用都这么选），<b>预估不了再用链栈</b>。
+      真正写工程代码时，第一选择其实是 <code>std::stack&lt;T&gt;</code> —— 它默认用 <code>std::deque</code> 做底层容器，
+      既能两端 O(1) 增长又保留较好的局部性，把两边的优点都吃到了。
+    </div>
+
+    <pre data-lang="cpp" data-file="stl_stack_demo.cpp">// stl_stack_demo.cpp —— 标准库的 std::stack：容器适配器，底层默认是 std::deque
+// 记住三点：① 它只是「适配器」，不提供迭代器，不能遍历；
+//          ② 默认底层 deque 可以换：stack&lt;int, vector&lt;int&gt;&gt; 就是用 vector 存；
+//          ③ 接口是 push / pop / top / empty / size，pop() 不返回值（要自己先取 top）。
+#include &lt;iostream&gt;
+#include &lt;stack&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+
+int main() {
+    std::stack&lt;int&gt; s;                       // 底层 std::deque&lt;int&gt;
+    for (int v : {12, 7, 25}) s.push(v);
+    std::cout &lt;&lt; "size = " &lt;&lt; s.size() &lt;&lt; "，top = " &lt;&lt; s.top() &lt;&lt; '\n';
+    s.top() = 99;                             // top() 返回引用，可以直接改栈顶
+    while (!s.empty()) { std::cout &lt;&lt; s.top() &lt;&lt; ' '; s.pop(); }
+    std::cout &lt;&lt; '\n';
+
+    std::stack&lt;int, std::vector&lt;int&gt;&gt; sv;    // 换成 vector 做底层容器
+    for (int v : {1, 2, 3}) sv.push(v);
+    std::cout &lt;&lt; "vector 版 top = " &lt;&lt; sv.top() &lt;&lt; '\n';
+
+    std::stack&lt;std::string&gt; st;              // 元素类型任意
+    st.push("出"); st.push("先"); st.push("进"); st.push("后");
+    while (!st.empty()) { std::cout &lt;&lt; st.top(); st.pop(); }
+    std::cout &lt;&lt; "　← 出栈顺序恰好是入栈顺序的逆序\n";
+    return 0;
+}
+</pre>
+
+    <h2 id="s5">3.5　经典应用一：括号匹配</h2>
+
+    <p>
+      编译器在你少写一个右括号时会准确报出「括号不匹配」，检查器（linter）能一眼看出 <code>([)]</code> 是错的。
+      它们用的算法，核心就是这一个栈。这个例子之所以经典，是因为它把栈的本质暴露得最彻底：
+      <b>「最近的、还没有被处理完的东西」永远在栈顶</b>。
+    </p>
+
+    <h3 id="s5-idea">3.5.1　本质：右括号要找「最近的」左括号</h3>
+
+    <p>
+      从左到右扫描字符串，遇到左括号就意味着「<b>欠了一笔账</b>」，先记账；
+      遇到右括号就是「<b>来还账</b>」，它必须和<b>最近一笔还没还的账</b>抵消。
+      而「最近的未完成事项」正好就是栈顶 —— 这就是为什么必须用栈，而不能用队列：
+      队列是先进先出，还的会是<b>最早</b>的那笔账，嵌套结构立刻就错了。
+    </p>
+    <p>
+      算法描述只有五行：
+    </p>
+    <ol>
+      <li>遇到左括号 <code>( [ {</code>：<b>入栈</b>。</li>
+      <li>遇到右括号 <code>) ] }</code>：若栈空，说明这个右括号多余，<b>失败</b>；</li>
+      <li>否则看栈顶：与当前右括号<b>类型相同</b>则弹出（配对成功），<b>类型不同</b>则失败。</li>
+      <li>扫描结束后再检查栈：<b>栈空 → 匹配成功；栈非空 → 有左括号没被配对，失败</b>。</li>
+      <li>其它字符（字母、数字、运算符、空白）一律跳过 —— 括号匹配只关心括号。</li>
+    </ol>
+
+    <div class="figure">
+      <svg viewBox="0 0 760 348" width="760" height="348" xmlns="http://www.w3.org/2000/svg">
+        <text x="24" y="24" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">输入串 "{ [ ( ) ] }" 的完整扫描过程（栈底在左，栈顶在右）</text>
+
+        <!-- 表头 -->
+        <rect x="24" y="38" width="712" height="32" rx="6" fill="var(--bg-soft)" stroke="var(--border)"/>
+        <g fill="var(--text-soft)" font-size="12.5" font-weight="700">
+          <text x="40" y="59">步骤</text>
+          <text x="110" y="59">当前字符</text>
+          <text x="210" y="59">动作</text>
+          <text x="430" y="59">栈内容（左 = 栈底，右 = 栈顶）</text>
+        </g>
+
+        <!-- 第 1 行 -->
+        <rect x="24" y="72" width="712" height="38" rx="6" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="96" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">1</text>
+        <rect x="104" y="76" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="125" y="97" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">{</text>
+        <text x="210" y="96" fill="var(--brand)" font-size="12.5">左括号 → 入栈</text>
+        <rect x="430" y="76" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="451" y="97" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">{</text>
+
+        <!-- 第 2 行 -->
+        <rect x="24" y="114" width="712" height="38" rx="6" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="40" y="138" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">2</text>
+        <rect x="104" y="118" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="125" y="139" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">[</text>
+        <text x="210" y="138" fill="var(--brand)" font-size="12.5">左括号 → 入栈</text>
+        <rect x="430" y="118" width="42" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="451" y="139" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">{</text>
+        <rect x="478" y="118" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="499" y="139" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">[</text>
+
+        <!-- 第 3 行 -->
+        <rect x="24" y="156" width="712" height="38" rx="6" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="180" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">3</text>
+        <rect x="104" y="160" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="125" y="181" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">(</text>
+        <text x="210" y="180" fill="var(--brand)" font-size="12.5">左括号 → 入栈</text>
+        <rect x="430" y="160" width="42" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="451" y="181" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">{</text>
+        <rect x="478" y="160" width="42" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="499" y="181" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">[</text>
+        <rect x="526" y="160" width="42" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="547" y="181" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">(</text>
+
+        <!-- 第 4 行 -->
+        <rect x="24" y="198" width="712" height="38" rx="6" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="40" y="222" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">4</text>
+        <rect x="104" y="202" width="42" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="125" y="223" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">)</text>
+        <text x="210" y="222" fill="var(--ok)" font-size="12.5">与栈顶 ( 同类 → 弹出</text>
+        <rect x="430" y="202" width="42" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="451" y="223" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">{</text>
+        <rect x="478" y="202" width="42" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="499" y="223" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">[</text>
+
+        <!-- 第 5 行 -->
+        <rect x="24" y="240" width="712" height="38" rx="6" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="264" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">5</text>
+        <rect x="104" y="244" width="42" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="125" y="265" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">]</text>
+        <text x="210" y="264" fill="var(--ok)" font-size="12.5">与栈顶 [ 同类 → 弹出</text>
+        <rect x="430" y="244" width="42" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="451" y="265" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">{</text>
+
+        <!-- 第 6 行 -->
+        <rect x="24" y="282" width="712" height="38" rx="6" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="40" y="306" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">6</text>
+        <rect x="104" y="286" width="42" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="125" y="307" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">}</text>
+        <text x="210" y="306" fill="var(--ok)" font-size="12.5">与栈顶 { 同类 → 弹出</text>
+        <text x="430" y="306" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">（空栈）</text>
+
+        <text x="24" y="340" fill="var(--ok)" font-size="13" font-weight="700">扫描结束时栈为空 → 匹配成功；若栈非空（如 "(()"）或有类型冲突（如 "([)]"）则失败</text>
+      </svg>
+      <figcaption>图 3-6　括号匹配的逐步扫描：左括号入栈「记账」，右括号与栈顶「销账」</figcaption>
+    </div>
+
+    <h3 id="s5-fail">3.5.2　三种失败情形</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>失败情形</th><th>例子</th><th>在哪一步被发现</th><th>判定条件</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>右括号多余</b></td>
+            <td><code>())</code>、<code>)(</code></td>
+            <td>扫描到多余的右括号那一瞬间</td>
+            <td>遇到右括号，但<b>栈已空</b></td>
+          </tr>
+          <tr>
+            <td><b>左括号多余</b></td>
+            <td><code>(()</code>、<code>((</code></td>
+            <td>整个串扫描完之后</td>
+            <td>循环结束，但<b>栈非空</b></td>
+          </tr>
+          <tr>
+            <td><b>类型不匹配</b></td>
+            <td><code>([)]</code>、<code>{(})</code></td>
+            <td>扫描到与栈顶不同类的右括号时</td>
+            <td>栈非空，但<b>栈顶与当前右括号不是一对</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">最容易被忽略的是第二种</span>
+      前两种失败中，「右括号多余」在循环里就能发现，很多同学写完循环就 <code>return true</code> 了 ——
+      于是 <code>(()</code> 被误判为匹配成功。<b>循环结束后必须再判一次栈空</b>，这是本题唯一的「隐藏考点」。
+      另外注意：<code>([)]</code> 的左右括号<b>总数是相等的</b>，但嵌套交叉了，所以仍然失败 ——
+      这也说明「数括号个数」这种偷懒做法是错的（顺便说，那种做法还会被字符串里的字符字面量、注释骗到）。
+    </div>
+
+    <p>
+      下面这个动画把四种情况连在一起演示：<code>{[()]}</code> 匹配成功，<code>([)]</code> 类型不匹配，
+      <code>(()</code> 左括号多余，<code>())</code> 右括号多余。每换一个串，动画都会重新开始扫描，
+      注意观察橙色指针（当前字符）与栈内容的变化。
+    </p>
+
+    <div id="viz-brackets"></div>
+
+    <h3 id="s5-code">3.5.3　C++ 完整实现</h3>
+
+    <p>
+      第一份实现是「工程版」：返回失败原因和精确位置，方便直接集成到编译器的报错信息里。
+      第二份是「考试版」：只返回 <code>bool</code>，十几行手写就能默出来。两份都值得会。
+    </p>
+
+    <pre data-lang="cpp" data-file="bracket_match.cpp">// bracket_match.cpp —— 括号匹配（工程版）：支持 () [] {}，返回失败位置与原因
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;stack&gt;
+#include &lt;utility&gt;
+
+// 返回空串表示匹配成功；否则返回人类可读的失败原因
+std::string CheckBrackets(const std::string&amp; s) {
+    std::stack&lt;std::pair&lt;char, int&gt; &gt; st;      // 存 (左括号, 它的下标)
+    for (int i = 0; i &lt; (int)s.size(); ++i) {
+        char c = s[i];
+        if (c == '(' || c == '[' || c == '{') {
+            st.push(std::make_pair(c, i));                      // 记账
+        } else if (c == ')' || c == ']' || c == '}') {
+            char want = (c == ')') ? '(' : (c == ']' ? '[' : '{');
+            if (st.empty())
+                return "位置 " + std::to_string(i) + " 的 '" + c + "' 多余：右括号多余";
+            if (st.top().first != want)
+                return "位置 " + std::to_string(i) + " 的 '" + c + "' 与位置 " +
+                       std::to_string(st.top().second) + " 的 '" + st.top().first + "' 类型不匹配";
+            st.pop();                                           // 销账
+        }
+        // 其它字符（字母 / 数字 / 运算符 / 空格）一律跳过
+    }
+    if (!st.empty())
+        return "位置 " + std::to_string(st.top().second) + " 的 '" + st.top().first + "' 多余：左括号多余";
+    return "";
+}
+
+void Test(const std::string&amp; s) {
+    std::string r = CheckBrackets(s);
+    std::cout &lt;&lt; (r.empty() ? "[通过] " : "[失败] ") &lt;&lt; '"' &lt;&lt; s &lt;&lt; '"';
+    if (!r.empty()) std::cout &lt;&lt; "   → " &lt;&lt; r;
+    std::cout &lt;&lt; '\n';
+}
+
+int main() {
+    Test("{[()]}");
+    Test("((1+2)*[3-4])/5");
+    Test("([)]");                 // 类型不匹配
+    Test("(()");                  // 左括号多余
+    Test("())");                  // 右括号多余
+    Test("");                     // 空串算匹配
+    Test("no brackets at all");   // 没有括号也算匹配
+    return 0;
+}
+</pre>
+
+    <pre data-lang="cpp" data-file="bracket_match_simple.cpp">// bracket_match_simple.cpp —— 括号匹配（考试版）：只判断是否匹配，手写十几行
+#include &lt;iostream&gt;
+#include &lt;stack&gt;
+
+bool Match(const char* str) {
+    std::stack&lt;char&gt; st;
+    for (const char* p = str; *p; ++p) {
+        char c = *p;
+        if (c == '(' || c == '[' || c == '{') {
+            st.push(c);                                   // 左括号入栈
+        } else if (c == ')' || c == ']' || c == '}') {
+            if (st.empty()) return false;                 // 情形一：右括号多余
+            char t = st.top();
+            st.pop();
+            if ((c == ')' &amp;&amp; t != '(') ||
+                (c == ']' &amp;&amp; t != '[') ||
+                (c == '}' &amp;&amp; t != '{')) return false;     // 情形三：类型不匹配
+        }
+    }
+    return st.empty();                                    // 情形二：栈非空 = 左括号多余
+}
+
+int main() {
+    const char* cases[] = {"{[()]}", "([)]", "(()", "())", "a*(b+[c-d])"};
+    for (const char* s : cases)
+        std::cout &lt;&lt; (Match(s) ? "匹配   " : "不匹配 ") &lt;&lt; s &lt;&lt; '\n';
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点与复杂度</span>
+      ① 时间 <code>O(n)</code>：每个字符恰好被处理一次，每个括号最多进栈一次、出栈一次；
+      ② 空间 <code>O(n)</code>：最坏情况（如 <code>((((((</code>）栈里同时存着 n 个左括号；
+      ③ 空串、无括号串都算匹配；④ 必须处理「循环结束后判栈空」这一条。
+      常见变体：「最长有效括号」「删除最少括号使串合法」都是它的近亲。
+    </div>
+
+    <h2 id="s6">3.6　经典应用二：进制转换</h2>
+
+    <p>
+      十进制转其他进制用的是小学就学过的<b>短除法</b>：不断用 <code>N</code> 除以基数 <code>base</code>，
+      记下余数，直到商为 0，最后把余数<b>从下往上</b>读出来，就是结果。
+      问题在于：人可以用眼睛「从下往上」读，程序里怎么做到？
+    </p>
+    <p>
+      关键在于推一遍公式。任何一个 <code>base</code> 进制数都可以写成：
+    </p>
+
+    <div class="formula center" data-math="N = (...((d_k × base + d_{k-1}) × base + ...) × base + d_0)"></div>
+
+    <p>
+      也就是说，<b>第一次除出来的余数 d_0 是最低位，最后一次除出来的 d_k 才是最高位</b>。
+      而输出时必须先输出 d_k、最后输出 d_0 —— 这正是「<b>先进后出</b>」。
+      于是：<b>算出来的余数依次入栈，算完之后依次出栈输出</b>，顺序天然被倒过来了。
+      除了栈，你也可以用数组存下来再倒着遍历（本质一样），或者用递归（本质还是栈）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 760 330" width="760" height="330" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m37a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m37b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <!-- 左：除以 2 -->
+        <rect x="16" y="16" width="390" height="298" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="32" y="42" fill="var(--brand)" font-size="13.5" font-weight="700">156 转二进制：不断除以 2</text>
+        <g font-size="12.5" font-family="Consolas, monospace">
+          <text x="34" y="72" fill="var(--text-soft)">156 ÷ 2 = 78　余</text>
+          <text x="196" y="72" fill="var(--warn)" font-weight="700">0</text>
+          <text x="34" y="96" fill="var(--text-soft)">78 ÷ 2 = 39　余</text>
+          <text x="196" y="96" fill="var(--warn)" font-weight="700">0</text>
+          <text x="34" y="120" fill="var(--text-soft)">39 ÷ 2 = 19　余</text>
+          <text x="196" y="120" fill="var(--warn)" font-weight="700">1</text>
+          <text x="34" y="144" fill="var(--text-soft)">19 ÷ 2 = 9　余</text>
+          <text x="196" y="144" fill="var(--warn)" font-weight="700">1</text>
+          <text x="34" y="168" fill="var(--text-soft)">9 ÷ 2 = 4　余</text>
+          <text x="196" y="168" fill="var(--warn)" font-weight="700">1</text>
+          <text x="34" y="192" fill="var(--text-soft)">4 ÷ 2 = 2　余</text>
+          <text x="196" y="192" fill="var(--warn)" font-weight="700">0</text>
+          <text x="34" y="216" fill="var(--text-soft)">2 ÷ 2 = 1　余</text>
+          <text x="196" y="216" fill="var(--warn)" font-weight="700">0</text>
+          <text x="34" y="240" fill="var(--text-soft)">1 ÷ 2 = 0　余</text>
+          <text x="196" y="240" fill="var(--warn)" font-weight="700">1</text>
+        </g>
+        <line x1="230" y1="250" x2="230" y2="66" stroke="var(--brand)" stroke-width="2" marker-end="url(#m37a)"/>
+        <text x="240" y="150" fill="var(--brand)" font-size="12">余数从下往上读</text>
+        <text x="32" y="276" fill="var(--text)" font-size="13">结果：156 = (</text>
+        <text x="130" y="276" fill="var(--ok)" font-size="14" font-weight="700" font-family="Consolas, monospace">10011100</text>
+        <text x="238" y="276" fill="var(--text)" font-size="13">)₂　共 8 位</text>
+        <text x="32" y="300" fill="var(--text-faint)" font-size="11.5">最先得到的余数是低位，最后得到的才是高位</text>
+
+        <!-- 右：除以 16 -->
+        <rect x="420" y="16" width="324" height="298" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="436" y="42" fill="var(--purple)" font-size="13.5" font-weight="700">156 转十六进制：除以 16</text>
+        <g font-size="12.5" font-family="Consolas, monospace">
+          <text x="438" y="76" fill="var(--text-soft)">156 ÷ 16 = 9　余</text>
+          <text x="600" y="76" fill="var(--warn)" font-weight="700">12 → C</text>
+          <text x="438" y="104" fill="var(--text-soft)">9 ÷ 16 = 0　余</text>
+          <text x="600" y="104" fill="var(--warn)" font-weight="700">9</text>
+        </g>
+        <line x1="660" y1="120" x2="660" y2="70" stroke="var(--purple)" stroke-width="2" marker-end="url(#m37b)"/>
+        <text x="438" y="150" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">只用 2 步就够了</text>
+        <text x="438" y="180" fill="var(--text)" font-size="13">结果：156 = (</text>
+        <text x="538" y="180" fill="var(--ok)" font-size="14" font-weight="700" font-family="Consolas, monospace">9C</text>
+        <text x="572" y="180" fill="var(--text)" font-size="13">)₁₆</text>
+
+        <text x="438" y="216" fill="var(--text-soft)" font-size="12.5">进制越大，位数越短：</text>
+        <text x="438" y="240" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">156 = 10011100₂ = 234₈ = 9C₁₆</text>
+        <text x="438" y="268" fill="var(--text-faint)" font-size="11.5">算法完全一样，只把除数换成 base；</text>
+        <text x="438" y="290" fill="var(--text-faint)" font-size="11.5">余数 10~15 用 A~F 表示即可</text>
+      </svg>
+      <figcaption>图 3-7　短除法 + 栈：余数依次入栈，出栈时自然变成「高位在前」</figcaption>
+    </div>
+
+    <p>
+      手动验算 <code>156 = 10011100₂</code>：<code>1×2⁷ + 0×2⁶ + 0×2⁵ + 1×2⁴ + 1×2³ + 1×2² + 0×2¹ + 0×2⁰ = 128 + 16 + 8 + 4 = 156</code> ✓。
+    </p>
+
+    <p>
+      下面这个动画把「短除法竖式」和「余数栈」并排放在一起：左边每算一步就多一行除法，
+      右边对应地多压一个余数；除法结束后商变成 0，再从左到右逐个出栈，结果字符串就一点点拼出来了。
+      请特别注意<b>入栈的是余数、出栈顺序才是最终答案</b>这一点。
+    </p>
+
+    <div id="viz-base-convert"></div>
+
+    <pre data-lang="cpp" data-file="base_convert.cpp">// base_convert.cpp —— 十进制转 2~16 任意进制（含负数、0 与非法进制处理）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;stack&gt;
+#include &lt;stdexcept&gt;
+
+std::string ToBase(long long n, int base) {
+    if (base &lt; 2 || base &gt; 16)
+        throw std::invalid_argument("进制必须在 2~16 之间");
+
+    const char* DIGIT = "0123456789ABCDEF";
+    bool neg = (n &lt; 0);
+    // 取绝对值：先 -(n+1) 再 +1，避免 n == LLONG_MIN 时取负溢出
+    unsigned long long x = neg ? (static_cast&lt;unsigned long long&gt;(-(n + 1)) + 1ULL)
+                               : static_cast&lt;unsigned long long&gt;(n);
+
+    std::stack&lt;char&gt; st;                       // 用栈保存余数
+    if (x == 0) st.push('0');                  // 0 要特判，否则循环一次都不执行
+    while (x &gt; 0) {
+        st.push(DIGIT[x % base]);              // 低位先入栈
+        x /= base;
+    }
+
+    std::string out;
+    if (neg) out += '-';
+    while (!st.empty()) {                      // 出栈 = 高位 → 低位
+        out += st.top();
+        st.pop();
+    }
+    return out;
+}
+
+int main() {
+    long long tests[] = {156, 0, 255, -156, 1000000000LL};
+    for (long long v : tests) {
+        std::cout &lt;&lt; v &lt;&lt; " → 二进制 " &lt;&lt; ToBase(v, 2)
+                  &lt;&lt; " | 八进制 " &lt;&lt; ToBase(v, 8)
+                  &lt;&lt; " | 十六进制 " &lt;&lt; ToBase(v, 16) &lt;&lt; '\n';
+    }
+    try { ToBase(10, 20); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "非法进制 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：0 与负数</span>
+      ① <code>0</code> 是最大的坑：<code>while (x &gt; 0)</code> 一次都不执行，栈是空的，输出就成了空字符串。
+      必须特判「若 x == 0 则直接返回 "0"」（上面的代码用「先 push 一个 '0'」处理）。
+      ② 负数要先取绝对值、最后补负号；但 <code>-LLONG_MIN</code> 会溢出，所以要用
+      <code>-(n + 1) + 1</code> 这种写法（或者转成 <code>unsigned long long</code> 再取负）。
+      ③ 余数 10~15 必须映射成 <code>A~F</code>，别指望 <code>to_string</code> 帮你。
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">反过来：任意进制 → 十进制（霍纳法则）</span>
+      反向转换<b>不需要栈</b>：从左到右逐位扫描，<code>ans = ans * base + digit</code>，一遍就够
+      （这就是秦九韶 / 霍纳法则 Horner's rule）。栈只在「低位先算出来、但输出要高位在前」时才需要。
+      这一点常被拿来出题：<b>问「进制转换的哪一步需要栈」</b>，答案就是「十进制转其他进制时倒序输出余数」。
+    </div>
+
+    <h2 id="s7">3.7　经典应用三：表达式求值（本章重头戏）</h2>
+
+    <p>
+      「计算 <code>3 + 4 * 2 - ( 1 + 5 ) ^ 2 / 3</code>」对人来说是一眼的事，对计算机却是<b>一整套栈的配合</b>。
+      这一节我们分四步走：先搞清楚三种表达式长什么样、怎么手推互转；
+      再给出中缀转后缀的完整规则表；然后写三份 C++ 代码（中缀转后缀、后缀求值、中缀直接求值）；
+      最后解释为什么编译器偏爱后缀表达式。这一节内容多，但它是整门课里「栈」这个工具最漂亮的一次表演。
+    </p>
+
+    <h3 id="s7-def">3.7.1　中缀、前缀、后缀：三种表达式</h3>
+
+    <p>
+      我们平时写的算术式叫<b>中缀表达式</b>（infix expression）：运算符放在两个操作数<b>中间</b>，
+      再靠括号和优先级来规定运算顺序。它的优点是符合人类直觉，缺点是<b>对机器极不友好</b>：
+      计算机必须来回扫描找到优先级最高的那一步，还要处理括号的嵌套。
+    </p>
+    <p>
+      如果把运算符挪到操作数<b>前面</b>，就得到<b>前缀表达式</b>（prefix expression），
+      也叫<b>波兰式</b>（Polish notation，得名于波兰数学家 Jan Łukasiewicz）；
+      挪到<b>后面</b>就是<b>后缀表达式</b>（postfix expression），也叫<b>逆波兰式</b>（Reverse Polish Notation，RPN）。
+      三种写法里<b>操作数的相对顺序完全一样</b>，变的只是运算符的位置 —— 这一点务必先记住，
+      它是所有转换方法的基础。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>表达式</th><th>写法</th><th>上面例子的结果</th><th>怎么读</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>中缀</b> infix</td>
+            <td>操作数 运算符 操作数</td>
+            <td><code>3 + 4 * 2 - ( 1 + 5 ) ^ 2 / 3</code></td>
+            <td>人读的方式，需要优先级与括号</td>
+          </tr>
+          <tr>
+            <td><b>前缀</b> prefix / 波兰式</td>
+            <td>运算符 操作数 操作数</td>
+            <td><code>- + 3 * 4 2 / ^ + 1 5 2 3</code></td>
+            <td>从右往左扫；运算符作用于它右边紧邻的两个操作数</td>
+          </tr>
+          <tr>
+            <td><b>后缀</b> postfix / 逆波兰式</td>
+            <td>操作数 操作数 运算符</td>
+            <td><code>3 4 2 * + 1 5 + 2 ^ 3 / -</code></td>
+            <td>从左往右扫；运算符作用于它左边紧邻的两个操作数</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      为什么这三种写法能表达同一个式子？因为一个表达式本质上是一棵<b>表达式树</b>（expression tree）：
+      操作数在叶子上，运算符在内部结点上。对这棵树做<b>前序遍历</b>得到前缀表达式，
+      做<b>后序遍历</b>得到后缀表达式，做<b>中序遍历</b>得到中缀表达式（但会丢掉括号，所以严格说需要重新加括号）。
+      理解了这一点，「三种表达式互转」就退化成了「树的三种遍历」—— 这是本章与第 07 讲（树与二叉树）之间的一座桥。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 392" width="900" height="392" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="450" y1="62" x2="200" y2="92"/>
+          <line x1="450" y1="62" x2="700" y2="92"/>
+          <line x1="200" y1="132" x2="110" y2="162"/>
+          <line x1="200" y1="132" x2="290" y2="162"/>
+          <line x1="290" y1="202" x2="240" y2="232"/>
+          <line x1="290" y1="202" x2="340" y2="232"/>
+          <line x1="700" y1="132" x2="620" y2="162"/>
+          <line x1="700" y1="132" x2="780" y2="162"/>
+          <line x1="620" y1="202" x2="560" y2="232"/>
+          <line x1="620" y1="202" x2="680" y2="232"/>
+          <line x1="560" y1="272" x2="520" y2="302"/>
+          <line x1="560" y1="272" x2="600" y2="302"/>
+        </g>
+
+        <g font-family="Consolas, monospace" font-size="16" text-anchor="middle">
+          <circle cx="450" cy="44" r="20" fill="var(--brand)" stroke="var(--brand-dark)"/>
+          <text x="450" y="50" fill="#fff" font-weight="700">−</text>
+
+          <circle cx="200" cy="112" r="20" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="200" y="118" fill="var(--text)" font-weight="700">+</text>
+          <circle cx="700" cy="112" r="20" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="700" y="118" fill="var(--text)" font-weight="700">/</text>
+
+          <circle cx="110" cy="182" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="110" y="188" fill="var(--text)">3</text>
+          <circle cx="290" cy="182" r="20" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="290" y="188" fill="var(--text)" font-weight="700">*</text>
+          <circle cx="620" cy="182" r="20" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="620" y="188" fill="var(--text)" font-weight="700">^</text>
+          <circle cx="780" cy="182" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="780" y="188" fill="var(--text)">3</text>
+
+          <circle cx="240" cy="252" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="240" y="258" fill="var(--text)">4</text>
+          <circle cx="340" cy="252" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="340" y="258" fill="var(--text)">2</text>
+          <circle cx="560" cy="252" r="20" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="560" y="258" fill="var(--text)" font-weight="700">+</text>
+          <circle cx="680" cy="252" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="680" y="258" fill="var(--text)">2</text>
+
+          <circle cx="520" cy="322" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="520" y="328" fill="var(--text)">1</text>
+          <circle cx="600" cy="322" r="18" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="600" y="328" fill="var(--text)">5</text>
+        </g>
+
+        <text x="24" y="34" fill="var(--brand)" font-size="13" font-weight="700">表达式树</text>
+        <text x="24" y="56" fill="var(--text-faint)" font-size="11.5">叶子 = 操作数，内部结点 = 运算符</text>
+
+        <rect x="24" y="344" width="852" height="36" rx="8" fill="var(--bg-soft)" stroke="var(--border)"/>
+        <text x="40" y="368" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">
+          前序遍历（根→左→右）= 前缀式　- + 3 * 4 2 / ^ + 1 5 2 3
+        </text>
+        <text x="440" y="368" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">
+          后序遍历（左→右→根）= 后缀式　3 4 2 * + 1 5 + 2 ^ 3 / -
+        </text>
+      </svg>
+      <figcaption>图 3-8　表达式树：前序 = 前缀式，后序 = 后缀式，中序 = 中缀式（需要重新补括号）</figcaption>
+    </div>
+
+    <h4 id="s7-hand">手推方法一：加括号法（最快，考试首选）</h4>
+
+    <p>
+      步骤如下：<b>① 按优先级与结合性，给每一处运算都加上一对括号，直到整个式子被一个最外层括号包住；
+      ② 把每个运算符移到它所对应的那对括号的「外面」——移到右括号后面就得到后缀，移到左括号前面就得到前缀；
+      ③ 去掉所有括号。</b>
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>式子（逐步加括号）</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>原始</td><td><code>3 + 4 * 2 - ( 1 + 5 ) ^ 2 / 3</code></td><td>括号本来就有一对，保留</td></tr>
+          <tr><td>① 先算 <code>^</code></td><td><code>3 + 4 * 2 - ( ( 1 + 5 ) ^ 2 ) / 3</code></td><td>幂优先级最高</td></tr>
+          <tr><td>② 再算 <code>*</code></td><td><code>3 + ( 4 * 2 ) - ( ( 1 + 5 ) ^ 2 ) / 3</code></td><td>乘除高于加减</td></tr>
+          <tr><td>③ 再算 <code>/</code></td><td><code>3 + ( 4 * 2 ) - ( ( ( 1 + 5 ) ^ 2 ) / 3 )</code></td><td>除与乘同级，左侧先算</td></tr>
+          <tr><td>④ 再算 <code>+</code></td><td><code>( 3 + ( 4 * 2 ) ) - ( ( ( 1 + 5 ) ^ 2 ) / 3 )</code></td><td>加在减左边，所以先算加</td></tr>
+          <tr><td>⑤ 最后 <code>-</code></td><td><code>( ( 3 + ( 4 * 2 ) ) - ( ( ( 1 + 5 ) ^ 2 ) / 3 ) )</code></td><td>整个式子被一层括号包住</td></tr>
+          <tr><td>后缀：运算符移到右括号后</td><td><code>3 4 2 * + 1 5 + 2 ^ 3 / -</code></td><td>去掉括号即得后缀式</td></tr>
+          <tr><td>前缀：运算符移到左括号前</td><td><code>- + 3 * 4 2 / ^ + 1 5 2 3</code></td><td>去掉括号即得前缀式</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      用一个更小的例子验证这个方法的正确性：<code>1 + 2 * 3</code> → 加括号 <code>( 1 + ( 2 * 3 ) )</code> →
+      后缀 <code>1 2 3 * +</code>、前缀 <code>+ 1 * 2 3</code>。心算一下：后缀扫描时先算 <code>2 3 *</code> 得 6，再算 <code>1 6 +</code> 得 7 ✓
+      —— 括号的位置恰好规定了「谁先结合」，所以后缀式里再写括号就是多余的。
+    </p>
+
+    <h4 id="s7-hand2">手推方法二：栈扫描法（程序实现的方法）</h4>
+
+    <p>
+      把上面的过程「机械化」，就是接下来要讲的算法。下面是<b>中缀转后缀</b>的逐步推导表，
+      和 3.7.3 节动画里演的完全是同一件事。建议你先自己在纸上推一遍，再用动画对答案。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>步</th><th>读入</th><th>运算符栈（底 → 顶）</th><th>输出序列</th><th>依据</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td><code>3</code></td><td>（空）</td><td><code>3</code></td><td>操作数直接输出</td></tr>
+          <tr><td>2</td><td><code>+</code></td><td><code>+</code></td><td><code>3</code></td><td>栈空，直接入栈</td></tr>
+          <tr><td>3</td><td><code>4</code></td><td><code>+</code></td><td><code>3 4</code></td><td>操作数直接输出</td></tr>
+          <tr><td>4</td><td><code>*</code></td><td><code>+ *</code></td><td><code>3 4</code></td><td>isp(+) = 3 &lt; icp(*) = 4 → 不弹，入栈</td></tr>
+          <tr><td>5</td><td><code>2</code></td><td><code>+ *</code></td><td><code>3 4 2</code></td><td>操作数直接输出</td></tr>
+          <tr><td>6</td><td><code>-</code></td><td><code>-</code></td><td><code>3 4 2 * +</code></td><td>isp(*) = 5 ≥ 2 弹 <code>*</code>；isp(+) = 3 ≥ 2 弹 <code>+</code>；再入栈</td></tr>
+          <tr><td>7</td><td><code>(</code></td><td><code>- (</code></td><td><code>3 4 2 * +</code></td><td>左括号直接入栈</td></tr>
+          <tr><td>8</td><td><code>1</code></td><td><code>- (</code></td><td><code>3 4 2 * + 1</code></td><td>操作数直接输出</td></tr>
+          <tr><td>9</td><td><code>+</code></td><td><code>- ( +</code></td><td><code>3 4 2 * + 1</code></td><td>isp( ( ) = 1 &lt; icp(+) = 2 → 入栈（左括号挡住了）</td></tr>
+          <tr><td>10</td><td><code>5</code></td><td><code>- ( +</code></td><td><code>3 4 2 * + 1 5</code></td><td>操作数直接输出</td></tr>
+          <tr><td>11</td><td><code>)</code></td><td><code>-</code></td><td><code>3 4 2 * + 1 5 +</code></td><td>弹出到 <code>(</code> 为止，<code>(</code> 出栈丢弃</td></tr>
+          <tr><td>12</td><td><code>^</code></td><td><code>- ^</code></td><td><code>3 4 2 * + 1 5 +</code></td><td>isp(−) = 3 &lt; icp(^) = 7 → 入栈</td></tr>
+          <tr><td>13</td><td><code>2</code></td><td><code>- ^</code></td><td><code>3 4 2 * + 1 5 + 2</code></td><td>操作数直接输出</td></tr>
+          <tr><td>14</td><td><code>/</code></td><td><code>- /</code></td><td><code>3 4 2 * + 1 5 + 2 ^</code></td><td>isp(^) = 6 ≥ 4 弹 <code>^</code>；isp(−) = 3 &lt; 4 → 入栈</td></tr>
+          <tr><td>15</td><td><code>3</code></td><td><code>- /</code></td><td><code>3 4 2 * + 1 5 + 2 ^ 3</code></td><td>操作数直接输出</td></tr>
+          <tr><td>16</td><td>扫描结束</td><td>（空）</td><td><code>3 4 2 * + 1 5 + 2 ^ 3 / -</code></td><td>把栈里剩下的 <code>/</code>、<code>-</code> 依次弹出</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s7-rules">3.7.2　中缀转后缀：完整规则与优先级表</h3>
+
+    <p>
+      算法的骨架只有四句话，难点全在「优先级怎么定」。先给结论表：
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>运算符</th><th>栈内优先级 isp<br>（in-stack priority）</th><th>栈外优先级 icp<br>（in-coming priority）</th><th>结合性</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>+</code> <code>-</code></td><td>3</td><td>2</td><td>左结合</td><td>icp = isp − 1：等优先级时栈顶先出，保证左结合</td></tr>
+          <tr><td><code>*</code> <code>/</code></td><td>5</td><td>4</td><td>左结合</td><td>同上，且整体高于加减</td></tr>
+          <tr><td><code>^</code>（幂）</td><td>6</td><td>7</td><td><b>右结合</b></td><td><b>icp = isp + 1</b>：等优先级时栈顶不弹，保证右结合</td></tr>
+          <tr><td><code>(</code></td><td>1</td><td>6</td><td>—</td><td>栈内最低（谁也弹不走它），栈外极高（进栈后挡住下面所有运算符）</td></tr>
+          <tr><td><code>)</code></td><td>—</td><td>—</td><td>—</td><td><b>特判</b>：不停弹出并输出，直到遇见 <code>(</code>，再把 <code>(</code> 弹出丢弃</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <span class="note-title">算法四句话</span>
+      <ol style="margin:6px 0 0">
+        <li><b>操作数</b>：直接追加到输出序列（操作数之间不比较优先级）。</li>
+        <li><b>运算符 op</b>：<code>while (栈非空 &amp;&amp; isp(栈顶) &gt;= icp(op)) 弹出栈顶并输出;</code> 然后把 op 入栈。</li>
+        <li><b>左括号</b>：直接入栈。<b>右括号</b>：弹出并输出直到栈顶是左括号，再把左括号弹出丢弃。</li>
+        <li><b>扫描结束</b>：把栈里剩余的运算符全部弹出输出（<b>漏掉这一步是最常见的错误</b>）。</li>
+      </ol>
+    </div>
+
+    <p>
+      为什么左结合的运算符要满足 <code>icp = isp − 1</code>？因为「弹出条件」是
+      <code>isp(栈顶) &gt;= icp(当前)</code>：当两者<b>同级</b>时（比如栈顶是 <code>+</code>、当前也是 <code>+</code>），
+      <code>3 &gt;= 2</code> 成立，于是<b>先入栈的那个先弹出</b> —— 这正是左结合的语义（<code>a-b-c</code> 要算成 <code>(a-b)-c</code>）。
+      而 <code>^</code> 是右结合的（<code>a^b^c = a^(b^c)</code>），所以要让同级时<b>不弹</b>，
+      只能把关系反过来：<code>icp = isp + 1</code>，这样 <code>6 &gt;= 7</code> 不成立，栈顶的 <code>^</code> 就留住了。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点：为什么两套优先级？</span>
+      考研题常见问法：「中缀转后缀时，<code>(</code> 的栈内优先级为什么最低、栈外优先级为什么最高？」
+      答：栈内最低 → 任何栈外运算符都不会把它弹出去（保证括号内的运算先算完）；
+      栈外最高 → 它一进栈就压在下面所有运算符之上，形成一道「隔离墙」。
+      另外注意：<b>同一个运算符的 isp 与 icp 一般不相等</b>，这个「不等」正是结合性的编码方式。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错：把 <code>&gt;=</code> 写成 <code>&gt;</code></span>
+      弹出条件必须是 <code>isp(栈顶) &gt;= icp(当前)</code>。写成 <code>&gt;</code> 会让同级运算符<b>留在栈里</b>，
+      于是 <code>a-b+c</code> 被算成 <code>a-(b+c)</code>，<code>8/4/2</code> 被算成 <code>8/(4/2)=4</code>（正确结果是 1）。
+      这类 bug 在测试用例里很容易蒙混过关（<code>a+b+c</code> 这种同运算符加法恰好不受影响），
+      一定要用 <b>减法与除法</b>去测。
+    </div>
+
+    <h3 id="s7-c2p">3.7.3　中缀转后缀的 C++ 实现</h3>
+
+    <p>
+      下面这个动画是本节的核心：它把「输入指针、运算符栈、输出序列」三者放在同一屏里同步推进。
+      每一帧的说明栏都会写出 <b>isp 与 icp 的具体比较过程</b>，你可以一格一格地对着 3.7.2 的表格看。
+      特别注意第 6 步（遇到 <code>-</code> 时连弹两个运算符）、第 11 步（遇到 <code>)</code> 时弹到左括号）和最后一步（扫描完还要清栈）。
+    </p>
+
+    <div id="viz-infix-to-postfix"></div>
+
+    <pre data-lang="cpp" data-file="infix_to_postfix.cpp">// infix_to_postfix.cpp —— 中缀表达式转后缀表达式
+// 支持：多位数、小数、+ - * / ^ 与圆括号；^ 为右结合（icp &gt; isp）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+#include &lt;cctype&gt;
+#include &lt;stdexcept&gt;
+
+/* 栈内优先级：运算符已经在栈里时的优先级 */
+int Isp(char op) {
+    switch (op) {
+        case '+': case '-': return 3;
+        case '*': case '/': return 5;
+        case '^':           return 6;      // 右结合：栈内比栈外小 1
+        case '(':           return 1;      // 最低：谁也弹不走它
+        default:            return -1;
+    }
+}
+/* 栈外优先级：运算符还没进栈时的优先级 */
+int Icp(char op) {
+    switch (op) {
+        case '+': case '-': return 2;
+        case '*': case '/': return 4;
+        case '^':           return 7;      // 右结合：等优先级时不弹，先入栈
+        case '(':           return 6;      // 最高：一进栈就压住下面的运算符
+        default:            return -1;
+    }
+}
+
+/* 把字符串切成 token：连续的数字与小数点算一个操作数，其余每个字符算一个运算符 */
+std::vector&lt;std::string&gt; Tokenize(const std::string&amp; s) {
+    std::vector&lt;std::string&gt; out;
+    for (size_t i = 0; i &lt; s.size(); ) {
+        char c = s[i];
+        if (isspace(static_cast&lt;unsigned char&gt;(c))) { ++i; continue; }
+        if (isdigit(static_cast&lt;unsigned char&gt;(c)) || c == '.') {
+            std::string num;
+            while (i &lt; s.size() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(s[i])) || s[i] == '.'))
+                num += s[i++];
+            out.push_back(num);
+        } else {
+            out.push_back(std::string(1, c));
+            ++i;
+        }
+    }
+    return out;
+}
+bool IsNumber(const std::string&amp; t) {
+    return !t.empty() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(t[0])) || t[0] == '.');
+}
+
+std::string InfixToPostfix(const std::string&amp; expr) {
+    std::vector&lt;std::string&gt; tk = Tokenize(expr);
+    std::stack&lt;char&gt; ops;                     // 运算符栈
+    std::string out;                          // 输出序列（后缀式）
+
+    for (size_t i = 0; i &lt; tk.size(); ++i) {
+        const std::string&amp; t = tk[i];
+        if (IsNumber(t)) {                    // ① 操作数：直接输出
+            out += t; out += ' ';
+        } else if (t == "(") {                // ② 左括号：直接入栈
+            ops.push('(');
+        } else if (t == ")") {                // ③ 右括号：弹到左括号为止
+            if (ops.empty()) throw std::runtime_error("括号不匹配：多余的 )");
+            while (!ops.empty() &amp;&amp; ops.top() != '(') { out += ops.top(); out += ' '; ops.pop(); }
+            ops.pop();                        // 左括号出栈丢弃，不输出
+        } else {                              // ④ 运算符：先弹后压
+            char op = t[0];
+            if (Icp(op) &lt; 0) throw std::runtime_error(std::string("非法字符：") + op);
+            while (!ops.empty() &amp;&amp; Isp(ops.top()) &gt;= Icp(op)) {
+                out += ops.top(); out += ' '; ops.pop();
+            }
+            ops.push(op);
+        }
+    }
+    while (!ops.empty()) {                    // ⑤ 收尾：清空运算符栈
+        if (ops.top() == '(') throw std::runtime_error("括号不匹配：多余的 (");
+        out += ops.top(); out += ' '; ops.pop();
+    }
+    if (!out.empty() &amp;&amp; out.back() == ' ') out.pop_back();
+    return out;
+}
+
+int main() {
+    const char* tests[] = {
+        "3 + 4 * 2 - ( 1 + 5 ) ^ 2 / 3",       // 本节主线例子
+        "2 ^ 3 ^ 2",                           // 右结合：必须是 2 3 2 ^ ^
+        "1.5 + 22 * ( 3 - 0.5 )",              // 多位数与小数
+        "( 1 + 2 ) * 3 - 4 / 2",
+        "8 - 4 - 2",                           // 左结合：必须是 8 4 - 2 -
+        "7"
+    };
+    for (const char* s : tests) {
+        std::cout &lt;&lt; s &lt;&lt; "\n   → " &lt;&lt; InfixToPostfix(s) &lt;&lt; "\n";
+    }
+    try { InfixToPostfix("( 1 + 2"); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "错误捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">自测：跑一遍这三组数据</span>
+      <b>① <code>2 ^ 3 ^ 2</code></b> 应输出 <code>2 3 2 ^ ^</code>（右结合；若你得到 <code>2 3 ^ 2 ^</code>，说明 <code>^</code> 的 icp/isp 写反了）；
+      <b>② <code>8 - 4 - 2</code></b> 应输出 <code>8 4 - 2 -</code>（左结合；若得到 <code>8 4 2 - -</code>，说明弹出条件把 <code>&gt;=</code> 写成了 <code>&gt;</code>）；
+      <b>③ <code>1.5 + 22 * ( 3 - 0.5 )</code></b> 应输出 <code>1.5 22 3 0.5 - * +</code>（多位数与小数不能被拆散）
+      —— 这三组数据恰好覆盖了右结合、左结合、词法切分三个最容易错的地方。
+    </div>
+
+    <h3 id="s7-eval">3.7.4　后缀表达式求值</h3>
+
+    <p>
+      后缀求值比中缀转后缀还简单，规则一句话：<b>从左到右扫描，遇操作数就压栈，
+      遇运算符就弹出两个操作数、算完把结果压回去</b>。扫描结束时栈里恰好剩下一个数，那就是答案。
+      整个过程不需要知道优先级，也不需要处理括号 —— 因为后缀式里<b>本来就没有括号</b>。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">最容易错的一步：谁减谁？</span>
+      弹出两个操作数时，<b>先弹出的是「右操作数」，后弹出的是「左操作数」</b>。
+      对 <code>+</code>、<code>*</code> 这两种可交换的运算，写反了看不出来；
+      但对 <code>-</code>、<code>/</code>、<code>^</code> 立刻就错：<code>3 4 -</code> 是 <code>3-4 = -1</code>，
+      写成 <code>4-3 = 1</code> 就全毁了。正确写法永远是 <code>double b = st.top(); st.pop(); double a = st.top(); st.pop();</code>
+      然后 <code>a op b</code>。请把「<b>先出栈的是右边那个</b>」这句话念三遍。
+    </div>
+
+    <p>手推一遍主线例子 <code>3 4 2 * + 1 5 + 2 ^ 3 / -</code>：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步</th><th>读入</th><th>操作数栈（底 → 顶）</th><th>动作</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>3</code></td><td><code>3</code></td><td>压栈</td></tr>
+          <tr><td>2</td><td><code>4</code></td><td><code>3 4</code></td><td>压栈</td></tr>
+          <tr><td>3</td><td><code>2</code></td><td><code>3 4 2</code></td><td>压栈</td></tr>
+          <tr><td>4</td><td><code>*</code></td><td><code>3 8</code></td><td>弹 2、4 → <code>4*2=8</code> 压栈</td></tr>
+          <tr><td>5</td><td><code>+</code></td><td><code>11</code></td><td>弹 8、3 → <code>3+8=11</code> 压栈</td></tr>
+          <tr><td>6</td><td><code>1</code></td><td><code>11 1</code></td><td>压栈</td></tr>
+          <tr><td>7</td><td><code>5</code></td><td><code>11 1 5</code></td><td>压栈</td></tr>
+          <tr><td>8</td><td><code>+</code></td><td><code>11 6</code></td><td>弹 5、1 → <code>1+5=6</code> 压栈</td></tr>
+          <tr><td>9</td><td><code>2</code></td><td><code>11 6 2</code></td><td>压栈</td></tr>
+          <tr><td>10</td><td><code>^</code></td><td><code>11 36</code></td><td>弹 2、6 → <code>6^2=36</code> 压栈</td></tr>
+          <tr><td>11</td><td><code>3</code></td><td><code>11 36 3</code></td><td>压栈</td></tr>
+          <tr><td>12</td><td><code>/</code></td><td><code>11 12</code></td><td>弹 3、36 → <code>36/3=12</code> 压栈</td></tr>
+          <tr><td>13</td><td><code>-</code></td><td><code>-1</code></td><td>弹 12、11 → <code>11-12=-1</code> 压栈（<b>左 − 右</b>）</td></tr>
+          <tr><td>14</td><td>结束</td><td><code>-1</code></td><td>栈中只剩一个数 → 答案 = −1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>中缀验算：<code>3 + 4×2 = 11</code>，<code>(1+5)² ÷ 3 = 36 ÷ 3 = 12</code>，<code>11 − 12 = −1</code> ✓ 完全一致。</p>
+
+    <div id="viz-postfix-eval"></div>
+
+    <pre data-lang="cpp" data-file="postfix_eval.cpp">// postfix_eval.cpp —— 后缀表达式求值：一个操作数栈 + 一次线性扫描
+// 支持多位数（如 22、100）与小数（如 1.5、0.25）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+#include &lt;cmath&gt;
+#include &lt;cctype&gt;
+#include &lt;cstdio&gt;
+#include &lt;stdexcept&gt;
+
+std::vector&lt;std::string&gt; Tokenize(const std::string&amp; s) {
+    std::vector&lt;std::string&gt; out;
+    for (size_t i = 0; i &lt; s.size(); ) {
+        char c = s[i];
+        if (isspace(static_cast&lt;unsigned char&gt;(c))) { ++i; continue; }
+        if (isdigit(static_cast&lt;unsigned char&gt;(c)) || c == '.') {
+            std::string num;
+            while (i &lt; s.size() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(s[i])) || s[i] == '.'))
+                num += s[i++];
+            out.push_back(num);
+        } else {
+            out.push_back(std::string(1, c));
+            ++i;
+        }
+    }
+    return out;
+}
+bool IsNumber(const std::string&amp; t) {
+    return !t.empty() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(t[0])) || t[0] == '.');
+}
+
+double EvalPostfix(const std::string&amp; expr) {
+    std::vector&lt;std::string&gt; tk = Tokenize(expr);
+    std::stack&lt;double&gt; st;                    // 操作数栈
+    for (size_t i = 0; i &lt; tk.size(); ++i) {
+        const std::string&amp; t = tk[i];
+        if (IsNumber(t)) {
+            st.push(std::stod(t));            // 多位数 / 小数一次读入
+            continue;
+        }
+        if (st.size() &lt; 2) throw std::runtime_error("后缀式非法：操作数不足");
+        double b = st.top(); st.pop();        // ★ 先弹出的是右操作数
+        double a = st.top(); st.pop();        // ★ 后弹出的是左操作数
+        double v = 0;
+        switch (t[0]) {
+            case '+': v = a + b; break;
+            case '-': v = a - b; break;
+            case '*': v = a * b; break;
+            case '/':
+                if (b == 0) throw std::runtime_error("除数为 0");
+                v = a / b; break;
+            case '^': v = std::pow(a, b); break;
+            default:  throw std::runtime_error("非法运算符：" + t);
+        }
+        st.push(v);                           // 结果压回栈中
+    }
+    if (st.size() != 1) throw std::runtime_error("后缀式非法：扫描结束栈中元素个数不为 1");
+    return st.top();
+}
+
+int main() {
+    const char* tests[] = {
+        "3 4 2 * + 1 5 + 2 ^ 3 / -",          // = -1
+        "1.5 22 3 0.5 - * +",                 // = 56.5
+        "2 3 2 ^ ^",                          // = 512（右结合）
+        "100 25 /",                           // = 4（多位数）
+        "8 4 - 2 -",                          // = 2（左结合）
+        "3 4 -"                               // = -1（谁减谁）
+    };
+    for (const char* s : tests) {
+        std::printf("%-28s = %g\n", s, EvalPostfix(s));
+    }
+    try { EvalPostfix("1 +"); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "错误捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <h3 id="s7-direct">3.7.5　中缀表达式直接求值：双栈法</h3>
+
+    <p>
+      现实中我们往往拿到的就是中缀表达式，于是有两种工程路线：
+      <b>① 先转后缀，再求值</b>（两遍扫描，逻辑最清晰，编译器就是这么做的）；
+      <b>② 一遍扫描直接求值</b>（双栈法：一个操作数栈 + 一个运算符栈）。
+      双栈法的做法与「转后缀」几乎一模一样，唯一的区别是：<b>每当一个运算符应当「输出」时，
+      就地用操作数栈把它算掉</b>，而不是写到输出串里。
+    </p>
+
+    <pre data-lang="cpp" data-file="infix_eval_direct.cpp">// infix_eval_direct.cpp —— 中缀表达式直接求值：操作数栈 + 运算符栈（双栈法）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+#include &lt;cmath&gt;
+#include &lt;cctype&gt;
+#include &lt;cstdio&gt;
+#include &lt;stdexcept&gt;
+
+int Isp(char op) {                     // 栈内优先级
+    switch (op) {
+        case '+': case '-': return 3;
+        case '*': case '/': return 5;
+        case '^':           return 6;
+        case '(':           return 1;
+        default:            return -1;
+    }
+}
+int Icp(char op) {                     // 栈外优先级
+    switch (op) {
+        case '+': case '-': return 2;
+        case '*': case '/': return 4;
+        case '^':           return 7;
+        case '(':           return 6;
+        default:            return -1;
+    }
+}
+std::vector&lt;std::string&gt; Tokenize(const std::string&amp; s) {
+    std::vector&lt;std::string&gt; out;
+    for (size_t i = 0; i &lt; s.size(); ) {
+        char c = s[i];
+        if (isspace(static_cast&lt;unsigned char&gt;(c))) { ++i; continue; }
+        if (isdigit(static_cast&lt;unsigned char&gt;(c)) || c == '.') {
+            std::string num;
+            while (i &lt; s.size() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(s[i])) || s[i] == '.'))
+                num += s[i++];
+            out.push_back(num);
+        } else { out.push_back(std::string(1, c)); ++i; }
+    }
+    return out;
+}
+bool IsNumber(const std::string&amp; t) {
+    return !t.empty() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(t[0])) || t[0] == '.');
+}
+
+class Evaluator {
+public:
+    double Run(const std::string&amp; expr) {
+        std::vector&lt;std::string&gt; tk = Tokenize(expr);
+        for (size_t i = 0; i &lt; tk.size(); ++i) {
+            const std::string&amp; t = tk[i];
+            if (IsNumber(t)) {
+                num.push(std::stod(t));                        // 操作数入栈
+            } else if (t == "(") {
+                op.push('(');
+            } else if (t == ")") {
+                while (!op.empty() &amp;&amp; op.top() != '(') Apply();  // 把括号内的运算全算完
+                if (op.empty()) throw std::runtime_error("括号不匹配：多余的 )");
+                op.pop();                                      // 丢弃左括号
+            } else {
+                char c = t[0];
+                if (Icp(c) &lt; 0) throw std::runtime_error(std::string("非法字符：") + c);
+                while (!op.empty() &amp;&amp; Isp(op.top()) &gt;= Icp(c)) Apply();
+                op.push(c);
+            }
+        }
+        while (!op.empty()) {                                  // 收尾
+            if (op.top() == '(') throw std::runtime_error("括号不匹配：多余的 (");
+            Apply();
+        }
+        if (num.size() != 1) throw std::runtime_error("表达式非法：栈中剩余元素个数不为 1");
+        double res = num.top(); num.pop();                      // 取走结果，便于重复使用
+        return res;
+    }
+
+private:
+    std::stack&lt;double&gt; num;      // 操作数栈
+    std::stack&lt;char&gt;   op;       // 运算符栈
+
+    void Apply() {               // 弹出栈顶运算符，用操作数栈算掉它
+        if (num.size() &lt; 2) throw std::runtime_error("操作数不足");
+        char c = op.top(); op.pop();
+        double b = num.top(); num.pop();     // 右操作数
+        double a = num.top(); num.pop();     // 左操作数
+        double v = 0;
+        switch (c) {
+            case '+': v = a + b; break;
+            case '-': v = a - b; break;
+            case '*': v = a * b; break;
+            case '/':
+                if (b == 0) throw std::runtime_error("除数为 0");
+                v = a / b; break;
+            case '^': v = std::pow(a, b); break;
+            default:  throw std::runtime_error("非法运算符");
+        }
+        num.push(v);
+    }
+};
+
+int main() {
+    Evaluator ev;
+    const char* tests[] = {
+        "3 + 4 * 2 - ( 1 + 5 ) ^ 2 / 3",     // = -1
+        "2 * ( 3 + 4 ) - 5",                 // = 9
+        "1.5 * ( 2 + 2 ) ^ 2",               // = 24
+        "10 / 4",                            // = 2.5
+        "8 - 4 - 2",                         // = 2（左结合验证）
+        "2 ^ 3 ^ 2"                          // = 512（右结合验证）
+    };
+    for (const char* s : tests) std::printf("%-32s = %g\n", s, ev.Run(s));
+    try { ev.Run("( 1 + 2 ) * ) 3"); }
+    catch (const std::exception&amp; e) { std::cout &lt;&lt; "错误捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    return 0;
+}
+</pre>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>比较项</th><th>路线一：先转后缀再求值</th><th>路线二：双栈法一遍求值</th></tr></thead>
+        <tbody>
+          <tr><td>扫描遍数</td><td>2 遍（第一遍转后缀，第二遍求值）</td><td>1 遍</td></tr>
+          <tr><td>需要的栈</td><td>运算符栈（转后缀）+ 操作数栈（求值）</td><td>运算符栈 + 操作数栈（同时存在）</td></tr>
+          <tr><td>是否需要 Tokenize</td><td>需要（否则多位数、小数会被拆散）</td><td>需要</td></tr>
+          <tr><td>可读性 / 可调试性</td><td class="c-ok">好：中间结果（后缀式）看得见，便于排错</td><td class="c-warn">一般：一步算错，后面全错，不容易定位</td></tr>
+          <tr><td>性能</td><td>略慢（多一遍扫描与一次字符串拼接）</td><td class="c-ok">更快，常数更小</td></tr>
+          <tr><td>典型用途</td><td>编译器、解释器、需要复用中间代码的场景</td><td>计算器、脚本引擎的小型求值器</td></tr>
+          <tr><td>时间复杂度</td><td>O(n)</td><td>O(n)</td></tr>
+          <tr><td>空间复杂度</td><td>O(n)</td><td>O(n)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s7-why">3.7.6　为什么计算机喜欢后缀表达式</h3>
+
+    <p>
+      学到这里你应该已经体会到：<b>中缀式是给人看的，后缀式是给机器算的</b>。具体理由有五条：
+    </p>
+    <ol>
+      <li><b>不需要括号。</b>后缀式中运算符的位置已经唯一确定了运算顺序，括号纯属多余。省掉括号，就省掉了「括号嵌套」这一整类复杂度。</li>
+      <li><b>不需要优先级表。</b>求值过程里没有任何一次「比较优先级」的判断 —— 后端的求值器可以完全不懂 <code>*</code> 比 <code>+</code> 优先级高这件事。</li>
+      <li><b>一次线性扫描，一个栈。</b>每个 token 只处理一次，总共 O(n) 时间、O(n) 空间，实现只有十几行，出错概率极低。</li>
+      <li><b>求值顺序天然确定。</b>后缀式规定了严格从左到右的运算次序，不存在歧义，非常适合翻译成「栈式机器」的指令序列
+          —— JVM 字节码、.NET IL、PostScript、Forth 都是这种栈式指令集；HP 科学计算器至今仍用 RPN 输入。</li>
+      <li><b>易于生成。</b>语法分析器在自底向上归约时，天然就是「先处理子表达式、再处理父表达式」的顺序，
+          直接输出就是后缀式；三元式、四元式（三地址码）与它一脉相承。</li>
+    </ol>
+    <p>
+      代价也很明显：<b>人读后缀式很痛苦</b>。所以调试编译器时，工程师经常要把中间代码「反着打印成中缀式」来看。
+      这也是为什么三种表达式都要会：<b>中缀负责让人看懂，前缀 / 后缀负责让机器算得快</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>维度</th><th>中缀 infix</th><th>前缀 prefix（波兰式）</th><th>后缀 postfix（逆波兰式）</th></tr></thead>
+        <tbody>
+          <tr><td>运算符位置</td><td>两操作数之间</td><td>两操作数之前</td><td>两操作数之后</td></tr>
+          <tr><td>是否需要括号</td><td class="c-bad">需要</td><td class="c-ok">不需要</td><td class="c-ok">不需要</td></tr>
+          <tr><td>是否需要优先级</td><td class="c-bad">需要</td><td class="c-ok">不需要</td><td class="c-ok">不需要</td></tr>
+          <tr><td>求值扫描方向</td><td>需要来回找最高优先级</td><td>从<b>右</b>往左，遇运算符取右边两个操作数</td><td>从<b>左</b>往右，遇运算符取左边两个操作数</td></tr>
+          <tr><td>求值数据结构</td><td>两个栈（双栈法）</td><td>一个操作数栈</td><td>一个操作数栈</td></tr>
+          <tr><td>人读性</td><td class="c-ok">最好</td><td class="c-warn">一般</td><td class="c-warn">较差</td></tr>
+          <tr><td>机器友好度</td><td class="c-bad">低</td><td class="c-ok">高</td><td class="c-ok">最高（栈式指令集直接可用）</td></tr>
+          <tr><td>典型场景</td><td>人机交互输入、教材、计算器界面</td><td>Lisp / Scheme 的 S-表达式</td><td>编译器中间代码、RPN 计算器、JVM 字节码</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：本节必背的五条结论</span>
+      ① 中缀转后缀：操作数直接输出；运算符「<code>isp(栈顶) &gt;= icp(当前)</code> 就弹」；左括号入栈、右括号弹到左括号；
+      <b>结束必须清栈</b>。② 右结合运算符（<code>^</code>）的 <code>icp = isp + 1</code>。
+      ③ 后缀求值先弹出的是右操作数。④ 三种表达式中操作数顺序完全相同，只有运算符位置不同。
+      ⑤ 前缀式求值要<b>从右往左</b>扫描（或把整个串反转后按后缀法处理，最后再反转结果）。
+    </div>
+
+    <h2 id="s8">3.8　栈与递归：为什么递归能「自动回溯」</h2>
+
+    <p>
+      很多人学递归时的困惑是：「函数调用自己，怎么就自己回来了？」答案就藏在这句话里 ——
+      <b>递归之所以能自动回溯，是因为系统在背后替你维护了一个栈</b>。
+      你写的每一层递归调用，都会在内存里留下一个<b>栈帧</b>（stack frame，也叫活动记录 activation record），
+      函数返回时，系统从栈帧里恢复现场，于是「回到调用点继续往下执行」。这一节我们把这件事拆开看。
+    </p>
+
+    <h3 id="s8-frame">3.8.1　函数调用栈与栈帧</h3>
+
+    <p>
+      程序里的函数调用栈（call stack）是操作系统与编译器共同维护的一个栈。每次调用一个函数，就<b>入栈</b>一个栈帧；
+      函数返回，就<b>出栈</b>并销毁它。一个栈帧里通常存着四样东西：
+    </p>
+    <ul>
+      <li><b>返回地址</b>：函数执行完后要跳回哪一行继续执行（这一条最关键 —— 它就是「回溯」的锚点）。</li>
+      <li><b>参数与局部变量</b>：本次调用的 <code>n</code>、<code>left</code>、<code>i</code> 等等。</li>
+      <li><b>调用者的寄存器现场</b>：保证返回后调用者的计算能继续。</li>
+      <li><b>临时保存的中间结果</b>：比如 <code>n * f(n-1)</code> 里已经算好的 <code>n</code>。</li>
+    </ul>
+    <p>
+      因为每层调用都有自己独立的栈帧，所以 <b>每一层的 <code>n</code> 互不干扰</b> ——
+      这就是递归能正确处理 <code>f(4)</code> 里那个 <code>n = 4</code>、<code>f(3)</code> 里那个 <code>n = 3</code> 的原因。
+      同一时刻栈里最多有多少个栈帧，就是<b>递归深度</b>，也就是递归的空间复杂度。
+      深度太大（比如十万层）就会把这块固定大小的栈空间撑爆，报出那个著名的
+      <b>stack overflow</b>（栈溢出）—— 注意这里的「栈」不是我们讲的抽象数据结构，而是系统调用栈；
+      但它的原理完全一样：<b>后进先出，超出容量就上溢</b>。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 344" width="740" height="344" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m39a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="m39b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <rect x="16" y="16" width="290" height="312" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="32" y="42" fill="var(--text-soft)" font-size="13" font-weight="700">阶乘的递归写法</text>
+        <g font-family="Consolas, monospace" font-size="12.5" fill="var(--text)">
+          <text x="32" y="72">long long f(int n) {</text>
+          <text x="48" y="96">if (n &lt;= 1) return 1;</text>
+          <text x="48" y="120">return n * f(n - 1);</text>
+          <text x="32" y="144">}</text>
+        </g>
+        <text x="32" y="182" fill="var(--brand)" font-size="12.5">↓ 递推（进入）：每调用一层，</text>
+        <text x="32" y="204" fill="var(--brand)" font-size="12.5">　 就压入一个栈帧</text>
+        <text x="32" y="238" fill="var(--ok)" font-size="12.5">↑ 回归（返回）：弹出栈帧，</text>
+        <text x="32" y="260" fill="var(--ok)" font-size="12.5">　 用栈帧里的返回地址跳回去</text>
+        <text x="32" y="296" fill="var(--text-faint)" font-size="11.5">调用栈的深度 = n → 空间复杂度 O(n)</text>
+
+        <text x="330" y="36" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">调用栈（栈顶在下，越往下越早调用）</text>
+
+        <rect x="330" y="50" width="290" height="62" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="346" y="74" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">f(4)　n = 4</text>
+        <text x="346" y="98" fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">返回地址：main 的第 12 行；待算 4 × f(3)</text>
+
+        <rect x="330" y="118" width="290" height="62" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="346" y="142" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">f(3)　n = 3</text>
+        <text x="346" y="166" fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">返回地址：f(4) 的 return 行；待算 3 × f(2)</text>
+
+        <rect x="330" y="186" width="290" height="62" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="346" y="210" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">f(2)　n = 2</text>
+        <text x="346" y="234" fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">返回地址：f(3) 的 return 行；待算 2 × f(1)</text>
+
+        <rect x="330" y="254" width="290" height="62" rx="8" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.4"/>
+        <text x="346" y="278" fill="var(--ok)" font-size="13" font-weight="700" font-family="Consolas, monospace">f(1)　n = 1　→ 命中递归出口</text>
+        <text x="346" y="302" fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">return 1　（不再产生新的栈帧）</text>
+
+        <line x1="640" y1="60" x2="640" y2="300" stroke="var(--brand)" stroke-width="2" marker-end="url(#m39a)"/>
+        <text x="650" y="150" fill="var(--brand)" font-size="12" font-family="Consolas, monospace">递推</text>
+        <line x1="700" y1="300" x2="700" y2="60" stroke="var(--ok)" stroke-width="2" marker-end="url(#m39b)"/>
+        <text x="708" y="150" fill="var(--ok)" font-size="12" font-family="Consolas, monospace">回</text>
+        <text x="708" y="170" fill="var(--ok)" font-size="12" font-family="Consolas, monospace">归</text>
+        <text x="650" y="330" fill="var(--text-faint)" font-size="11.5" font-family="Consolas, monospace">1 → 2 → 6 → 24</text>
+      </svg>
+      <figcaption>图 3-9　递归调用栈：递推阶段层层压栈，命中出口后逐层弹栈并回代结果</figcaption>
+    </div>
+
+    <h3 id="s8-ex">3.8.2　三个经典递归：阶乘、斐波那契、汉诺塔</h3>
+
+    <pre data-lang="cpp" data-file="recursion_demo.cpp">// recursion_demo.cpp —— 阶乘 / 斐波那契 / 汉诺塔：递归的三种典型形状
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+
+/* ① 阶乘：线性递归。递归深度 = n，每层都要等下一层的结果才能相乘 */
+long long FactRec(int n) {
+    if (n &lt;= 1) return 1;                 // 递归出口（base case）
+    return n * FactRec(n - 1);            // 递推关系：n! = n × (n−1)!
+}
+long long FactIter(int n) {               // 迭代版：自底向上，不需要栈
+    long long r = 1;
+    for (int i = 2; i &lt;= n; ++i) r *= i;
+    return r;
+}
+
+/* ② 斐波那契：树形递归。朴素写法会重复计算大量子问题，复杂度 O(2^n) */
+long long FibRec(int n) {
+    return n &lt; 2 ? n : FibRec(n - 1) + FibRec(n - 2);
+}
+/* 记忆化搜索：把算过的答案存下来，每个状态只算一次 → O(n)，是动态规划的雏形 */
+long long FibMemo(int n, std::vector&lt;long long&gt;&amp; memo) {
+    if (n &lt; 2) return n;
+    if (memo[n] != -1) return memo[n];                 // 已经算过，直接取
+    return memo[n] = FibMemo(n - 1, memo) + FibMemo(n - 2, memo);
+}
+
+/* ③ 汉诺塔：把「搬 n 个」拆成「搬 n−1 个 → 搬 1 个 → 搬 n−1 个」，移动次数 = 2^n − 1 */
+long long hanoiMoves = 0;
+void Hanoi(int n, char from, char via, char to) {
+    if (n == 1) {
+        ++hanoiMoves;
+        if (hanoiMoves &lt;= 7)
+            std::cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 1 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
+        return;
+    }
+    Hanoi(n - 1, from, to, via);          // ① 把上面 n−1 个挪到中转柱
+    ++hanoiMoves;                          // ② 最大的那个盘子直接搬到目标柱
+    if (hanoiMoves &lt;= 7)
+        std::cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 " &lt;&lt; n &lt;&lt; " 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
+    Hanoi(n - 1, via, from, to);          // ③ 再把 n−1 个从中转柱挪到目标柱
+}
+
+int main() {
+    std::cout &lt;&lt; "5! 递归 = " &lt;&lt; FactRec(5) &lt;&lt; "，迭代 = " &lt;&lt; FactIter(5) &lt;&lt; '\n';
+    std::cout &lt;&lt; "Fib(10) 朴素递归 = " &lt;&lt; FibRec(10) &lt;&lt; '\n';
+    std::vector&lt;long long&gt; memo(51, -1);
+    std::cout &lt;&lt; "Fib(50) 记忆化 = " &lt;&lt; FibMemo(50, memo)
+              &lt;&lt; "（朴素递归要算约 200 亿次，根本跑不完）\n";
+    std::cout &lt;&lt; "汉诺塔 3 个盘子的移动过程：\n";
+    Hanoi(3, 'A', 'B', 'C');
+    std::cout &lt;&lt; "3 个盘子共需 " &lt;&lt; hanoiMoves &lt;&lt; " 步（= 2³ − 1）\n";
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：递归的复杂度怎么算</span>
+      ① <b>时间</b>：写出递归式再解。阶乘 <code>T(n) = T(n-1) + O(1) = O(n)</code>；
+      汉诺塔 <code>T(n) = 2T(n-1) + O(1) = O(2^n)</code>；朴素斐波那契 <code>T(n) = T(n-1) + T(n-2) + O(1) = O(2^n)</code>
+      （记忆化后降到 O(n)）。
+      ② <b>空间</b>：等于<b>递归深度</b>（不是调用次数！）。汉诺塔的空间是 <code>O(n)</code>，不是 <code>O(2^n)</code> ——
+      因为递推到底后栈帧就逐层弹掉了，同一时刻栈里最多 n 层。这是最常见的送分/送命题。
+    </div>
+
+    <h3 id="s8-iter">3.8.3　用显式栈把递归改写成非递归</h3>
+
+    <p>
+      既然递归靠的是系统栈，那我们<b>自己开一个栈、把系统栈里的信息搬进去</b>，就能得到非递归版本。
+      改写的通用套路是问自己两个问题：
+      <b>① 这一层「还没做完的事情」是什么？② 做完之后要回到哪里？</b>
+      把这两样东西打包成一个结构体压进自己的栈，就是「显式栈模拟递归」。
+    </p>
+    <p>
+      但不是所有递归都值得改写。阶乘的递归是一种「<b>线性递归</b>」，它的显式栈版本本质上就是倒着乘一遍，
+      直接写成 for 循环更简单 —— 这说明<b>能用迭代直接表达的就别用栈</b>。
+      真正需要显式栈的，是那些「<b>每层有多个未完成分支、必须记住走到哪儿了</b>」的递归，
+      比如树的前序遍历、图的 DFS、迷宫回溯 —— 这些也是下一节和第 08 讲的主角。
+    </p>
+
+    <pre data-lang="cpp" data-file="binary_tree_preorder_iter.cpp">// binary_tree_preorder_iter.cpp —— 用显式栈实现二叉树的非递归遍历
+#include &lt;iostream&gt;
+#include &lt;stack&gt;
+
+struct TreeNode {
+    int val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ---------- 递归版：代码最短，但深度大时有栈溢出风险 ---------- */
+void PreOrderRec(TreeNode* root) {
+    if (!root) return;
+    std::cout &lt;&lt; root-&gt;val &lt;&lt; ' ';      // 访问根
+    PreOrderRec(root-&gt;left);            // 递归左子树
+    PreOrderRec(root-&gt;right);           // 递归右子树
+}
+
+/* ---------- 非递归前序：自己开栈，先压右孩子再压左孩子 ---------- */
+void PreOrderIter(TreeNode* root) {
+    if (!root) return;
+    std::stack&lt;TreeNode*&gt; st;
+    st.push(root);
+    while (!st.empty()) {
+        TreeNode* p = st.top();
+        st.pop();
+        std::cout &lt;&lt; p-&gt;val &lt;&lt; ' ';      // 出栈即访问（前序：根最先）
+        if (p-&gt;right) st.push(p-&gt;right);  // ★ 先压右孩子
+        if (p-&gt;left)  st.push(p-&gt;left);   // ★ 后压左孩子 → 左孩子先出栈
+    }
+}
+
+/* ---------- 非递归中序：一路向左压栈，弹出时访问，再转向右子树 ---------- */
+void InOrderIter(TreeNode* root) {
+    std::stack&lt;TreeNode*&gt; st;
+    TreeNode* p = root;
+    while (p || !st.empty()) {
+        while (p) { st.push(p); p = p-&gt;left; }   // 把左链全部压栈
+        p = st.top(); st.pop();
+        std::cout &lt;&lt; p-&gt;val &lt;&lt; ' ';              // 左子树走完才访问根
+        p = p-&gt;right;                            // 转向右子树
+    }
+}
+
+void FreeTree(TreeNode* root) {
+    if (!root) return;
+    FreeTree(root-&gt;left);
+    FreeTree(root-&gt;right);
+    delete root;
+}
+
+int main() {
+    /*            1
+                 / \
+                2   3
+               / \   \
+              4   5   6        */
+    TreeNode* root = new TreeNode(1);
+    root-&gt;left = new TreeNode(2);
+    root-&gt;right = new TreeNode(3);
+    root-&gt;left-&gt;left = new TreeNode(4);
+    root-&gt;left-&gt;right = new TreeNode(5);
+    root-&gt;right-&gt;right = new TreeNode(6);
+
+    std::cout &lt;&lt; "前序（递归）  ："; PreOrderRec(root);  std::cout &lt;&lt; '\n';
+    std::cout &lt;&lt; "前序（显式栈）："; PreOrderIter(root); std::cout &lt;&lt; '\n';
+    std::cout &lt;&lt; "中序（显式栈）："; InOrderIter(root);  std::cout &lt;&lt; '\n';
+    FreeTree(root);
+    return 0;
+}
+</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错：非递归前序的两个「顺序」</span>
+      ① <b>访问的时机</b>：前序是「出栈即访问」，不能在入栈时访问（否则顺序会乱）。
+      ② <b>压栈的顺序</b>：必须<b>先压右、后压左</b>。因为栈是后进先出，后压的左孩子会先出栈，
+      这样才符合「根 → 左 → 右」。写反了就会输出「根 → 右 → 左」，这是最典型的错误。
+      想验证？把两个 <code>if</code> 交换一下再跑一遍就知道了。
+    </div>
+
+    <h3 id="s8-cmp">3.8.4　递归 vs 显式栈：该选哪个</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>维度</th><th>递归写法</th><th>显式栈（非递归）写法</th></tr></thead>
+        <tbody>
+          <tr><td>代码长度与可读性</td><td class="c-ok">短、贴近数学定义</td><td class="c-warn">长，需要手动管理栈与状态</td></tr>
+          <tr><td>空间位置</td><td>系统调用栈（通常只有 1~8 MB）</td><td class="c-ok">堆内存（可用空间大得多）</td></tr>
+          <tr><td>栈溢出风险</td><td class="c-bad">有：深度上万层就可能崩</td><td class="c-ok">基本没有（除非真的存不下）</td></tr>
+          <tr><td>每层保存的信息</td><td>整个栈帧（返回地址 + 全部局部变量）</td><td class="c-ok">只保存真正需要的那几项，通常更省</td></tr>
+          <tr><td>函数调用开销</td><td class="c-bad">有（每次调用都要建栈帧、传参、跳转）</td><td class="c-ok">无，通常更快</td></tr>
+          <tr><td>中途暂停 / 恢复</td><td class="c-bad">做不到（栈帧由系统管）</td><td class="c-ok">可以：栈的内容就是完整的进度快照</td></tr>
+          <tr><td>适用场景</td><td>深度可控、结构天然的递归（树、分治、汉诺塔）</td><td>深度可能极大、需要保存进度（迷宫、DFS、状态机、迭代加深）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">实战经验</span>
+      竞赛里遇到深搜，如果递归深度可能到 10⁵ 甚至 10⁶（比如一条链状的图），
+      递归写法几乎必定 RE（Runtime Error，栈溢出）；此时要么手写显式栈，要么把递归改成从叶子往上递推（拓扑序 / DP）。
+      这也是「栈」这个结构在工程里最实在的一次出场。
+    </div>
+
+    <h2 id="s9">3.9　经典应用四：迷宫求解（回溯）</h2>
+
+    <p>
+      迷宫问题是「栈式回溯」最直观的舞台：从入口出发向前走，把走过的位置记下来；
+      走到死胡同时，<b>退回上一个岔路口换一个方向再试</b>。整个过程与 3.8.3 的显式栈一脉相承 ——
+      <b>栈里存的就是「当前这条路径」，出栈就是「回退一步」</b>。
+    </p>
+    <p>
+      算法描述（方向顺序固定为「上、右、下、左」）：
+    </p>
+    <ol>
+      <li>把入口坐标压栈，并标记为「已走过」。</li>
+      <li>取栈顶位置，看它的四个方向里还有没有「没试过的、可走的、没走过的」格子：
+        有就压栈前进，并把该格标记为已走过；</li>
+      <li>四个方向都试完仍然走不通 → <b>出栈，回退一步</b>（这就是回溯）。</li>
+      <li>栈顶到达终点 → 栈里从底到顶就是一条通路；栈空仍未到达 → 迷宫无解。</li>
+    </ol>
+    <p>
+      为什么每个格子「标记为已走过」之后就不用再清除？因为我们的目标是<b>找一条路</b>，
+      一个格子一旦证明「从这里走不到终点」，再走一次也是白走。
+      但如果题目要求「找出<b>所有</b>路径」或者「最短路径」，标记就必须在回退时撤销（恢复现场）——
+      这正是回溯法与 DFS 的分水岭，也是第 13 讲回溯法的起点。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 300" width="740" height="300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="m310a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+          </marker>
+        </defs>
+
+        <!-- 迷宫格子 8 列 × 6 行，格子 30px -->
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <!-- 第 0 行：全是墙 -->
+          <rect x="28" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="88" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="118" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="148" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="178" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="208" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="238" y="36" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+
+          <!-- 第 1 行 -->
+          <rect x="28" y="66" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="66" width="30" height="30" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="73" y="86" fill="var(--brand)" font-weight="700">S</text>
+          <rect x="88" y="66" width="30" height="30" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4 3"/>
+          <text x="103" y="86" fill="var(--danger)">×</text>
+          <rect x="118" y="66" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="148" y="66" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="178" y="66" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="208" y="66" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="238" y="66" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+
+          <!-- 第 2 行 -->
+          <rect x="28" y="96" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="96" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="88" y="96" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="118" y="96" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="148" y="96" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="178" y="96" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="208" y="96" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="238" y="96" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+
+          <!-- 第 3 行 -->
+          <rect x="28" y="126" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="88" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="118" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="148" y="126" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="178" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="208" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="238" y="126" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+
+          <!-- 第 4 行 -->
+          <rect x="28" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="88" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="118" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="148" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="178" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="208" y="156" width="30" height="30" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
+          <text x="223" y="176" fill="var(--purple)" font-weight="700">E</text>
+          <rect x="238" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+
+          <!-- 第 5 行：全是墙 -->
+          <rect x="28" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="58" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="88" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="118" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="148" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="178" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="208" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+          <rect x="238" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
+        </g>
+
+        <text x="28" y="238" fill="var(--ok)" font-size="12">■ 最终通路</text>
+        <text x="140" y="238" fill="var(--danger)" font-size="12">■ 死路（已出栈回退）</text>
+        <text x="300" y="238" fill="var(--brand)" font-size="12">■ 入口 S</text>
+        <text x="400" y="238" fill="var(--purple)" font-size="12">■ 出口 E</text>
+        <text x="28" y="264" fill="var(--text-faint)" font-size="11.5">从 S(1,1) 先向右试到 (1,2)：四面不通 → 出栈回退，再改试向下，最终到达 E(4,6)</text>
+
+        <!-- 右侧：栈的变化 -->
+        <text x="470" y="36" fill="var(--text-faint)" font-size="12.5">栈的变化（栈顶在上）</text>
+
+        <rect x="470" y="52" width="118" height="30" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/>
+        <text x="529" y="72" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">(1,2) ← 死路</text>
+        <rect x="470" y="86" width="118" height="30" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="529" y="106" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">(1,1) S</text>
+        <text x="529" y="134" text-anchor="middle" fill="var(--danger)" font-size="11.5">① 四面不通，准备回退</text>
+        <line x1="600" y1="106" x2="640" y2="106" stroke="var(--danger)" stroke-width="2" marker-end="url(#m310a)"/>
+        <text x="646" y="110" fill="var(--danger)" font-size="12">Pop</text>
+
+        <rect x="470" y="152" width="118" height="30" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.4"/>
+        <text x="529" y="172" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">(1,1) S</text>
+        <text x="470" y="206" fill="var(--ok)" font-size="11.5">② 弹出 (1,2) 后，回到 (1,1)</text>
+        <text x="470" y="226" fill="var(--ok)" font-size="11.5">　 改试下一个方向：向下</text>
+
+        <rect x="470" y="242" width="240" height="34" rx="8" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="482" y="264" fill="var(--text-soft)" font-size="11.5" font-family="Consolas, monospace">栈里始终是「当前这条路径」</text>
+      </svg>
+      <figcaption>图 3-10　迷宫求解：栈里保存当前路径，走进死路就出栈回退（回溯）</figcaption>
+    </div>
+
+    <pre data-lang="cpp" data-file="maze_stack.cpp">// maze_stack.cpp —— 迷宫求解：栈式回溯（本质是在图上做深度优先搜索 DFS）
+#include &lt;iostream&gt;
+#include &lt;stack&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+
+const int R = 6, C = 8;                    // 迷宫行数、列数
+int maze[R][C] = {                         // 1 = 墙，0 = 通路
+    {1,1,1,1,1,1,1,1},
+    {1,0,0,1,0,0,0,1},
+    {1,0,1,0,0,1,0,1},
+    {1,0,0,0,1,0,0,1},
+    {1,1,0,0,0,1,0,1},
+    {1,1,1,1,1,1,1,1}
+};
+const int sx = 1, sy = 1;                  // 入口（行, 列）
+const int ex = 4, ey = 6;                  // 出口（行, 列）
+int dr[4] = {-1, 0, 1, 0};                 // 上、右、下、左
+int dc[4] = { 0, 1, 0, -1};
+
+struct Pos {
+    int r, c;      // 坐标
+    int d;         // 下一次要尝试的方向编号（0..3）
+};
+
+bool InMaze(int r, int c) { return r &gt;= 0 &amp;&amp; r &lt; R &amp;&amp; c &gt;= 0 &amp;&amp; c &lt; C; }
+
+// 找到一条通路：path 从入口到出口；无解返回 false
+bool SolveMaze(std::vector&lt;Pos&gt;&amp; path) {
+    int mark[R][C] = {0};                  // 是否已经进过栈（避免原地兜圈子）
+    std::stack&lt;Pos&gt; st;                    // ★ 核心：用栈保存当前路径
+    st.push({sx, sy, 0});
+    mark[sx][sy] = 1;
+
+    while (!st.empty()) {
+        Pos cur = st.top();                // 只看，不弹
+        if (cur.r == ex &amp;&amp; cur.c == ey) {   // 到达出口
+            path.clear();
+            while (!st.empty()) { path.push_back(st.top()); st.pop(); }
+            std::reverse(path.begin(), path.end());   // 栈底 → 栈顶 = 入口 → 出口
+            return true;
+        }
+        int found = -1;                    // 找一个没试过的可行方向
+        for (int d = cur.d; d &lt; 4; ++d) {
+            int nr = cur.r + dr[d], nc = cur.c + dc[d];
+            if (InMaze(nr, nc) &amp;&amp; maze[nr][nc] == 0 &amp;&amp; !mark[nr][nc]) { found = d; break; }
+        }
+        if (found &gt;= 0) {                   // 能走 → 前进
+            st.top().d = found + 1;        // 记住「这个方向已经试过了」
+            int nr = cur.r + dr[found], nc = cur.c + dc[found];
+            mark[nr][nc] = 1;
+            st.push({nr, nc, 0});
+        } else {
+            st.pop();                      // 四个方向都不通 → 出栈回退（回溯）
+        }
+    }
+    return false;                          // 栈空仍未到达 → 无解
+}
+
+void PrintMaze(const std::vector&lt;Pos&gt;&amp; path) {
+    char g[R][C + 1];
+    for (int r = 0; r &lt; R; ++r)
+        for (int c = 0; c &lt; C; ++c) g[r][c] = maze[r][c] ? '#' : '.';
+    for (size_t i = 0; i &lt; path.size(); ++i) g[path[i].r][path[i].c] = '*';
+    g[sx][sy] = 'S';
+    g[ex][ey] = 'E';
+    for (int r = 0; r &lt; R; ++r) { g[r][C] = '\0'; std::cout &lt;&lt; g[r] &lt;&lt; '\n'; }
+}
+
+int main() {
+    std::vector&lt;Pos&gt; path;
+    if (SolveMaze(path)) {
+        std::cout &lt;&lt; "找到通路，共 " &lt;&lt; path.size() &lt;&lt; " 个格子：\n";
+        PrintMaze(path);
+        std::cout &lt;&lt; "路径坐标：";
+        for (size_t i = 0; i &lt; path.size(); ++i)
+            std::cout &lt;&lt; '(' &lt;&lt; path[i].r &lt;&lt; ',' &lt;&lt; path[i].c &lt;&lt; ')' &lt;&lt; (i + 1 &lt; path.size() ? " → " : "");
+        std::cout &lt;&lt; '\n';
+    } else {
+        std::cout &lt;&lt; "迷宫无解\n";
+    }
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：迷宫与回溯法的关系</span>
+      ① 迷宫求解本质是<b>图的深度优先搜索（DFS）</b>：每个可走格子是顶点，相邻可走关系是边；
+      ② 用栈实现的 DFS 就是「栈式回溯」，第 08 讲会给出通用的图 DFS 模板，代码骨架与此完全一致；
+      ③ 复杂度：每个格子最多进栈一次、出栈一次，每次检查 4 个方向，
+      所以时间 <code>O(4·m·n) = O(m·n)</code>，空间 <code>O(m·n)</code>；
+      ④ 若要求<b>最短路径</b>，DFS 不行（它找到的只是「一条」路），必须换成队列 + BFS（第 04 讲）；
+      ⑤ 若要求<b>所有路径</b>，则要在出栈时把 <code>mark</code> 清回 0（恢复现场）——这就是第 13 讲回溯法的标准写法。
+    </div>
+
+    <h2 id="s10">3.10　经典应用五：单调栈</h2>
+
+    <p>
+      前面几个应用都是「栈保存了历史」，这一节的单调栈则多了一层巧思：<b>不仅保存历史，还主动扔掉没用的历史</b>。
+      它的出场标志是一类非常固定的问题：<b>对每个元素，求它左边 / 右边第一个比它大（或小）的元素</b>。
+      暴力做法对每个位置都往一边扫一遍，是 O(n²)；单调栈把它压到 O(n)。
+    </p>
+
+    <h3 id="s10-nge">3.10.1　下一个更大元素</h3>
+
+    <p>
+      给定数组 <code>A = [2, 1, 5, 6, 2, 3, 1]</code>，对每个下标 <code>i</code> 求：
+      <b>在 <code>i</code> 的右边，第一个比 <code>A[i]</code> 大的元素是多少</b>？不存在则记 −1。
+      答案是 <code>[5, 5, 6, −1, 3, −1, −1]</code>。
+    </p>
+    <p>
+      关键洞察是：<b>把「还没找到答案的下标」放进一个栈，并保持栈内元素的值单调不增</b>。
+      当新元素 <code>A[i]</code> 到来时，它就是栈里所有比它小的那些位置的「下一个更大元素」——
+      这些位置从此再也不会被用到，可以放心弹出。用一个比喻：
+      <b>栈里排着一队「等着被人超越」的选手，新来的 <code>A[i]</code> 一出现，就把比自己矮的全部「结算」掉，然后自己站到队尾继续等。</b>
+    </p>
+    <p>
+      为什么这些被弹出的元素「再也不会被用到」？因为 <code>A[i]</code> 既比它们大、位置又在它们右边，
+      对它们右边任何还没结算的位置来说，<code>A[i]</code> 都是比它们更优的候选 —— 这就是可以「扔掉历史」的严格理由。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>i</th><th>A[i]</th><th>弹出（并记录 ans）</th><th>栈（底 → 顶）</th><th>ans 现状</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>2</td><td>—</td><td><code>[0]</code></td><td><code>· · · · · · ·</code></td></tr>
+          <tr><td>1</td><td>1</td><td>—（A[0]=2 &gt; 1，不弹）</td><td><code>[0, 1]</code></td><td><code>· · · · · · ·</code></td></tr>
+          <tr><td>2</td><td>5</td><td>弹出 1、0</td><td><code>[2]</code></td><td><code>5 5 · · · · ·</code></td></tr>
+          <tr><td>3</td><td>6</td><td>弹出 2</td><td><code>[3]</code></td><td><code>5 5 6 · · · ·</code></td></tr>
+          <tr><td>4</td><td>2</td><td>—（A[3]=6 &gt; 2）</td><td><code>[3, 4]</code></td><td><code>5 5 6 · · · ·</code></td></tr>
+          <tr><td>5</td><td>3</td><td>弹出 4</td><td><code>[3, 5]</code></td><td><code>5 5 6 · 3 · ·</code></td></tr>
+          <tr><td>6</td><td>1</td><td>—（A[5]=3 &gt; 1）</td><td><code>[3, 5, 6]</code></td><td><code>5 5 6 · 3 · ·</code></td></tr>
+          <tr><td>结束</td><td>—</td><td>栈中剩余 3、5、6 右边没有更大元素</td><td><code>[]</code></td><td><code>5 5 6 −1 3 −1 −1</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 340" width="740" height="340" xmlns="http://www.w3.org/2000/svg">
+        <text x="24" y="24" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">① 数组 A（下标 0 ~ 6）</text>
+        <g font-family="Consolas, monospace" font-size="15" text-anchor="middle">
+          <rect x="24" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="56" y="64" fill="var(--text)">2</text>
+          <rect x="94" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="126" y="64" fill="var(--text)">1</text>
+          <rect x="164" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="196" y="64" fill="var(--text)">5</text>
+          <rect x="234" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="266" y="64" fill="var(--text)">6</text>
+          <rect x="304" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="336" y="64" fill="var(--text)">2</text>
+          <rect x="374" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="406" y="64" fill="var(--text)">3</text>
+          <rect x="444" y="34" width="64" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="476" y="64" fill="var(--text)">1</text>
+        </g>
+        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="56" y="94">0</text><text x="126" y="94">1</text><text x="196" y="94">2</text>
+          <text x="266" y="94">3</text><text x="336" y="94">4</text><text x="406" y="94">5</text><text x="476" y="94">6</text>
+        </g>
+
+        <text x="24" y="136" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">② 答案 ans[i]：右边第一个更大的元素</text>
+        <g font-family="Consolas, monospace" font-size="15" text-anchor="middle">
+          <rect x="24" y="146" width="64" height="44" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="56" y="174" fill="var(--text)">5</text>
+          <rect x="94" y="146" width="64" height="44" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="126" y="174" fill="var(--text)">5</text>
+          <rect x="164" y="146" width="64" height="44" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="196" y="174" fill="var(--text)">6</text>
+          <rect x="234" y="146" width="64" height="44" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="266" y="174" fill="var(--text-faint)">−1</text>
+          <rect x="304" y="146" width="64" height="44" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="336" y="174" fill="var(--text)">3</text>
+          <rect x="374" y="146" width="64" height="44" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="406" y="174" fill="var(--text-faint)">−1</text>
+          <rect x="444" y="146" width="64" height="44" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+          <text x="476" y="174" fill="var(--text-faint)">−1</text>
+        </g>
+
+        <!-- 不变式说明 -->
+        <rect x="24" y="212" width="692" height="112" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <text x="40" y="238" fill="var(--brand)" font-size="13" font-weight="700">不变式：栈里存的是「还没找到答案」的下标，且对应的值从栈底到栈顶单调不增</text>
+        <text x="40" y="264" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">while (栈非空 &amp;&amp; A[栈顶] &lt; A[i]) { ans[栈顶] = A[i]; 弹出; }　再 push(i)</text>
+        <text x="40" y="290" fill="var(--text-faint)" font-size="12">每个下标最多进栈一次、出栈一次 → 总操作 ≤ 2n → 时间 O(n)，空间 O(n)</text>
+        <text x="40" y="312" fill="var(--text-faint)" font-size="12">扫描结束时栈里剩下的下标，右边都不存在更大的元素，答案就是 −1</text>
+      </svg>
+      <figcaption>图 3-11　单调栈求「下一个更大元素」：新元素一出现就结算掉栈里所有比它小的位置</figcaption>
+    </div>
+
+    <p>
+      下面的动画把「数组指针、单调栈、答案数组」三者放在一起同步演示，并且会把每一次弹出都单独作为一帧，
+      方便你看清「谁被谁结算了」。注意栈里存的是<b>下标</b>而不是值 —— 因为我们需要把答案写回 <code>ans[下标]</code>。
+    </p>
+
+    <div id="viz-monotonic-stack"></div>
+
+    <pre data-lang="cpp" data-file="monotonic_stack.cpp">// monotonic_stack.cpp —— 单调栈：下一个更大元素 + 直方图中最大矩形
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+#include &lt;algorithm&gt;
+
+/* ① 下一个更大元素：对每个 i，求右边第一个比 A[i] 大的值，不存在记 -1 */
+std::vector&lt;int&gt; NextGreater(const std::vector&lt;int&gt;&amp; A) {
+    int n = static_cast&lt;int&gt;(A.size());
+    std::vector&lt;int&gt; ans(n, -1);
+    std::stack&lt;int&gt; st;                            // 存下标；栈内 A[st.top()] 单调不增
+    for (int i = 0; i &lt; n; ++i) {
+        while (!st.empty() &amp;&amp; A[st.top()] &lt; A[i]) {  // A[i] 能「结算」栈顶
+            ans[st.top()] = A[i];
+            st.pop();
+        }
+        st.push(i);                                // 每个下标只进栈一次
+    }
+    return ans;                                    // 仍留在栈里的下标答案保持 -1
+}
+
+/* ② 直方图中最大矩形：对每根柱子，找左右第一个比它矮的柱子，宽度 = 右 − 左 − 1 */
+long long LargestRectangle(const std::vector&lt;int&gt;&amp; h) {
+    int n = static_cast&lt;int&gt;(h.size());
+    std::vector&lt;int&gt; left(n, -1), right(n, n);
+    std::stack&lt;int&gt; st;
+    for (int i = 0; i &lt; n; ++i) {                  // 从左到右 → 左边界
+        while (!st.empty() &amp;&amp; h[st.top()] &gt;= h[i]) st.pop();
+        left[i] = st.empty() ? -1 : st.top();
+        st.push(i);
+    }
+    while (!st.empty()) st.pop();
+    for (int i = n - 1; i &gt;= 0; --i) {             // 从右到左 → 右边界
+        while (!st.empty() &amp;&amp; h[st.top()] &gt;= h[i]) st.pop();
+        right[i] = st.empty() ? n : st.top();
+        st.push(i);
+    }
+    long long best = 0;
+    for (int i = 0; i &lt; n; ++i)
+        best = std::max(best, static_cast&lt;long long&gt;(h[i]) * (right[i] - left[i] - 1));
+    return best;
+}
+
+int main() {
+    std::vector&lt;int&gt; A = {2, 1, 5, 6, 2, 3, 1};
+    std::vector&lt;int&gt; ans = NextGreater(A);
+    std::cout &lt;&lt; "A   = ";
+    for (int v : A) std::cout &lt;&lt; v &lt;&lt; ' ';
+    std::cout &lt;&lt; "\nans = ";
+    for (int v : ans) std::cout &lt;&lt; v &lt;&lt; ' ';
+    std::cout &lt;&lt; "\n";
+
+    std::vector&lt;int&gt; h = {2, 1, 5, 6, 2, 3};
+    std::cout &lt;&lt; "直方图 {2,1,5,6,2,3} 的最大矩形面积 = " &lt;&lt; LargestRectangle(h) &lt;&lt; '\n';
+    return 0;
+}
+</pre>
+
+    <h3 id="s10-rect">3.10.2　直方图中最大矩形：单调栈的第二种用法</h3>
+
+    <p>
+      题目：给一排宽度都是 1、高度分别为 <code>h[0..n-1]</code> 的柱子（直方图），
+      求其中能画出的<b>最大矩形面积</b>。经典数据 <code>h = {2,1,5,6,2,3}</code>，答案是 <b>10</b>
+      （取高度 5 与 6 两根柱子，宽度 2，面积 <code>5×2 = 10</code>）。
+    </p>
+    <p>
+      换个角度想：<b>每一个最大矩形，一定是以某根柱子的高度为高的</b>（否则可以再长高）。
+      所以问题变成：对每根柱子 <code>i</code>，求「以 <code>h[i]</code> 为高时，能向左右扩展多远」——
+      也就是找<b>左边第一个比它矮的柱子</b>和<b>右边第一个比它矮的柱子</b>。
+      这正好又是「第一个更大 / 更小元素」问题，于是两次单调栈搞定。
+      下面这份代码用「末尾加一个高度 0 的哨兵」的技巧，把两次扫描压缩成一趟。
+    </p>
+
+    <pre data-lang="cpp" data-file="largest_rectangle_onepass.cpp">// largest_rectangle_onepass.cpp —— 直方图最大矩形：单调栈一趟扫描版（哨兵技巧）
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+#include &lt;algorithm&gt;
+
+int LargestRectangleArea(std::vector&lt;int&gt; h) {
+    h.push_back(0);                      // ★ 哨兵：高度 0 比所有柱子都矮，保证最后能把栈清空
+    std::stack&lt;int&gt; st;                  // 存下标，栈内高度单调递增
+    int best = 0;
+    for (int i = 0; i &lt; static_cast&lt;int&gt;(h.size()); ++i) {
+        while (!st.empty() &amp;&amp; h[st.top()] &gt; h[i]) {
+            int height = h[st.top()];    // 以被弹出的柱子为高
+            st.pop();
+            int left = st.empty() ? -1 : st.top();     // 左边第一个更矮的
+            int width = i - left - 1;                   // 向右能扩展到 i − 1
+            best = std::max(best, height * width);
+        }
+        st.push(i);
+    }
+    return best;
+}
+
+int main() {
+    std::vector&lt;std::vector&lt;int&gt;&gt; tests = {
+        {2, 1, 5, 6, 2, 3},              // 10
+        {2, 4},                          // 4
+        {6, 2, 5, 4, 5, 1, 6},           // 12
+        {1},                             // 1
+        {2, 2, 2}                        // 6
+    };
+    for (size_t i = 0; i &lt; tests.size(); ++i) {
+        std::cout &lt;&lt; "测试 " &lt;&lt; (i + 1) &lt;&lt; " → " &lt;&lt; LargestRectangleArea(tests[i]) &lt;&lt; '\n';
+    }
+    return 0;
+}
+</pre>
+
+    <p>
+      验算第三组 <code>{6,2,5,4,5,1,6}</code>：高度 4 的柱子（下标 3）左边第一个更矮的是下标 1（高 2），
+      右边第一个更矮的是下标 5（高 1），宽度 <code>5-1-1 = 3</code>，面积 <code>4×3 = 12</code>；
+      高度 5 的两根柱子（下标 2 与 4）被高度 4 隔开，各自宽度只有 1，面积 5 —— 所以最大值是 12 ✓。
+    </p>
+
+    <h3 id="s10-sum">3.10.3　复杂度与「什么时候该想到单调栈」</h3>
+
+    <p>
+      单调栈的时间复杂度证明是<b>均摊分析</b>的又一经典：每个下标<b>恰好进栈一次</b>，
+      而每次 <code>while</code> 循环都会弹出一个下标，所以整个算法执行期间<b>弹出总次数不超过进栈总次数 n</b>。
+      把内层循环的次数「摊」到外层，总操作数 ≤ 2n，即 <b>O(n)</b>。
+      这也解释了为什么双层 <code>for</code> / <code>while</code> 嵌套却是线性时间 ——
+      <b>看到嵌套循环不要立刻判 O(n²)，要看内层到底执行了多少次</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>做法</th><th>时间</th><th>空间</th><th>思路</th></tr></thead>
+        <tbody>
+          <tr><td>暴力：对每个 i 向右扫</td><td class="c-bad">O(n²)</td><td>O(1)</td><td>直接模拟定义</td></tr>
+          <tr><td>稀疏表 / 线段树 + 二分</td><td>O(n log n)</td><td>O(n log n)</td><td>先预处理「区间最大值」，再二分找第一个更大的位置</td></tr>
+          <tr><td><b>单调栈</b></td><td class="c-ok">O(n)</td><td class="c-ok">O(n)</td><td>一次扫描，边扫边把「已经确定答案」的下标弹出</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">识别信号：看到这些话就该想到单调栈</span>
+      「每个元素<b>左边 / 右边第一个</b>比它大 / 小 / 高 / 矮的元素」「柱状图最大矩形」「接雨水」
+      「股票跨度」「滑动窗口最大值（这个更常用单调队列，见第 04 讲）」。
+      判断用「递增栈」还是「递减栈」的口诀：<b>求「下一个更大」用递减栈（栈底大、栈顶小），
+      求「下一个更小」用递增栈</b>；记不住也没关系，只要记住「<b>谁能结算谁</b>」就能现场推出来。
+    </div>
+
+    <h2 id="s11">3.11　栈的其它应用一览</h2>
+
+    <p>
+      栈之所以被称为「最重要的数据结构之一」，是因为它出现在计算机系统的每一个层次里。
+      下面五个场景，每一个都只需要一两句话就能解释清楚，但每一个都能体现「后进先出」的威力。
+    </p>
+
+    <div class="figure">
+      <div class="mini-grid">
+        <div class="card">
+          <svg viewBox="0 0 220 104" width="220" height="104" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+              <rect x="60" y="10" width="100" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/>
+              <text x="110" y="27" fill="var(--text)">main 的栈帧</text>
+              <rect x="60" y="38" width="100" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/>
+              <text x="110" y="55" fill="var(--text)">f(3) 的栈帧</text>
+              <rect x="60" y="66" width="100" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+              <text x="110" y="83" fill="var(--text)">f(2) 的栈帧</text>
+            </g>
+            <text x="176" y="84" fill="var(--brand)" font-size="11">← 栈顶</text>
+            <text x="10" y="100" fill="var(--text-faint)" font-size="10.5">函数调用栈</text>
+          </svg>
+          <h4 style="margin:0 0 4px">① 函数调用栈</h4>
+          <p style="font-size:13.5px;margin:0">每次函数调用压入一个栈帧，返回时弹出。递归、异常传播、调试器的调用栈视图，全靠它。</p>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 220 104" width="220" height="104" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+              <rect x="12" y="24" width="44" height="22" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/>
+              <text x="34" y="39" fill="var(--text)">A</text>
+              <rect x="60" y="24" width="44" height="22" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/>
+              <text x="82" y="39" fill="var(--text)">B</text>
+              <rect x="108" y="24" width="44" height="22" rx="4" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+              <text x="130" y="39" fill="var(--text)">C</text>
+              <text x="168" y="39" fill="var(--brand)" font-size="11">←</text>
+              <rect x="12" y="64" width="44" height="22" rx="4" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+              <text x="34" y="79" fill="var(--text-faint)">—</text>
+              <text x="80" y="79" fill="var(--text-faint)" font-size="11">后退栈 / 前进栈</text>
+            </g>
+            <text x="10" y="18" fill="var(--text-faint)" font-size="10.5">后退栈（栈顶 = 当前页）</text>
+            <text x="10" y="100" fill="var(--text-faint)" font-size="10.5">点「后退」= 当前页压入前进栈</text>
+          </svg>
+          <h4 style="margin:0 0 4px">② 浏览器前进 / 后退</h4>
+          <p style="font-size:13.5px;margin:0">两个栈：后退栈存历史页面，前进栈存「退回来」的页面。新访问一个页面就清空前进栈。</p>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 220 104" width="220" height="104" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Consolas, monospace" font-size="11">
+              <rect x="12" y="30" width="88" height="66" rx="6" fill="var(--panel-2)" stroke="var(--border)"/>
+              <text x="20" y="46" fill="var(--text-soft)">输入 "abc"</text>
+              <text x="20" y="64" fill="var(--text-soft)">输入 "de"</text>
+              <text x="20" y="82" fill="var(--brand)">输入 "f"</text>
+              <rect x="120" y="46" width="88" height="50" rx="6" fill="var(--panel-2)" stroke="var(--border)"/>
+              <text x="128" y="70" fill="var(--text-soft)">撤销栈</text>
+              <text x="128" y="88" fill="var(--text-faint)">顶部 = 最近操作</text>
+            </g>
+            <text x="10" y="20" fill="var(--text-faint)" font-size="10.5">Ctrl+Z：把最近一次操作弹出并反向执行</text>
+          </svg>
+          <h4 style="margin:0 0 4px">③ 编辑器的撤销 / 重做</h4>
+          <p style="font-size:13.5px;margin:0">撤销栈记录操作，Ctrl+Z 弹出并反向执行；重做栈记录被撤销的操作，Ctrl+Y 再执行回去。</p>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 220 104" width="220" height="104" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Consolas, monospace" font-size="12">
+              <rect x="10" y="16" width="200" height="28" rx="5" fill="var(--panel-2)" stroke="var(--border)"/>
+              <text x="20" y="35" fill="var(--text)">if (a[1] &gt; (b[2]+c) )</text>
+              <rect x="10" y="54" width="120" height="26" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/>
+              <text x="20" y="72" fill="var(--ok)">✓ 括号配对正确</text>
+              <rect x="140" y="54" width="70" height="26" rx="5" fill="var(--danger-soft)" stroke="var(--danger)"/>
+              <text x="150" y="72" fill="var(--danger)">✗ (a[1)</text>
+            </g>
+            <text x="10" y="98" fill="var(--text-faint)" font-size="10.5">每读一个字符只需 O(1) 时间做判定</text>
+          </svg>
+          <h4 style="margin:0 0 4px">④ 语法检查（编译器 / IDE）</h4>
+          <p style="font-size:13.5px;margin:0">括号、引号、<code>{ }</code> 代码块的配对检查都用它；语法分析器（LR 分析）内部同样跑着一个状态栈。</p>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 220 104" width="220" height="104" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+              <circle cx="40" cy="30" r="14" fill="var(--brand)" stroke="var(--brand-dark)"/>
+              <text x="40" y="35" fill="#fff">1</text>
+              <circle cx="96" cy="22" r="14" fill="var(--ok-soft)" stroke="var(--ok)"/>
+              <text x="96" y="27" fill="var(--text)">2</text>
+              <circle cx="96" cy="66" r="14" fill="var(--panel)" stroke="var(--border-strong)"/>
+              <text x="96" y="71" fill="var(--text)">3</text>
+              <circle cx="152" cy="44" r="14" fill="var(--panel)" stroke="var(--border-strong)"/>
+              <text x="152" y="49" fill="var(--text)">4</text>
+              <line x1="53" y1="26" x2="82" y2="23" stroke="var(--border-strong)" stroke-width="1.6"/>
+              <line x1="53" y1="36" x2="82" y2="62" stroke="var(--border-strong)" stroke-width="1.6"/>
+              <line x1="110" y1="26" x2="139" y2="40" stroke="var(--border-strong)" stroke-width="1.6"/>
+              <line x1="109" y1="62" x2="138" y2="48" stroke="var(--border-strong)" stroke-width="1.6"/>
+              <rect x="176" y="14" width="36" height="20" rx="4" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+              <text x="194" y="28" fill="var(--text)">2</text>
+              <rect x="176" y="38" width="36" height="20" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/>
+              <text x="194" y="52" fill="var(--text)">1</text>
+              <rect x="176" y="62" width="36" height="20" rx="4" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
+            </g>
+            <text x="10" y="100" fill="var(--text-faint)" font-size="10.5">栈 = DFS 的「回溯点」</text>
+          </svg>
+          <h4 style="margin:0 0 4px">⑤ DFS 的非递归实现</h4>
+          <p style="font-size:13.5px;margin:0">深度优先搜索（DFS）就是用栈保存「还要回去探索的分支」；第 08 讲图的遍历会用到它。</p>
+        </div>
+      </div>
+      <figcaption>图 3-12　栈的五种日常应用：调用栈、浏览器历史、撤销重做、语法检查、DFS 回溯</figcaption>
+    </div>
+
+    <p>
+      撤销 / 重做是「双栈」最典型的用法，代码短到可以放进一次课堂练习，但它把「栈顶 = 最近的操作」这个直觉用到了极致。
+    </p>
+
+    <pre data-lang="cpp" data-file="undo_redo.cpp">// undo_redo.cpp —— 用两个栈实现编辑器的撤销 / 重做
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;stack&gt;
+
+class Editor {
+public:
+    void Type(const std::string&amp; s) {          // 输入一段文字 = 一次可撤销的操作
+        text += s;
+        undoSt.push(s);                        // 记入撤销栈
+        while (!redoSt.empty()) redoSt.pop();  // 产生新分支 → 重做栈作废
+    }
+    bool Undo() {                              // Ctrl+Z
+        if (undoSt.empty()) return false;      // 没有可撤销的操作
+        std::string s = undoSt.top();
+        undoSt.pop();
+        text.erase(text.size() - s.size());    // 反向执行：把这段文字删掉
+        redoSt.push(s);                        // 挪到重做栈
+        return true;
+    }
+    bool Redo() {                              // Ctrl+Y
+        if (redoSt.empty()) return false;
+        std::string s = redoSt.top();
+        redoSt.pop();
+        text += s;                             // 重新执行
+        undoSt.push(s);
+        return true;
+    }
+    const std::string&amp; Text() const { return text; }
+    size_t UndoDepth() const { return undoSt.size(); }
+    size_t RedoDepth() const { return redoSt.size(); }
+
+private:
+    std::string text;                          // 当前文本
+    std::stack&lt;std::string&gt; undoSt, redoSt;     // 撤销栈 / 重做栈
+};
+
+int main() {
+    Editor ed;
+    ed.Type("数据结构");
+    ed.Type("与算法");
+    std::cout &lt;&lt; "输入两次后：" &lt;&lt; ed.Text() &lt;&lt; '\n';
+
+    ed.Undo();
+    std::cout &lt;&lt; "撤销一次：" &lt;&lt; ed.Text()
+              &lt;&lt; "（可撤销 " &lt;&lt; ed.UndoDepth() &lt;&lt; " 步，可重做 " &lt;&lt; ed.RedoDepth() &lt;&lt; " 步）\n";
+
+    ed.Redo();
+    std::cout &lt;&lt; "重做一次：" &lt;&lt; ed.Text() &lt;&lt; '\n';
+
+    ed.Undo(); ed.Undo();
+    std::cout &lt;&lt; "撤销到底：\"" &lt;&lt; ed.Text() &lt;&lt; "\"，再撤销返回 "
+              &lt;&lt; (ed.Undo() ? "true" : "false") &lt;&lt; '\n';
+
+    ed.Type("新内容");
+    std::cout &lt;&lt; "输入新内容后：文本 = " &lt;&lt; ed.Text()
+              &lt;&lt; "，重做栈深度 = " &lt;&lt; ed.RedoDepth() &lt;&lt; "（旧分支已丢弃）\n";
+    return 0;
+}
+</pre>
+
+    <h2 id="s12">3.12　本章小结、易错点与自测</h2>
+
+    <h3 id="s12-sum">3.12.1　一页纸小结</h3>
+
+    <p>
+      把这一章压缩成一张表：<b>三种实现 + 五个应用 + 两句话的本质</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>结构 / 算法</th><th>核心机制</th><th>时间</th><th>空间</th><th>一句话记忆</th></tr></thead>
+        <tbody>
+          <tr><td>顺序栈 SeqStack</td><td>数组 + top 下标</td><td>Push/Pop/GetTop O(1)（扩容摊还 O(1)）</td><td>O(MaxSize)</td><td>top 挪一格就是全部操作</td></tr>
+          <tr><td>共享栈 SharedStack</td><td>两个栈底钉在数组两端</td><td>同顺序栈，全部 O(1)</td><td>O(MaxSize) 共用</td><td>满 ⇔ <code>top0 + 1 == top1</code></td></tr>
+          <tr><td>链栈 LinkStack</td><td>单链表头插 / 删头</td><td>严格 O(1)</td><td>O(n)（每元素多一个指针）</td><td>链表头就是栈顶，永不判满</td></tr>
+          <tr><td>括号匹配</td><td>左括号入栈，右括号与栈顶配对</td><td>O(n)</td><td>O(n)</td><td>栈顶 = 最近一笔没还的账</td></tr>
+          <tr><td>进制转换</td><td>短除法余数入栈，出栈得高位在前</td><td>O(log_base n)</td><td>O(log_base n)</td><td>余数先低后高，栈帮你倒过来</td></tr>
+          <tr><td>中缀转后缀</td><td>isp / icp 比较，左括号隔离，结束清栈</td><td>O(n)</td><td>O(n)</td><td>该弹就弹，弹完再压</td></tr>
+          <tr><td>后缀求值</td><td>遇数压栈，遇运算符弹两个算完压回</td><td>O(n)</td><td>O(n)</td><td>先弹出的是右操作数</td></tr>
+          <tr><td>中缀直接求值</td><td>操作数栈 + 运算符栈（双栈法）</td><td>O(n)</td><td>O(n)</td><td>转后缀的「边转边算」版</td></tr>
+          <tr><td>递归 → 非递归</td><td>自己开栈保存「未完成的事」</td><td>与递归同阶</td><td>显式栈通常更省</td><td>栈帧 = 返回地址 + 现场</td></tr>
+          <tr><td>迷宫回溯</td><td>栈存当前路径，死路出栈</td><td>O(m·n)</td><td>O(m·n)</td><td>出栈就是「回退一步」</td></tr>
+          <tr><td>单调栈</td><td>保持栈内单调，新元素结算旧元素</td><td class="c-ok">O(n)</td><td>O(n)</td><td>每个下标进一次、出一次</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">两句话的本质</span>
+      ① <b>栈 = 只在一端进出的线性表</b>，所以它天然处理「最近发生的、还没处理完的事情」；
+      ② <b>凡是需要「记住现场、稍后回来」的问题，答案里几乎一定有一个栈</b> ——
+      括号的欠账、递归的返回地址、迷宫的路径、DFS 的分支、撤销的操作历史，全是同一件事的不同外衣。
+    </div>
+
+    <h3 id="s12-trap">3.12.2　易错点清单</h3>
+
+    <div class="note danger">
+      <span class="note-title">易错 1：top 的约定混用</span>
+      约定 A（top 指向栈顶元素，空栈 <code>top == -1</code>）与约定 B（top 指向栈顶上方空位，空栈 <code>top == 0</code>）
+      的公式<b>完全相反</b>。最常见的错误是「判空用 A、入栈用 B」：
+      <code>if (top == -1) ...; S[top++] = e;</code> —— 这样第一次入栈会写到 <code>S[-1]</code>。
+      拿到任何一份栈代码，<b>第一件事就是找 top 的初值</b>，剩下的公式全都能推出来。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 2：先判空 / 判满，再动 top</span>
+      Push 必须「先判满 → 再动 top → 最后写值」；Pop 必须「先判空 → 再取值 → 最后动 top」。
+      顺序写反、或者忘了判空，轻则丢元素，重则数组越界（未定义行为）。
+      另外注意：出栈后元素<b>并没有被删除</b>，只是不再属于这个栈 —— 所以顺序栈清空只需 <code>top = -1</code>，
+      但如果元素持有堆资源，就必须逐个 <code>pop</code> 或交给 <code>vector::clear()</code>。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错 3：中缀转后缀的三个坑</span>
+      ① 弹出条件写成 <code>isp &gt; icp</code>（应为 <code>&gt;=</code>）→ 左结合被破坏，<code>8-4-2</code> 算错；
+      ② 右结合运算符 <code>^</code> 的 icp 没有比 isp 大 → <code>2^3^2</code> 变成左结合；
+      ③ <b>扫描结束后忘了把栈里剩下的运算符弹出来</b> → 结果少一截。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错 4：后缀求值弹出顺序与多位数</span>
+      后缀求值中<b>先弹出的是右操作数</b>，写成 <code>a - b</code> 之前要确认变量顺序；
+      另外必须用「词法切分」把 <code>22</code>、<code>1.5</code> 当成一个整体读入，
+      如果按字符一个一个读，<code>22</code> 会被算成两个 <code>2</code>。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错 5：链栈出栈顺序与内存释放</span>
+      出栈必须「先保存 top → 再前移 top → 最后 delete」，
+      写成 <code>delete top; top = top-&gt;next;</code> 就是访问已释放内存（use after free）。
+      链表栈的 <code>ClearStack</code> 与析构也必须逐个 <code>delete</code>，否则内存泄漏。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错 6：单调栈的单调方向与「存值还是存下标」</span>
+      求「下一个更大」用<b>递减栈</b>（栈底大、栈顶小），求「下一个更小」用<b>递增栈</b>；
+      要写答案到 <code>ans[下标]</code>，所以栈里必须存<b>下标</b>而不是数值 ——
+      存值会导致「知道答案是多少，却不知道该写给谁」。另外，扫描结束后栈里<b>剩下的元素也要处理</b>（答案记 −1）。
+    </div>
+
+    <h3 id="s12-exam">3.12.3　考点清单</h3>
+
+    <div class="note exam">
+      <span class="note-title">必考 · 结论型</span>
+      <ul style="margin:6px 0 0">
+        <li>栈的操作特性：仅在栈顶插入删除，<b>后进先出</b>；栈是操作受限的线性表。</li>
+        <li>顺序栈 top 两种约定的全部公式（判空 / 判满 / 入栈 / 出栈 / 取栈顶 / 求长度）。</li>
+        <li>共享栈判满 <code>top0 + 1 == top1</code>，两栈长度与空闲数公式；意义是<b>提高空间利用率</b>（不改变时间复杂度）。</li>
+        <li>链栈：只在头部操作、<b>不必判满</b>、通常<b>不带头结点</b>；Push/Pop 严格 O(1)。</li>
+        <li>顺序栈 / 链栈对比：时间、空间、预分配、上溢、缓存局部性、适用场景。</li>
+      </ul>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">必考 · 计算与推演型</span>
+      <ul style="margin:6px 0 0">
+        <li><b>给定入栈序列，判断某个出栈序列是否可能</b>（模拟一遍栈即可；合法出栈序列共有 <code>C(2n,n)/(n+1)</code> 种，即卡特兰数）。</li>
+        <li><b>中缀 ↔ 前缀 ↔ 后缀互转</b>：务必练到能在纸上用「加括号法」30 秒转完。</li>
+        <li><b>后缀表达式求值</b>：按顺序写出操作数栈的每一次变化（本章 3.7.4 的表格就是标准答题格式）。</li>
+        <li><b>括号匹配</b>：说明三种失败情形与循环结束后判栈空的必要性。</li>
+        <li><b>单调栈</b>：写代码 + 证明 O(n)（每个元素进出栈各一次）。</li>
+      </ul>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">拔高 · 应用题</span>
+      「用两个栈实现一个队列」「用栈实现队列 / 用队列实现栈」「设计一个能取最小值的栈（辅助栈）」
+      「字符串解码（3[a2[c]]）」「接雨水」「每日温度」「表达式求值带负号与括号」——
+      这些题都可以在本讲的动画与代码里找到影子，属于「同一套机制换个包装」。
+    </div>
+
+    <h3 id="s12-quiz">3.12.4　自测题（4 题）</h3>
+
+    <div class="card">
+      <p><b>第 1 题（选择）</b>　若元素的入栈序列是 <code>1 2 3 4</code>（入栈过程中允许随时出栈），
+      则下面哪个出栈序列<b>不可能</b>出现？</p>
+      <p>A. <code>4 3 2 1</code>　　B. <code>1 2 3 4</code>　　C. <code>3 1 4 2</code>　　D. <code>3 2 4 1</code></p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p><b>答案：C</b>。</p>
+          <p>逐项模拟一遍栈即可：</p>
+          <ul>
+            <li>A：1 2 3 4 全部入栈，再逐个出栈 → 合法（这是「先全进再全出」的极端）。</li>
+            <li>B：每入一个立刻出栈 → 合法。</li>
+            <li>D：入 1 2 3 → 出 3 → 出 2 → 入 4 → 出 4 → 出 1 → 得到 3 2 4 1，合法。</li>
+            <li>C：想先出 3，必须入 1 2 3 再出 3，此时栈里是 <code>[1, 2]</code>（2 在栈顶）。
+              按后进先出，下一个能出栈的只能是 <b>2</b> 或者新入栈的 4，
+              <b>绝不可能越过 2 先出 1</b> → 3 1 4 2 不可能 ✓</li>
+          </ul>
+          <p>结论：判断这类题不要凭感觉，<b>拿张纸模拟一遍栈</b>最快。另外，n 个元素的合法出栈序列总数是<b>卡特兰数</b>
+          <code>C(2n,n)/(n+1)</code>，n = 4 时共 14 种。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 2 题（填空 + 简答）</b>　一个容量为 <code>MaxSize = 10</code> 的共享栈，
+      0 号栈在左、1 号栈在右，当前 <code>top0 = 3</code>、<code>top1 = 7</code>。请回答：</p>
+      <ol>
+        <li>0 号栈、1 号栈各有几个元素？</li>
+        <li>中间还剩几个空位？</li>
+        <li>此时还能不能继续入栈？栈满的条件是什么？</li>
+        <li>相比「两个各占 5 格的独立栈」，共享栈的优势是什么？它会不会降低时间复杂度？</li>
+      </ol>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p>① 0 号栈长度 = <code>top0 + 1 = 4</code>；1 号栈长度 = <code>MaxSize − top1 = 10 − 7 = 3</code>。</p>
+          <p>② 空闲个数 = <code>top1 − top0 − 1 = 7 − 3 − 1 = 3</code>（下标 4、5、6 三格）。</p>
+          <p>③ 还能继续入栈（还有 3 个空位）。<b>栈满条件：<code>top0 + 1 == top1</code></b>，
+          此时中间一格空位都没有了（本例中当 <code>top0 = 4</code>、<code>top1 = 5</code> 时达到，共装了 10 个元素）。
+          两个栈之和只要不超过 10 就永远不会上溢。</p>
+          <p>④ 优势是<b>提高空间利用率、降低上溢概率</b>：两个独立栈各自固定 5 格时，只要某一个栈用到第 6 个元素就溢出了，
+          哪怕另一个栈一个元素都没放；共享栈让「此消彼长」的两个栈互相借用空闲空间，最坏情况才浪费。
+          <b>它不会改变时间复杂度</b>，所有操作仍然是 O(1)。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 3 题（转换 + 求值）</b></p>
+      <ol>
+        <li>把中缀表达式 <code>A + B * ( C - D ) / E</code> 转换成<b>后缀</b>表达式与<b>前缀</b>表达式（写出加括号的推导过程）。</li>
+        <li>求后缀表达式 <code>3 4 2 * + 1 5 + 2 ^ 3 / -</code> 的值（写出操作数栈的每一步变化）。</li>
+      </ol>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p>① 加括号：<code>( A + ( ( B * ( C - D ) ) / E ) )</code>。</p>
+          <p>把运算符移到右括号后 → <b>后缀：<code>A B C D - * E / +</code></b>；
+          移到左括号前 → <b>前缀：<code>+ A / * B - C D E</code></b>。</p>
+          <p>用栈验证一遍（关键步骤）：读到 <code>A</code> 输出；<code>+</code> 入栈；
+          <code>B</code> 输出；<code>*</code> 入栈（isp(+) = 3 &lt; icp(*) = 4）；
+          <code>(</code> 入栈；<code>C</code> 输出；<code>-</code> 入栈（被左括号挡住）；<code>D</code> 输出；
+          遇到 <code>)</code> → 弹出 <code>-</code>，丢弃 <code>(</code>；
+          遇到 <code>/</code> → isp(*) = 5 ≥ 4，弹出 <code>*</code>，然后 <code>/</code> 入栈；
+          <code>E</code> 输出；结束清栈 → 弹出 <code>/</code>、<code>+</code>。
+          最终 <code>A B C D - * E / +</code> ✓</p>
+          <p>② 操作数栈变化（栈底在左）：</p>
+          <div class="table-wrap">
+            <table class="compact">
+              <thead><tr><th>读入</th><th>栈</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>3</code></td><td><code>3</code></td><td>压栈</td></tr>
+                <tr><td><code>4</code></td><td><code>3 4</code></td><td>压栈</td></tr>
+                <tr><td><code>2</code></td><td><code>3 4 2</code></td><td>压栈</td></tr>
+                <tr><td><code>*</code></td><td><code>3 8</code></td><td>弹 2、4 → 4×2 = 8</td></tr>
+                <tr><td><code>+</code></td><td><code>11</code></td><td>弹 8、3 → 3+8 = 11</td></tr>
+                <tr><td><code>1</code></td><td><code>11 1</code></td><td>压栈</td></tr>
+                <tr><td><code>5</code></td><td><code>11 1 5</code></td><td>压栈</td></tr>
+                <tr><td><code>+</code></td><td><code>11 6</code></td><td>弹 5、1 → 1+5 = 6</td></tr>
+                <tr><td><code>2</code></td><td><code>11 6 2</code></td><td>压栈</td></tr>
+                <tr><td><code>^</code></td><td><code>11 36</code></td><td>弹 2、6 → 6² = 36</td></tr>
+                <tr><td><code>3</code></td><td><code>11 36 3</code></td><td>压栈</td></tr>
+                <tr><td><code>/</code></td><td><code>11 12</code></td><td>弹 3、36 → 36÷3 = 12</td></tr>
+                <tr><td><code>-</code></td><td><code>-1</code></td><td>弹 12、11 → 11−12 = <b>−1</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>答案：<b>−1</b>。注意最后一步是「左 − 右」，即 11 − 12，写反了就得到 +1。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 4 题（编程）</b>　给定数组 <code>A = {3, 1, 4, 1, 5, 9, 2, 6}</code>，
+      用<b>单调栈</b>求每个位置右边第一个比它<b>小</b>的元素（不存在记 −1）。
+      请写出完整函数、给出结果，并说明为什么总时间是 O(n)。</p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <pre data-lang="cpp" data-file="quiz_next_smaller.cpp">// 求「下一个更小元素」：与「下一个更大」只差一个比较符号
+// 求更小 → 用递增栈（栈底小、栈顶大）：栈顶比当前元素大就弹
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;stack&gt;
+
+std::vector&lt;int&gt; NextSmaller(const std::vector&lt;int&gt;&amp; A) {
+    int n = static_cast&lt;int&gt;(A.size());
+    std::vector&lt;int&gt; ans(n, -1);                 // 默认 -1：右边没有更小的
+    std::stack&lt;int&gt; st;                          // 存下标，栈内值单调递增
+    for (int i = 0; i &lt; n; ++i) {
+        while (!st.empty() &amp;&amp; A[st.top()] &gt; A[i]) {   // 只有「&gt;」与求更大时不同
+            ans[st.top()] = A[i];
+            st.pop();
+        }
+        st.push(i);
+    }
+    return ans;
+}
+
+int main() {
+    std::vector&lt;int&gt; A = {3, 1, 4, 1, 5, 9, 2, 6};
+    std::vector&lt;int&gt; ans = NextSmaller(A);
+    for (int v : ans) std::cout &lt;&lt; v &lt;&lt; ' ';
+    std::cout &lt;&lt; '\n';                            // 1 -1 1 -1 2 2 -1 -1
+    return 0;
+}
+</pre>
+          <p><b>结果：<code>1 −1 1 −1 2 2 −1 −1</code></b>。逐个核对：</p>
+          <ul>
+            <li><code>A[0] = 3</code> → 右边第一个更小的是 <code>A[1] = 1</code>；</li>
+            <li><code>A[1] = 1</code> → 右边没有比 1 更小的 → −1；</li>
+            <li><code>A[2] = 4</code> → <code>A[3] = 1</code>；<code>A[3] = 1</code> → −1；</li>
+            <li><code>A[4] = 5</code> → <code>A[6] = 2</code>（注意 A[5] = 9 比 5 大，跳过）；</li>
+            <li><code>A[5] = 9</code> → <code>A[6] = 2</code>；</li>
+            <li><code>A[6] = 2</code>、<code>A[7] = 6</code> → 右边都没有更小的 → −1、−1。</li>
+          </ul>
+          <p><b>为什么是 O(n)：</b>每个下标在循环中<b>恰好被 push 一次</b>；
+          而每次 <code>while</code> 循环体都对应一次 <code>pop</code>，弹出的元素不会再次进栈，
+          所以整个算法执行期间 <code>pop</code> 的总次数 ≤ <code>push</code> 的总次数 = n。
+          内层循环的总工作量被「摊」到 n 次外层迭代上，总操作数 ≤ 2n → <b>时间 O(n)</b>，额外空间 O(n)。</p>
+          <p><b>易错提醒：</b>① 栈里必须存<b>下标</b>（否则不知道答案写给谁）；
+          ② 扫描结束后栈里剩下的下标答案保持 −1（本题初始化时就填好了 −1，别忘了这一步）；
+          ③ 把 <code>&gt;</code> 写成 <code>&gt;=</code> 时，「相等元素」会被当成「更小」，
+          遇到 <code>{2, 2, 2}</code> 这类数据就会得到错误答案 —— 相等算不算「更小」，要先看清题意。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">下一讲预告</span>
+      栈是「只在一端进出」的线性表。把两端都用起来、变成「一端进、另一端出」，就得到了<b>队列</b>：
+      银行排队、打印机任务、树的层序遍历、图的 BFS 最短路都要靠它。
+      第 04 讲还会讲清一个经典陷阱 —— 顺序队列的「假溢出」，以及循环队列是怎么用取模运算把它绕过去的。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch02-linear-list.html">
+        <span class="dir">← 上一讲</span>
+        <span class="ttl">02 线性表：顺序表与链表</span>
+      </a>
+      <a class="next" href="ch04-queue.html">
+        <span class="dir">下一讲 →</span>
+        <span class="ttl">04 队列及其应用</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

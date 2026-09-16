@@ -1,0 +1,13 @@
+{
+  "name": "ds-course",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "《数据结构与算法设计》交互式离线课件（HTML + C++）",
+  "scripts": {
+    "check": "node tools/check.mjs",
+    "sim": "node tools/dom-sim.mjs",
+    "cpp": "node tools/cpp-check.mjs",
+    "all": "node tools/batch-check.mjs"
+  }
+}

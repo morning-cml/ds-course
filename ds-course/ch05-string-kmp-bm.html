@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 串：KMP 与 BM 模式匹配 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch05', title: '串：KMP 与 BM 模式匹配' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch05-viz.js" defer></script>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 05 讲</div>
+      <h1>串：KMP 与 BM 模式匹配</h1>
+      <p class="lede">
+        串（字符串）是最贴近日常的线性结构，而「在一个大串里找一个子串」是编译器、编辑器、搜索引擎、
+        DNA 比对都在反复做的事。本章从最朴素的暴力匹配讲到 KMP 的 <code>next</code> 数组推导，
+        再讲到工程中更快、也更反直觉的 BM 算法。
+      </p>
+      <div class="meta">
+        <span>预计 120 分钟</span>
+        <span>前置：第 02 讲线性表、第 01 讲大 O</span>
+        <span>关键词：模式匹配 · next 数组 · 坏字符 · 好后缀</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:0">
+        <li><b>5.1</b> 串的定义、存储结构与基本操作 —— 打地基，尤其要弄清「子串、前缀、后缀」的严格定义。</li>
+        <li><b>5.2</b> 朴素模式匹配 —— 看懂它慢在哪里，才能明白 KMP 在优化什么。</li>
+        <li><b>5.3</b> KMP 算法 —— <b>本章最关键</b>：<code>next</code> 数组的手推过程配有专门动画，一定要自己动手推一遍。</li>
+        <li><b>5.4</b> KMP 的完整实现与优化 —— 含 <code>nextval</code>、两种下标约定、与其他题型的联系。</li>
+        <li><b>5.5</b> BM 算法 —— 坏字符与好后缀两条规则，为什么它比 KMP 更快。</li>
+        <li><b>5.6</b> 三种匹配算法综合对比与练习。</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">5.1 串是什么：定义与基本操作</h2>
+
+    <h3 id="s1-1">5.1.1 定义与术语</h3>
+    <p>
+      <b>串（String）</b>，又称字符串，是由<strong>零个或多个字符</strong>组成的有限序列，记作
+      <code>S = "a<sub>1</sub>a<sub>2</sub>…a<sub>n</sub>"</code>。其中 <code>n</code> 称为串的长度，
+      长度为 0 的串称为<b>空串（null string）</b>，记作 <code>""</code> 或者 <code>Ø</code>。
+    </p>
+    <p>
+      串在逻辑上就是一种特殊的线性表——它的数据元素被限定为<strong>字符</strong>。但串和普通线性表有一个重要差别：
+      我们关心的操作不是「取第 i 个元素」，而是<strong>整段整段的比较、查找、拼接</strong>。
+      这就导致了串有自己的一套专用术语：
+    </p>
+
+    <dl class="def">
+      <dt>子串</dt><dd>串中任意个<strong>连续</strong>字符组成的子序列，例如 "dat" 是 "data" 的子串；空串是任意串的子串。</dd>
+      <dt>真子串</dt><dd>不包含自身的子串。</dd>
+      <dt>主串</dt><dd>包含子串的那个串。若 <code>T</code> 是 <code>S</code> 的子串，则 <code>S</code> 是主串。</dd>
+      <dt>串相等</dt><dd>两个串长度相同，且对应位置的字符全部相同。注意 "ab" 与 "ab " (多一个空格) 不相等。</dd>
+      <dt>模式串 / 目标串</dt><dd>模式匹配中，被查找的子串叫模式串 <code>P</code>（pattern），被搜索的大串叫目标串 / 主串 <code>S</code>。</dd>
+      <dt>前缀</dt><dd>从第一个字符开始、长度为 k 的连续子串，记作 <code>P[0..k-1]</code>。<b>真前缀</b>即 k &lt; |P|。</dd>
+      <dt>后缀</dt><dd>以最后一个字符结尾、长度为 k 的连续子串，记作 <code>P[|P|-k .. |P|-1]</code>。<b>真后缀</b>即 k &lt; |P|。</dd>
+      <dt>最长相等真前后缀</dt><dd>一个串的某个真前缀恰好等于它的某个真后缀，其中最长的那一对的长度。KMP 的 <code>next</code> 数组就是它。<br>
+        例：<code>"ABAB"</code> 的真前缀有 <code>"A", "AB", "ABA"</code>，真后缀有 <code>"B", "AB", "BAB"</code>，相等的最长者是 <code>"AB"</code>，长度为 2。</dd>
+    </dl>
+
+    <div class="note warn">
+      <span class="note-title">易错：子串 vs 子序列</span>
+      <b>子串</b>必须连续（如 "abc" 的子串 "bc"）；<b>子序列</b>只要求相对顺序不变、可以不连续
+      （如 "abc" 的子序列 "ac"）。这是后面 KMP（连续匹配）与 LCS 最长公共子序列（不连续）的分水岭，
+      考试里非常爱考这两个概念的辨析。
+    </div>
+
+    <h3 id="s1-2">5.1.2 串的存储结构</h3>
+    <p>串有三种常见存储方式，各有取舍：</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 250" width="900" height="250" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="20" fill="var(--text)" font-size="13" font-weight="700">① 定长顺序存储（C 风格字符数组）</text>
+        <rect x="10" y="34" width="46" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="33" y="60" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">d</text>
+        <rect x="56" y="34" width="46" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="79" y="60" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">a</text>
+        <rect x="102" y="34" width="46" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="125" y="60" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">t</text>
+        <rect x="148" y="34" width="46" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="171" y="60" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">a</text>
+        <rect x="194" y="34" width="46" height="40" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/>
+        <text x="217" y="60" text-anchor="middle" fill="var(--danger)" font-size="15" font-family="Consolas,monospace">\0</text>
+        <text x="256" y="60" fill="var(--text-soft)" font-size="12.5">← 末尾必须有结束标记 '\0'，否则无法知道串有多长</text>
+        <text x="10" y="100" fill="var(--text-faint)" font-size="12">优点：随机访问快、cache 友好；缺点：长度固定，拼接/插入可能溢出</text>
+
+        <text x="10" y="140" fill="var(--text)" font-size="13" font-weight="700">② 堆分配存储（C++ std::string，可动态扩容）</text>
+        <rect x="10" y="154" width="230" height="40" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="125" y="180" text-anchor="middle" fill="var(--brand)" font-size="14" font-family="Consolas,monospace">堆区：'d' 'a' 't' 'a' '\0' …</text>
+        <text x="256" y="180" fill="var(--text-soft)" font-size="12.5">← 真正的字符放在堆上，串对象只保存指针 + 长度 + 容量</text>
+        <text x="10" y="220" fill="var(--text-faint)" font-size="12">优点：长度可动态增长，不会溢出；缺点：需要额外管理内存，扩容时可能重新分配并拷贝</text>
+
+        <text x="480" y="20" fill="var(--text)" font-size="13" font-weight="700">③ 块链存储（链式串）</text>
+        <rect x="480" y="34" width="86" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="523" y="60" text-anchor="middle" fill="var(--text)" font-size="13" font-family="Consolas,monospace">"dat"</text>
+        <rect x="566" y="34" width="86" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="609" y="60" text-anchor="middle" fill="var(--text)" font-size="13" font-family="Consolas,monospace">"a"</text>
+        <rect x="652" y="34" width="86" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="695" y="60" text-anchor="middle" fill="var(--text)" font-size="13" font-family="Consolas,monospace">"str"</text>
+        <path d="M566,54 L558,54" stroke="var(--brand)" stroke-width="2" marker-end="url(#a1)"/>
+        <path d="M652,54 L644,54" stroke="var(--brand)" stroke-width="2" marker-end="url(#a1)"/>
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/></marker></defs>
+        <text x="480" y="100" fill="var(--text-faint)" font-size="12">每个结点存若干字符（块大小可调），块间用指针串起来</text>
+        <text x="480" y="124" fill="var(--text-faint)" font-size="12">优点：插入删除不用整体搬移；缺点：随机访问退化、指针开销大</text>
+        <text x="480" y="160" fill="var(--text-soft)" font-size="12.5">实际工程里几乎只用 ①②；③ 主要出现在教材与特定场景（如超长文本编辑器的 rope 结构）</text>
+      </svg>
+      <figcaption>图 5-1　串的三种存储结构对比</figcaption>
+    </div>
+
+    <h3 id="s1-3">5.1.3 串的基本操作（ADT）</h3>
+    <p>串的抽象数据类型通常包含以下九种基本操作，请把它们的语义和复杂度一起记住：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>语义</th><th>朴素实现复杂度</th><th>C++ 对应</th></tr></thead>
+        <tbody>
+          <tr><td><code>StrAssign(&amp;T, chars)</code></td><td>赋值：把 chars 赋给 T</td><td>O(|chars|)</td><td><code>T = chars</code></td></tr>
+          <tr><td><code>StrCopy(&amp;T, S)</code></td><td>复制</td><td>O(|S|)</td><td><code>T = S</code></td></tr>
+          <tr><td><code>StrEmpty(S)</code></td><td>判空</td><td>O(1)</td><td><code>S.empty()</code></td></tr>
+          <tr><td><code>StrCompare(S, T)</code></td><td>比较：返回 &lt;0 / =0 / &gt;0（按字典序，从第一个不同字符处决定）</td><td>O(min(|S|,|T|))</td><td><code>S.compare(T)</code></td></tr>
+          <tr><td><code>StrLength(S)</code></td><td>求长度</td><td>O(1) 或 O(n)</td><td><code>S.size()</code></td></tr>
+          <tr><td><code>Concat(&amp;T, S1, S2)</code></td><td>拼接</td><td>O(|S1|+|S2|)</td><td><code>T = S1 + S2</code></td></tr>
+          <tr><td><code>SubString(&amp;Sub, S, pos, len)</code></td><td>取子串</td><td>O(len)</td><td><code>S.substr(pos, len)</code></td></tr>
+          <tr><td><code>Index(S, T, pos)</code></td><td><b>模式匹配</b>：在 S 的第 pos 个字符起找 T 第一次出现的位置</td><td>O(n×m) 或 O(n+m)</td><td><code>S.find(T, pos)</code></td></tr>
+          <tr><td><code>Replace(&amp;S, T, V)</code></td><td>用 V 替换 S 中所有与 T 相等的子串</td><td>与匹配算法有关</td><td><code>regex_replace</code> / 手写</td></tr>
+          <tr><td><code>StrInsert / StrDelete</code></td><td>插入 / 删除子串</td><td>O(n)</td><td><code>insert / erase</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>下面是这些操作在 C++ 中的最小实现示例（顺序存储、0 基下标）：</p>
+
+    <pre data-lang="cpp" data-file="string_basic.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+/* 串的基本操作演示（C++ 的 std::string 就是"堆分配顺序存储"的一种工业实现） */
+int main() {
+    string s = "data";
+    string t = "structure";
+
+    cout &lt;&lt; s.size() &lt;&lt; "\n";                  // 4          求长度 O(1)
+    cout &lt;&lt; s + "-" + t &lt;&lt; "\n";               // data-structure  拼接 O(n+m)
+    cout &lt;&lt; s.substr(1, 2) &lt;&lt; "\n";            // at         取子串 O(len)
+    cout &lt;&lt; s.compare("datax") &lt;&lt; "\n";        // -1（s 更小）比较 O(min)
+    cout &lt;&lt; (int)s.find("ta") &lt;&lt; "\n";         // 2          模式匹配
+    cout &lt;&lt; (int)s.find("xyz") &lt;&lt; "\n";        // -1         未找到返回 npos
+
+    /* 手写 StrCompare：理解"字典序"到底怎么定的 */
+    // 从第一个字符开始逐位比较，遇到第一处不同就返回差值；
+    // 若前面全部相同，则短串更小。
+    return 0;
+}</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：串比较的规则</span>
+      <code>StrCompare</code> 的比较规则是：从第一个字符起逐位比较 ASCII 码，遇到第一个不等的字符，
+      谁大谁就大；如果一路相等，则<b>长度短者小</b>。所以 <code>"abc" &lt; "abd"</code>，
+      <code>"ab" &lt; "abc"</code>，而 <code>"Z" &lt; "a"</code>（因为 'Z' 的 ASCII 是 90，'a' 是 97）。
+    </div>
+
+    <h2 id="s2">5.2 朴素模式匹配：暴力法慢在哪</h2>
+
+    <h3 id="s2-1">5.2.1 算法思路</h3>
+    <p>
+      模式匹配（pattern matching）问题可以严格描述为：给定主串 <code>S</code>（长度 n）与模式串
+      <code>P</code>（长度 m，通常 m ≤ n），求 <code>P</code> 在 <code>S</code> 中第一次出现的位置（下标），
+      不存在则返回 -1。
+    </p>
+    <p>
+      最直觉的做法是<b>枚举所有可能的对齐位置</b>：让 <code>P</code> 的左端依次对齐 <code>S</code> 的
+      第 0、1、2、…、n−m 位，每个位置从 <code>P[0]</code> 开始逐字符比较，全部相同则匹配成功。这个方法叫
+      <b>朴素匹配（Naive / Brute-Force / BF）</b>。
+    </p>
+
+    <pre data-lang="cpp" data-file="naive_match.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+/* 朴素模式匹配：返回 P 在 S 中第一次出现的下标，找不到返回 -1
+   设 n = |S|, m = |P|
+   最好：第一个位置就匹配           O(m)
+   最坏：每轮都比到最后一个字符才失败  O((n-m+1)*m) ≈ O(n*m) */
+int naiveIndex(const string&amp; S, const string&amp; P) {
+    int n = S.size(), m = P.size();
+    if (m == 0) return 0;
+    for (int pos = 0; pos + m &lt;= n; ++pos) {     // 枚举每一个对齐位置
+        int j = 0;
+        while (j &lt; m &amp;&amp; S[pos + j] == P[j]) ++j;   // 逐个字符比对
+        if (j == m) return pos;                  // 全部相等 → 命中
+    }
+    return -1;
+}
+
+int main() {
+    string S = "ABABABCABABABCABA";
+    string P = "ABABCABA";
+    cout &lt;&lt; naiveIndex(S, P) &lt;&lt; "\n";   // 2
+    return 0;
+}</pre>
+
+    <h3 id="s2-2">5.2.2 亲手看它一步步怎么比</h3>
+    <p>下面的动画用同一组主串与模式串演示朴素匹配的每一次比较，注意观察失配后指针是怎么动的：</p>
+
+    <div id="viz-brute"></div>
+
+    <h3 id="s2-3">5.2.3 复杂度分析：为什么慢</h3>
+    <p>设 <code>n = |S|</code>，<code>m = |P|</code>：</p>
+    <ul>
+      <li><b>最好情况</b>：第一轮就匹配成功，比较 m 次，<code>O(m)</code>。</li>
+      <li><b>最坏情况</b>：每一轮都要比到模式串的最后一个字符才失败。典型输入如
+        <code>S = "aaaaaaaaaab"</code>，<code>P = "aaab"</code>。此时每个对齐位置要比较 m 次，
+        共 <code>(n-m+1)</code> 个位置，总计约 <code>m(n-m+1) ≈ O(n×m)</code>。</li>
+      <li><b>平均情况</b>：若字符随机，每轮平均比较次数是常数 <code>1/(1-σ)</code>（σ 为字符出现概率），
+        总体接近 <code>O(n)</code>。所以朴素算法在自然文本上并不算太差——但在
+        <b>大量重复字符</b>（DNA、二进制串、恶意构造的输入）面前会退化到平方级。</li>
+    </ul>
+
+    <div class="note danger">
+      <span class="note-title">问题根源：主串指针的回溯</span>
+      朴素算法在失配时把 <code>i</code> 退回到本轮起点的下一位、<code>j</code> 归零，
+      于是<b>刚刚已经比较过并且确认相同的那些字符被彻底浪费了</b>。
+      以 <code>S = "ABABABC..."</code>，<code>P = "ABABCA"</code> 为例：
+      在某个位置已经确认主串里出现过 <code>"ABAB"</code>，失配后却从 <code>S[pos+1]</code> 重新开始比。
+      <br>KMP 的全部思想就是一句话：<b>利用已经匹配成功的这段信息，让 i 永不后退</b>。
+    </div>
+
+    <h2 id="s3">5.3 KMP 算法与 next 数组的推导</h2>
+
+    <h3 id="s3-1">5.3.1 一句话本质</h3>
+    <div class="formula center">
+      KMP = 「主串指针 i 只前进不后退」 + 「失配时把模式串滑动到<b>最长相等前后缀</b>重新对齐」
+    </div>
+    <p>
+      KMP 由 Knuth、Morris、Pratt 三人于 1977 年提出，因此得名。它的核心洞察是：
+    </p>
+    <p>
+      假设我们已经匹配了 <code>P[0..j-1]</code> 这 j 个字符，主串中对应的那段就是 <code>S[i-j .. i-1]</code>，
+      它<b>恰好等于</b> <code>P[0..j-1]</code>。现在 <code>S[i] ≠ P[j]</code> 失配了。
+      朴素做法要放弃这段匹配重新开始，但既然主串里那段就等于 <code>P[0..j-1]</code>，
+      我们完全可以问：<strong>在 <code>P[0..j-1]</code> 内部，有没有一个「开头」和「结尾」是一样的？</strong>
+      如果有，长度是 k，那么主串里那段匹配内容的最后 k 个字符，一定等于模式串的前 k 个字符。
+      于是我们不必移动 i，只需要把模式串向右滑，让 <code>P[0..k-1]</code> 对准主串刚才那段的后 k 个字符，
+      即令 <code>j = k</code>，继续比较。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg">
+        <!-- 主串 -->
+        <text x="20" y="34" fill="var(--text-soft)" font-size="13" font-family="Consolas,monospace">主串 S</text>
+        <g font-family="Consolas,monospace" font-size="15">
+          <rect x="90" y="14" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="110" y="40" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="132" y="14" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="152" y="40" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="174" y="14" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="194" y="40" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="216" y="14" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="236" y="40" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="258" y="14" width="40" height="40" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="278" y="40" text-anchor="middle" fill="var(--danger)">C</text>
+          <rect x="300" y="14" width="40" height="40" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="320" y="40" text-anchor="middle" fill="var(--text)">…</text>
+        </g>
+        <text x="350" y="40" fill="var(--text-faint)" font-size="12">i 指向这里，S[i]='C' 与 P[4]='A' 失配</text>
+
+        <!-- 模式串（已匹配部分） -->
+        <text x="20" y="104" fill="var(--text-soft)" font-size="13" font-family="Consolas,monospace">模式串 P</text>
+        <g font-family="Consolas,monospace" font-size="15">
+          <rect x="90" y="84" width="40" height="40" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="110" y="110" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="132" y="84" width="40" height="40" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="152" y="110" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="174" y="84" width="40" height="40" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="194" y="110" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="216" y="84" width="40" height="40" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="236" y="110" text-anchor="middle" fill="var(--text)">B</text>
+        </g>
+        <text x="270" y="110" fill="var(--brand)" font-size="12.5">已匹配 j = 4 个字符</text>
+        <text x="470" y="110" fill="var(--text-soft)" font-size="12.5">这一段 P[0..3] = "ABAB" 与主串完全相同</text>
+
+        <!-- 前后缀 -->
+        <path d="M90,140 L174,140" stroke="var(--ok)" stroke-width="3"/>
+        <path d="M174,140 L258,140" stroke="var(--accent)" stroke-width="3"/>
+        <text x="110" y="160" fill="var(--ok)" font-size="12.5" font-weight="700">前缀 "AB"</text>
+        <text x="180" y="160" fill="var(--accent)" font-size="12.5" font-weight="700">后缀 "AB"</text>
+        <text x="300" y="150" fill="var(--text)" font-size="12.5">两者相等 → 长度 k = 2，于是让 j = 2，i 不动</text>
+
+        <!-- 滑动后 -->
+        <text x="20" y="212" fill="var(--text-soft)" font-size="13" font-family="Consolas,monospace">滑动后</text>
+        <g font-family="Consolas,monospace" font-size="15">
+          <rect x="90" y="192" width="40" height="40" rx="5" fill="var(--bg-soft)" stroke="var(--border-strong)" stroke-width="1.6" opacity="0.5"/><text x="110" y="218" text-anchor="middle" fill="var(--text-faint)">A</text>
+          <rect x="132" y="192" width="40" height="40" rx="5" fill="var(--bg-soft)" stroke="var(--border-strong)" stroke-width="1.6" opacity="0.5"/><text x="152" y="218" text-anchor="middle" fill="var(--text-faint)">B</text>
+          <rect x="174" y="192" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="194" y="218" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="216" y="192" width="40" height="40" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="236" y="218" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="258" y="192" width="40" height="40" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="278" y="218" text-anchor="middle" fill="var(--danger)">C</text>
+        </g>
+        <text x="310" y="218" fill="var(--ok)" font-size="12.5">P[0..1] 已经对齐好了，直接从 P[2] 继续比即可，i 不用回退</text>
+        <text x="20" y="272" fill="var(--text-faint)" font-size="12">注意：模式串是"整体向右滑动 2 格"，等价于 j 从 4 变成 2；主串指针 i 原地不动。</text>
+      </svg>
+      <figcaption>图 5-2　KMP 的核心思想：失配时利用最长相等前后缀重新对齐</figcaption>
+    </div>
+
+    <h3 id="s3-2">5.3.2 next 数组的定义（两种约定一定要分清）</h3>
+    <p>
+      把「<code>P[0..j-1]</code> 的最长相等真前后缀长度」预先算好存进数组，失配时直接查表，
+      这个数组就是 <code>next</code>。但不同教材的下标约定不同，这是初学者最容易混乱的地方，务必记牢自己用的是哪一种：
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>约定</th><th>数组含义</th><th>失配时的动作</th><th>典型出处</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>0 基 · 前缀函数 π</b><br>（本章推荐）</td>
+            <td><code>π[i]</code> = <code>P[0..i]</code> 的最长相等真前后缀长度<br>取值范围 <code>0 … i</code>，恒有 <code>π[0] = 0</code></td>
+            <td>在 <code>P[j]</code> 处失配 → <code>j = (j == 0 ? j + 1, i++ : π[j-1])</code><br>即 <code>j = π[j-1]</code></td>
+            <td>算法竞赛、<code>std::string::find</code> 类实现、CLRS 的 π 函数</td>
+          </tr>
+          <tr>
+            <td><b>1 基 · 教材版 next</b></td>
+            <td><code>next[i]</code> = <code>P[1..i-1]</code> 的最长相等真前后缀长度 <b>+ 1</b><br><code>next[1] = 0</code>（人为约定）</td>
+            <td>在 <code>P[j]</code> 处失配 → <code>j = next[j]</code></td>
+            <td>严蔚敏《数据结构》、国内考研 408 教材</td>
+          </tr>
+          <tr>
+            <td><b>位移版 · next 表示滑动量</b></td>
+            <td>失配时应把模式串整体右移的格数</td>
+            <td>模式串右移 <code>next[j]</code> 格</td>
+            <td>部分算法书与 KMP 原始论文的表述</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      三种约定算出来的数值不同，但<b>算法行为完全等价</b>。下面我们统一采用最直观的
+      <b>0 基前缀函数 π</b> 来讲解与实现，并在 5.4.3 节给出与教材版 <code>next</code> 的换算方法。
+    </p>
+
+    <h3 id="s3-3">5.3.3 手推 next 数组的完整过程</h3>
+    <p>
+      求 <code>π</code> 的过程本身就是一次「模式串自己匹配自己」。最朴素的想法是：对每个 i，
+      从长到短枚举所有真前后缀，检查是否相等——那是 <code>O(m³)</code>。
+      正确做法是<b>利用已经算出的 π[i-1] 递推</b>：
+    </p>
+    <ol>
+      <li>设 <code>len = π[i-1]</code>，即前 i 个字符的最长相等真前后缀长度。</li>
+      <li>现在想把这个长度扩展到 <code>len+1</code>，只需检查 <code>P[i]</code> 是否等于 <code>P[len]</code>：
+        相等则 <code>π[i] = len + 1</code>，收工。</li>
+      <li>若不等，说明以 <code>len+1</code> 结尾的前后缀不成立，那就<b>退而求其次</b>：
+        用一个更短的、但仍然相等的前后缀。这个更短的长度恰好是 <code>π[len-1]</code>——
+        因为 <code>P[0..len-1]</code> 的最长相等真前后缀长度就是它。于是 <code>len = π[len-1]</code>，回到第 2 步。</li>
+      <li>若 <code>len</code> 一路退到 0 仍然 <code>P[i] ≠ P[0]</code>，则 <code>π[i] = 0</code>。</li>
+    </ol>
+    <p>
+      第 3 步是 KMP 最精妙的地方：<b>回退不是回到起点重来，而是退到「次优的候选长度」</b>。
+      下面用 <code>P = "ABABAA"</code> 完整演示这个过程，请对照动画逐帧理解「lena 是怎么退的」：
+    </p>
+
+    <div id="viz-next"></div>
+
+    <div class="note tip">
+      <span class="note-title">动手推一遍（强烈建议）</span>
+      请拿一张纸，对 <code>P = "ABCABD"</code> 手推 π：
+      <ol style="margin:6px 0 0">
+        <li><code>π[0] = 0</code>（长度为 1 的串没有真前后缀）。</li>
+        <li>i=1：<code>len = π[0] = 0</code>，比较 <code>P[1]='B'</code> 与 <code>P[0]='A'</code>，不等 → <code>π[1] = 0</code>。</li>
+        <li>i=2：<code>len = 0</code>，<code>P[2]='C'</code> vs <code>P[0]='A'</code>，不等 → <code>π[2] = 0</code>。</li>
+        <li>i=3：<code>len = 0</code>，<code>P[3]='A'</code> vs <code>P[0]='A'</code>，相等 → <code>len = 1</code>，<code>π[3] = 1</code>。</li>
+        <li>i=4：<code>len = π[3] = 1</code>，<code>P[4]='B'</code> vs <code>P[1]='B'</code>，相等 → <code>len = 2</code>，<code>π[4] = 2</code>。</li>
+        <li>i=5：<code>len = π[4] = 2</code>，<code>P[5]='D'</code> vs <code>P[2]='C'</code>，不等 → 回退 <code>len = π[1] = 0</code>；
+          再比 <code>P[5]='D'</code> vs <code>P[0]='A'</code>，仍不等 → <code>π[5] = 0</code>。</li>
+      </ol>
+      最终 <code>π = [0, 0, 0, 1, 2, 0]</code>。能独立推对这个，KMP 就掌握一半了。
+    </div>
+
+    <h3 id="s3-4">5.3.4 KMP 匹配全过程</h3>
+    <p>
+      有了 π 数组，匹配过程就极其简单：<code>i</code> 只增不减；失配时若 <code>j &gt; 0</code> 就
+      <code>j = π[j-1]</code>，否则 <code>i++</code>。下面的动画把 <code>i</code>、<code>j</code>、
+      模式串的对齐位置、以及每次 j 的回退都标了出来：
+    </p>
+
+    <div id="viz-kmp"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：KMP 的比较次数</span>
+      KMP 的比较次数是 <code>O(n + m)</code>，但要注意——它<b>并不保证</b>「比较次数一定比朴素算法少」。
+      对于某些输入（例如模式串首字符几乎不出现在主串中），朴素算法反而可能比较得更少。
+      KMP 的价值在于<b>最坏情况下也稳定是 O(n+m)</b>，不会退化到 O(n×m)。
+    </div>
+
+    <h3 id="s3-5">5.3.5 教材版 next 数组怎么手算（考试标准做法）</h3>
+    <p>
+      国内教材（严蔚敏《数据结构》与考研 408）采用的约定是：<b>模式串从下标 1 开始存放</b>，
+      <code>next[1] = 0</code> 是人为规定的哨兵，而
+      <code>next[j] = P[1..j-1] 的最长相等真前后缀长度 + 1</code>（当 j ≥ 2 时）。
+    </p>
+    <p>
+      手算时最实用的方法是「<b>看第 j 个字符前面的那一段</b>」：把 <code>P[1..j-1]</code> 拿出来，
+      求它最长的「真前缀 = 真后缀」，长度记作 k，则 <code>next[j] = k + 1</code>。
+      以 <code>P = "abaabc"</code> 为例，逐个算一遍（下面的表格请自己动手再推一次，
+      与前面 0 基 π 的动画对照，你会发现两者其实是同一件事）：
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>j</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>P[j]</b></td>
+            <td>a</td><td>b</td><td>a</td><td>a</td><td>b</td><td>c</td>
+          </tr>
+          <tr>
+            <td><b>P[1..j-1]</b></td>
+            <td>（空）</td><td>a</td><td>ab</td><td>aba</td><td>abaa</td><td>abaab</td>
+          </tr>
+          <tr>
+            <td><b>最长相等真前后缀</b></td>
+            <td>——</td><td>无</td><td>无</td><td>"a"</td><td>"a"</td><td>"ab"</td>
+          </tr>
+          <tr>
+            <td><b>长度 k</b></td>
+            <td>——</td><td>0</td><td>0</td><td>1</td><td>1</td><td>2</td>
+          </tr>
+          <tr style="background:var(--brand-soft)">
+            <td><b>next[j] = k+1</b></td>
+            <td class="c-ok"><b>0</b></td><td><b>1</b></td><td><b>1</b></td><td><b>2</b></td><td><b>2</b></td><td><b>3</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>逐行解释第三列到第六列的推导：</p>
+    <ul>
+      <li><b>j=2</b>：<code>P[1..1] = "a"</code> 只有一个字符，没有真前后缀，k = 0，<code>next[2] = 1</code>。</li>
+      <li><b>j=3</b>：<code>P[1..2] = "ab"</code>，真前缀 "a"、真后缀 "b"，不相等，k = 0，<code>next[3] = 1</code>。</li>
+      <li><b>j=4</b>：<code>P[1..3] = "aba"</code>，真前缀 {a, ab}、真后缀 {a, ba}，最长相等的是 "a"，k = 1，<code>next[4] = 2</code>。</li>
+      <li><b>j=5</b>：<code>P[1..4] = "abaa"</code>，真后缀有 {a, aa, baa}，真前缀有 {a, ab, aba}，最长相等是 "a"，k = 1，<code>next[5] = 2</code>。</li>
+      <li><b>j=6</b>：<code>P[1..5] = "abaab"</code>，真后缀 {b, ab, aab, baab}，真前缀 {a, ab, aba, abaa}，最长相等是 "ab"，k = 2，<code>next[6] = 3</code>。</li>
+    </ul>
+
+    <div class="note exam">
+      <span class="note-title">两种约定对照表（同一个模式串的数值差异）</span>
+      <div class="table-wrap" style="margin:8px 0 0">
+        <table class="compact">
+          <thead><tr><th>模式串 P = "abaabc"</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+          <tbody>
+            <tr><td>0 基 π（本章实现用）</td><td>0</td><td>0</td><td>1</td><td>1</td><td>2</td><td>0</td></tr>
+            <tr><td>1 基 next（教材用）</td><td>0</td><td>1</td><td>1</td><td>2</td><td>2</td><td>3</td></tr>
+            <tr><td>位移版（右移格数）</td><td>1</td><td>1</td><td>2</td><td>2</td><td>3</td><td>3</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin:8px 0 0">
+        换算关系：<code>next[j] = π[j-2] + 1</code>（j ≥ 2），<code>next[1] = 0</code>；
+        <code>π[i] = next[i+2] - 1</code>。注意上表中 0 基 π 的最后一个值对应 <code>P[0..5] = "abaabc"</code>
+        的最长相等真前后缀（"ab" 是前缀但后缀是 "bc"，不相等；后缀 "c"、前 "a" 不等），所以是 0。
+      </p>
+    </div>
+
+    <h3 id="s3-6">5.3.6 用教材版 next 实现匹配</h3>
+    <p>
+      教材版代码与 0 基版只是「下标从 1 开始」和「回退写 <code>j = next[j]</code>」的差别，
+      逻辑完全一致，考试与作业里两种都要会写：
+    </p>
+
+    <pre data-lang="cpp" data-file="kmp_textbook.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* 教材版 KMP（1 基下标）
+   S[1..n] 主串，P[1..m] 模式串，next[1..m]
+   返回 P 在 S 中第一次出现的 1 基起始位置，找不到返回 0 */
+void getNext(const string&amp; P, vector&lt;int&gt;&amp; nxt) {
+    int m = P.size();                       /* P 的第 k 个字符是 P[k-1] */
+    nxt.assign(m + 1, 0);
+    nxt[1] = 0;                             /* 哨兵 */
+    int i = 1, j = 0;
+    while (i &lt; m) {
+        if (j == 0 || P[i - 1] == P[j - 1]) { ++i; ++j; nxt[i] = j; }
+        else j = nxt[j];                    /* 注意是 nxt[j]，不是 j-1 */
+    }
+}
+
+int indexKMP(const string&amp; S, const string&amp; P, const vector&lt;int&gt;&amp; nxt) {
+    int n = S.size(), m = P.size();
+    int i = 1, j = 1;
+    while (i &lt;= n &amp;&amp; j &lt;= m) {
+        if (j == 0 || S[i - 1] == P[j - 1]) { ++i; ++j; }   /* j==0 说明退到哨兵，主串前进 */
+        else j = nxt[j];                                    /* 只退 j，不退 i */
+    }
+    return (j &gt; m) ? i - m : 0;             /* 返回 1 基起始位置 */
+}
+
+int main() {
+    string S = "abaababaabcx", P = "abaabc";
+    vector&lt;int&gt; nxt;
+    getNext(P, nxt);
+    cout &lt;&lt; "next  = ";
+    for (int k = 1; k &lt;= (int)P.size(); ++k) cout &lt;&lt; nxt[k] &lt;&lt; ' ';
+    cout &lt;&lt; "\n";                            /* 0 1 1 2 2 3 */
+    cout &lt;&lt; indexKMP(S, P, nxt) &lt;&lt; "\n";     /* 6（1 基）
+        过程：匹配到 S[6]='b' 与 P[4]='a' 失配 → j = next[4] = 2（只退 j）
+              继续比 S[6]='b' 与 P[2]='b' 相等 → 一路比到 j = 7 &gt; m，返回 i-m = 11-6+1 = 6 */
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：<code>j = next[j]</code> 还是 <code>j = next[j-1]</code>？</span>
+      两种约定的写法看着只差一个下标，但含义完全不同，混用会导致结果错误：
+      <ul style="margin:6px 0 0">
+        <li><b>1 基教材版</b>：失配时 <code>j = next[j]</code>，因为 <code>next[j]</code> 本身就带着「+1」的偏移。</li>
+        <li><b>0 基 π 版</b>：失配时 <code>j = pi[j-1]</code>，因为 <code>pi[i]</code> 的定义里包含 <code>P[i]</code> 自身。</li>
+      </ul>
+      记不清时就用一个小例子现场验证：<code>P = "aaab"</code>，在主串 <code>"aaaab"</code> 上跑一遍，
+      看回退后的下标是否落在「正确的最长相等前后缀长度」上。
+    </div>
+
+    <h3 id="s3-7">5.3.7 什么时候用 KMP：匹配场景与朴素算法对比</h3>
+    <p>
+      前面说了 KMP 最坏是 O(n+m)、朴素是 O(n×m)。但在真实数据上，朴素算法并不总是慢。
+      下表给出几种典型输入下两个算法的比较次数感受（n = 1000，m = 10）：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>主串特征</th><th>模式串</th><th>朴素比较次数（约）</th><th>KMP 比较次数（约）</th><th>谁更快</th></tr></thead>
+        <tbody>
+          <tr><td>随机小写字母</td><td>普通单词</td><td>≈ n × 1/(1−1/26) ≈ 1040</td><td>≈ n + m = 1010</td><td>基本相当</td></tr>
+          <tr><td>全 'a'</td><td><code>"aaaab"</code></td><td class="c-bad">≈ 5n = 5000</td><td class="c-ok">≈ n = 1000</td><td>KMP 快 5 倍</td></tr>
+          <tr><td>全 'a'</td><td><code>"baaaa"</code></td><td class="c-ok">≈ n = 1000</td><td>≈ n = 1000（+ 预处理）</td><td>朴素略快（无预处理）</td></tr>
+          <tr><td>周期串 <code>"ababab…"</code></td><td><code>"ababc"</code></td><td class="c-bad">≈ 5n/2 = 2500</td><td class="c-ok">≈ 2n = 2000（且 i 不回退）</td><td>KMP 更快且稳定</td></tr>
+          <tr><td>被刻意构造的恶意数据</td><td>—</td><td class="c-bad">退化到 O(n×m)</td><td class="c-ok">始终 O(n+m)</td><td>KMP 有最坏保证</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      结论：<b>KMP 的价值在于「最坏情况的上界」与「主串只扫描一遍」</b>。
+      当主串是流式到达、不能回退（例如网络数据包逐字节到达）时，KMP 是唯一可行的线性算法；
+      而朴素算法需要回头重看数据，天然不适用于流式场景。
+    </p>
+
+    <h2 id="s4">5.4 KMP 的完整实现与优化</h2>
+
+    <h3 id="s4-1">5.4.1 0 基前缀函数版（推荐写法）</h3>
+
+    <pre data-lang="cpp" data-file="kmp.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   KMP（0 基下标，π 数组约定）
+   pi[i] = P[0..i] 的最长相等真前后缀长度
+   ============================================================ */
+
+/* 求前缀函数，时间复杂度 O(m)，空间 O(m) */
+vector&lt;int&gt; prefixFunction(const string&amp; P) {
+    int m = P.size();
+    vector&lt;int&gt; pi(m, 0);
+    for (int i = 1; i &lt; m; ++i) {
+        int len = pi[i - 1];                 // 先继承前一位的结果
+        while (len &gt; 0 &amp;&amp; P[i] != P[len]) {  // 对不上就回退到次优候选长度
+            len = pi[len - 1];
+        }
+        if (P[i] == P[len]) ++len;           // 能接上就 +1
+        pi[i] = len;
+    }
+    return pi;
+}
+
+/* 返回 P 在 S 中第一次出现的下标，找不到返回 -1 */
+int kmpSearch(const string&amp; S, const string&amp; P) {
+    int n = S.size(), m = P.size();
+    if (m == 0) return 0;
+    vector&lt;int&gt; pi = prefixFunction(P);
+    int j = 0;                               // j = 当前已匹配的字符个数
+    for (int i = 0; i &lt; n; ++i) {            // i 只前进，永不回退
+        while (j &gt; 0 &amp;&amp; S[i] != P[j]) j = pi[j - 1];
+        if (S[i] == P[j]) ++j;
+        if (j == m) return i - m + 1;        // 全部匹配，返回起始下标
+    }
+    return -1;
+}
+
+int main() {
+    string S = "ABABABCABABABCABA";
+    string P = "ABABCABA";
+    vector&lt;int&gt; pi = prefixFunction(P);
+    for (int x : pi) cout &lt;&lt; x &lt;&lt; ' ';
+    cout &lt;&lt; "\n";                            // 0 0 1 2 0 1 2 3
+    cout &lt;&lt; kmpSearch(S, P) &lt;&lt; "\n";         // 2
+    return 0;
+}</pre>
+
+    <p>
+      注意代码里的 <code>while (j &gt; 0 &amp;&amp; S[i] != P[j]) j = pi[j - 1];</code>。
+      为什么 <b>j 回退的总次数是 O(n)</b>？做个均摊分析：<code>j</code> 每次循环最多 +1，
+      在 n 次迭代中总共最多增加 n；而 <code>j</code> 每次回退至少减少 1，所以总回退次数不超过总增加次数，
+      也是 O(n)。因此整个匹配循环是线性的。
+    </p>
+
+    <h3 id="s4-2">5.4.2 nextval：解掉「连续相同字符反复回退」</h3>
+    <p>
+      看一个极端例子：<code>S = "aaaaaaab"</code>，<code>P = "aaaaab"</code>。
+      在最后一个 <code>b</code> 处失配后，<code>j = π[4] = 4</code>，接着比较 <code>S[i]</code> 与
+      <code>P[4] = 'a'</code>，又失配，<code>j = π[3] = 3</code>……一路退到 0。
+      但既然 <code>P[4] = P[3] = P[2] = … = 'a'</code>，只要 <code>S[i]</code> 不是 'a'，
+      这些比较注定全部失败，完全可以<b>一次性退到位</b>。
+    </p>
+    <p>
+      于是有了 <b>nextval</b>（优化后的 next）：算 <code>π[i]</code> 时，如果
+      <code>P[i+1] == P[π[i]]</code>，说明「退过去还是要和同一个字符比」，那就直接继承那个位置的
+      优化结果，把这一步的无效比较也省掉。
+    </p>
+
+    <pre data-lang="cpp" data-file="kmp_nextval.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* nextval：在 π 的基础上继续消除"回退后仍与同一字符比较"的无效步骤。
+   注意：为了便于对照教材，这里直接给出 1 基下标、教材风格的 next 与 nextval。 */
+void buildNextTextbook(const string&amp; P, vector&lt;int&gt;&amp; nxt, vector&lt;int&gt;&amp; nxtval) {
+    int m = P.size();                          /* 约定：P 的第 k 个字符是 P[k-1]，下标 1..m */
+    nxt.assign(m + 1, 0);
+    nxt[1] = 0;                                /* 哨兵：第一个字符失配时无处可退 */
+    int i = 1, j = 0;
+    while (i &lt; m) {
+        if (j == 0 || P[i - 1] == P[j - 1]) {  /* 能接上，或 j 已经退到哨兵 */
+            ++i; ++j;
+            nxt[i] = j;                        /* next[i] = 最长相等真前后缀长度 + 1 */
+        } else {
+            j = nxt[j];                        /* 回退到次优候选，继续尝试 */
+        }
+    }
+    /* nextval 递推：若 P[i] == P[next[i]]，说明"退过去还是要比同一个字符"，
+       于是直接继承那个位置的优化结果，一步退到位。 */
+    nxtval.assign(m + 1, 0);
+    nxtval[1] = 0;
+    for (int k = 2; k &lt;= m; ++k) {
+        if (P[k - 1] == P[nxt[k] - 1]) nxtval[k] = nxtval[nxt[k]];
+        else nxtval[k] = nxt[k];
+    }
+}
+
+int main() {
+    string P = "aaaaab";
+    vector&lt;int&gt; a, b;
+    buildNextTextbook(P, a, b);
+    cout &lt;&lt; "next    : "; for (int i = 1; i &lt; (int)a.size(); ++i) cout &lt;&lt; a[i] &lt;&lt; ' '; cout &lt;&lt; "\n";
+    cout &lt;&lt; "nextval : "; for (int i = 1; i &lt; (int)b.size(); ++i) cout &lt;&lt; b[i] &lt;&lt; ' '; cout &lt;&lt; "\n";
+    /* 输出 next    : 0 1 2 3 4 5
+             nextval : 0 0 0 0 0 5   —— 连续相同字符被一次退到位 */
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">关于上面这段代码</span>
+      教材风格的 <code>next</code> 用 1 基下标、<code>nxt[1] = 0</code> 作为哨兵，是考试的标准形式，
+      请务必能手工算出它的值。但写程序时更推荐前面的 0 基 <code>π</code> 版本，写起来不容易错。
+      两者换算关系：<code>next[i] = π[i-2] + 1</code>（i ≥ 2），<code>next[1] = 0</code>。
+    </div>
+
+    <h3 id="s4-3">5.4.3 从 next 数组能读出什么</h3>
+    <p><code>π</code> 数组不只能做匹配，它还是很多题型的钥匙：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>问题</th><th>用 π 怎么解</th></tr></thead>
+        <tbody>
+          <tr><td><b>求最小循环节</b></td><td>若 <code>m % (m - π[m-1]) == 0</code>，则最小循环节长度是 <code>m - π[m-1]</code>，循环次数 <code>m/(m-π[m-1])</code>。例：<code>"abcabcabc"</code>，<code>π[8]=6</code>，循环节长度 3。</td></tr>
+          <tr><td><b>求字符串的所有 border（既是前缀又是后缀）</b></td><td>从 <code>π[m-1]</code> 开始不断 <code>k = π[k-1]</code>，得到的所有 k 就是全部 border 长度。</td></tr>
+          <tr><td><b>统计每个前缀出现次数</b></td><td>先求 π，再做 <code>cnt[π[i]] += 1</code> 的倒序累加（因为每个前缀出现时也贡献给它自己的最长 border）。</td></tr>
+          <tr><td><b>两个串的最长公共前缀 / 拼接问题</b></td><td>用分隔符连接成 <code>P + '#' + S</code> 求 π，末位的 π 值就是公共部分长度。</td></tr>
+          <tr><td><b>在线求「下一个匹配位置」（多模式匹配）</b></td><td>用自动机（KMP 自动机）：给每个状态 j 和每个字符 c 预计算转移，适合多组询问。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre data-lang="cpp" data-file="kmp_app.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+vector&lt;int&gt; prefixFunction(const string&amp; P) {
+    int m = P.size(); vector&lt;int&gt; pi(m, 0);
+    for (int i = 1; i &lt; m; ++i) {
+        int len = pi[i - 1];
+        while (len &gt; 0 &amp;&amp; P[i] != P[len]) len = pi[len - 1];
+        if (P[i] == P[len]) ++len;
+        pi[i] = len;
+    }
+    return pi;
+}
+
+/* 应用 1：最小循环节。若整串由 k 个循环节组成，返回节长；否则返回 n */
+int minPeriod(const string&amp; s) {
+    int n = s.size();
+    vector&lt;int&gt; pi = prefixFunction(s);
+    int p = n - pi[n - 1];                 // 候选节长
+    return (n % p == 0) ? p : n;
+}
+
+/* 应用 2：找出所有既是前缀又是后缀的长度（border） */
+vector&lt;int&gt; borders(const string&amp; s) {
+    vector&lt;int&gt; pi = prefixFunction(s), res;
+    int k = pi[s.size() - 1];
+    while (k &gt; 0) { res.push_back(k); k = pi[k - 1]; }
+    return res;                            // 从大到小
+}
+
+/* 应用 3：统计每个前缀在整个串中出现的次数（前缀出现次数） */
+vector&lt;long long&gt; prefixCount(const string&amp; s) {
+    int n = s.size();
+    vector&lt;int&gt; pi = prefixFunction(s);
+    vector&lt;long long&gt; cnt(n + 1, 0);
+    for (int i = 0; i &lt; n; ++i) cnt[pi[i]]++;      // 每个位置贡献给它的最长 border
+    for (int i = n; i &gt;= 1; --i) cnt[pi[i - 1]] += cnt[i];   // 倒序累加上去
+    for (int i = 1; i &lt;= n; ++i) cnt[i]++;          // 每个前缀自身也算出现一次
+    return cnt;
+}
+
+int main() {
+    string s = "abcabcabc";
+    cout &lt;&lt; minPeriod(s) &lt;&lt; "\n";                 // 3
+    string t = "abababab";
+    for (int x : borders(t)) cout &lt;&lt; x &lt;&lt; ' ';     // 6 4 2
+    cout &lt;&lt; "\n";
+    for (int i = 1; i &lt;= 3; ++i) cout &lt;&lt; prefixCount("aaa")[i] &lt;&lt; ' ';  // 3 2 1
+    return 0;
+}</pre>
+
+    <h3 id="s4-4">5.4.4 KMP 的复杂度与局限</h3>
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">复杂度</h4>
+        <ul style="margin-bottom:0">
+          <li>时间：预处理 <code>O(m)</code> + 匹配 <code>O(n)</code> = <b>O(n+m)</b>。</li>
+          <li>空间：<code>O(m)</code> 存 π 数组（可优化到 <code>O(m)</code> 以下？不行，最少也要 O(m)）。</li>
+          <li>优点：最坏情况有保证；只依赖模式串的预处理结果，可复用。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">局限</h4>
+        <ul style="margin-bottom:0">
+          <li>每次失配只把模式串滑动一小段，<b>平均性能不如 BM</b>。</li>
+          <li>对多模式匹配（同时找很多关键字）无能为力 → 需要 AC 自动机。</li>
+          <li>实现细节容易写错（下标约定、哨兵值），考试时优先手推验证。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="s5">5.5 BM 算法：从右往左，跳着比</h2>
+
+    <h3 id="s5-1">5.5.1 为什么换个方向就快很多</h3>
+    <p>
+      KMP 从左往右逐字符比较，失配时最多往前挪一点点。而 BM（Boyer-Moore，1977）反其道而行：
+      <b>从模式串的最后一个字符开始往左比</b>。这个「反着比」看似无关紧要，却带来一个巨大的好处——
+      一旦在最右边就失配，我们看到的那个主串字符（<b>坏字符</b>）就能告诉我们：
+      模式串可以向右滑动多少格而绝不错过任何匹配。
+    </p>
+    <p>
+      更关键的是：如果这个坏字符<strong>根本不在模式串里</strong>，那么模式串可以直接整段跳过该字符，一次滑动
+      m 格！在自然语言里，大部分字符都不会出现在给定的模式串中，所以 BM 的实测速度往往远快于 KMP，
+      平均比较次数接近 <code>O(n/m)</code>。这也是 grep、编辑器查找功能普遍采用 BM 家族算法的原因。
+    </p>
+
+    <h3 id="s5-2">5.5.2 规则一：坏字符规则（Bad Character）</h3>
+    <p>规则描述（约定模式串与主串左端对齐于 <code>align</code>，从 j = m−1 往左比）：</p>
+    <ol>
+      <li>若 <code>S[align+j] ≠ P[j]</code>，记 <code>c = S[align+j]</code> 为坏字符。</li>
+      <li>查「坏字符表」<code>last[c]</code>：字符 c 在模式串中<b>最后出现</b>的下标（不存在记为 −1）。</li>
+      <li>若 <code>last[c] &lt; j</code>：把模式串右移 <code>j − last[c]</code> 格，让 c 与它在模式串中的最后出现对齐。</li>
+      <li>若 <code>last[c]</code> 不存在：模式串整体右移 <code>j + 1</code> 格（相当于跳过 c 这个位置）。</li>
+      <li>若 <code>last[c] &gt; j</code>：位移算出来是<b>负数</b>——这种情况说明坏字符出现在失配位置的右边，
+        此时坏字符规则失效，<b>至少也要右移 1 格</b>，具体滑多少要看下面的好后缀规则。</li>
+    </ol>
+
+    <div id="viz-bm-bad"></div>
+
+    <h3 id="s5-3">5.5.3 规则二：好后缀规则（Good Suffix）</h3>
+    <p>
+      光靠坏字符规则会出问题。考虑一个真实场景：从右往左比，尾部已经匹配了一长串（这就是<b>好后缀</b>），
+      却在前面某处失配，而坏字符规则算出来的位移可能只有 1 格甚至为负。此时好后缀给出了另一条线索：
+    </p>
+    <p>
+      既然主串里<b>确实存在</b>与好后缀相同的一段，那么在模式串中，好后缀自身（或它的某个后缀）
+      必然还能在别处找到一次出现，或者等于模式串的某个前缀。据此可以安全地一次性滑到位。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 260" width="880" height="260" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="40" fill="var(--text-soft)" font-size="12.5" font-family="Consolas,monospace">主串 S</text>
+        <g font-family="Consolas,monospace" font-size="14">
+          <rect x="90" y="20" width="38" height="38" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="109" y="45" text-anchor="middle" fill="var(--text)">C</text>
+          <rect x="128" y="20" width="38" height="38" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="147" y="45" text-anchor="middle" fill="var(--danger)">A</text>
+          <rect x="166" y="20" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="185" y="45" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="204" y="20" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="223" y="45" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="242" y="20" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="261" y="45" text-anchor="middle" fill="var(--text)">B</text>
+        </g>
+        <text x="292" y="45" fill="var(--danger)" font-size="12.5">失配（坏字符 A）</text>
+        <text x="292" y="64" fill="var(--ok)" font-size="12.5">"BAB" 已匹配 → 好后缀</text>
+
+        <text x="16" y="130" fill="var(--text-soft)" font-size="12.5" font-family="Consolas,monospace">模式串 P</text>
+        <g font-family="Consolas,monospace" font-size="14">
+          <rect x="90" y="110" width="38" height="38" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="109" y="135" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="128" y="110" width="38" height="38" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="147" y="135" text-anchor="middle" fill="var(--danger)">B</text>
+          <rect x="166" y="110" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="185" y="135" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="204" y="110" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="223" y="135" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="242" y="110" width="38" height="38" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="261" y="135" text-anchor="middle" fill="var(--text)">B</text>
+        </g>
+        <text x="292" y="135" fill="var(--text-soft)" font-size="12.5">P = "ABBAB"，j = 1 处失配，好后缀 = "BAB"</text>
+
+        <path d="M166,166 L262,166" stroke="var(--ok)" stroke-width="3"/>
+        <text x="166" y="186" fill="var(--ok)" font-size="12.5">好后缀 "BAB" 在模式串中还能找到吗？</text>
+
+        <g font-family="Consolas,monospace" font-size="14">
+          <rect x="280" y="196" width="38" height="38" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="299" y="221" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="318" y="196" width="38" height="38" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="337" y="221" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="356" y="196" width="38" height="38" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="375" y="221" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="394" y="196" width="38" height="38" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="413" y="221" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="432" y="196" width="38" height="38" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="451" y="221" text-anchor="middle" fill="var(--text)">B</text>
+        </g>
+        <text x="486" y="221" fill="var(--brand)" font-size="12.5">滑到 "AB" 与好后缀的前缀对齐（情形二：好后缀的后缀 = 模式串前缀）</text>
+        <text x="16" y="252" fill="var(--text-faint)" font-size="12">最终位移取坏字符规则与好后缀规则的较大值，保证既不漏配、又尽量跳得远。</text>
+      </svg>
+      <figcaption>图 5-3　好后缀规则：尾部已匹配时，用好后缀在模式串中的再次出现来决定滑动量</figcaption>
+    </div>
+
+    <div id="viz-bm-good"></div>
+
+    <h3 id="s5-4">5.5.4 BM 的完整 C++ 实现</h3>
+    <p>
+      下面是「坏字符规则 + 好后缀规则」的完整实现。工程上还有更省事的简化版
+      （只保留坏字符规则、或者用 Horspool 变体只比较最后一个字符），但完整版才体现 BM 的威力。
+    </p>
+
+    <pre data-lang="cpp" data-file="bm.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   Boyer-Moore 字符串匹配（完整版：坏字符 + 好后缀）
+   返回 P 在 S 中第一次出现的下标，找不到返回 -1
+   ============================================================ */
+struct BM {
+    string P;
+    int m;
+    vector&lt;int&gt; badChar;        // 坏字符表：字符 c 在 P 中最后出现的下标（用 256 覆盖全部字节）
+    vector&lt;int&gt; goodSuffix;     // 好后缀表：gs[i] = 当 P[i] 处失配时应右移的距离
+
+    explicit BM(const string&amp; pat) : P(pat), m(pat.size()) { build(); }
+
+    void build() {
+        /* ---------- 1. 坏字符表 ---------- */
+        badChar.assign(256, -1);
+        for (int i = 0; i &lt; m; ++i)
+            badChar[(unsigned char)P[i]] = i;
+
+        /* ---------- 2. 好后缀表 ----------
+           设 P[i] 处失配，则好后缀是 P[i+1 .. m-1]。
+           把模式串整体右移 s 格后，好后缀的新起点是 (i+1-s)，
+           要求新位置上与之等长的一段逐字符相等，且不能与原位重叠。
+           取满足条件的最小正 s。 */
+        goodSuffix.assign(m, 1);
+        for (int i = 0; i &lt; m - 1; ++i) {          // 失配位置 i（最后一位失配时无好后缀）
+            int suffixLen = m - 1 - i;
+            if (suffixLen == 0) { goodSuffix[i] = 1; continue; }
+            int best = 0;
+            for (int s = 1; s &lt;= m - 1 &amp;&amp; !best; ++s) {
+                int start = i + 1 - s;             // 好后缀右移 s 后的新起点
+                if (start &lt; 0) break;
+                bool ok = true;
+                for (int t = 0; t &lt; suffixLen; ++t) {
+                    int pos = start + t;
+                    if (pos &gt;= m || pos &gt;= start + s) { ok = false; break; }  // 不得与原位重叠
+                    if (P[pos] != P[i + 1 + t]) { ok = false; break; }
+                }
+                if (ok) best = s;
+            }
+            if (!best) {
+                /* 兜底：好后缀的某个后缀若等于模式串的前缀，则滑到该前缀对齐 */
+                for (int len = suffixLen - 1; len &gt; 0 &amp;&amp; !best; --len) {
+                    if (P.compare(0, len, P, m - len, len) == 0)
+                        best = i + 1 + (suffixLen - len);
+                }
+                if (!best) best = i + 1;
+            }
+            goodSuffix[i] = best;
+        }
+    }
+
+    int search(const string&amp; S) const {
+        int n = S.size();
+        if (m == 0) return 0;
+        if (n &lt; m) return -1;
+        int align = 0;                              // 模式串左端在主串中的对齐位置
+        while (align &lt;= n - m) {
+            int j = m - 1;
+            while (j &gt;= 0 &amp;&amp; P[j] == S[align + j]) --j;   // 从右往左比较
+            if (j &lt; 0) return align;                        // 完全匹配
+
+            int bad = badChar[(unsigned char)S[align + j]];
+            int shiftBad = j - bad;
+            if (shiftBad &lt; 1) shiftBad = 1;                 // 坏字符在右边时兜底
+            int shiftGood = goodSuffix[j];
+            align += max(shiftBad, shiftGood);              // 两条规则取较大值
+        }
+        return -1;
+    }
+};
+
+int main() {
+    string S = "HERE IS A SIMPLE EXAMPLE", P = "EXAMPLE";
+    BM bm(P);
+    cout &lt;&lt; bm.search(S) &lt;&lt; "\n";     // 17
+    cout &lt;&lt; bm.search("NO MATCH HERE") &lt;&lt; "\n";   // -1
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：坏字符规则可能给出非正位移</span>
+      当坏字符在模式串中的最后出现位置 <code>last[c]</code> 落在失配位置 <code>j</code> 的<b>右侧</b>时，
+      <code>j - last[c]</code> 是负数或 0，此时必须与好后缀规则取最大值，且至少移动 1 格，
+      否则会陷入死循环或漏掉匹配。上面的实现用 <code>max(shiftBad, shiftGood)</code> 统一处理了这个边界。
+    </div>
+
+    <h2 id="s6">5.6 三种匹配算法综合对比</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>对比项</th><th>朴素匹配 BF</th><th>KMP</th><th>BM（完整版）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>比较方向</td><td>从左往右</td><td>从左往右</td><td><b>从右往左</b></td></tr>
+          <tr><td>主串指针是否回溯</td><td class="c-bad">会回溯</td><td class="c-ok">永不回溯</td><td class="c-ok">用对齐位置跳跃，不回退已确认信息</td></tr>
+          <tr><td>预处理</td><td>无</td><td>求 π：O(m)</td><td>坏字符表 + 好后缀表：O(m + σ)（好后缀朴素实现 O(m²)，可用 Z 函数 / KMP 优化到 O(m)）</td></tr>
+          <tr><td>时间复杂度（最坏）</td><td class="c-bad">O(n×m)</td><td class="c-ok">O(n+m)</td><td>O(n×m)（只在极端构造下；完整 BM 最坏为 O(n+m) 级别，取决于好后缀实现）</td></tr>
+          <tr><td>平均性能</td><td>O(n)（自然文本）</td><td>O(n+m)，但常数较稳定</td><td class="c-ok">约 O(n/m)，自然文本上最快</td></tr>
+          <tr><td>额外空间</td><td>O(1)</td><td>O(m)</td><td>O(m + σ)，σ 为字符集大小</td></tr>
+          <tr><td>适用场景</td><td>短模式串、教学</td><td>最坏情况有保证、流式输入、需要在线的场合；也是求 border、循环节等字符串性质的基础</td><td>长模式串、自然语言检索、编辑器 / grep 的查找</td></tr>
+          <tr><td>多模式扩展</td><td>—</td><td>AC 自动机（KMP 在多串上的推广）</td><td>Wu-Manber 等</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">怎么选？</span>
+      <ul style="margin:6px 0 0">
+        <li><b>考试 / 面试</b>：KMP 的 next 数组一定会考，必须能手推；BM 通常只考两条规则的原理。</li>
+        <li><b>竞赛</b>：几乎只用 KMP（写起来短、结论多）与 AC 自动机；BM 很少手写。</li>
+        <li><b>工程</b>：短模式串用 C 库的 memmem 类实现（glibc 用 Two-Way 算法），长模式串用 BM 家族。</li>
+        <li><b>实际写代码时</b>：先用 <code>std::string::find</code>，性能不够再换专用算法。</li>
+      </ul>
+    </div>
+
+    <h2 id="s7">5.7 本章小结与练习</h2>
+
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">必须记住的五件事</h4>
+        <ol style="margin-bottom:0">
+          <li>子串要求<b>连续</b>，子序列不要求；前缀从 0 开始、后缀到末尾结束。</li>
+          <li>朴素匹配慢在<b>主串指针回溯</b>，最坏 O(n×m)。</li>
+          <li><code>π[i]</code> = 前缀 <code>P[0..i]</code> 的最长相等<b>真</b>前后缀长度，<code>π[0] = 0</code>。</li>
+          <li>KMP 失配时 <code>j = π[j-1]</code>，<code>i</code> 永不后退，总复杂度 O(n+m)。</li>
+          <li>BM 从右往左比，坏字符 + 好后缀两条规则取较大位移，平均 O(n/m)。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">易错清单</h4>
+        <ul style="margin-bottom:0">
+          <li>把 <code>next</code> 的各种下标约定混用（0 基 / 1 基 / 位移版）。</li>
+          <li>求 π 时回退写成 <code>len--</code> 而不是 <code>len = π[len-1]</code>，复杂度会退化。</li>
+          <li>忘记处理 <code>m = 0</code> 或 <code>m &gt; n</code> 的边界。</li>
+          <li>BM 中坏字符位移算出非正值时没有兜底，导致死循环。</li>
+          <li>把「最长相等前后缀」误当成「最长公共子串」——前者是同一个串内部的概念。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 id="s7-1">自测题</h3>
+    <details class="fold">
+      <summary>1. 求 <code>P = "ababaca"</code> 的前缀函数 π（0 基）。</summary>
+      <div class="fold-body">
+        <p>逐位推导：</p>
+        <ul>
+          <li><code>π[0] = 0</code></li>
+          <li>i=1 ('b')：len=0，'b'≠'a' → <code>π[1]=0</code></li>
+          <li>i=2 ('a')：len=0，'a'='a' → len=1 → <code>π[2]=1</code></li>
+          <li>i=3 ('b')：len=1，P[3]='b' vs P[1]='b' 相等 → len=2 → <code>π[3]=2</code></li>
+          <li>i=4 ('a')：len=2，P[4]='a' vs P[2]='a' 相等 → len=3 → <code>π[4]=3</code></li>
+          <li>i=5 ('c')：len=3，P[5]='c' vs P[3]='b' 不等 → len=π[2]=1；P[5]='c' vs P[1]='b' 不等 → len=π[0]=0；P[5]='c' vs P[0]='a' 不等 → <code>π[5]=0</code></li>
+          <li>i=6 ('a')：len=0，P[6]='a' vs P[0]='a' 相等 → <code>π[6]=1</code></li>
+        </ul>
+        <p>所以 <code>π = [0, 0, 1, 2, 3, 0, 1]</code>。</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>2. 字符串 <code>"abababab"</code> 的最小循环节长度是多少？循环几次？</summary>
+      <div class="fold-body">
+        <p>π 数组为 <code>[0,0,1,2,3,4,5,6]</code>，<code>π[7] = 6</code>，候选节长 <code>8 − 6 = 2</code>，
+          <code>8 % 2 == 0</code> 成立，所以最小循环节长度是 <b>2</b>（"ab"），循环 <b>4</b> 次。</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>3. 主串 S = "aaaaaab"，模式串 P = "aaaab"，用 KMP 匹配时共发生几次 j 回退？</summary>
+      <div class="fold-body">
+        <p>π(P) = [0,1,2,3,0]。匹配过程中，前 5 次 <code>S[i]=P[j]='a'</code> 依次把 j 推到 4；
+          当 <code>S[5]='a'</code> 与 <code>P[4]='b'</code> 失配时，<code>j = π[3] = 3</code>（第 1 次回退），
+          此时 <code>P[3]='a'</code> 与 <code>S[5]='a'</code> 相等，j 变 4，接着 <code>S[6]='b'</code> 与
+          <code>P[4]='b'</code> 相等 → 匹配成功，起始下标 2。所以只回退了 <b>1 次</b>。
+          （若用朴素算法，这里会比较很多次。）</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>4. 为什么说「KMP 的比较次数一定比朴素算法少」是错的？举一个反例。</summary>
+      <div class="fold-body">
+        <p>取 <code>P = "baaa"</code>，<code>S = "aaaaaaa…a"</code>（全 a）。
+          朴素算法在每个对齐位置只需比较 1 次就失配（首字符 'b' ≠ 'a'），总共约 n 次比较；
+          而 KMP 需要先花 O(m) 求 π，匹配中每个位置也基本比较 1 次，其实相近。
+          更极端的反例是「模式串首字符在主串中从不出现」的情形：朴素算法每轮 1 次比较，
+          KMP 还多了预处理开销。KMP 的真正优势是<b>最坏情况的保证</b>，而不是「任何输入都更快」。</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>5. BM 算法中，坏字符规则算出的位移是负数意味着什么？该怎么处理？</summary>
+      <div class="fold-body">
+        <p>意味着坏字符在模式串中最后出现的位置在失配位置的<b>右侧</b>。此时按公式位移会向左移，
+          可能漏掉匹配甚至死循环。正确做法是：与好后缀规则算出的位移取<b>较大值</b>，
+          并且保证位移至少为 1。完整实现中通常写 <code>shift = max(1, j - last[c])</code>
+          后再与好后缀位移取 max。</p>
+      </div>
+    </details>
+
+    <h3 id="s7-2">配套编程练习</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>练习</th><th>任务</th><th>提示</th></tr></thead>
+        <tbody>
+          <tr><td>练习 1</td><td>实现朴素匹配，并在 <code>S = "aaaa…a"</code>（1000 个 a）、<code>P = "aaa…ab"</code>（99 个 a + b）上统计比较次数</td><td>验证 O(n×m) 退化</td></tr>
+          <tr><td>练习 2</td><td>手推并编程验证 <code>P = "ABCABD"</code>、<code>"ABABAA"</code>、<code>"aaaab"</code> 的 π 与教材版 next、nextval</td><td>三种约定对照，注意 1 基与 0 基的换算</td></tr>
+          <tr><td>练习 3</td><td>求一个字符串的所有 border，并从大到小输出</td><td>π 的链式回退</td></tr>
+          <tr><td>练习 4</td><td>统计每个前缀在该串中出现的次数</td><td>π + 倒序累加</td></tr>
+          <tr><td>练习 5</td><td>实现 BM 的坏字符规则版，与 KMP 在同一文本上比较比较次数</td><td>用英文文章做输入，观察差距</td></tr>
+          <tr><td>练习 6</td><td>给定两个串 A、B，求「B 在 A 中作为子串出现」的最小循环节数量相关性质</td><td>用分隔符拼接后求 π</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">洛谷练习建议</span>
+      在洛谷题库中搜索以下关键词即可找到对应题目（题号请以站内搜索结果为准）：
+      <b>「KMP 字符串匹配」</b>（模板题，直接套本章代码）、
+      <b>「动物园」</b>（KMP 的 num 数组，是 π 的进阶应用）、
+      <b>「OKR-A Horrible Poem」</b>（循环节 + 哈希）、
+      <b>「Power Strings」</b>（最小循环节，用 KMP 一行解决）。
+      第 14 讲洛谷题单中会给出更完整的分层练习计划。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch04-queue.html">
+        <span class="dir">← 上一讲</span>
+        <span class="ttl">04 队列及其应用</span>
+      </a>
+      <a class="next" href="ch06-array-matrix.html">
+        <span class="dir">下一讲 →</span>
+        <span class="ttl">06 数组与特殊矩阵压缩存储</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

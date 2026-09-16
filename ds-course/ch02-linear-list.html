@@ -1,0 +1,3398 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 线性表：顺序表与链表 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch02', title: '线性表：顺序表与链表' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch02-viz.js" defer></script>
+<style>
+  /* ---------- 本页静态图解与动画共用的小样式（颜色一律取 CSS 变量） ---------- */
+  .fig-box  { fill: var(--panel);      stroke: var(--border-strong); stroke-width: 1.6; }
+  .fig-acc  { fill: var(--brand-soft); stroke: var(--brand);         stroke-width: 2.2; }
+  .fig-ok   { fill: var(--ok-soft);    stroke: var(--ok);            stroke-width: 2.2; }
+  .fig-bad  { fill: var(--danger-soft);stroke: var(--danger);        stroke-width: 2.2; }
+  .fig-warn { fill: var(--warn-soft);  stroke: var(--warn);          stroke-width: 2.2; }
+  .fig-t    { fill: var(--text);       font-family: var(--mono); font-size: 14px; }
+  .fig-s    { fill: var(--text-soft);  font-size: 12.5px; }
+  .fig-f    { fill: var(--text-faint); font-size: 11.5px; font-family: var(--mono); }
+  .fig-h    { fill: var(--brand);      font-size: 13px; font-weight: 700; }
+  .fig-e    { stroke: var(--border-strong); stroke-width: 1.8; fill: none; }
+  .fig-eb   { stroke: var(--brand);  stroke-width: 2.2; fill: none; }
+  .fig-eg   { stroke: var(--ok);     stroke-width: 2.2; fill: none; }
+  .fig-er   { stroke: var(--danger); stroke-width: 2.2; fill: none; }
+  .fig-dash { stroke: var(--border-strong); stroke-width: 1.2; stroke-dasharray: 5 4; fill: none; }
+
+  /* ---------- 动画里用到的补充状态类（course.css 只定义了部分） ---------- */
+  .vz-box.warn { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2.4; }
+  .vz-box.dim  { opacity: .35; }
+  .vz-edge.compare { stroke: var(--accent); stroke-width: 2.6; }
+  .vz-edge.danger  { stroke: var(--danger); stroke-width: 2.6; stroke-dasharray: 6 4; }
+  .vz-edge.ghost   { stroke: var(--text-faint); stroke-width: 1.4; stroke-dasharray: 5 4; opacity: .8; }
+  .vz-dot  { fill: var(--text-soft); }
+  .ptr-pre { fill: var(--ok);     font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+  .ptr-cur { fill: var(--brand);  font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+  .ptr-nxt { fill: var(--accent); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- 全页共用的箭头 marker 定义（放在 0 尺寸 SVG 中，供下方所有静态图解引用） -->
+<svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="g-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+    </marker>
+    <marker id="g-arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+    </marker>
+    <marker id="g-arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+    </marker>
+    <marker id="g-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+    </marker>
+    <marker id="g-ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+</svg>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 02 讲</div>
+      <h1>线性表：顺序表与链表</h1>
+      <p class="lede">
+        同一个逻辑结构「线性表」，换一种内存布局就长成了两个完全不同的东西：顺序表用一整块连续内存，换来 O(1) 的随机存取，
+        代价是插入删除要成片搬元素；链表把元素散落在堆上，用指针串起来，插入删除只改几根指针，
+        代价是失去随机存取、每个结点多一个指针域。本讲把两套代码从头写全，并把指针的每一步动作逐帧拆开给你看。
+      </p>
+      <div class="meta">
+        <span>预计 120 分钟</span>
+        <span>前置：C++ 指针 · 结构体 · 模板入门</span>
+        <span>关键词：随机存取 · 头结点 · 快慢指针 · Floyd 判环 · 循环链表 · 静态链表</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul>
+        <li><b>一句话本质</b>：线性表是「一对一」的逻辑结构；顺序表和链表是它的两种物理实现——<b>逻辑相同，物理不同，复杂度就不同</b>。</li>
+        <li><b>三张必背的图</b>：顺序表的连续地址图（图 2-2）、头指针 / 头结点 / 首元结点的区别（图 2-5）、单链表插入的「先连后断」（图 2-6）。</li>
+        <li><b>两个必背的推导</b>：顺序表插入平均移动 <code>n/2</code> 次、删除平均移动 <code>(n-1)/2</code> 次；Floyd 判环中「头指针与相遇点同步走 a 步必在环入口相遇」。</li>
+        <li><b>六个可交互动画</b>：顺序表插入、单链表插入（含错误顺序对比）、单链表删除、链表反转、快慢指针判环、双向链表插入。全部支持单步 / 回退 / 自动播放。</li>
+        <li><b>本章产出</b>：20 段可直接编译运行的 C++ 代码，覆盖顺序表、单链表、双向链表、循环链表、静态链表五种实现。</li>
+        <li><b>学习建议</b>：先看动画把指针「动」起来，再合上讲义自己写一遍 <code>ListInsert</code> 与反转链表——这两段写顺了，本章就过关了。</li>
+      </ul>
+    </div>
+
+    <!-- ============================================================ 2.1 -->
+    <h2 id="s1">2.1 从逻辑结构说起：什么是线性表</h2>
+
+    <p>
+      先抛开内存和指针，只谈「数据之间谁挨着谁」——这层关系叫<b>逻辑结构 logical structure</b>。
+      如果一组数据元素排成一条「线」，每个元素最多只有一个「前面的」和一个「后面的」，
+      那么这组数据就构成了一个<b>线性表 linear list</b>。
+    </p>
+
+    <div class="formula center">
+      线性表 L = (a<sub>1</sub>, a<sub>2</sub>, a<sub>3</sub>, …, a<sub>n</sub>)　　n ≥ 0
+    </div>
+
+    <p>
+      这里的 <code>n</code> 称为<b>表长 length</b>；<code>n = 0</code> 时称为<b>空表 empty list</b>。
+      括号里的每个 <code>a<sub>i</sub></code> 是一个<b>数据元素 element</b>（也叫结点、记录），
+      它本身可能很简单（一个整数），也可能很复杂（一个学生的全部信息）——
+      但对线性表来说，我们只关心「它在线上的哪个位置」。
+    </p>
+
+    <h3 id="s1-1">2.1.1 四个必须背下来的逻辑特征</h3>
+
+    <p>线性表的「线性」体现在四条性质上，考试里常以判断题的形式出现，请逐条记牢：</p>
+
+    <dl class="def">
+      <dt>① 存在唯一的「第一个」元素</dt>
+      <dd>记作 <code>a<sub>1</sub></code>，称为<b>首元素</b>。它没有直接前驱 direct predecessor。</dd>
+      <dt>② 存在唯一的「最后一个」元素</dt>
+      <dd>记作 <code>a<sub>n</sub></code>，称为<b>尾元素</b>（表尾元素）。它没有直接后继 direct successor。</dd>
+      <dt>③ 除首元素外，每个元素有且仅有一个直接前驱</dt>
+      <dd><code>a<sub>i</sub></code>（2 ≤ i ≤ n）的直接前驱是 <code>a<sub>i-1</sub></code>，唯一。</dd>
+      <dt>④ 除尾元素外，每个元素有且仅有一个直接后继</dt>
+      <dd><code>a<sub>i</sub></code>（1 ≤ i ≤ n−1）的直接后继是 <code>a<sub>i+1</sub></code>，唯一。</dd>
+    </dl>
+
+    <p>
+      注意「唯一」两个字的分量。③④ 合起来排除了「一个元素有两个后继」的树形分支，
+      ① ② 又排除了「环形兜圈」的可能（严格意义上，环形结构里每个元素都有前驱后继，但没有首尾）。
+      所以「线性」= 一条有头有尾、不分叉、不闭合的链。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 232" width="880" height="232" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="440" y="24" text-anchor="middle">线性表的逻辑结构：一条有头有尾、不分叉的「线」</text>
+
+        <rect class="fig-acc" x="90"  y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="130" y="116" text-anchor="middle">a1</text>
+        <rect class="fig-box" x="200" y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="240" y="116" text-anchor="middle">a2</text>
+        <rect class="fig-box" x="310" y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="350" y="116" text-anchor="middle">a3</text>
+        <text class="fig-s" x="420" y="116" text-anchor="middle">……</text>
+        <rect class="fig-box" x="450" y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="490" y="116" text-anchor="middle">a(i-1)</text>
+        <rect class="fig-acc" x="560" y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="600" y="116" text-anchor="middle">a(i)</text>
+        <rect class="fig-box" x="670" y="86" width="80" height="48" rx="6"/>
+        <text class="fig-t" x="710" y="116" text-anchor="middle">a(i+1)</text>
+        <rect class="fig-acc" x="780" y="86" width="80" height="48" rx="6" style="fill:var(--ok-soft);stroke:var(--ok)"/>
+        <text class="fig-t" x="820" y="116" text-anchor="middle">an</text>
+
+        <path class="fig-e" d="M170,146 L196,146" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M280,146 L306,146" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M390,146 L446,146" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M530,146 L556,146" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M640,146 L666,146" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M750,146 L776,146" marker-end="url(#g-ar)"/>
+
+        <path class="fig-eb" d="M600,80 L520,48" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M600,80 L680,48" marker-end="url(#g-arb)"/>
+        <text class="fig-s" x="500" y="44" text-anchor="end" style="fill:var(--brand)">唯一直接前驱 a(i-1)</text>
+        <text class="fig-s" x="700" y="44" text-anchor="start" style="fill:var(--brand)">唯一直接后继 a(i+1)</text>
+
+        <text class="fig-f" x="130" y="152" text-anchor="middle" style="fill:var(--ok)">位序 1</text>
+        <text class="fig-f" x="240" y="152" text-anchor="middle">位序 2</text>
+        <text class="fig-f" x="350" y="152" text-anchor="middle">位序 3</text>
+        <text class="fig-f" x="600" y="152" text-anchor="middle" style="fill:var(--brand)">位序 i</text>
+        <text class="fig-f" x="820" y="152" text-anchor="middle" style="fill:var(--ok)">位序 n</text>
+
+        <text class="fig-s" x="130" y="184" text-anchor="middle" style="fill:var(--ok)">首元素：无前驱</text>
+        <text class="fig-s" x="820" y="184" text-anchor="middle" style="fill:var(--ok)">尾元素：无后继</text>
+        <text class="fig-s" x="470" y="184" text-anchor="middle">中间元素：一前一后，各唯一</text>
+
+        <text class="fig-s" x="440" y="216" text-anchor="middle">
+          表长 n 可变：插入使 n 加 1，删除使 n 减 1；n = 0 时称为空表。注意位序从 1 开始计数，而数组下标从 0 开始。
+        </text>
+      </svg>
+      <figcaption>图 2-1　线性表的逻辑结构：首元素唯一无前驱、尾元素唯一无后继，中间元素前驱后继各唯一</figcaption>
+    </figure>
+
+    <h3 id="s1-2">2.1.2 位序 vs 下标：一个每天都在坑人的差异</h3>
+
+    <p>
+      数学上我们习惯把元素写成 <code>a<sub>1</sub>, a<sub>2</sub>, …, a<sub>n</sub></code>，
+      也就是<b>位序 position / 序号</b>从 <b>1</b> 开始；而 C/C++ 数组的下标从 <b>0</b> 开始。
+      两者之间差 1：
+    </p>
+
+    <div class="formula center">a<sub>i</sub>（位序 i）↔ array[i - 1]（下标 i-1）</div>
+
+    <p>
+      这一条看起来是废话，但它是本章所有越界 bug 的源头。教材与考试里的
+      <code>ListInsert(L, i, e)</code>，参数 <code>i</code> 是<b>位序</b>，
+      合法范围是 <code>1 ≤ i ≤ n+1</code>（<code>i = n+1</code> 表示插到表尾）；
+      而 <code>ListDelete(L, i, e)</code> 的合法范围是 <code>1 ≤ i ≤ n</code>。
+      写代码时第一件事就是把边界想清楚：
+    </p>
+
+    <div class="note warn">
+      <span class="note-title">易错：插入能到 n+1，删除只能到 n</span>
+      插入是在「两个元素之间塞一个」，所以 n 个元素之间有 n+1 个空档；删除必须删掉一个已经存在的元素，
+      所以只有 n 个可选目标。写 <code>if (i &lt; 1 || i &gt; len + 1) return false;</code> 时，
+      插入用 <code>len + 1</code>，删除用 <code>len</code>，别抄错。
+    </div>
+
+    <h3 id="s1-3">2.1.3 线性表的 ADT：先把接口想清楚，再谈实现</h3>
+
+    <p>
+      <b>抽象数据类型 ADT（Abstract Data Type）</b>指的是：
+      一个数学模型 + 定义在该模型上的一组操作，而<b>不关心这些操作在机器里怎么实现</b>。
+      换句话说，ADT 是「说明书」，数据结构是「实物」。
+      对线性表而言，我们关心的是下面这些操作，而不是它用数组还是链表：
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>语义</th><th>参数与返回值约定</th></tr></thead>
+        <tbody>
+          <tr><td><code>InitList</code></td><td>构造一个空表</td><td>无参；把表长置 0，准备好存储空间</td></tr>
+          <tr><td><code>Length</code></td><td>求表长</td><td>返回 <code>n</code>，不含头结点</td></tr>
+          <tr><td><code>LocateElem</code></td><td>按值查找</td><td>返回第一个等于给定值的元素<b>位序</b>；找不到返回 0</td></tr>
+          <tr><td><code>GetElem</code></td><td>按位取值</td><td>传入位序 <code>i</code>，用引用带回元素；越界返回 false</td></tr>
+          <tr><td><code>ListInsert</code></td><td>插入</td><td>在位序 <code>i</code> 处插入，原 <code>a<sub>i</sub></code> 及其后元素整体后移；<code>1 ≤ i ≤ n+1</code></td></tr>
+          <tr><td><code>ListDelete</code></td><td>删除</td><td>删除位序 <code>i</code> 的元素并带回其值；<code>1 ≤ i ≤ n</code></td></tr>
+          <tr><td><code>PrintList</code></td><td>遍历打印</td><td>按位序从头到尾输出，调试必备</td></tr>
+          <tr><td><code>DestroyList</code></td><td>销毁</td><td>释放全部存储（链表必须逐个 <code>delete</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      用 C++ 表达这套 ADT，最自然的做法是一个<b>抽象基类</b>：纯虚函数只声明接口，
+      具体存储细节交给派生类 <code>SeqList</code> 和 <code>SinglyList</code> 去填。
+      这样做的好处是：上层算法（比如「把两个线性表合并」）只依赖 <code>List&lt;T&gt;&amp;</code>，
+      换实现不用改一行调用代码——这正是「面向接口编程」在数据结构课上的第一次亮相。
+    </p>
+
+    <pre data-lang="cpp" data-file="list_adt.h">// list_adt.h —— 线性表的抽象基类：把 ADT 用 C++ 的纯虚函数表达出来
+#include &lt;iostream&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class List {                       // 抽象基类：只声明「能做什么」，不回答「怎么做」
+public:
+    virtual ~List() {}                                  // 虚析构：保证 delete 基类指针时能回收派生类资源
+
+    virtual void InitList() = 0;                        // 建空表
+    virtual int  Length() const = 0;                    // 求表长 n
+    virtual int  LocateElem(const T&amp; e) const = 0;      // 按值查找：返回位序 1..n，找不到返回 0
+    virtual bool GetElem(int i, T&amp; e) const = 0;        // 按位取值：把第 i 个元素拷贝给 e
+    virtual bool ListInsert(int i, const T&amp; e) = 0;     // 在位序 i 处插入 e，1 &lt;= i &lt;= n+1
+    virtual bool ListDelete(int i, T&amp; e) = 0;           // 删除位序 i 的元素，用 e 带回，1 &lt;= i &lt;= n
+    virtual void PrintList() const = 0;                 // 遍历打印
+    virtual void DestroyList() = 0;                     // 销毁整表，归还内存
+};
+
+/* 为什么 LocateElem 用「返回 0」表示失败？
+   因为位序从 1 开始，0 是一个天然不会被占用的「哨兵值」。
+   这与 C 标准库 strchr 返回 NULL、find 返回 npos 是同一种设计思路。 */
+</pre>
+
+    <p>
+      有了接口，本章接下来的所有实现都可以看作「同一份说明书的两种（乃至五种）实现方案」。
+      请特别注意：<b>接口一样，复杂度却可能天差地别</b>——这正是本讲要反复对比的主线。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点 1</span>
+      线性表的逻辑特征是「一对一」，与它采用顺序存储还是链式存储<b>无关</b>。
+      常考判断题：「线性表的每个元素都有前驱和后继」——错，首元素无前驱、尾元素无后继；
+      「线性表必须用连续空间存储」——错，那是顺序表的特点，不是线性表的定义。
+    </div>
+
+    <!-- ============================================================ 2.2 -->
+    <h2 id="s2">2.2 顺序表：用一整块连续内存装下整张表</h2>
+
+    <p>
+      <b>顺序表 sequential list</b> 的思路极其朴素：既然元素是排成一队的，
+      那就把它们<b>挨着放</b>——在内存里申请一整块连续空间，第 1 个元素放在最前面，
+      第 2 个紧跟其后，依次排开。C++ 里的原生数组、<code>std::vector</code>、
+      Java 的 <code>ArrayList</code>、Python 的 <code>list</code>，底层都是这个思路。
+    </p>
+
+    <h3 id="s2-1">2.2.1 内存布局与地址公式：为什么下标访问这么快</h3>
+
+    <p>
+      连续存放带来一个巨大的好处：<b>只要知道第 1 个元素在哪，就能用算术算出第 i 个元素在哪</b>，
+      完全不需要从头一个个找。设每个元素占 <code>L</code> 个字节
+      （<code>L = sizeof(T)</code>，例如 <code>int</code> 通常是 4 字节），
+      首元素 <code>a<sub>1</sub></code> 的起始地址为 <code>LOC(a<sub>1</sub>)</code>，那么：
+    </p>
+
+    <div class="formula center">LOC(a<sub>i</sub>) = LOC(a<sub>1</sub>) + (i − 1) × L</div>
+
+    <p>这个公式的推导只有一句话：</p>
+
+    <div class="note tip">
+      <span class="note-title">推导</span>
+      从 <code>a<sub>1</sub></code> 走到 <code>a<sub>i</sub></code>，中间要跨过 <code>i − 1</code> 个元素；
+      每个元素占 <code>L</code> 字节，且它们首尾相接、中间没有空隙，
+      所以总共跨过 <code>(i − 1) × L</code> 个字节。加上起点地址，即得公式。
+      整个过程只用到一次减法、一次乘法、一次加法，<b>与表长 n 无关</b>，因此是 <b>O(1)</b>。
+    </div>
+
+    <p>
+      这种「给一个下标就能直接算出地址并访问」的能力叫做<b>随机存取 random access</b>。
+      与之相对，链表只能从表头开始一格一格往后挪，叫做<b>顺序存取 sequential access</b>。
+      这两个词是本章最核心的对照，务必分清：<b>顺序表能随机存取，链表只能顺序存取</b>；
+      而「顺序存储」说的是物理布局，「顺序存取」说的是访问方式，一字之差、含义完全不同。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 330" width="880" height="330" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="440" y="24" text-anchor="middle">顺序表的内存布局：一段连续地址，元素等距排列</text>
+
+        <text class="fig-f" x="60" y="52">下标</text>
+        <text class="fig-f" x="60" y="52" dx="0"> </text>
+        <rect class="fig-acc" x="60"  y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="102" y="92" text-anchor="middle">21</text>
+        <rect class="fig-box" x="156" y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="198" y="92" text-anchor="middle">32</text>
+        <rect class="fig-box" x="252" y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="294" y="92" text-anchor="middle">45</text>
+        <rect class="fig-box" x="348" y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="390" y="92" text-anchor="middle">58</text>
+        <rect class="fig-box" x="444" y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="486" y="92" text-anchor="middle">66</text>
+        <rect class="fig-box" x="540" y="60" width="84" height="52" rx="6"/>
+        <text class="fig-t" x="582" y="92" text-anchor="middle">79</text>
+
+        <text class="fig-f" x="102" y="132" text-anchor="middle">[0]</text>
+        <text class="fig-f" x="198" y="132" text-anchor="middle">[1]</text>
+        <text class="fig-f" x="294" y="132" text-anchor="middle">[2]</text>
+        <text class="fig-f" x="390" y="132" text-anchor="middle">[3]</text>
+        <text class="fig-f" x="486" y="132" text-anchor="middle">[4]</text>
+        <text class="fig-f" x="582" y="132" text-anchor="middle">[5]</text>
+
+        <text class="fig-f" x="102" y="152" text-anchor="middle">1000</text>
+        <text class="fig-f" x="198" y="152" text-anchor="middle">1004</text>
+        <text class="fig-f" x="294" y="152" text-anchor="middle">1008</text>
+        <text class="fig-f" x="390" y="152" text-anchor="middle">1012</text>
+        <text class="fig-f" x="486" y="152" text-anchor="middle">1016</text>
+        <text class="fig-f" x="582" y="152" text-anchor="middle">1020</text>
+        <text class="fig-s" x="650" y="152" style="fill:var(--text-faint)">← 字节地址</text>
+
+        <path class="fig-e" d="M60,168 L624,168"/>
+        <path class="fig-e" d="M60,162 L60,174"/>
+        <path class="fig-e" d="M624,162 L624,174"/>
+        <text class="fig-s" x="342" y="190" text-anchor="middle">连续的一段内存，相邻元素地址差恒为 L 字节（这里 int 的 L = 4）</text>
+
+        <rect class="fig-acc" x="60" y="204" width="760" height="46" rx="8"/>
+        <text class="fig-t" x="440" y="234" text-anchor="middle" style="fill:var(--brand)">LOC(a_i) = LOC(a_1) + (i − 1) × L</text>
+        <text class="fig-s" x="60" y="276">例：要求位序 4 的元素（下标 3），LOC = 1000 + (4 − 1) × 4 = 1012，一步算出，与表长 n 无关。</text>
+        <text class="fig-s" x="60" y="300">若用下标记（从 0 开始）：LOC(a[k]) = base + k × L。位序 i 与下标 k 的关系是 k = i − 1，别混用。</text>
+      </svg>
+      <figcaption>图 2-2　顺序表的连续内存布局与地址公式：一次乘加即可定位任意元素，这就是 O(1) 随机存取的来源</figcaption>
+    </figure>
+
+    <h3 id="s2-2">2.2.2 动态数组实现 SeqList&lt;T&gt;：size 与 capacity</h3>
+
+    <p>
+      顺序表有两种分配方式。<b>静态分配</b>直接写 <code>T data[MaxSize];</code>，
+      容量在编译期定死，一旦存满就没救（除非搬家），而且开小了浪费、开大了可能栈溢出。
+      <b>动态分配</b>在堆上 <code>new T[cap]</code>，容量不够时再申请一块更大的、把数据搬过去、
+      把旧的释放掉——这就是 <code>std::vector</code> 的做法，也是我们要实现的版本。
+    </p>
+
+    <p>这里必须分清两个容易混淆的量：</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s2-2a">size（表长 len）</h3>
+        <p style="margin-bottom:0">
+          当前<b>实际存了多少个元素</b>。它决定了哪些操作合法：
+          按位查找要求 <code>1 ≤ i ≤ len</code>，插入要求 <code>1 ≤ i ≤ len+1</code>。
+          用户看到的「线性表长度」就是这个数。
+        </p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s2-2b">capacity（容量 cap）</h3>
+        <p style="margin-bottom:0">
+          底层数组<b>最多能装多少个元素</b>，是实现细节，用户不该关心。
+          恒有 <code>len ≤ cap</code>；当 <code>len == cap</code> 时再插入才需要扩容。
+          预留的空位正是「插入不必每次都搬家」的原因。
+        </p>
+      </div>
+    </div>
+
+    <pre data-lang="cpp" data-file="seqlist.h">// seqlist.h —— 顺序表：动态数组实现，容量不够时按 2 倍自动扩容
+#include &lt;iostream&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class SeqList {
+private:
+    T*  data;        // 指向连续内存块的首地址
+    int len;         // 表长 size：实际元素个数
+    int cap;         // 容量 capacity：底层数组能装多少个
+
+    void grow() {                                  // 私有扩容函数
+        int nc = (cap == 0) ? 4 : cap * 2;         // 按 2 倍增长（不要写成 cap + 1）
+        T* nd = new T[nc];                         // 1) 申请更大的新块
+        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];   // 2) 整体拷贝（O(len)）
+        delete[] data;                             // 3) 释放旧块，漏掉这句就是内存泄漏
+        data = nd;                                 // 4) 指针改指向新块
+        cap  = nc;
+    }
+
+public:
+    SeqList() : data(nullptr), len(0), cap(0) {}
+    ~SeqList() { delete[] data; data = nullptr; }
+
+    // 必须自己写深拷贝：否则两个对象共用同一块内存，析构时 double free 直接崩溃
+    SeqList(const SeqList&amp; o) : data(nullptr), len(o.len), cap(o.cap) {
+        if (cap &gt; 0) {
+            data = new T[cap];
+            for (int i = 0; i &lt; len; ++i) data[i] = o.data[i];
+        }
+    }
+    SeqList&amp; operator=(const SeqList&amp; o) {
+        if (this == &amp;o) return *this;              // 自赋值保护
+        T* nd = nullptr;
+        if (o.cap &gt; 0) {
+            nd = new T[o.cap];
+            for (int i = 0; i &lt; o.len; ++i) nd[i] = o.data[i];
+        }
+        delete[] data;                             // 先准备好新的，再释放旧的，异常安全
+        data = nd; len = o.len; cap = o.cap;
+        return *this;
+    }
+
+    int  size()     const { return len; }
+    int  capacity() const { return cap; }
+    bool empty()    const { return len == 0; }
+    void InitList()       { len = 0; }             // 逻辑清空，不归还内存
+
+    /* 其余操作见后面的代码块 */
+    bool GetElem(int i, T&amp; e) const;
+    int  LocateElem(const T&amp; e) const;
+    bool ListInsert(int i, const T&amp; e);
+    bool ListDelete(int i, T&amp; e);
+    void PrintList() const;
+    void DestroyList() { delete[] data; data = nullptr; len = cap = 0; }
+};
+</pre>
+
+    <h3 id="s2-3">2.2.3 按位查找：O(1) 的随机存取</h3>
+
+    <p>
+      有了地址公式，按位查找就是「检查一下边界，然后把下标减一取出来」。
+      注意两个细节：一是<b>位序转下标要减 1</b>；二是<b>越界必须挡在门外</b>，
+      因为 <code>data[i-1]</code> 在 C++ 里不做任何检查，越界读是未定义行为 undefined behavior，
+      可能读到垃圾值，也可能直接把程序搞崩。
+    </p>
+
+    <pre data-lang="cpp" data-file="seqlist_get.cpp">// seqlist_get.cpp —— 顺序表的三种「读」操作：按位取值、按值查找、遍历打印
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class SeqList {
+private:
+    T*  data;
+    int len, cap;
+    void grow() {                              // 扩容：容量不足时按 2 倍增长
+        int nc = (cap == 0) ? 4 : cap * 2;
+        T* nd = new T[nc];
+        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];
+        delete[] data;                         // 别忘了释放旧块，否则内存泄漏
+        data = nd; cap = nc;
+    }
+public:
+    SeqList() : data(nullptr), len(0), cap(0) {}
+    ~SeqList() { delete[] data; }
+    int  size() const { return len; }
+    bool ListInsert(int i, const T&amp; e);
+    bool GetElem(int i, T&amp; e) const;
+    int  LocateElem(const T&amp; e) const;
+    void PrintList() const;
+};
+
+/* 按位查找 GetElem：位序 i -> 下标 i-1，一步到位，时间 O(1) */
+template &lt;typename T&gt;
+bool SeqList&lt;T&gt;::GetElem(int i, T&amp; e) const {
+    if (i &lt; 1 || i &gt; len) return false;   // 位序范围 1..len，注意不是 0..len-1
+    e = data[i - 1];                      // 位序 -> 下标：减 1
+    return true;
+}
+
+// 按值查找 LocateElem：只能从头挨个比，时间 O(n)
+template &lt;typename T&gt;
+int SeqList&lt;T&gt;::LocateElem(const T&amp; e) const {
+    for (int k = 0; k &lt; len; ++k)
+        if (data[k] == e) return k + 1;   // 返回「位序」，所以是 k+1
+    return 0;                             // 0 是约定的「没找到」哨兵
+}
+
+// 打印整表：既是调试工具，也是遍历的样板
+template &lt;typename T&gt;
+void SeqList&lt;T&gt;::PrintList() const {
+    cout &lt;&lt; "[ ";
+    for (int k = 0; k &lt; len; ++k) cout &lt;&lt; data[k] &lt;&lt; " ";
+    cout &lt;&lt; "]  len=" &lt;&lt; len &lt;&lt; " cap=" &lt;&lt; cap &lt;&lt; endl;
+}
+
+// 表尾追加（内部复用扩容逻辑，供 main 造数据用）
+template &lt;typename T&gt;
+bool SeqList&lt;T&gt;::ListInsert(int i, const T&amp; e) {
+    if (i &lt; 1 || i &gt; len + 1) return false;
+    if (len == cap) grow();
+    for (int k = len; k &gt;= i; --k) data[k] = data[k - 1];
+    data[i - 1] = e;
+    ++len;
+    return true;
+}
+
+int main() {
+    SeqList&lt;int&gt; L;
+    int a[] = {21, 32, 45, 58, 66, 79};
+    for (int k = 0; k &lt; 6; ++k) L.ListInsert(L.size() + 1, a[k]);
+    L.PrintList();                                   // [ 21 32 45 58 66 79 ]  len=6 cap=8
+
+    int v = 0;
+    cout &lt;&lt; "GetElem(4)  = " &lt;&lt; (L.GetElem(4, v)  ? to_string(v) : "越界") &lt;&lt; endl;  // 58
+    cout &lt;&lt; "GetElem(99) = " &lt;&lt; (L.GetElem(99, v) ? to_string(v) : "越界") &lt;&lt; endl;  // 越界
+    cout &lt;&lt; "LocateElem(66)  = " &lt;&lt; L.LocateElem(66)  &lt;&lt; endl;   // 5（位序，不是下标 4）
+    cout &lt;&lt; "LocateElem(999) = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl;   // 0（约定表示没找到）
+    return 0;
+}
+</pre>
+
+    <h3 id="s2-4">2.2.4 按值查找：为什么平均要比 (n+1)/2 次</h3>
+
+    <p>
+      按值查找没有捷径可走：地址公式只能算出「第 i 个在哪」，算不出「值等于 x 的那个在哪」。
+      所以只能从 <code>a<sub>1</sub></code> 开始逐个比较。设查找的目标等概率地出现在任意位置，
+      比较次数分别为 <code>1, 2, …, n</code>，于是<b>平均查找长度 ASL</b> 为：
+    </p>
+
+    <div class="formula center">ASL<sub>成功</sub> = (1/n) × Σ<sub>i=1..n</sub> i = (n + 1) / 2</div>
+
+    <p>
+      也就是说，平均要看一半的元素，时间复杂度 <b>O(n)</b>。
+      这也是顺序表相对哈希表（第 10 讲）最大的短板：<b>按下标快如闪电，按值找慢如蜗牛</b>。
+    </p>
+
+    <h3 id="s2-5">2.2.5 插入：为什么平均要挪一半的元素</h3>
+
+    <p>
+      插入的难点在于「腾位置」。要在位序 <code>i</code> 处插入新元素，
+      就必须把原来 <code>a<sub>i</sub></code> 及其后面的所有元素统统往后挪一格。
+      挪的时候有个关键顺序问题：<b>必须从最后一个元素开始往前挪</b>。
+      如果从 <code>a<sub>i</sub></code> 开始往后挪，<code>a<sub>i</sub></code> 会先把
+      <code>a<sub>i+1</sub></code> 覆盖掉，等到要挪 <code>a<sub>i+1</sub></code> 时原值已经没了——
+      数据被自己吃掉，这就是典型的「覆盖丢失」。
+    </p>
+
+    <div class="figure" data-steps>
+      <svg viewBox="0 0 880 148" width="880" height="148" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-s" x="60" y="18">第 1 步：从后往前，把 a[5]→a[6]、a[4]→a[5]、a[3]→a[4] 依次后移，腾出下标 3</text>
+        <path class="fig-eb" d="M576,26 L662,26" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M490,26 L576,26" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M404,26 L490,26" marker-end="url(#g-arb)"/>
+        <rect class="fig-box" x="60"  y="40" width="78" height="46" rx="6"/><text class="fig-t" x="99"  y="70" text-anchor="middle">21</text>
+        <rect class="fig-box" x="146" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="185" y="70" text-anchor="middle">32</text>
+        <rect class="fig-box" x="232" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="271" y="70" text-anchor="middle">45</text>
+        <rect class="fig-warn" x="318" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="357" y="70" text-anchor="middle">58</text>
+        <rect class="fig-warn" x="404" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="443" y="70" text-anchor="middle">66</text>
+        <rect class="fig-warn" x="490" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="529" y="70" text-anchor="middle">79</text>
+        <rect class="fig-box" x="576" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="615" y="70" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <rect class="fig-box" x="662" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="701" y="70" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <text class="fig-f" x="99"  y="104" text-anchor="middle">[0]</text>
+        <text class="fig-f" x="185" y="104" text-anchor="middle">[1]</text>
+        <text class="fig-f" x="271" y="104" text-anchor="middle">[2]</text>
+        <text class="fig-f" x="357" y="104" text-anchor="middle">[3]</text>
+        <text class="fig-f" x="443" y="104" text-anchor="middle">[4]</text>
+        <text class="fig-f" x="529" y="104" text-anchor="middle">[5]</text>
+        <text class="fig-f" x="615" y="104" text-anchor="middle">[6]</text>
+        <text class="fig-f" x="701" y="104" text-anchor="middle">[7]</text>
+        <text class="fig-s" x="60" y="132">橙色为需要移动的元素，共 3 个（下标 3、4、5）</text>
+      </svg>
+      <svg viewBox="0 0 880 148" width="880" height="148" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-s" x="60" y="18">第 2 步：把新元素 50 写进刚刚空出来的下标 3；此时元素个数仍是 6</text>
+        <rect class="fig-box" x="60"  y="40" width="78" height="46" rx="6"/><text class="fig-t" x="99"  y="70" text-anchor="middle">21</text>
+        <rect class="fig-box" x="146" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="185" y="70" text-anchor="middle">32</text>
+        <rect class="fig-box" x="232" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="271" y="70" text-anchor="middle">45</text>
+        <rect class="fig-ok"   x="318" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="357" y="70" text-anchor="middle" style="fill:var(--ok)">50</text>
+        <rect class="fig-box" x="404" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="443" y="70" text-anchor="middle">58</text>
+        <rect class="fig-box" x="490" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="529" y="70" text-anchor="middle">66</text>
+        <rect class="fig-box" x="576" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="615" y="70" text-anchor="middle">79</text>
+        <rect class="fig-box" x="662" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="701" y="70" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <text class="fig-f" x="357" y="104" text-anchor="middle" style="fill:var(--ok)">新元素</text>
+        <text class="fig-s" x="60" y="132">写入动作只有一次赋值：data[i-1] = e</text>
+      </svg>
+      <svg viewBox="0 0 880 148" width="880" height="148" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-s" x="60" y="18">第 3 步：len 从 6 变成 7，插入完成（capacity = 8，还有 1 个空位）</text>
+        <rect class="fig-box" x="60"  y="40" width="78" height="46" rx="6"/><text class="fig-t" x="99"  y="70" text-anchor="middle">21</text>
+        <rect class="fig-box" x="146" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="185" y="70" text-anchor="middle">32</text>
+        <rect class="fig-box" x="232" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="271" y="70" text-anchor="middle">45</text>
+        <rect class="fig-box" x="318" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="357" y="70" text-anchor="middle">50</text>
+        <rect class="fig-box" x="404" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="443" y="70" text-anchor="middle">58</text>
+        <rect class="fig-box" x="490" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="529" y="70" text-anchor="middle">66</text>
+        <rect class="fig-box" x="576" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="615" y="70" text-anchor="middle">79</text>
+        <rect class="fig-box" x="662" y="40" width="78" height="46" rx="6"/><text class="fig-t" x="701" y="70" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <text class="fig-s" x="60" y="132">本次插入的 i = 4、n = 6，移动次数 = n − i + 1 = 3，与图示一致</text>
+      </svg>
+      <figcaption>图 2-3　顺序表插入的三步（可点击「上一步 / 下一步」切换）：腾位 → 写入 → 表长加一</figcaption>
+    </div>
+
+    <p>下面用动画把这三步逐帧放慢，请特别注意「移动方向」与「移动次数计数器」：</p>
+
+    <div id="viz-seq-insert"></div>
+
+    <p>现在把移动次数算清楚。在位序 <code>i</code> 处插入时，需要后移的元素是原来的 <code>a<sub>i</sub>…a<sub>n</sub></code>，共 <code>n − i + 1</code> 个：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>插入位置</th><th>移动的元素</th><th>移动次数</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>i = 1</code>（表头）</td><td>全部 n 个</td><td class="c-bad">n</td><td>最坏情况</td></tr>
+          <tr><td><code>i = n + 1</code>（表尾）</td><td>无</td><td class="c-ok">0</td><td>最好情况，直接追加</td></tr>
+          <tr><td>任意 <code>i</code></td><td><code>a<sub>i</sub>…a<sub>n</sub></code></td><td><code>n − i + 1</code></td><td>一般情况</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      假设 <code>n + 1</code> 个可插入位置等概率（概率各为 <code>1/(n+1)</code>），
+      求平均移动次数 <code>E<sub>insert</sub></code>：
+    </p>
+
+    <div class="formula center">
+      E<sub>insert</sub> = (1/(n+1)) × Σ<sub>i=1..n+1</sub> (n − i + 1) = (1/(n+1)) × (n + (n−1) + … + 1 + 0) = (1/(n+1)) × n(n+1)/2 = <b>n / 2</b>
+    </div>
+
+    <p>
+      所以插入平均要搬 <b>n/2</b> 个元素，时间复杂度 <b>O(n)</b>。
+      这个结论的直觉解释是：平均来看，新元素会插在表的正中间，那么后面一半的元素都得往后挪一格。
+    </p>
+
+    <h3 id="s2-6">2.2.6 删除：平均移动 (n−1)/2 次</h3>
+
+    <p>
+      删除是插入的逆操作：把位序 <code>i</code> 的元素拿掉，为了不让中间出现空洞（一旦有洞，地址公式就失效了），
+      必须把 <code>a<sub>i+1</sub>…a<sub>n</sub></code> 整体<b>向前</b>挪一格。
+      这次的方向正好相反——<b>从前往后挪</b>，因为每个元素都是往已腾空的位置填，不会覆盖到还没处理的数据。
+    </p>
+
+    <p>删除时要注意：表长减 1 只是让最后一个位置「逻辑上不存在」了，那块内存并没有被归还，也不需要 <code>delete</code>——顺序表是整块申请的，只能整块释放。</p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 290" width="880" height="290" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="440" y="20" text-anchor="middle">顺序表删除位序 2 的元素：后面的元素整体前移一格</text>
+
+        <text class="fig-s" x="60" y="46">删除前（len = 6）：</text>
+        <rect class="fig-box"  x="60"  y="56" width="78" height="46" rx="6"/><text class="fig-t" x="99"  y="86" text-anchor="middle">21</text>
+        <rect class="fig-bad"  x="146" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="185" y="86" text-anchor="middle" style="fill:var(--danger)">32</text>
+        <rect class="fig-warn" x="232" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="271" y="86" text-anchor="middle">45</text>
+        <rect class="fig-warn" x="318" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="357" y="86" text-anchor="middle">58</text>
+        <rect class="fig-warn" x="404" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="443" y="86" text-anchor="middle">66</text>
+        <rect class="fig-warn" x="490" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="529" y="86" text-anchor="middle">79</text>
+        <rect class="fig-box"  x="576" y="56" width="78" height="46" rx="6"/><text class="fig-t" x="615" y="86" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <text class="fig-f" x="99"  y="120" text-anchor="middle">[0]</text>
+        <text class="fig-f" x="185" y="120" text-anchor="middle">[1]</text>
+        <text class="fig-f" x="271" y="120" text-anchor="middle">[2]</text>
+        <text class="fig-f" x="357" y="120" text-anchor="middle">[3]</text>
+        <text class="fig-f" x="443" y="120" text-anchor="middle">[4]</text>
+        <text class="fig-f" x="529" y="120" text-anchor="middle">[5]</text>
+        <text class="fig-f" x="615" y="120" text-anchor="middle">[6]</text>
+        <text class="fig-s" x="664" y="86">← 被删元素（由 e 带回）</text>
+
+        <path class="fig-eb" d="M271,124 L210,166" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M357,124 L296,166" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M443,124 L382,166" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M529,124 L468,166" marker-end="url(#g-arb)"/>
+
+        <text class="fig-s" x="60" y="152">删除后（len = 5）：</text>
+        <rect class="fig-box" x="60"  y="166" width="78" height="46" rx="6"/><text class="fig-t" x="99"  y="196" text-anchor="middle">21</text>
+        <rect class="fig-ok"  x="146" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="185" y="196" text-anchor="middle">45</text>
+        <rect class="fig-ok"  x="232" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="271" y="196" text-anchor="middle">58</text>
+        <rect class="fig-ok"  x="318" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="357" y="196" text-anchor="middle">66</text>
+        <rect class="fig-ok"  x="404" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="443" y="196" text-anchor="middle">79</text>
+        <rect class="fig-box" x="490" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="529" y="196" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <rect class="fig-box" x="576" y="166" width="78" height="46" rx="6"/><text class="fig-t" x="615" y="196" text-anchor="middle" style="fill:var(--text-faint)">空</text>
+        <text class="fig-f" x="99"  y="230" text-anchor="middle">[0]</text>
+        <text class="fig-f" x="185" y="230" text-anchor="middle">[1]</text>
+        <text class="fig-f" x="271" y="230" text-anchor="middle">[2]</text>
+        <text class="fig-f" x="357" y="230" text-anchor="middle">[3]</text>
+        <text class="fig-f" x="443" y="230" text-anchor="middle">[4]</text>
+        <text class="fig-f" x="529" y="230" text-anchor="middle">[5]</text>
+        <text class="fig-f" x="615" y="230" text-anchor="middle">[6]</text>
+        <text class="fig-s" x="664" y="196">← 空位已不属于逻辑表尾</text>
+
+        <text class="fig-s" x="60" y="266">移动次数 = n − i = 6 − 2 = 4；一般式 n − i，平均 (1/n)·Σ(n−i) = (n−1)/2。</text>
+      </svg>
+      <figcaption>图 2-4　顺序表删除：元素自前往后前移，平均移动 (n−1)/2 个元素</figcaption>
+    </figure>
+
+    <p>
+      删除位序 <code>i</code> 的元素时，需要前移的是 <code>a<sub>i+1</sub>…a<sub>n</sub></code>，
+      共 <code>n − i</code> 个。<code>i</code> 取 <code>1…n</code> 等概率，于是：
+    </p>
+
+    <div class="formula center">
+      E<sub>delete</sub> = (1/n) × Σ<sub>i=1..n</sub> (n − i) = (1/n) × (n−1 + n−2 + … + 1 + 0) = (1/n) × n(n−1)/2 = <b>(n − 1) / 2</b>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 2：为什么插入是 n/2，删除却是 (n−1)/2？</span>
+      差别只在「等概率的分母」上：插入有 <code>n+1</code> 个合法位置（包括表尾那个「不移动」的位置），
+      而删除只有 <code>n</code> 个合法位置，两者的求和项也不同（插入是 <code>n−i+1</code>，删除是 <code>n−i</code>）。
+      记忆技巧：<b>插入含表尾 0 次移动这一档，所以分母大 1、平均少「挪」半格</b>。
+      考试若不给等概率假设，默认按等概率算。
+    </div>
+
+    <pre data-lang="cpp" data-file="seqlist_insert_delete.cpp">// seqlist_insert_delete.cpp —— 顺序表的插入与删除：移动方向、边界与复杂度
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class SeqList {
+private:
+    T*  data;
+    int len, cap;
+    void grow() {
+        int nc = (cap == 0) ? 4 : cap * 2;
+        T* nd = new T[nc];
+        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];
+        delete[] data; data = nd; cap = nc;
+    }
+public:
+    SeqList() : data(nullptr), len(0), cap(0) {}
+    ~SeqList() { delete[] data; }
+    int  size()     const { return len; }
+    int  capacity() const { return cap; }
+    bool ListInsert(int i, const T&amp; e);
+    bool ListDelete(int i, T&amp; e);
+    bool GetElem(int i, T&amp; e) const;
+    int  LocateElem(const T&amp; e) const;
+    void PrintList() const;
+};
+
+/* 插入：位序 i 合法范围 1..len+1；平均移动 n/2 次，时间 O(n) */
+template &lt;typename T&gt;
+bool SeqList&lt;T&gt;::ListInsert(int i, const T&amp; e) {
+    if (i &lt; 1 || i &gt; len + 1) return false;   // 注意是 len+1，不是 len
+    if (len == cap) grow();                   // 空间不够先扩容（均摊 O(1)）
+    for (int k = len; k &gt;= i; --k)            // 从后往前搬，腾出下标 i-1
+        data[k] = data[k - 1];                // 若反过来从前往后搬，数据会被自己覆盖
+    data[i - 1] = e;                          // 位序 i -> 下标 i-1
+    ++len;
+    return true;
+}
+
+// 删除：位序 i 合法范围 1..len；平均移动 (n-1)/2 次，时间 O(n)
+template &lt;typename T&gt;
+bool SeqList&lt;T&gt;::ListDelete(int i, T&amp; e) {
+    if (i &lt; 1 || i &gt; len) return false;       // 注意是 len，不是 len+1
+    e = data[i - 1];                          // 先把被删元素交给调用者
+    for (int k = i; k &lt; len; ++k)             // 从前往后搬，填掉下标 i-1 的空洞
+        data[k - 1] = data[k];
+    --len;                                    // 只改表长，不归还内存
+    return true;
+}
+
+// 供 main 打印结果用的两个只读操作
+template &lt;typename T&gt;
+bool SeqList&lt;T&gt;::GetElem(int i, T&amp; e) const {
+    if (i &lt; 1 || i &gt; len) return false;       // 位序 1..len
+    e = data[i - 1];
+    return true;
+}
+template &lt;typename T&gt;
+int SeqList&lt;T&gt;::LocateElem(const T&amp; e) const {
+    for (int k = 0; k &lt; len; ++k) if (data[k] == e) return k + 1;   // 返回位序
+    return 0;                                 // 0 表示未找到
+}
+template &lt;typename T&gt;
+void SeqList&lt;T&gt;::PrintList() const {
+    cout &lt;&lt; "[ ";
+    for (int k = 0; k &lt; len; ++k) cout &lt;&lt; data[k] &lt;&lt; " ";
+    cout &lt;&lt; "]  len=" &lt;&lt; len &lt;&lt; " cap=" &lt;&lt; cap &lt;&lt; endl;
+}
+
+int main() {
+    SeqList&lt;int&gt; L;
+    int a[] = {21, 32, 45, 58, 66, 79};
+    for (int k = 0; k &lt; 6; ++k) L.ListInsert(L.size() + 1, a[k]);  // 逐个追加到表尾
+    L.PrintList();                            // [ 21 32 45 58 66 79 ]  len=6 cap=8
+
+    L.ListInsert(4, 50);                      // 在位序 4 插入 50，移动 3 次
+    L.PrintList();                            // [ 21 32 45 50 58 66 79 ]  len=7 cap=8
+
+    L.ListInsert(1, 7);                       // 表头插入，移动 7 次（最坏情况）
+    L.PrintList();
+
+    int del = 0;
+    L.ListDelete(2, del);                     // 删除位序 2，移动 6 次
+    cout &lt;&lt; "删除的元素是 " &lt;&lt; del &lt;&lt; endl;
+    L.PrintList();
+
+    int v = 0;
+    cout &lt;&lt; "GetElem(3) = " &lt;&lt; (L.GetElem(3, v) ? to_string(v) : "越界") &lt;&lt; endl;
+    cout &lt;&lt; "LocateElem(66) = " &lt;&lt; L.LocateElem(66) &lt;&lt; endl;   // 返回位序
+    cout &lt;&lt; "LocateElem(999) = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl; // 返回 0 表示未找到
+    return 0;
+}
+</pre>
+
+    <h3 id="s2-7">2.2.7 表尾插入的均摊 O(1)：扩容账要这样算</h3>
+
+    <p>
+      看到 <code>grow()</code> 里那个 <code>for</code> 循环，很多人第一反应是：
+      「插入不是 O(n) 吗？怎么又说表尾插入是 O(1)？」
+      这里要区分<b>单次操作的代价</b>和<b>均摊代价 amortized cost</b>。
+    </p>
+
+    <p>
+      假设容量从 1 开始翻倍，连续在表尾插入 <code>n</code> 个元素。
+      触发扩容的时刻是容量为 <code>1, 2, 4, 8, …, n/2</code> 的时候，
+      每次扩容要搬的元素的个数恰好等于当时的容量，于是总搬运量为：
+    </p>
+
+    <div class="formula center">1 + 2 + 4 + … + n/2 = n − 1 &lt; n</div>
+
+    <p>
+      也就是说，<b>插入 n 个元素的总搬运次数不到 n 次</b>，分摊到每次插入上不到 1 次。
+      再加上每次插入本身的赋值操作，平均每次插入只做了常数次工作，所以是 <b>O(1)</b>。
+      这就是<b>均摊分析 amortized analysis</b> 的典型例子：
+      <b>偶尔一次很贵（O(n)），但贵的次数极少，长期平均下来很便宜</b>。
+    </p>
+
+    <div class="note warn">
+      <span class="note-title">为什么扩容要「翻倍」而不是「加一」？</span>
+      如果每次满了只加 1 个位置，那么插入 n 个元素要扩容 n 次，总搬运量是
+      <code>1 + 2 + … + n = O(n²)</code>，均摊下来每次插入仍是 <b>O(n)</b>，动态数组就退化成了链表都不如的东西。
+      常见的增长因子是 2（<code>std::vector</code> 多数实现用 1.5～2 倍），
+      取 1.5 的好处是：多次扩容后旧块的总和不会超过新块，更容易复用已释放的内存。
+    </div>
+
+    <h3 id="s2-8">2.2.8 顺序表的优缺点小结</h3>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s2-8a">优点</h3>
+        <ul style="margin-bottom:0">
+          <li><b>随机存取 O(1)</b>：给定下标一步定位，这是链表永远做不到的。</li>
+          <li><b>存储密度高</b>：除了数据本身不额外花内存（链表每个结点要多一个指针域）。</li>
+          <li><b>缓存友好 cache friendly</b>：连续内存一次载入一整条缓存行，遍历速度常比链表快数倍——工程上这条往往比理论复杂度更重要。</li>
+          <li><b>表尾插入删除快</b>（不触发扩容时是 O(1)），实现简单、不易出指针 bug。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s2-8b">缺点</h3>
+        <ul style="margin-bottom:0">
+          <li><b>插入删除 O(n)</b>：中间/表头操作要成片搬元素。</li>
+          <li><b>容量固定或需扩容</b>：静态分配会溢出，动态分配要预留空位、可能浪费内存。</li>
+          <li><b>要求大片连续内存</b>：内存碎片多时，可能「总量够但没有一整块」而申请失败。</li>
+          <li><b>扩容有代价</b>：一次 O(n) 的拷贝，实时性敏感的场景（如游戏帧循环）要提前 <code>reserve</code>。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============================================================ 2.3 -->
+    <h2 id="s3">2.3 单链表：把结点散落在堆上，用指针串起来</h2>
+
+    <p>
+      顺序表的两条硬伤——「必须要一整块连续内存」和「插入删除要成片搬元素」——
+      都来自同一个决定：<b>用物理位置的相邻来表示逻辑关系的相邻</b>。
+      链表把这个决定反过来做：<b>元素爱放哪放哪，逻辑上的「下一个」用一个指针明确写出来</b>。
+    </p>
+
+    <p>
+      这样一来，插入一个元素就不再需要挪动别人了，只要改两根指针；
+      代价是：每个元素必须额外带一个指针（空间开销变大），
+      而且因为地址不再连续，<b>下标访问彻底失效</b>——想找第 100 个元素，只能从表头数 99 次。
+    </p>
+
+    <h3 id="s3-1">2.3.1 结点结构：数据域 + 指针域</h3>
+
+    <p>
+      链表里存放一个元素的单元叫<b>结点 node</b>，它由两部分组成：
+      <b>数据域 data field</b> 存元素本身，<b>指针域 pointer field</b> 存「下一个结点在哪」。
+      在 C++ 里就是一个自引用的结构体：
+    </p>
+
+    <div class="formula center">struct Node { int data; Node* next; };　　// 数据域 + 指针域</div>
+
+    <p>
+      这一行代码有个著名的坑：<code>Node* next;</code> 里的 <code>Node</code> 此时还没定义完，
+      为什么能编译通过？因为指针的大小是固定的（64 位平台 8 字节），
+      编译器不需要知道 <code>Node</code> 的完整布局就能声明指向它的指针，这叫<b>不完全类型 incomplete type</b>。
+      但如果你写成 <code>Node next;</code>（少一个星号），编译器立刻报「不完整类型」错误——
+      因为它无法算出一个「包含自己的自己」有多大。这个错误信息考试和作业里都非常常见。
+    </p>
+
+    <h3 id="s3-2">2.3.2 头指针 / 头结点 / 首元结点：三个词，三样东西</h3>
+
+    <p>
+      这是本章最高频的易错点，没有之一。很多同学代码写不对，就是因为把这三个概念搅成了一锅粥。
+      先把定义摆清楚：
+    </p>
+
+    <dl class="def">
+      <dt>头指针 head pointer</dt>
+      <dd>
+        一个<b>指针变量</b>，它指向链表的第一个结点。它是链表的「身份证」——
+        只要拿到头指针，整条链表就能找到；头指针没了，整条链就泄漏了。
+        <b>头指针一定不为空</b>（哪怕表是空的，它也指向头结点）。
+      </dd>
+      <dt>头结点 head node / 哑结点 dummy node</dt>
+      <dd>
+        一个<b>真实存在的结点</b>，放在首元结点之前，它的数据域通常不使用（可以存表长等附加信息），
+        指针域指向首元结点。引入它是为了让「空表」和「非空表」、「第一个位置」和「其他位置」
+        用同一套代码处理，不用特判。
+      </dd>
+      <dt>首元结点 first element node</dt>
+      <dd>
+        链表中<b>真正存放第一个数据元素</b> <code>a<sub>1</sub></code> 的结点，也就是
+        <code>head-&gt;next</code> 指向的那个结点。空表时它不存在（<code>head-&gt;next == nullptr</code>）。
+      </dd>
+    </dl>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 356" width="880" height="356" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="440" y="22" text-anchor="middle">头指针（变量）≠ 头结点（真实结点）≠ 首元结点（存 a1 的结点）</text>
+
+        <text class="fig-s" x="16" y="52">(a) 带头结点的非空链表</text>
+        <rect class="fig-acc" x="16" y="62" width="58" height="36" rx="6"/>
+        <text class="fig-t" x="45" y="86" text-anchor="middle" style="fill:var(--brand);font-size:12.5px">head</text>
+        <path class="fig-eb" d="M74,80 L100,80" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="104" y="62" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M148,62 L148,98"/>
+        <text class="fig-t" x="126" y="86" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text>
+        <circle class="vz-dot" cx="170" cy="80" r="3.6"/>
+        <path class="fig-e" d="M192,80 L218,80" marker-end="url(#g-ar)"/>
+        <rect class="fig-ok" x="222" y="62" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M266,62 L266,98"/>
+        <text class="fig-t" x="244" y="86" text-anchor="middle">12</text>
+        <circle class="vz-dot" cx="288" cy="80" r="3.6"/>
+        <path class="fig-e" d="M310,80 L336,80" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="340" y="62" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M384,62 L384,98"/>
+        <text class="fig-t" x="362" y="86" text-anchor="middle">34</text>
+        <circle class="vz-dot" cx="406" cy="80" r="3.6"/>
+        <path class="fig-e" d="M428,80 L454,80" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="458" y="62" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M502,62 L502,98"/>
+        <text class="fig-t" x="480" y="86" text-anchor="middle">56</text>
+        <circle class="vz-dot" cx="524" cy="80" r="3.6"/>
+        <path class="fig-e" d="M546,80 L572,80" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="576" y="62" width="72" height="36" rx="6"/>
+        <text class="fig-t" x="612" y="86" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+        <text class="fig-f" x="45"  y="118" text-anchor="middle">头指针变量</text>
+        <text class="fig-f" x="148" y="118" text-anchor="middle" style="fill:var(--warn)">头结点（哑结点）</text>
+        <text class="fig-f" x="222" y="118" style="fill:var(--ok)">首元结点 = head-&gt;next</text>
+        <text class="fig-f" x="700" y="86">← 尾结点的 next 为 NULL</text>
+
+        <text class="fig-s" x="16" y="160">(b) 带头结点的空表：head 不为空，但 head-&gt;next == NULL</text>
+        <rect class="fig-acc" x="16" y="170" width="58" height="36" rx="6"/>
+        <text class="fig-t" x="45" y="194" text-anchor="middle" style="fill:var(--brand);font-size:12.5px">head</text>
+        <path class="fig-eb" d="M74,188 L100,188" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="104" y="170" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M148,170 L148,206"/>
+        <text class="fig-t" x="126" y="194" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text>
+        <circle class="vz-dot" cx="170" cy="188" r="3.6"/>
+        <path class="fig-e" d="M192,188 L218,188" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="222" y="170" width="72" height="36" rx="6"/>
+        <text class="fig-t" x="258" y="194" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+        <text class="fig-s" x="320" y="194">这就是空表：没有首元结点，但「表」这个对象依然存在，head 依然有效。</text>
+
+        <text class="fig-s" x="16" y="252">(c) 不带头结点的链表：head 直接指向首元结点</text>
+        <rect class="fig-acc" x="16" y="262" width="58" height="36" rx="6"/>
+        <text class="fig-t" x="45" y="286" text-anchor="middle" style="fill:var(--brand);font-size:12.5px">head</text>
+        <path class="fig-eb" d="M74,280 L100,280" marker-end="url(#g-arb)"/>
+        <rect class="fig-ok" x="104" y="262" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M148,262 L148,298"/>
+        <text class="fig-t" x="126" y="286" text-anchor="middle">12</text>
+        <circle class="vz-dot" cx="170" cy="280" r="3.6"/>
+        <path class="fig-e" d="M192,280 L218,280" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="222" y="262" width="88" height="36" rx="6"/>
+        <path class="fig-e" d="M266,262 L266,298"/>
+        <text class="fig-t" x="244" y="286" text-anchor="middle">34</text>
+        <circle class="vz-dot" cx="288" cy="280" r="3.6"/>
+        <path class="fig-e" d="M310,280 L336,280" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="340" y="262" width="72" height="36" rx="6"/>
+        <text class="fig-t" x="376" y="286" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+        <text class="fig-s" x="430" y="278">空表时 head == NULL；在表头插入 / 删除首元结点必须特判，</text>
+        <text class="fig-s" x="430" y="298">因为「改 head 本身」与「改 head-&gt;next」是两种不同的代码，</text>
+        <text class="fig-s" x="430" y="318">所以本章统一采用带头结点的写法。</text>
+      </svg>
+      <figcaption>图 2-5　头指针、头结点、首元结点的区别；以及带头结点 / 不带头结点两种风格下空表的样子</figcaption>
+    </figure>
+
+    <div class="note exam">
+      <span class="note-title">考点 3：为什么要引入头结点？</span>
+      <ul style="margin-bottom:0">
+        <li><b>统一空表与非空表</b>：不管表空不空，<code>head</code> 都指向头结点，<code>head</code> 永不为空，不用写 <code>if (head == NULL)</code>。</li>
+        <li><b>统一首位置与其他位置</b>：在第 1 个位置插入时，「前驱」就是头结点，
+            于是 <code>s-&gt;next = p-&gt;next; p-&gt;next = s;</code> 这一套代码对所有位置都成立，不必为首元结点特判。</li>
+        <li><b>便于统一删除</b>：删除首元结点时同样有一个「前驱」头结点可以改指向，不需要改 <code>head</code> 本身。</li>
+        <li>代价：多占一个结点的空间（通常 8～16 字节），且「表长」需要用单独变量记录，不能靠数结点。</li>
+      </ul>
+    </div>
+
+    <h3 id="s3-3">2.3.3 头插法与尾插法建表：一个逆序，一个正序</h3>
+
+    <p>
+      建立链表时，每个新结点都要「挂」到链上。挂的位置不同，就产生了两种建表法：
+      <b>头插法</b>每次都插在头结点之后（插在表头），<b>尾插法</b>每次都接在尾巴后面。
+      它们的差别不只是顺序，还有是否需要额外的尾指针。
+    </p>
+
+    <pre data-lang="cpp" data-file="singlylist_create.cpp">// singlylist_create.cpp —— 单链表的结点定义与两种建表法
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node {
+    int   data;                                     // 数据域
+    Node* next;                                     // 指针域：指向下一个结点
+    Node(int d = 0, Node* n = nullptr) : data(d), next(n) {}
+};
+
+class SinglyList {
+public:
+    Node* head;                                     // 头指针：永远指向头结点（哑结点）
+    int   len;                                      // 表长，不含头结点
+
+    SinglyList() : head(new Node()), len(0) {}      // 构造即建好头结点 => 空表
+    ~SinglyList() { Clear(); delete head; head = nullptr; }
+
+    void Clear();                                   // 只留头结点，见后文
+
+    /* ---------- 建表法一：头插法 O(n)，结果与输入顺序相反 ---------- */
+    void CreateHead(const int a[], int n) {
+        Clear();
+        for (int i = 0; i &lt; n; ++i) {
+            Node* s = new Node(a[i]);               // 新结点
+            s-&gt;next = head-&gt;next;                    // ① 新结点接管原来的首元结点
+            head-&gt;next = s;                         // ② 头结点指向新结点
+            ++len;
+        }
+    }   // 输入 21 32 45 58 66 79，得到 79 66 58 45 32 21
+
+    /* ---------- 建表法二：尾插法 O(n)，需要一个尾指针 r ---------- */
+    void CreateTail(const int a[], int n) {
+        Clear();
+        Node* r = head;                             // r 始终指向当前尾结点，初始是头结点
+        for (int i = 0; i &lt; n; ++i) {
+            Node* s = new Node(a[i]);
+            r-&gt;next = s;                            // 挂到尾部：O(1)，因为不用再找尾
+            r = s;                                  // 尾指针后移
+            ++len;
+        }
+        r-&gt;next = nullptr;                          // 收尾：尾结点 next 置空（别漏，否则尾指针是野的）
+    }   // 输入 21 32 45 58 66 79，得到 21 32 45 58 66 79
+
+    void PrintList() const {
+        cout &lt;&lt; "head";
+        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
+        cout &lt;&lt; " -&gt; NULL   (len=" &lt;&lt; len &lt;&lt; ")" &lt;&lt; endl;
+    }
+};
+
+int main() {
+    int a[] = {21, 32, 45, 58, 66, 79};
+    SinglyList L1, L2;
+    L1.CreateHead(a, 6);  L1.PrintList();   // head -&gt; 79 -&gt; 66 -&gt; 58 -&gt; 45 -&gt; 32 -&gt; 21 -&gt; NULL
+    L2.CreateTail(a, 6);  L2.PrintList();   // head -&gt; 21 -&gt; 32 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; NULL
+    return 0;
+}
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">尾插法为什么必须留一个尾指针？</span>
+      如果不保存尾指针，每次插入都要从头走一遍找尾结点，单次插入 O(n)，
+      建一张 n 个元素的表就是 <b>O(n²)</b>。留一个 <code>r</code> 之后，每次插入都是 O(1)，总代价 O(n)。
+      这是「用一点额外空间换时间」的经典例子，也是考试里常问的「尾插法建表的时间复杂度」——
+      <b>带尾指针是 O(n)，不带是 O(n²)</b>。
+    </div>
+
+    <h3 id="s3-4">2.3.4 按位查找与按值查找：都是 O(n)</h3>
+
+    <p>
+      链表失去了地址公式，<b>按位查找也不得不从头数过去</b>。
+      想找第 <code>i</code> 个结点，就要从首元结点开始走 <code>i − 1</code> 步，
+      因此时间复杂度是 <b>O(n)</b>，而不是顺序表的 O(1)。
+      按值查找同样是 O(n)，但要注意它与顺序表的区别：
+      顺序表的按值查找最坏是「比较 n 次」，链表的按值查找最坏是「比较 n 次 + 走 n 步指针」，
+      常数因子更大，实际跑起来更慢（还有缓存不友好的问题）。
+    </p>
+
+    <pre data-lang="cpp" data-file="singlylist_find.cpp">// singlylist_find.cpp —— 按位查找、按值查找、按位插入
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+class SinglyList {
+public:
+    Node* head; int len;
+    SinglyList() : head(new Node()), len(0) {}
+    ~SinglyList() { Node* p = head; while (p) { Node* q = p-&gt;next; delete p; p = q; } }
+
+    /* 按位查找：返回第 i 个结点的指针（不含头结点）；i 越界返回 nullptr。时间 O(n) */
+    Node* GetElem(int i) const {
+        if (i &lt; 1) return nullptr;
+        Node* p = head-&gt;next;                       // p 指向首元结点，即位序 1
+        int k = 1;
+        while (p &amp;&amp; k &lt; i) { p = p-&gt;next; ++k; }     // 走 i-1 步
+        return p;
+    }
+
+    /* 按值查找：返回第一个 data == e 的结点指针；找不到返回 nullptr。时间 O(n) */
+    Node* LocateElem(int e) const {
+        Node* p = head-&gt;next;
+        while (p &amp;&amp; p-&gt;data != e) p = p-&gt;next;
+        return p;
+    }
+
+    /* 在位序 i 处插入 e，合法范围 1..len+1。找前驱 O(n) + 改指针 O(1) = O(n) */
+    bool ListInsert(int i, int e) {
+        if (i &lt; 1 || i &gt; len + 1) return false;     // 插入能到 len+1
+        Node* p = head;                             // 从头结点出发，走 i-1 步停在第 i-1 个结点
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;    // i = 1 时不进循环，p 就是头结点
+        Node* s = new Node(e);
+        s-&gt;next = p-&gt;next;                          // ① 先连：新结点接管后继
+        p-&gt;next = s;                                // ② 后断：前驱改指新结点
+        ++len;
+        return true;
+    }
+
+    void PushBack(int e) { ListInsert(len + 1, e); }  // 表尾追加（注意这是 O(n)，因为没有尾指针）
+};
+
+int main() {
+    SinglyList L;
+    int a[] = {21, 32, 45, 58, 66, 79};
+    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
+
+    Node* p = L.GetElem(3);
+    cout &lt;&lt; "第 3 个元素是 " &lt;&lt; (p ? to_string(p-&gt;data) : "越界") &lt;&lt; endl;      // 45
+    p = L.LocateElem(66);
+    cout &lt;&lt; "值 66 " &lt;&lt; (p ? "找到了" : "没找到") &lt;&lt; endl;                       // 找到了
+    L.ListInsert(4, 50);                            // 位序 4 插入 50
+    for (Node* q = L.head-&gt;next; q; q = q-&gt;next) cout &lt;&lt; q-&gt;data &lt;&lt; " ";
+    cout &lt;&lt; endl;                                   // 21 32 45 50 58 66 79
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-5">2.3.5 插入结点：为什么必须「先连后断」</h3>
+
+    <p>
+      链表插入的灵魂是两根指针的赋值顺序。设 <code>p</code> 是第 <code>i−1</code> 个结点
+      （新结点的前驱），<code>s</code> 是刚 <code>new</code> 出来的新结点，标准写法是：
+    </p>
+
+    <div class="formula center">s-&gt;next = p-&gt;next;　　p-&gt;next = s;　　// 先连后断</div>
+
+    <p>
+      为什么不能反过来？关键在于 <code>p-&gt;next</code> 这个「唯一的路标」。
+      它本来记着 <code>a<sub>i</sub></code> 的地址，是通往链表后半段<b>唯一</b>的线索。
+      如果先执行 <code>p-&gt;next = s;</code>，这个路标就被改写成新结点 <code>s</code> 了；
+      于是接下来执行 <code>s-&gt;next = p-&gt;next;</code> 时读到的其实是 <code>s</code> 自己，
+      结果是 <code>s-&gt;next == s</code>——新结点指向自己，形成一个孤立的自环，
+      <b>原来的 <code>a<sub>i</sub></code> 及后面整段链表全部丢失</b>，而且再也没有指针能找到它们，
+      造成彻底的内存泄漏。
+    </p>
+
+    <div class="figure" data-steps>
+      <svg viewBox="0 0 880 210" width="880" height="210" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="22">✔ 正确顺序：① s-&gt;next = p-&gt;next; ② p-&gt;next = s;</text>
+        <rect class="fig-acc" x="20" y="60" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="84" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,78 L104,78" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="108" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M152,60 L152,96"/><text class="fig-t" x="130" y="84" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text><circle class="vz-dot" cx="174" cy="78" r="3.6"/>
+        <path class="fig-e" d="M196,78 L222,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="226" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M270,60 L270,96"/><text class="fig-t" x="248" y="84" text-anchor="middle">12</text><circle class="vz-dot" cx="292" cy="78" r="3.6"/>
+        <path class="fig-e" d="M314,78 L340,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-acc" x="344" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M388,60 L388,96"/><text class="fig-t" x="366" y="84" text-anchor="middle" style="fill:var(--brand)">34</text><circle class="vz-dot" cx="410" cy="78" r="3.6"/>
+        <text class="fig-f" x="388" y="54" text-anchor="middle" style="fill:var(--brand)">p（第 i-1 个）</text>
+        <path class="fig-e" d="M432,78 L458,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="462" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M506,60 L506,96"/><text class="fig-t" x="484" y="84" text-anchor="middle">56</text><circle class="vz-dot" cx="528" cy="78" r="3.6"/>
+        <path class="fig-e" d="M550,78 L576,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="580" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M624,60 L624,96"/><text class="fig-t" x="602" y="84" text-anchor="middle">78</text><circle class="vz-dot" cx="646" cy="78" r="3.6"/>
+        <path class="fig-e" d="M668,78 L694,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="698" y="60" width="72" height="36" rx="6"/><text class="fig-t" x="734" y="84" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+
+        <rect class="fig-ok" x="344" y="146" width="88" height="36" rx="6"/><path class="fig-e" d="M388,146 L388,182"/><text class="fig-t" x="366" y="170" text-anchor="middle" style="fill:var(--ok)">99</text><circle class="vz-dot" cx="410" cy="164" r="3.6"/>
+        <text class="fig-f" x="388" y="140" text-anchor="middle" style="fill:var(--ok)">s = new Node(99)</text>
+        <path class="fig-eb" d="M432,164 C 500,164 520,110 512,100" marker-end="url(#g-arb)"/>
+        <text class="fig-s" x="524" y="140" style="fill:var(--brand)">① s-&gt;next = p-&gt;next，先让新结点接管后半段</text>
+        <path class="fig-eb" d="M388,96 L388,142" marker-end="url(#g-arb)"/>
+        <text class="fig-s" x="230" y="200" style="fill:var(--brand)">② p-&gt;next = s，再断开旧路标，全程不丢链</text>
+      </svg>
+      <svg viewBox="0 0 880 210" width="880" height="210" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="22" style="fill:var(--danger)">✘ 错误顺序：先 p-&gt;next = s; 再 s-&gt;next = p-&gt;next; → 整段链表丢失</text>
+        <rect class="fig-acc" x="20" y="60" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="84" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,78 L104,78" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="108" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M152,60 L152,96"/><text class="fig-t" x="130" y="84" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text><circle class="vz-dot" cx="174" cy="78" r="3.6"/>
+        <path class="fig-e" d="M196,78 L222,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="226" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M270,60 L270,96"/><text class="fig-t" x="248" y="84" text-anchor="middle">12</text><circle class="vz-dot" cx="292" cy="78" r="3.6"/>
+        <path class="fig-e" d="M314,78 L340,78" marker-end="url(#g-ar)"/>
+        <rect class="fig-acc" x="344" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M388,60 L388,96"/><text class="fig-t" x="366" y="84" text-anchor="middle" style="fill:var(--brand)">34</text><circle class="vz-dot" cx="410" cy="78" r="3.6"/>
+        <text class="fig-f" x="388" y="54" text-anchor="middle" style="fill:var(--brand)">p（第 i-1 个）</text>
+        <path class="fig-er" d="M406,96 L400,142" marker-end="url(#g-arr)"/>
+        <text class="fig-s" x="400" y="140" style="fill:var(--danger)">先断：p-&gt;next 被改成 s</text>
+        <path class="fig-e" d="M432,78 L458,78" marker-end="url(#g-ar)" opacity="0.25"/>
+        <text class="fig-s" x="470" y="46" style="fill:var(--danger)">✘ 这条边已经不存在了</text>
+        <g opacity="0.32">
+          <rect class="fig-box" x="462" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M506,60 L506,96"/><text class="fig-t" x="484" y="84" text-anchor="middle">56</text><circle class="vz-dot" cx="528" cy="78" r="3.6"/>
+          <path class="fig-e" d="M550,78 L576,78" marker-end="url(#g-ar)"/>
+          <rect class="fig-box" x="580" y="60" width="88" height="36" rx="6"/><path class="fig-e" d="M624,60 L624,96"/><text class="fig-t" x="602" y="84" text-anchor="middle">78</text><circle class="vz-dot" cx="646" cy="78" r="3.6"/>
+          <path class="fig-e" d="M668,78 L694,78" marker-end="url(#g-ar)"/>
+          <rect class="fig-box" x="698" y="60" width="72" height="36" rx="6"/><text class="fig-t" x="734" y="84" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+        </g>
+        <text class="fig-s" x="560" y="122" style="fill:var(--danger)">56、78 及以后全部「找不到路」→ 内存泄漏</text>
+
+        <rect class="fig-bad" x="344" y="146" width="88" height="36" rx="6"/><path class="fig-e" d="M388,146 L388,182"/><text class="fig-t" x="366" y="170" text-anchor="middle" style="fill:var(--danger)">99</text><circle class="vz-dot" cx="410" cy="164" r="3.6"/>
+        <text class="fig-f" x="388" y="140" text-anchor="middle" style="fill:var(--danger)">s</text>
+        <path class="fig-er" d="M424,158 C 470,150 470,196 424,182" marker-end="url(#g-arr)"/>
+        <text class="fig-s" x="480" y="178" style="fill:var(--danger)">s-&gt;next = p-&gt;next 读到的其实是 s 自己 → 自环</text>
+      </svg>
+      <figcaption>图 2-6　单链表插入的两根指针（可切换查看）：先连后断不丢链，先断后连丢半条链</figcaption>
+    </div>
+
+    <p>
+      光看图还不够，请一定亲手点一遍下面的动画——它会一帧一帧地演示 <code>p</code> 如何走到第
+      <code>i−1</code> 个结点、两根指针如何先后改写，最后还专门用一段「错误顺序」的分支告诉你断链长什么样。
+    </p>
+
+    <div id="viz-singly-insert"></div>
+
+    <div class="note danger">
+      <span class="note-title">易错：这两句代码不能交换</span>
+      <code>s-&gt;next = p-&gt;next;</code> 与 <code>p-&gt;next = s;</code> 的顺序<b>不可交换</b>。
+      记忆口诀：<b>「新结点先认路，老结点再改路」</b>。
+      如果新结点的 <code>next</code> 还没来得及赋值就去改前驱的 <code>next</code>，
+      那么「原来的后继」这个信息就永久丢失了。
+    </div>
+
+    <h3 id="s3-6">2.3.6 删除结点：找前驱，以及一个 O(1) 的技巧</h3>
+
+    <p>
+      删除位序 <code>i</code> 的结点，需要做三件事：
+      <b>找到它的前驱 <code>p</code></b>（第 <code>i−1</code> 个结点）、
+      <b>让 <code>p</code> 跨过被删结点</b>、<b>释放被删结点的内存</b>。
+      代码只有三行，但每一行都有讲究：
+    </p>
+
+    <div class="formula center">q = p-&gt;next;　　p-&gt;next = q-&gt;next;　　delete q;</div>
+
+    <p>
+      为什么必须先 <code>q = p-&gt;next</code> 保存下来？因为一旦执行 <code>p-&gt;next = q-&gt;next</code>，
+      被删结点的地址就再也拿不到了，<code>delete</code> 无从谈起，那块内存就永久泄漏。
+      同理，在「整表删除」的循环里也必须先保存 <code>p-&gt;next</code> 再 <code>delete p</code>。
+    </p>
+
+    <p>
+      按位删除要 O(n) 找前驱。那如果题目直接给你一个指向待删结点的指针 <code>p</code>，
+      要求 O(1) 删掉它呢？在单链表里有一个巧妙的<b>「后继覆盖法」（偷梁换柱）</b>：
+    </p>
+
+    <div class="formula center">p-&gt;data = p-&gt;next-&gt;data;　　q = p-&gt;next;　　p-&gt;next = q-&gt;next;　　delete q;</div>
+
+    <p>
+      既然找不到前驱，那就干脆<b>不删自己，而是把后继的值抄到自己身上，然后删掉后继</b>。
+      从外面看效果完全一样。这个方法有两个致命限制，面试时经常被追问：
+    </p>
+
+    <div class="note warn">
+      <span class="note-title">后继覆盖法的两个限制</span>
+      <ul style="margin-bottom:0">
+        <li><b>删不了尾结点</b>：尾结点没有后继，<code>p-&gt;next</code> 是 <code>nullptr</code>，一用就崩。
+            此时只能退化成 O(n) 找前驱。</li>
+        <li><b>删的不是「那个结点」，而是「那个位置」</b>：如果外部还持有指向原结点的指针（比如迭代器），
+            它并不会失效，但指向的内容变了；如果有别的指针指向后继结点，那个结点会被误删。
+            这在工程上是容易出事故的隐式行为。</li>
+      </ul>
+    </div>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 320" width="880" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="22" text-anchor="start">删除位序 i 的结点：必须先保存 q，再跨过 q，最后 delete q</text>
+
+        <text class="fig-s" x="20" y="58">① 找到前驱 p 与目标 q：</text>
+        <rect class="fig-acc" x="20" y="68" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="92" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,86 L104,86" marker-end="url(#g-arb)"/>
+        <rect class="fig-box" x="108" y="68" width="88" height="36" rx="6"/><path class="fig-e" d="M152,68 L152,104"/><text class="fig-t" x="130" y="92" text-anchor="middle">12</text><circle class="vz-dot" cx="174" cy="86" r="3.6"/>
+        <path class="fig-e" d="M196,86 L222,86" marker-end="url(#g-ar)"/>
+        <rect class="fig-acc" x="226" y="68" width="88" height="36" rx="6"/><path class="fig-e" d="M270,68 L270,104"/><text class="fig-t" x="248" y="92" text-anchor="middle" style="fill:var(--brand)">34</text><circle class="vz-dot" cx="292" cy="86" r="3.6"/>
+        <text class="fig-f" x="270" y="62" text-anchor="middle" style="fill:var(--brand)">p（前驱）</text>
+        <path class="fig-e" d="M314,86 L340,86" marker-end="url(#g-ar)"/>
+        <rect class="fig-bad" x="344" y="68" width="88" height="36" rx="6"/><path class="fig-e" d="M388,68 L388,104"/><text class="fig-t" x="366" y="92" text-anchor="middle" style="fill:var(--danger)">56</text><circle class="vz-dot" cx="410" cy="86" r="3.6"/>
+        <text class="fig-f" x="388" y="62" text-anchor="middle" style="fill:var(--danger)">q = p-&gt;next（待删）</text>
+        <path class="fig-e" d="M432,86 L458,86" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="462" y="68" width="88" height="36" rx="6"/><path class="fig-e" d="M506,68 L506,104"/><text class="fig-t" x="484" y="92" text-anchor="middle">78</text><circle class="vz-dot" cx="528" cy="86" r="3.6"/>
+        <path class="fig-e" d="M550,86 L576,86" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="580" y="68" width="72" height="36" rx="6"/><text class="fig-t" x="616" y="92" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+
+        <text class="fig-s" x="20" y="152">② p-&gt;next = q-&gt;next 跨过 q，然后 delete q：</text>
+        <rect class="fig-acc" x="20" y="162" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="186" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,180 L104,180" marker-end="url(#g-arb)"/>
+        <rect class="fig-box" x="108" y="162" width="88" height="36" rx="6"/><path class="fig-e" d="M152,162 L152,198"/><text class="fig-t" x="130" y="186" text-anchor="middle">12</text><circle class="vz-dot" cx="174" cy="180" r="3.6"/>
+        <path class="fig-e" d="M196,180 L222,180" marker-end="url(#g-ar)"/>
+        <rect class="fig-acc" x="226" y="162" width="88" height="36" rx="6"/><path class="fig-e" d="M270,162 L270,198"/><text class="fig-t" x="248" y="186" text-anchor="middle" style="fill:var(--brand)">34</text><circle class="vz-dot" cx="292" cy="180" r="3.6"/>
+        <path class="fig-eg" d="M292,166 C 330,140 420,140 470,166" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="380" y="136" text-anchor="middle" style="fill:var(--ok)">p-&gt;next 直接指向 q 的后继</text>
+        <g opacity="0.3">
+          <rect class="fig-box" x="344" y="162" width="88" height="36" rx="6"/><path class="fig-e" d="M388,162 L388,198"/><text class="fig-t" x="366" y="186" text-anchor="middle">56</text><circle class="vz-dot" cx="410" cy="180" r="3.6"/>
+        </g>
+        <text class="fig-f" x="388" y="216" text-anchor="middle" style="fill:var(--danger)">delete q 后这块内存已归还</text>
+        <rect class="fig-box" x="462" y="162" width="88" height="36" rx="6"/><path class="fig-e" d="M506,162 L506,198"/><text class="fig-t" x="484" y="186" text-anchor="middle">78</text><circle class="vz-dot" cx="528" cy="180" r="3.6"/>
+        <path class="fig-e" d="M550,180 L576,180" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="580" y="162" width="72" height="36" rx="6"/><text class="fig-t" x="616" y="186" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+
+        <rect class="fig-warn" x="20" y="238" width="840" height="68" rx="8"/>
+        <text class="fig-s" x="36" y="258" style="fill:var(--warn)">后继覆盖法（仅给待删结点指针 p 时，O(1) 删除）：</text>
+        <text class="fig-s" x="36" y="280">p-&gt;data = p-&gt;next-&gt;data;　q = p-&gt;next;　p-&gt;next = q-&gt;next;　delete q;</text>
+        <text class="fig-s" x="36" y="300">含义：把后继的值抄到自己身上，改成删掉后继；但尾结点没有后继，此招失效。</text>
+      </svg>
+      <figcaption>图 2-7　单链表删除：先保存 q，再让前驱跨过 q，最后释放 q（下半部分为 O(1) 的后继覆盖法）</figcaption>
+    </figure>
+
+    <p>下面的动画把「按位删除」与「后继覆盖法」两种情形都演一遍，注意观察 <code>p</code>、<code>q</code> 两个指针的落点：</p>
+
+    <div id="viz-singly-delete"></div>
+
+    <pre data-lang="cpp" data-file="singlylist_delete.cpp">// singlylist_delete.cpp —— 删除第 i 个结点 / 按值删除 / 整表删除
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+class SinglyList {
+public:
+    Node* head; int len;
+    SinglyList() : head(new Node()), len(0) {}
+    ~SinglyList() { Clear(); delete head; head = nullptr; }
+    void PushBack(int e) {                       // 无尾指针，O(n) 追加（演示用）
+        Node* p = head;
+        while (p-&gt;next) p = p-&gt;next;
+        p-&gt;next = new Node(e);
+        ++len;
+    }
+
+    /* 删除位序 i 的结点，值用 e 带回。找前驱 O(n) + 摘链 O(1) = O(n) */
+    bool ListDelete(int i, int&amp; e) {
+        if (i &lt; 1 || i &gt; len) return false;       // 删除只能到 len，不能到 len+1
+        Node* p = head;                          // p 最终停在第 i-1 个结点
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;
+        Node* q = p-&gt;next;                       // ① 先保存待删结点，否则下面一改就再也找不到它
+        e = q-&gt;data;                             // ② 把值交给调用者
+        p-&gt;next = q-&gt;next;                       // ③ 让前驱跨过 q
+        delete q;                                // ④ 释放内存（漏掉 = 内存泄漏）
+        q = nullptr;                             // ⑤ 置空，防野指针
+        --len;
+        return true;
+    }
+
+    /* 按值删除：删掉第一个 data == e 的结点 */
+    bool DeleteValue(int e) {
+        Node* p = head;                          // 同样需要前驱
+        while (p-&gt;next &amp;&amp; p-&gt;next-&gt;data != e) p = p-&gt;next;
+        if (!p-&gt;next) return false;              // 走到尾都没找到
+        Node* q = p-&gt;next;
+        p-&gt;next = q-&gt;next;
+        delete q;
+        --len;
+        return true;
+    }
+
+    /* 整表删除：只保留头结点。必须「先存 next 再 delete」 */
+    void Clear() {
+        Node* p = head-&gt;next;
+        while (p) {
+            Node* q = p-&gt;next;                   // 先记住下一个
+            delete p;                            // 再释放当前
+            p = q;                               // 顺着记忆往前走
+        }
+        head-&gt;next = nullptr;
+        len = 0;
+    }
+};
+
+int main() {
+    SinglyList L;
+    int a[] = {21, 32, 45, 58, 66, 79};
+    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
+
+    int del = 0;
+    L.ListDelete(3, del);
+    cout &lt;&lt; "删掉了 " &lt;&lt; del &lt;&lt; endl;              // 45
+    L.DeleteValue(79);                            // 删表尾元素，同样要先找前驱
+    for (Node* p = L.head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " ";
+    cout &lt;&lt; endl;                                 // 21 32 58 66
+    L.Clear();                                    // 整表清空，只留头结点
+    cout &lt;&lt; "clear 后 len = " &lt;&lt; L.len &lt;&lt; endl;    // 0
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-7">2.3.7 单链表的完整实现 SinglyList</h3>
+
+    <p>
+      把前面的片段拼起来，下面是一份可以直接编译运行、覆盖全部基本操作的完整单链表实现。
+      它带一个尾指针 <code>tail</code>，因此表尾追加是 O(1)；同时保留了头结点，所有位置的操作都统一。
+      建议把这段代码抄进 IDE 单步走一遍，尤其是 <code>ListInsert</code> 与 <code>Clear</code>。
+    </p>
+
+    <pre data-lang="cpp" data-file="singlylist_full.cpp">// singlylist_full.cpp —— 带头结点 + 尾指针的完整单链表实现
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node {
+    int   data;
+    Node* next;
+    Node(int d = 0, Node* n = nullptr) : data(d), next(n) {}
+};
+
+class SinglyList {
+private:
+    Node* head;      // 头指针 -> 头结点（哑结点）
+    Node* tail;      // 尾指针 -> 尾结点，使表尾追加为 O(1)
+    int   len;       // 表长（不含头结点）
+
+public:
+    SinglyList() : head(new Node()), tail(head), len(0) {}
+    ~SinglyList() { DestroyList(); }
+
+    int  Length() const { return len; }
+    bool Empty()  const { return len == 0; }
+
+    void InitList() {                       // 置为空表
+        DestroyList();
+        head = new Node();
+        tail = head;
+        len  = 0;
+    }
+
+    void DestroyList() {                    // 整表销毁（含头结点）
+        Node* p = head;
+        while (p) { Node* q = p-&gt;next; delete p; p = q; }
+        head = tail = nullptr;
+        len = 0;
+    }
+
+    void PushBack(int e) {                  // 表尾追加：O(1)，因为有 tail
+        Node* s = new Node(e);
+        tail-&gt;next = s;
+        tail = s;
+        ++len;
+    }
+
+    Node* GetElem(int i) const {            // 按位查找：O(n)
+        if (i &lt; 1) return nullptr;
+        Node* p = head-&gt;next;
+        for (int k = 1; p &amp;&amp; k &lt; i; ++k) p = p-&gt;next;
+        return p;
+    }
+
+    int LocateElem(int e) const {           // 按值查找：返回位序，0 表示失败
+        int k = 1;
+        for (Node* p = head-&gt;next; p; p = p-&gt;next, ++k)
+            if (p-&gt;data == e) return k;
+        return 0;
+    }
+
+    bool ListInsert(int i, int e) {         // 位序 i 插入：1..len+1
+        if (i &lt; 1 || i &gt; len + 1) return false;
+        Node* p = head;
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;   // 走到第 i-1 个结点
+        Node* s = new Node(e);
+        s-&gt;next = p-&gt;next;                  // 先连
+        p-&gt;next = s;                        // 后断
+        if (p == tail) tail = s;            // 关键：插在表尾时别忘了维护尾指针
+        ++len;
+        return true;
+    }
+
+    bool ListDelete(int i, int&amp; e) {        // 删除位序 i：1..len
+        if (i &lt; 1 || i &gt; len) return false;
+        Node* p = head;
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;
+        Node* q = p-&gt;next;
+        e = q-&gt;data;
+        p-&gt;next = q-&gt;next;
+        if (q == tail) tail = p;            // 删掉尾结点时尾指针要回退到前驱
+        delete q;
+        --len;
+        return true;
+    }
+
+    void PrintList() const {
+        cout &lt;&lt; "head";
+        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
+        cout &lt;&lt; " -&gt; NULL   (len=" &lt;&lt; len &lt;&lt; ")" &lt;&lt; endl;
+    }
+};
+
+int main() {
+    SinglyList L;
+    int a[] = {21, 32, 45, 58, 66, 79};
+    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
+    L.PrintList();                                  // head -&gt; 21 -&gt; 32 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; NULL
+
+    L.ListInsert(1, 7);                             // 表头插入（有了头结点，无需特判）
+    L.ListInsert(L.Length() + 1, 99);               // 表尾插入，尾指针被正确维护
+    L.ListInsert(4, 50);
+    L.PrintList();                                  // head -&gt; 7 -&gt; 21 -&gt; 32 -&gt; 50 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; 99 -&gt; NULL
+
+    int del = 0;
+    L.ListDelete(1, del);   cout &lt;&lt; "删除表头: " &lt;&lt; del &lt;&lt; endl;
+    L.ListDelete(L.Length(), del); cout &lt;&lt; "删除表尾: " &lt;&lt; del &lt;&lt; endl;
+    L.PrintList();
+
+    cout &lt;&lt; "第 3 个元素 = " &lt;&lt; L.GetElem(3)-&gt;data &lt;&lt; endl;
+    cout &lt;&lt; "66 的位序 = " &lt;&lt; L.LocateElem(66) &lt;&lt; endl;
+    cout &lt;&lt; "999 的位序 = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl;
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-8">2.3.8 反转单链表：三道指针小题的「母题」</h3>
+
+    <p>
+      反转链表是链表题的总入口，因为它强迫你同时管理三根指针。
+      迭代写法的核心只有一句：<b>用 <code>pre</code> 记住已反转部分的头，用 <code>cur</code> 指向待处理结点，
+      每轮先把 <code>cur-&gt;next</code> 存档到 <code>nxt</code>，然后把 <code>cur-&gt;next</code> 指向 <code>pre</code></b>。
+      存档这一步必须最先做，道理和插入的「先连后断」完全一样——不存档就丢链。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 290" width="880" height="290" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="24" text-anchor="start">反转进行到一半：已翻好 NULL ← 1 ← 2，正在处理 3</text>
+
+        <rect class="fig-bad" x="15" y="108" width="62" height="44" rx="6"/>
+        <text class="fig-t" x="46" y="136" text-anchor="middle" style="fill:var(--danger);font-size:12px">NULL</text>
+
+        <rect class="fig-ok" x="140" y="108" width="80" height="44" rx="6"/>
+        <text class="fig-t" x="180" y="136" text-anchor="middle">1</text>
+        <rect class="fig-ok" x="250" y="108" width="80" height="44" rx="6"/>
+        <text class="fig-t" x="290" y="136" text-anchor="middle">2</text>
+        <rect class="fig-acc" x="360" y="108" width="80" height="44" rx="6"/>
+        <text class="fig-t" x="400" y="136" text-anchor="middle" style="fill:var(--brand)">3</text>
+        <rect class="fig-box" x="470" y="108" width="80" height="44" rx="6"/>
+        <text class="fig-t" x="510" y="136" text-anchor="middle">4</text>
+        <rect class="fig-box" x="580" y="108" width="80" height="44" rx="6"/>
+        <text class="fig-t" x="620" y="136" text-anchor="middle">5</text>
+        <rect class="fig-box" x="690" y="108" width="62" height="44" rx="6"/>
+        <text class="fig-t" x="721" y="136" text-anchor="middle" style="fill:var(--text-faint);font-size:12px">NULL</text>
+
+        <path class="fig-eg" d="M140,130 L81,130" marker-end="url(#g-arg)"/>
+        <path class="fig-eg" d="M290,158 C 250,215 220,215 180,158" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="235" y="234" text-anchor="middle" style="fill:var(--ok)">2-&gt;next = 1（已翻转）</text>
+        <path class="fig-e" d="M360,158 C 330,192 320,192 300,158" marker-end="url(#g-ar)" opacity="0.25"/>
+        <text class="fig-f" x="330" y="200" text-anchor="middle" style="fill:var(--danger)">旧边 2-&gt;3 已被改写</text>
+
+        <path class="fig-e" d="M440,130 L466,130" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M550,130 L576,130" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M660,130 L686,130" marker-end="url(#g-ar)"/>
+
+        <text class="ptr-pre" x="290" y="92" text-anchor="middle">pre</text>
+        <path class="fig-eg" d="M290,96 L290,104" marker-end="url(#g-arg)"/>
+        <text class="ptr-cur" x="400" y="92" text-anchor="middle">cur</text>
+        <path class="fig-eb" d="M400,96 L400,104" marker-end="url(#g-arb)"/>
+        <text class="ptr-nxt" x="510" y="92" text-anchor="middle">nxt（先存档）</text>
+        <path class="fig-e" d="M510,96 L510,104" style="stroke:var(--accent)" marker-end="url(#g-ara)"/>
+
+        <path class="fig-dash" d="M132,166 L730,166"/>
+        <text class="fig-s" x="20" y="266" style="fill:var(--ok)">已反转段：pre 指向它的头</text>
+        <text class="fig-s" x="440" y="266" style="fill:var(--text-soft)">待反转段：cur 指向它的头，nxt 是它的第二个结点</text>
+        <text class="fig-s" x="20" y="286">每轮四步：① nxt = cur-&gt;next　② cur-&gt;next = pre　③ pre = cur　④ cur = nxt。循环结束时 pre 就是新表头。</text>
+      </svg>
+      <figcaption>图 2-8　反转链表的三指针现场：绿色是已反转段，蓝色是当前结点，橙色是必须最先存档的后继</figcaption>
+    </figure>
+
+    <p>下面的动画把每一轮的四步操作完整放慢，请对照上图观察三条边的颜色变化：</p>
+
+    <div id="viz-reverse"></div>
+
+    <pre data-lang="cpp" data-file="reverse_list.cpp">// reverse_list.cpp —— 单链表反转的三种写法（均为 O(n) 时间）
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+/* ---------- 写法一：迭代三指针。空间 O(1)，工程首选 ---------- */
+Node* ReverseIter(Node* first) {          // 约定：first 是首元结点指针（不带头结点）
+    Node* pre = nullptr;                  // 反转后，新链的尾结点的 next 应为 NULL
+    Node* cur = first;
+    while (cur) {
+        Node* nxt = cur-&gt;next;            // ① 存档：不存就等于把后半段扔了
+        cur-&gt;next = pre;                  // ② 翻转当前这条边
+        pre = cur;                        // ③ pre 前移
+        cur = nxt;                        // ④ cur 前移
+    }
+    return pre;                           // 循环结束 cur == NULL，pre 指向原尾结点 = 新表头
+}
+
+/* ---------- 写法二：递归。空间 O(n)（递归栈深度等于表长） ---------- */
+Node* ReverseRec(Node* first) {
+    if (!first || !first-&gt;next) return first;     // 空表 / 单结点：无需反转
+    Node* newHead = ReverseRec(first-&gt;next);      // 先把后面全部翻好，返回新表头
+    first-&gt;next-&gt;next = first;                    // 原来的后继反过来指向自己
+    first-&gt;next = nullptr;                        // 自己变成新链的尾结点
+    return newHead;                               // 新表头一路上传
+}
+
+/* ---------- 写法三：就地头插（带头结点版本，考试常考） ---------- */
+void ReverseInPlace(Node* head) {         // head 是头结点，不存数据
+    Node* p = head-&gt;next;                 // 从首元结点开始
+    head-&gt;next = nullptr;                 // 先断开：头结点变成新链的「哨兵尾」
+    while (p) {
+        Node* q = p-&gt;next;                // ① 存档
+        p-&gt;next = head-&gt;next;             // ② 头插：接到新链最前面
+        head-&gt;next = p;
+        p = q;                            // ③ 取下一个
+    }
+}
+
+/* ---------- 测试 ---------- */
+Node* Build(const int a[], int n) {
+    Node dummy; Node* r = &amp;dummy;
+    for (int i = 0; i &lt; n; ++i) { r-&gt;next = new Node(a[i]); r = r-&gt;next; }
+    return dummy.next;
+}
+void Show(const char* tag, Node* p) {
+    cout &lt;&lt; tag;
+    for (; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " ";
+    cout &lt;&lt; endl;
+}
+int main() {
+    int a[] = {1, 2, 3, 4, 5};
+    Show("原链表  : ", Build(a, 5));
+    Show("迭代反转: ", ReverseIter(Build(a, 5)));
+    Show("递归反转: ", ReverseRec(Build(a, 5)));
+
+    Node* h = new Node();                      // 带头结点版本
+    Node* r = h;
+    for (int i = 0; i &lt; 5; ++i) { r-&gt;next = new Node(a[i]); r = r-&gt;next; }
+    ReverseInPlace(h);
+    Show("就地头插: ", h-&gt;next);
+    return 0;
+}
+</pre>
+
+    <div class="note warn">
+      <span class="note-title">递归反转的两个坑</span>
+      一是<b>递归深度等于表长</b>：10 万个结点就会把默认栈撑爆（栈溢出 stack overflow），
+      工程上链表反转一律用迭代。二是<b>基准情形不能写错</b>：
+      <code>if (!first || !first-&gt;next) return first;</code> 里的 <code>!first</code> 处理空表，
+      <code>!first-&gt;next</code> 处理只剩一个结点，两个都不能少，否则 <code>first-&gt;next-&gt;next</code> 会解空指针。
+    </div>
+
+    <h3 id="s3-9">2.3.9 快慢指针（一）：求中间结点与倒数第 k 个结点</h3>
+
+    <p>
+      <b>快慢指针</b>（也叫龟兔赛跑）是链表题的第二把万能钥匙：
+      让 <code>fast</code> 每次走 2 步、<code>slow</code> 每次走 1 步，
+      那么 <code>fast</code> 走过的路程永远是 <code>slow</code> 的两倍。
+      当 <code>fast</code> 到达表尾时，<code>slow</code> 恰好走了一半——这就是中间结点。
+      整个算法只遍历一遍，时间 O(n)、空间 O(1)，比「先数长度再走一半」的两趟扫描优雅得多。
+    </p>
+
+    <p>
+      「倒数第 k 个」是同一个思想的应用：<b>先让 fast 领先 slow 恰好 k 步</b>，
+      然后两者同速前进；当 fast 走到 <code>NULL</code>（尾结点之后）时，
+      slow 与表尾的距离正好是 k，即 slow 指向倒数第 k 个结点。
+    </p>
+
+    <pre data-lang="cpp" data-file="fast_slow.cpp">// fast_slow.cpp —— 快慢指针：求中间结点、倒数第 k 个结点
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+/* 中间结点：fast 每次 2 步，slow 每次 1 步。时间 O(n)，空间 O(1) */
+Node* MiddleNode(Node* first) {
+    Node* slow = first;
+    Node* fast = first;
+    while (fast &amp;&amp; fast-&gt;next) {          // 两个条件缺一不可：
+        slow = slow-&gt;next;                //   fast 判空防止 fast->next 解空指针；
+        fast = fast-&gt;next-&gt;next;          //   fast->next 判空保证能安全走两步。
+    }
+    return slow;                          // 奇数个结点返回正中；偶数个结点返回「后中间」
+}
+/* 如果想在偶数个结点时返回「前中间」，把条件改成：
+   while (fast-&gt;next &amp;&amp; fast-&gt;next-&gt;next) { slow = slow-&gt;next; fast = fast-&gt;next-&gt;next; } */
+
+/* 倒数第 k 个结点：fast 先走 k 步拉开差距，再同步前进 */
+Node* KthFromEnd(Node* first, int k) {
+    if (k &lt; 1) return nullptr;
+    Node* fast = first;
+    for (int i = 0; i &lt; k; ++i) {         // fast 领先 k 步
+        if (!fast) return nullptr;        // k 比表长还大，不存在倒数第 k 个
+        fast = fast-&gt;next;
+    }
+    Node* slow = first;
+    while (fast) {                        // 同步走，直到 fast 出表尾
+        slow = slow-&gt;next;
+        fast = fast-&gt;next;
+    }
+    return slow;                          // fast 走了 n-k 步，slow 从 1 走到 n-k+1，即倒数第 k 个
+}
+
+Node* Build(const int a[], int n) {
+    Node dummy; Node* r = &amp;dummy;
+    for (int i = 0; i &lt; n; ++i) { r-&gt;next = new Node(a[i]); r = r-&gt;next; }
+    return dummy.next;
+}
+int main() {
+    int a[] = {1, 2, 3, 4, 5};
+    int b[] = {1, 2, 3, 4, 5, 6};
+    cout &lt;&lt; "5 个结点的中间 = " &lt;&lt; MiddleNode(Build(a, 5))-&gt;data &lt;&lt; endl;   // 3
+    cout &lt;&lt; "6 个结点的中间 = " &lt;&lt; MiddleNode(Build(b, 6))-&gt;data &lt;&lt; endl;   // 4（后中间）
+    cout &lt;&lt; "倒数第 2 个 = " &lt;&lt; KthFromEnd(Build(a, 5), 2)-&gt;data &lt;&lt; endl;    // 4
+    cout &lt;&lt; "倒数第 1 个 = " &lt;&lt; KthFromEnd(Build(a, 5), 1)-&gt;data &lt;&lt; endl;    // 5
+    cout &lt;&lt; "倒数第 9 个 = " &lt;&lt; (KthFromEnd(Build(a, 5), 9) ? "存在" : "不存在") &lt;&lt; endl;
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-10">2.3.10 快慢指针（二）：Floyd 判环与环入口的数学推导</h3>
+
+    <p>
+      <b>Floyd 判环算法（龟兔赛跑算法）</b>回答两个问题：
+      链表里有没有环？如果有，环的入口在哪？它的做法依然是快慢指针：
+      如果链表无环，fast 一定会先撞上 <code>NULL</code>；
+      如果有环，fast 会先进环并且<b>在环里绕圈</b>，由于 slow 每轮只前进 1 步，
+      fast 相对 slow 的速度是每轮 1 步，所以 fast 一定会追上 slow，而<b>绝不会跨过去</b>。
+    </p>
+
+    <p>「绝不会跨过去」这一条值得单独强调，因为很多人第一反应是「快指针会不会直接跳过慢指针」：</p>
+
+    <div class="note tip">
+      <span class="note-title">为什么 fast 一定追得上而不是跳过？</span>
+      进入环之后，设某一时刻 fast 落后 slow 的距离（沿前进方向）为 <code>d</code>（<code>1 ≤ d ≤ b</code>，<code>b</code> 为环长）。
+      每走一轮，fast 走 2 步、slow 走 1 步，两者距离减少 <code>1</code>：<code>d → d−1</code>。
+      由于每轮只减 1，<code>d</code> 必然先经过 0（相遇）而不会从 1 直接跳到 −1。
+      所以只要环存在，相遇一定会发生，且最多再走 <code>b</code> 轮。
+    </div>
+
+    <p>接下来是本章最漂亮的一段数学。设：</p>
+
+    <dl class="def">
+      <dt>a</dt><dd>从表头（首元结点）到环入口的步数，也就是「尾巴」的长度。</dd>
+      <dt>b</dt><dd>环的长度（环内结点个数）。</dd>
+      <dt>c</dt><dd>从环入口沿前进方向走到相遇点的步数，显然 <code>0 ≤ c &lt; b</code>。</dd>
+      <dt>t</dt><dd>从出发到相遇，slow 走过的步数。</dd>
+    </dl>
+
+    <p>相遇时两件事同时成立：</p>
+
+    <div class="formula">
+      ① slow 走的步数：t = a + c<br>
+      ② fast 走的步数：2t = a + c + m·b　（m 为 fast 在环里多绕的整圈数，m ≥ 1）
+    </div>
+
+    <p>②−① 得 <code>t = m·b</code>，代回 ① 得：</p>
+
+    <div class="formula center">a = m·b − c = (m − 1)·b + (b − c)</div>
+
+    <p>
+      这个式子的含义是：<b>从表头走 a 步，与从相遇点走 a 步，落点是同一个结点</b>。
+      因为从相遇点出发，先走 <code>b − c</code> 步就回到了环入口，
+      再多绕 <code>(m−1)</code> 整圈还是回到环入口。
+      于是算法第二步就出来了：<b>让一个指针从表头出发、另一个从相遇点出发，同速前进，它们相遇的地方就是环入口</b>。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 380" width="880" height="380" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="24" text-anchor="start">Floyd 判环：a = (m−1)·b + (b−c)，所以「表头」与「相遇点」同步走必在入口会合</text>
+
+        <text class="fig-s" x="20" y="66">head</text>
+        <path class="fig-e" d="M58,62 L92,62" marker-end="url(#g-ar)"/>
+        <path class="fig-dash" d="M96,120 L330,120"/>
+        <path class="fig-e" d="M96,120 L120,120" marker-end="url(#g-ar)"/>
+        <text class="fig-s" x="210" y="146" text-anchor="middle">尾巴：a 步</text>
+        <path class="fig-e" d="M96,158 L96,112"/>
+        <path class="fig-e" d="M330,158 L330,112"/>
+        <path class="fig-e" d="M96,158 L330,158"/>
+        <text class="fig-f" x="213" y="176" text-anchor="middle">a = 表头 → 入口的距离</text>
+
+        <ellipse class="fig-e" cx="490" cy="140" rx="160" ry="96" style="stroke-dasharray:6 5"/>
+        <circle class="fig-warn" cx="330" cy="140" r="22"/>
+        <text class="fig-t" x="330" y="145" text-anchor="middle" style="fill:var(--warn);font-size:12px">入口</text>
+        <circle class="fig-bad" cx="490" cy="44" r="22"/>
+        <text class="fig-t" x="490" y="49" text-anchor="middle" style="fill:var(--danger);font-size:11.5px">相遇</text>
+
+        <path class="fig-eb" d="M334,120 A 160,96 0 0 1 470,42" marker-end="url(#g-arb)"/>
+        <text class="fig-s" x="352" y="72" style="fill:var(--brand)">c 步</text>
+        <path class="fig-eg" d="M508,40 A 160,96 0 0 1 348,128" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="628" y="150" style="fill:var(--ok)">b − c 步</text>
+
+        <text class="fig-s" x="490" y="270" text-anchor="middle">环长 b：slow 与 fast 在环内绕圈，fast 相对速度 1 步/轮，必然追上</text>
+        <text class="fig-s" x="20" y="306">推导：设 slow 走 t 步、fast 走 2t 步。t = a + c；2t = a + c + m·b。相减得 t = m·b。</text>
+        <text class="fig-s" x="20" y="330">代入得 a = m·b − c = (m−1)·b + (b−c)：从相遇点走 b−c 步回到入口，再多绕 m−1 圈仍在入口。</text>
+        <text class="fig-s" x="20" y="354" style="fill:var(--brand)">结论：ptr1 从 head 出发、ptr2 从相遇点出发，同速前进，相遇处即环入口。全程 O(n) 时间、O(1) 空间。</text>
+      </svg>
+      <figcaption>图 2-9　Floyd 判环的几何含义与环入口公式推导</figcaption>
+    </figure>
+
+    <p>
+      下面的动画用一条带环的链表演示全过程：slow 每步 1 格、fast 每步 2 格，
+      相遇之后进入第二阶段——两个指针分别从表头和相遇点同步出发，最终在入口会合。
+    </p>
+
+    <div id="viz-cycle"></div>
+
+    <pre data-lang="cpp" data-file="floyd_cycle.cpp">// floyd_cycle.cpp —— 判环、求环入口、求环长（全部 O(n) 时间 / O(1) 空间）
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+/* 第一问：有没有环？有则返回相遇结点，无则返回 nullptr */
+Node* HasCycle(Node* head) {
+    Node* slow = head;
+    Node* fast = head;
+    while (fast &amp;&amp; fast-&gt;next) {
+        slow = slow-&gt;next;                    // 每轮 1 步
+        fast = fast-&gt;next-&gt;next;              // 每轮 2 步
+        if (slow == fast) return slow;        // 相遇 ⇒ 有环
+    }
+    return nullptr;                           // fast 撞到 NULL ⇒ 无环
+}
+
+/* 第二问：环入口在哪？依据 a = (m-1)b + (b-c) */
+Node* CycleEntry(Node* head) {
+    Node* meet = HasCycle(head);
+    if (!meet) return nullptr;                // 无环，谈不上入口
+    Node* p = head;                           // 一个从表头出发
+    while (p != meet) {                       // 另一个从相遇点出发，同速前进
+        p = p-&gt;next;
+        meet = meet-&gt;next;
+    }
+    return p;                                 // 相遇处即入口
+}
+
+/* 第三问：环长是多少？从相遇点绕一圈回到自己 */
+int CycleLength(Node* meet) {
+    if (!meet) return 0;
+    int n = 1;
+    for (Node* p = meet-&gt;next; p != meet; p = p-&gt;next) ++n;
+    return n;
+}
+/* 附加：整条链的结点总数（尾巴 a 步 + 环长 b） */
+int TotalLength(Node* head) {
+    Node* entry = CycleEntry(head);
+    if (!entry) { int n = 0; for (Node* p = head; p; p = p-&gt;next) ++n; return n; }
+    int a = 0;
+    for (Node* p = head; p != entry; p = p-&gt;next) ++a;
+    return a + CycleLength(entry);
+}
+
+int main() {
+    /* 构造： 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> (回到 4)，即 a = 3, b = 5 */
+    Node* nodes[9];
+    for (int i = 1; i &lt;= 8; ++i) nodes[i] = new Node(i);
+    for (int i = 1; i &lt; 8; ++i) nodes[i]-&gt;next = nodes[i + 1];
+    nodes[8]-&gt;next = nodes[4];                 // 造环：8 指回 4
+
+    Node* meet = HasCycle(nodes[1]);
+    cout &lt;&lt; (meet ? "有环，相遇于 " + to_string(meet-&gt;data) : "无环") &lt;&lt; endl;
+    Node* entry = CycleEntry(nodes[1]);
+    cout &lt;&lt; "环入口 = " &lt;&lt; (entry ? to_string(entry-&gt;data) : "无") &lt;&lt; endl;   // 4
+    cout &lt;&lt; "环长 = " &lt;&lt; CycleLength(entry) &lt;&lt; endl;                          // 5
+    cout &lt;&lt; "总长 = " &lt;&lt; TotalLength(nodes[1]) &lt;&lt; endl;                       // 8
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点 4：判环的变体问法</span>
+      「求环长」= 相遇后继续走一圈；「求尾巴长度 a」= 从表头走到入口的步数；
+      「求总长」= a + b；「求环入口」= 表头与相遇点同步走。
+      这四个问题都能在 O(n) / O(1) 内解决，是面试与考研真题的常客。
+      另外注意：<b>用哈希表记录访问过的结点</b>也能判环，但需要 O(n) 额外空间，
+      面试官通常会追问「能不能做到 O(1) 空间」——那就是 Floyd。
+    </div>
+
+    <h3 id="s3-11">2.3.11 合并两个有序链表</h3>
+
+    <p>
+      合并两个递增有序的单链表，是「归并排序」在链表上的缩影，也是「哑结点技巧」的最佳示范。
+      思路是<b>双指针 + 尾插</b>：<code>a</code>、<code>b</code> 分别指向两条链的待比较结点，
+      谁的当前值小就把谁摘下来接到结果链的尾部，然后该指针后移。
+      当一条链走完，把另一条整段接上即可——<b>这一步是 O(1) 的</b>，不需要逐个搬运。
+    </p>
+
+    <p>
+      这里我们用一个<b>栈上的哑结点 <code>Node dummy;</code></b> 作为结果链的临时头结点，
+      它的作用与头结点一模一样：让「第一个结点」和「后续结点」用同一句
+      <code>r-&gt;next = ...; r = r-&gt;next;</code> 处理，省掉一堆 <code>if (result == NULL)</code>。
+      最后返回 <code>dummy.next</code> 即可，注意 <code>dummy</code> 是局部变量，函数返回后失效，
+      但 <code>dummy.next</code> 指向的是堆上的结点，完全安全。
+    </p>
+
+    <pre data-lang="cpp" data-file="merge_sorted.cpp">// merge_sorted.cpp —— 合并两个递增有序单链表（复用原结点，不额外分配内存）
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+/* 返回合并后的首元结点指针。时间 O(m+n)，空间 O(1) */
+Node* MergeSorted(Node* a, Node* b) {
+    Node  dummy;                          // 栈上的哑结点：只借用它的 next，不参与结果
+    Node* r = &amp;dummy;                     // r 始终指向结果链的尾结点
+    while (a &amp;&amp; b) {
+        if (a-&gt;data &lt;= b-&gt;data) {          // 取等号可保证「稳定性」：a 中相等元素排在前面
+            r-&gt;next = a;
+            a = a-&gt;next;
+        } else {
+            r-&gt;next = b;
+            b = b-&gt;next;
+        }
+        r = r-&gt;next;                      // 尾指针后移
+    }
+    r-&gt;next = a ? a : b;                  // 剩下那一段直接整条挂上，O(1)
+    return dummy.next;                    // dummy 在栈上，但它指向的结点在堆上，安全
+}
+
+/* 如果你希望「不破坏原链表」，就得 new 新结点，空间变成 O(m+n)，这是一个常见追问 */
+Node* MergeCopy(Node* a, Node* b) {
+    Node dummy; Node* r = &amp;dummy;
+    while (a &amp;&amp; b) {
+        if (a-&gt;data &lt;= b-&gt;data) { r-&gt;next = new Node(a-&gt;data); a = a-&gt;next; }
+        else                    { r-&gt;next = new Node(b-&gt;data); b = b-&gt;next; }
+        r = r-&gt;next;
+    }
+    for (Node* p = a ? a : b; p; p = p-&gt;next) { r-&gt;next = new Node(p-&gt;data); r = r-&gt;next; }
+    return dummy.next;
+}
+
+Node* Build(const int arr[], int n) {
+    Node dummy; Node* r = &amp;dummy;
+    for (int i = 0; i &lt; n; ++i) { r-&gt;next = new Node(arr[i]); r = r-&gt;next; }
+    return dummy.next;
+}
+void Show(Node* p) { for (; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " "; cout &lt;&lt; endl; }
+
+int main() {
+    int x[] = {1, 3, 5, 7, 9};
+    int y[] = {2, 4, 6, 8};
+    Show(MergeSorted(Build(x, 5), Build(y, 4)));   // 1 2 3 4 5 6 7 8 9
+    int u[] = {1, 1, 3};
+    int v[] = {1, 2, 3};
+    Show(MergeSorted(Build(u, 3), Build(v, 3)));   // 1 1 1 2 3 3（相等时先取 a，稳定）
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-12">2.3.12 删除重复元素、求交集与并集</h3>
+
+    <p>
+      这三个操作本质上是「遍历 + 比较 + 摘链」的组合。
+      最关键的分支判断是：<b>什么情况下指针才能前进</b>。
+      删除重复元素时，一旦发现 <code>p-&gt;data == p-&gt;next-&gt;data</code>，
+      我们删掉的是 <code>p-&gt;next</code>，此时 <code>p</code> 本身<b>不能动</b>——
+      因为新的后继可能还是重复值（想想 <code>1,1,1,2</code>）。
+      这是一个非常经典的「删了之后不要前进」的坑。
+    </p>
+
+    <p>
+      求交集与并集都要求两条链<b>已经有序</b>（无序则要先排序或用哈希，复杂度另算），
+      然后采用与归并完全相同的双指针同步推进策略：
+      相等就是交集元素；不等时把小的那个推进一格。
+      并集则是归并 + 跳过相等元素。
+    </p>
+
+    <pre data-lang="cpp" data-file="unique_and_set.cpp">// unique_and_set.cpp —— 删除重复元素、求交集、求并集
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+/* 有序单链表去重：时间 O(n)，空间 O(1) */
+void UniqueSorted(Node* first) {
+    Node* p = first;
+    while (p &amp;&amp; p-&gt;next) {
+        if (p-&gt;data == p-&gt;next-&gt;data) {
+            Node* q = p-&gt;next;                // 删掉后面的重复者
+            p-&gt;next = q-&gt;next;
+            delete q;
+            /* 注意：这里 p 不前进！因为新的 p->next 可能还是同一个值 */
+        } else {
+            p = p-&gt;next;                      // 只有不相等时才前进
+        }
+    }
+}
+
+/* 无序单链表去重：两重循环 O(n^2)（想更快就先排序，或者用哈希表 O(n)） */
+void UniqueUnordered(Node* first) {
+    for (Node* p = first; p; p = p-&gt;next) {
+        Node* pre = p;
+        while (pre-&gt;next) {
+            if (pre-&gt;next-&gt;data == p-&gt;data) {
+                Node* q = pre-&gt;next;
+                pre-&gt;next = q-&gt;next;
+                delete q;
+            } else pre = pre-&gt;next;
+        }
+    }
+}
+
+/* 交集：两表均递增有序。时间 O(m+n)，结果按值升序 */
+Node* Intersect(Node* a, Node* b) {
+    Node dummy; Node* r = &amp;dummy;
+    while (a &amp;&amp; b) {
+        if (a-&gt;data == b-&gt;data) {             // 相等 ⇒ 是交集元素
+            r-&gt;next = new Node(a-&gt;data);
+            r = r-&gt;next;
+            a = a-&gt;next;
+            b = b-&gt;next;
+        } else if (a-&gt;data &lt; b-&gt;data) {
+            a = a-&gt;next;                      // a 太小，不可能再出现在交集里
+        } else {
+            b = b-&gt;next;
+        }
+    }
+    r-&gt;next = nullptr;
+    return dummy.next;
+}
+
+/* 并集：两表均递增有序，结果不含重复值。时间 O(m+n) */
+Node* Union(Node* a, Node* b) {
+    Node dummy; Node* r = &amp;dummy;
+    while (a &amp;&amp; b) {
+        int v;
+        if (a-&gt;data &lt; b-&gt;data)      { v = a-&gt;data; a = a-&gt;next; }
+        else if (a-&gt;data &gt; b-&gt;data) { v = b-&gt;data; b = b-&gt;next; }
+        else                        { v = a-&gt;data; a = a-&gt;next; b = b-&gt;next; }  // 相等只取一次
+        if (!r-&gt;next || r-&gt;data != v) { r-&gt;next = new Node(v); r = r-&gt;next; }
+    }
+    for (Node* p = a ? a : b; p; p = p-&gt;next)
+        if (r-&gt;data != p-&gt;data) { r-&gt;next = new Node(p-&gt;data); r = r-&gt;next; }
+    r-&gt;next = nullptr;
+    return dummy.next;
+}
+
+Node* Build(const int arr[], int n) {
+    Node dummy; Node* r = &amp;dummy;
+    for (int i = 0; i &lt; n; ++i) { r-&gt;next = new Node(arr[i]); r = r-&gt;next; }
+    return dummy.next;
+}
+void Show(const char* tag, Node* p) { cout &lt;&lt; tag; for (; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " "; cout &lt;&lt; endl; }
+
+int main() {
+    int d[] = {1, 1, 2, 3, 3, 3, 5};
+    Node* L = Build(d, 7);
+    UniqueSorted(L);
+    Show("去重后 : ", L);                       // 1 2 3 5
+
+    int x[] = {1, 3, 5, 7, 9};
+    int y[] = {3, 4, 5, 9, 10};
+    Show("交集   : ", Intersect(Build(x, 5), Build(y, 5)));  // 3 5 9
+    Show("并集   : ", Union(Build(x, 5), Build(y, 5)));      // 1 3 4 5 7 9 10
+    return 0;
+}
+</pre>
+
+    <h3 id="s3-13">2.3.13 单链表的优缺点小结</h3>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s3-13a">优点</h3>
+        <ul style="margin-bottom:0">
+          <li><b>插入删除只改指针</b>：已经定位到前驱时是 O(1)，不需要搬任何元素。</li>
+          <li><b>不需要连续内存</b>：内存碎片再多也能凑出结点，天生「动态扩容」。</li>
+          <li><b>空间按需分配</b>：不会像静态顺序表那样预留一大片空位。</li>
+          <li>是栈、队列、图的邻接表、哈希桶等结构的实现基础。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s3-13b">缺点</h3>
+        <ul style="margin-bottom:0">
+          <li><b>不能随机存取</b>：按位查找 O(n)，想找第 i 个必须从头数。</li>
+          <li><b>每个结点多一个指针域</b>：存储密度 &lt; 1，64 位平台上 <code>int</code> 结点的有效数据只占 4/12。</li>
+          <li><b>缓存不友好</b>：结点散落在堆上，遍历时频繁 cache miss，实测常比顺序表慢好几倍。</li>
+          <li><b>指针 bug 多</b>：断链、野指针、内存泄漏、自环，全靠细心和画图。</li>
+          <li><b>找前驱难</b>：按位删除要先 O(n) 找前驱，这是双向链表存在的理由。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============================================================ 2.4 -->
+    <h2 id="s4">2.4 双向链表：每个结点多存一个「回头路」</h2>
+
+    <p>
+      单链表最大的不便在删除：明明已经拿到了要删的结点 <code>q</code>，
+      却还得从头走一遍去找它的前驱，白白花掉 O(n)。
+      根因是<b>指针是单向的，回头无路</b>。
+      双向链表 doubly linked list 的解决方案简单粗暴：<b>每个结点再存一个指向前驱的指针</b>。
+    </p>
+
+    <h3 id="s4-1">2.4.1 结点结构与「四条指针」的修改顺序</h3>
+
+    <dl class="def">
+      <dt>prior</dt><dd>前驱指针，指向前一个结点；首元结点的 <code>prior</code> 为 <code>NULL</code>（非循环双链表）。</dd>
+      <dt>data</dt><dd>数据域。</dd>
+      <dt>next</dt><dd>后继指针，指向后一个结点；尾结点的 <code>next</code> 为 <code>NULL</code>。</dd>
+    </dl>
+
+    <p>
+      在 <code>p</code> 之后插入新结点 <code>s</code>，一共要改<b>四条</b>指针。
+      标准顺序是「<b>先处理新结点自己的两条，再处理邻居的两条</b>」：
+    </p>
+
+    <div class="formula">
+      ① s-&gt;prior = p;<br>
+      ② s-&gt;next = p-&gt;next;<br>
+      ③ p-&gt;next-&gt;prior = s;　　（若 p 是尾结点，p-&gt;next 为 NULL，此步要判空）<br>
+      ④ p-&gt;next = s;
+    </div>
+
+    <p>
+      为什么 ③ 必须在 ④ 之前？因为 ③ 里要用到 <code>p-&gt;next</code> 找到「原来的后继」。
+      一旦先执行 ④，<code>p-&gt;next</code> 就变成 <code>s</code> 了，原来那个后继的 <code>prior</code>
+      就再也改不到——结果是新结点的前驱链 <code>s-&gt;prior = p</code> 成立，
+      但原后继的 <code>prior</code> 仍然指向 <code>p</code>，双向链在这一点「断了一半」，
+      反向遍历时会直接跳过 <code>s</code>。这与单链表「先连后断」是同一个道理：
+      <b>凡是需要用到旧指针值的地方，都必须排在覆盖它的赋值之前</b>。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 372" width="880" height="372" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="22" text-anchor="start">(a) 双向链表结点：prior + data + next 三个域</text>
+        <rect class="fig-box" x="60" y="40" width="60" height="44" rx="6"/><text class="fig-t" x="90" y="68" text-anchor="middle" style="font-size:12px">prior</text>
+        <rect class="fig-box" x="120" y="40" width="60" height="44" rx="6"/><text class="fig-t" x="150" y="68" text-anchor="middle">21</text>
+        <rect class="fig-box" x="180" y="40" width="60" height="44" rx="6"/><text class="fig-t" x="210" y="68" text-anchor="middle" style="font-size:12px">next</text>
+        <text class="fig-s" x="260" y="68">← 每个结点 3 个域，比单链表多一个指针（64 位平台上多 8 字节）</text>
+
+        <text class="fig-h" x="20" y="110" text-anchor="start">(b) 在 p（值为 34）之后插入 s（值为 99）：四条指针的修改顺序</text>
+        <rect class="fig-acc" x="20" y="150" width="58" height="44" rx="6"/><text class="fig-t" x="49" y="178" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,172 L92,172" marker-end="url(#g-arb)"/>
+
+        <rect class="fig-box" x="96"  y="140" width="132" height="44" rx="6"/><path class="fig-e" d="M140,140 L140,184"/><path class="fig-e" d="M184,140 L184,184"/>
+        <text class="fig-t" x="162" y="168" text-anchor="middle">12</text>
+        <rect class="fig-acc" x="284" y="140" width="132" height="44" rx="6"/><path class="fig-e" d="M328,140 L328,184"/><path class="fig-e" d="M372,140 L372,184"/>
+        <text class="fig-t" x="350" y="168" text-anchor="middle" style="fill:var(--brand)">34</text>
+        <text class="fig-f" x="350" y="134" text-anchor="middle" style="fill:var(--brand)">p</text>
+        <rect class="fig-ok" x="472" y="140" width="132" height="44" rx="6"/><path class="fig-e" d="M516,140 L516,184"/><path class="fig-e" d="M560,140 L560,184"/>
+        <text class="fig-t" x="538" y="168" text-anchor="middle" style="fill:var(--ok)">99</text>
+        <text class="fig-f" x="538" y="134" text-anchor="middle" style="fill:var(--ok)">s（新结点）</text>
+        <rect class="fig-box" x="660" y="140" width="132" height="44" rx="6"/><path class="fig-e" d="M704,140 L704,184"/><path class="fig-e" d="M748,140 L748,184"/>
+        <text class="fig-t" x="726" y="168" text-anchor="middle">56</text>
+
+        <path class="fig-e" d="M228,156 L280,156" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M284,168 L232,168" marker-end="url(#g-ar)"/>
+        <path class="fig-eb" d="M416,156 L468,156" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M472,168 L420,168" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M604,156 L656,156" marker-end="url(#g-arb)"/>
+        <path class="fig-eb" d="M660,168 L608,168" marker-end="url(#g-arb)"/>
+        <text class="fig-f" x="266" y="196" text-anchor="middle" style="font-size:10px">next →</text>
+        <text class="fig-f" x="266" y="210" text-anchor="middle" style="font-size:10px">← prior</text>
+
+        <rect class="fig-ok" x="20" y="228" width="840" height="132" rx="8"/>
+        <text class="fig-s" x="36" y="250" style="fill:var(--ok)">四步（③ 必须在 ④ 之前）：</text>
+        <text class="fig-s" x="36" y="272">① s-&gt;prior = p;　　　　　② s-&gt;next = p-&gt;next;</text>
+        <text class="fig-s" x="36" y="294">③ p-&gt;next-&gt;prior = s;　　← 用到了「旧的 p-&gt;next」，所以不能放在 ④ 后面；p 是尾结点时要判空</text>
+        <text class="fig-s" x="36" y="316">④ p-&gt;next = s;　　　　　← 一旦执行，旧的 p-&gt;next 就永久丢失</text>
+        <text class="fig-s" x="36" y="340" style="fill:var(--warn)">删除 q 只需两条：q-&gt;prior-&gt;next = q-&gt;next;　q-&gt;next-&gt;prior = q-&gt;prior;　（q 是尾结点时后者要判空）</text>
+      </svg>
+      <figcaption>图 2-10　双向链表的结点结构与插入时的四条指针：先安顿新结点，再改两位邻居，最后断开旧链</figcaption>
+    </figure>
+
+    <p>交互演示把每一步的四条指针拆开，请特别留意第 ③ 步与第 ④ 步的先后：</p>
+
+    <div id="viz-doubly"></div>
+
+    <h3 id="s4-2">2.4.2 双向链表完整实现 DLinkList</h3>
+
+    <pre data-lang="cpp" data-file="dlinklist.h">// dlinklist.h —— 带头结点的双向链表：插入、删除、正向 / 反向遍历
+#include &lt;iostream&gt;
+using namespace std;
+
+struct DNode {
+    int    data;
+    DNode* prior;                     // 前驱指针
+    DNode* next;                      // 后继指针
+    DNode(int d = 0, DNode* p = nullptr, DNode* n = nullptr)
+        : data(d), prior(p), next(n) {}
+};
+
+class DLinkList {
+private:
+    DNode* head;                      // 头结点：head->prior 恒为 nullptr
+    int    len;
+
+public:
+    DLinkList() : head(new DNode()), len(0) {}
+    ~DLinkList() { DestroyList(); delete head; head = nullptr; }
+
+    int  Length() const { return len; }
+    bool Empty()  const { return len == 0; }
+
+    DNode* GetElem(int i) const {     // 按位查找：O(n)，双向链表也无法随机存取
+        if (i &lt; 1) return nullptr;
+        DNode* p = head-&gt;next;
+        for (int k = 1; p &amp;&amp; k &lt; i; ++k) p = p-&gt;next;
+        return p;
+    }
+
+    /* 在位序 i 处插入 e：先走 i-1 步找到前驱 p，再改四条指针 */
+    bool ListInsert(int i, int e) {
+        if (i &lt; 1 || i &gt; len + 1) return false;
+        DNode* p = head;
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;   // p 停在第 i-1 个结点
+        DNode* s = new DNode(e);
+        s-&gt;prior = p;                              // ① 新结点的前驱
+        s-&gt;next  = p-&gt;next;                        // ② 新结点的后继（此时 p->next 还是原后继）
+        if (p-&gt;next) p-&gt;next-&gt;prior = s;            // ③ 原后继回头指向 s；p 是尾结点时 p->next 为 NULL
+        p-&gt;next = s;                               // ④ 最后才断开旧链
+        ++len;
+        return true;
+    }
+
+    /* 删除位序 i 的结点：注意 q->prior 一定存在（至少是头结点），所以 ① 不用判空 */
+    bool ListDelete(int i, int&amp; e) {
+        if (i &lt; 1 || i &gt; len) return false;
+        DNode* q = GetElem(i);
+        if (!q) return false;
+        e = q-&gt;data;
+        q-&gt;prior-&gt;next = q-&gt;next;                  // ① 前驱跨过后继
+        if (q-&gt;next) q-&gt;next-&gt;prior = q-&gt;prior;     // ② 后继回指前驱；q 是尾结点时要判空
+        delete q;
+        --len;
+        return true;
+    }
+
+    /* 交换 p 与它的后继结点（只改指针，不搬数据）—— 双向链表的经典考题 */
+    bool SwapWithNext(DNode* p) {
+        DNode* q = p-&gt;next;
+        if (!q) return false;                      // p 是尾结点，没有后继
+        p-&gt;next = q-&gt;next;
+        if (q-&gt;next) q-&gt;next-&gt;prior = p;
+        q-&gt;prior = p-&gt;prior;
+        p-&gt;prior-&gt;next = q;
+        q-&gt;next = p;
+        p-&gt;prior = q;
+        return true;
+    }
+
+    void PrintForward() const {                    // 正向遍历：靠 next
+        cout &lt;&lt; "NULL &lt;=&gt; ";
+        for (DNode* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " &lt;=&gt; ";
+        cout &lt;&lt; "NULL" &lt;&lt; endl;
+    }
+
+    void PrintBackward() const {                   // 反向遍历：先走到尾，再靠 prior 回头
+        DNode* p = head-&gt;next;
+        cout &lt;&lt; "反向: ";
+        if (!p) { cout &lt;&lt; "(空表)" &lt;&lt; endl; return; }
+        while (p-&gt;next) p = p-&gt;next;               // 一路走到尾结点
+        for (; p != head; p = p-&gt;prior) cout &lt;&lt; p-&gt;data &lt;&lt; " ";
+        cout &lt;&lt; endl;
+    }
+
+    void DestroyList() {                           // 整表删除
+        DNode* p = head-&gt;next;
+        while (p) { DNode* q = p-&gt;next; delete p; p = q; }
+        head-&gt;next = nullptr;
+        len = 0;
+    }
+};
+
+int main() {
+    DLinkList L;
+    for (int k = 1; k &lt;= 5; ++k) L.ListInsert(L.Length() + 1, k * 10);  // 10 20 30 40 50
+    L.ListInsert(3, 25);          // 10 20 25 30 40 50
+    L.PrintForward();
+    L.PrintBackward();            // 反向遍历验证 prior 链是否正确：50 40 30 25 20 10
+
+    int del = 0;
+    L.ListDelete(1, del);   cout &lt;&lt; "删除表头: " &lt;&lt; del &lt;&lt; endl;
+    L.ListDelete(L.Length(), del); cout &lt;&lt; "删除表尾: " &lt;&lt; del &lt;&lt; endl;
+    L.PrintForward();
+    L.PrintBackward();
+    return 0;
+}
+</pre>
+
+    <h3 id="s4-3">2.4.3 方便在哪，代价是什么</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>单链表</th><th>双向链表</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>按位查找</td><td>O(n)</td><td>O(n)</td><td>都不能随机存取，两者一样</td></tr>
+          <tr><td>已知前驱 p 时插入</td><td>O(1)，改 2 根指针</td><td>O(1)，改 4 根指针</td><td>双向链表常数更大（<b>这是代价</b>）</td></tr>
+          <tr><td>已知结点 q 时删除</td><td class="c-bad">O(n)（必须找前驱）</td><td class="c-ok">O(1)（q-&gt;prior 直接就是前驱）</td><td><b>这是双向链表存在的最大理由</b></td></tr>
+          <tr><td>反向遍历</td><td class="c-bad">做不到</td><td class="c-ok">O(n)，靠 prior</td><td>需要「从后往前」的场景（如浏览记录）必用</td></tr>
+          <tr><td>每个结点的空间</td><td>1 个指针域</td><td>2 个指针域</td><td>64 位平台上 <code>int</code> 结点从 12 字节涨到 20 字节</td></tr>
+          <tr><td>实现难度 / 出错率</td><td>中等</td><td class="c-bad">高（四条指针顺序不能乱）</td><td>调试时务必画图</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 5：为什么说双向链表「用空间换时间」？</span>
+      换来的是「<b>删除给定结点 O(1)</b>」与「<b>双向遍历</b>」，
+      付出的是「每个结点多一个指针域」以及「插入删除要维护四条指针、常数更大」。
+      考试常考对比题：「在单链表中删除 p 所指结点的时间复杂度」= O(n)；
+      「在双向链表中删除 p 所指结点的时间复杂度」= O(1)。
+      注意前提：<b>必须已经持有 p 本身</b>；如果题目说的是「删除第 i 个结点」，
+      两者都需要 O(n) 找位置。
+    </div>
+
+    <!-- ============================================================ 2.5 -->
+    <h2 id="s5">2.5 循环链表：把尾巴接回头上</h2>
+
+    <p>
+      单链表的尾结点 <code>next</code> 是 <code>NULL</code>，走到头就没路了。
+      如果让尾结点的 <code>next</code> <b>指回头结点</b>，就得到<b>循环链表 circular linked list</b>。
+      它最大的价值是：<b>从表中任意一个结点出发，都能遍历到整张表</b>——
+      这在「轮流调度」「环形缓冲」这类场景里是刚需。
+    </p>
+
+    <h3 id="s5-1">2.5.1 遍历结束条件：为什么是 p != head 而不是 p != NULL</h3>
+
+    <p>
+      这是循环链表最核心的一个改动。在普通单链表里，我们靠
+      <code>while (p != NULL)</code> 判断「走完了」；
+      但在循环链表里<b>根本不存在 NULL</b>——每个结点的 <code>next</code> 都有指向，
+      循环条件若还写 <code>p != NULL</code>，程序会<b>永远转下去（死循环）</b>。
+      正确的结束条件是「回到起点」：
+    </p>
+
+    <div class="formula">
+      带头结点：while (p != head)　　// head 是头结点，绕一圈会回到它<br>
+      不带头结点：do { … } while (p != first);　　// first 是首元结点，必须用 do-while
+    </div>
+
+    <p>
+      不带头结点时之所以要用 <code>do-while</code>，是因为 <code>p</code> 一开始就等于
+      <code>first</code>，如果用 <code>while (p != first)</code>，循环体一次都不会执行。
+      这个小细节是考试里非常爱考的「循环链表遍历」代码填空题。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 356" width="880" height="356" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="22" text-anchor="start">循环链表的三种常见形态</text>
+
+        <text class="fig-s" x="20" y="54">(a) 带头结点的循环单链表（非空）：尾结点 next 指回头结点</text>
+        <rect class="fig-acc" x="20" y="64" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="88" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,82 L104,82" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="108" y="64" width="88" height="36" rx="6"/><path class="fig-e" d="M152,64 L152,100"/><text class="fig-t" x="130" y="88" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text><circle class="vz-dot" cx="174" cy="82" r="3.6"/>
+        <path class="fig-e" d="M196,82 L222,82" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="226" y="64" width="88" height="36" rx="6"/><path class="fig-e" d="M270,64 L270,100"/><text class="fig-t" x="248" y="88" text-anchor="middle">12</text><circle class="vz-dot" cx="292" cy="82" r="3.6"/>
+        <path class="fig-e" d="M314,82 L340,82" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="344" y="64" width="88" height="36" rx="6"/><path class="fig-e" d="M388,64 L388,100"/><text class="fig-t" x="366" y="88" text-anchor="middle">34</text><circle class="vz-dot" cx="410" cy="82" r="3.6"/>
+        <path class="fig-e" d="M432,82 L458,82" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="462" y="64" width="88" height="36" rx="6"/><path class="fig-e" d="M506,64 L506,100"/><text class="fig-t" x="484" y="88" text-anchor="middle">56</text><circle class="vz-dot" cx="528" cy="82" r="3.6"/>
+        <path class="fig-eg" d="M532,62 C 560,6 120,6 150,60" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="620" y="76" style="fill:var(--ok)">尾结点 56 的 next 指回头结点</text>
+        <text class="fig-s" x="620" y="96">遍历结束条件：p != head</text>
+
+        <text class="fig-s" x="20" y="142">(b) 空循环链表：head-&gt;next == head</text>
+        <rect class="fig-acc" x="20" y="152" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="176" text-anchor="middle" style="fill:var(--brand);font-size:12px">head</text>
+        <path class="fig-eb" d="M78,170 L104,170" marker-end="url(#g-arb)"/>
+        <rect class="fig-warn" x="108" y="152" width="88" height="36" rx="6"/><path class="fig-e" d="M152,152 L152,188"/><text class="fig-t" x="130" y="176" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text><circle class="vz-dot" cx="174" cy="170" r="3.6"/>
+        <path class="fig-eg" d="M176,150 C 210,128 140,128 172,148" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="230" y="176">头结点指向自己 ⇒ 表空；没有 NULL，所以「判空」也要写成 head-&gt;next == head</text>
+
+        <text class="fig-s" x="20" y="228">(c) 只设尾指针 rear 的循环单链表：头插、尾插都是 O(1)</text>
+        <rect class="fig-acc" x="20" y="238" width="58" height="36" rx="6"/><text class="fig-t" x="49" y="262" text-anchor="middle" style="fill:var(--brand);font-size:12px">rear</text>
+        <path class="fig-eb" d="M78,256 L104,256" marker-end="url(#g-arb)"/>
+        <rect class="fig-ok" x="108" y="238" width="88" height="36" rx="6"/><path class="fig-e" d="M152,238 L152,274"/><text class="fig-t" x="130" y="262" text-anchor="middle" style="fill:var(--ok)">56</text><circle class="vz-dot" cx="174" cy="256" r="3.6"/>
+        <text class="fig-f" x="152" y="292" text-anchor="middle" style="fill:var(--ok)">rear = 尾结点</text>
+        <path class="fig-e" d="M196,256 L222,256" marker-end="url(#g-ar)"/>
+        <rect class="fig-warn" x="226" y="238" width="88" height="36" rx="6"/><path class="fig-e" d="M270,238 L270,274"/><text class="fig-t" x="248" y="262" text-anchor="middle" style="fill:var(--warn);font-size:12px">∅</text><circle class="vz-dot" cx="292" cy="256" r="3.6"/>
+        <text class="fig-f" x="270" y="292" text-anchor="middle" style="fill:var(--warn)">头结点</text>
+        <path class="fig-e" d="M314,256 L340,256" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="344" y="238" width="88" height="36" rx="6"/><path class="fig-e" d="M388,238 L388,274"/><text class="fig-t" x="366" y="262" text-anchor="middle">12</text><circle class="vz-dot" cx="410" cy="256" r="3.6"/>
+        <text class="fig-f" x="388" y="292" text-anchor="middle">首元结点</text>
+        <path class="fig-e" d="M432,256 L458,256" marker-end="url(#g-ar)"/>
+        <rect class="fig-box" x="462" y="238" width="88" height="36" rx="6"/><path class="fig-e" d="M506,238 L506,274"/><text class="fig-t" x="484" y="262" text-anchor="middle">34</text><circle class="vz-dot" cx="528" cy="256" r="3.6"/>
+        <path class="fig-eg" d="M532,276 C 560,330 120,330 150,278" marker-end="url(#g-arg)"/>
+        <text class="fig-f" x="620" y="200">头结点 = rear-&gt;next</text>
+        <text class="fig-f" x="620" y="220">首元结点 = rear-&gt;next-&gt;next</text>
+        <text class="fig-s" x="620" y="250" style="fill:var(--ok)">头插：s-&gt;next = rear-&gt;next-&gt;next;</text>
+        <text class="fig-s" x="620" y="270" style="fill:var(--ok)">　　　rear-&gt;next-&gt;next = s;</text>
+        <text class="fig-s" x="620" y="296" style="fill:var(--ok)">尾插：s-&gt;next = rear-&gt;next;</text>
+        <text class="fig-s" x="620" y="316" style="fill:var(--ok)">　　　rear-&gt;next = s; rear = s;</text>
+        <text class="fig-s" x="20" y="344">无论表多长，这两组操作都只改常数条指针 ⇒ O(1)。这就是「只设尾指针」的全部意义。</text>
+      </svg>
+      <figcaption>图 2-11　循环链表的三种形态与「只设尾指针」时 O(1) 头插 / 尾插的指针写法</figcaption>
+    </figure>
+
+    <h3 id="s5-2">2.5.2 只设尾指针：一个 O(1) 换两个 O(1)</h3>
+
+    <p>
+      普通单链表只设头指针时，<b>表头插入是 O(1)，表尾插入是 O(n)</b>（要走到尾）。
+      循环链表只要把指针设在<b>尾结点</b>上，两个操作就都变成 O(1)：
+    </p>
+
+    <ul>
+      <li><b>表尾在哪？</b> 就是 <code>rear</code> 本身，直接可用。</li>
+      <li><b>表头在哪？</b> <code>rear-&gt;next</code> 是头结点，<code>rear-&gt;next-&gt;next</code> 就是首元结点，两步常数操作。</li>
+    </ul>
+
+    <p>
+      所以「在表头插入」和「在表尾插入」都不需要遍历。这个技巧在实现链式队列（第 04 讲）时是标准做法：
+      队列需要「队尾入队 + 队头出队」，用只设尾指针的循环链表，两个操作都是 O(1)。
+    </p>
+
+    <pre data-lang="cpp" data-file="circular_list.cpp">// circular_list.cpp —— 只设尾指针的循环单链表：头插 / 尾插都是 O(1)
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
+
+class CircList {
+private:
+    Node* rear;                       // 尾指针：rear->next 就是头结点
+    int   len;
+
+public:
+    CircList() : len(0) {
+        rear = new Node();            // 建头结点
+        rear-&gt;next = rear;            // 空循环链表：头结点指向自己
+    }
+    ~CircList() { Clear(); delete rear; rear = nullptr; }
+
+    bool Empty() const { return rear-&gt;next == rear; }   // 注意：不是 == nullptr
+    int  Length() const { return len; }
+    Node* First() const { return rear-&gt;next-&gt;next; }    // 首元结点 = 头结点->next
+
+    void PushFront(int e) {           // 表头插入 O(1)，无需遍历
+        Node* s = new Node(e);
+        s-&gt;next = rear-&gt;next-&gt;next;    // ① 新结点接管原首元结点（表空时就是头结点自己）
+        rear-&gt;next-&gt;next = s;         // ② 头结点指向新结点
+        ++len;
+    }
+
+    void PushBack(int e) {            // 表尾插入 O(1)，因为有 rear
+        Node* s = new Node(e);
+        s-&gt;next = rear-&gt;next;         // ① 新结点接管头结点（成环的关键）
+        rear-&gt;next = s;               // ② 原尾结点指向新结点
+        rear = s;                     // ③ 尾指针后移
+        ++len;
+    }
+
+    bool PopFront(int&amp; e) {           // 表头删除 O(1)
+        if (Empty()) return false;
+        Node* q = rear-&gt;next-&gt;next;   // 首元结点
+        e = q-&gt;data;
+        rear-&gt;next-&gt;next = q-&gt;next;   // 头结点跨过 q（表里只剩一个结点时，正好指回头结点）
+        delete q;
+        --len;
+        return true;
+    }
+
+    void PrintList() const {          // 遍历结束条件：p != rear->next（回到头结点）
+        Node* head = rear-&gt;next;
+        cout &lt;&lt; "head";
+        for (Node* p = head-&gt;next; p != head; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
+        cout &lt;&lt; " -&gt; (回到 head)　len=" &lt;&lt; len &lt;&lt; endl;
+    }
+
+    void Clear() {
+        Node* head = rear-&gt;next;
+        Node* p = head-&gt;next;
+        while (p != head) { Node* q = p-&gt;next; delete p; p = q; }
+        head-&gt;next = head;            // 恢复成空循环链表
+        rear = head;
+        len = 0;
+    }
+};
+
+int main() {
+    CircList L;
+    L.PushBack(12);  L.PushBack(34);  L.PushBack(56);   // 12 34 56
+    L.PushFront(7);                                      // 7 12 34 56
+    L.PrintList();
+    int e = 0;
+    L.PopFront(e);  cout &lt;&lt; "队头出队: " &lt;&lt; e &lt;&lt; endl;       // 7
+    L.PushBack(99);                                      // 12 34 56 99
+    L.PrintList();
+    L.Clear();
+    cout &lt;&lt; "清空后 Empty() = " &lt;&lt; (L.Empty() ? "true" : "false") &lt;&lt; endl;
+    return 0;
+}
+</pre>
+
+    <h3 id="s5-3">2.5.3 约瑟夫环（Josephus）：循环链表的经典应用</h3>
+
+    <p>
+      <b>问题描述</b>：<code>n</code> 个人围成一圈，编号 <code>1…n</code>。
+      从 1 号开始报数，每报到 <code>m</code> 的人出圈，然后从出圈者的下一位重新从 1 报数，
+      如此反复，求最后剩下的人的编号。
+    </p>
+
+    <p>
+      为什么它天然适合循环链表？因为「报数到末尾再从头继续」这件事，
+      在循环链表里就是 <code>p = p-&gt;next</code> 一直走下去——
+      <b>不需要任何取模运算或边界判断</b>。用数组模拟的话，每次都要
+      <code>pos = (pos + 1) % n</code> 并跳过已出圈的人，代码更啰嗦。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 344" width="880" height="344" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="440" y="24" text-anchor="middle">约瑟夫环：n = 8，m = 3，出圈顺序 3 → 6 → 1 → 5 → 2 → 8 → 4，最后剩下 7</text>
+
+        <circle class="fig-dash" cx="440" cy="176" r="118" fill="none"/>
+        <circle class="fig-box" cx="440" cy="58"  r="21"/><text class="fig-t" x="440" y="63" text-anchor="middle">1</text>
+        <circle class="fig-box" cx="523" cy="92"  r="21"/><text class="fig-t" x="523" y="97" text-anchor="middle">2</text>
+        <circle class="fig-bad" cx="558" cy="176" r="21"/><text class="fig-t" x="558" y="181" text-anchor="middle" style="fill:var(--danger)">3</text>
+        <circle class="fig-box" cx="523" cy="260" r="21"/><text class="fig-t" x="523" y="265" text-anchor="middle">4</text>
+        <circle class="fig-box" cx="440" cy="294" r="21"/><text class="fig-t" x="440" y="299" text-anchor="middle">5</text>
+        <circle class="fig-bad" cx="357" cy="260" r="21"/><text class="fig-t" x="357" y="265" text-anchor="middle" style="fill:var(--danger)">6</text>
+        <circle class="fig-ok"  cx="322" cy="176" r="21"/><text class="fig-t" x="322" y="181" text-anchor="middle" style="fill:var(--ok)">7</text>
+        <circle class="fig-box" cx="357" cy="92"  r="21"/><text class="fig-t" x="357" y="97" text-anchor="middle">8</text>
+
+        <path class="fig-e" d="M459,73 A 118,118 0 0 1 514,104" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M536,107 A 118,118 0 0 1 556,155" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M553,197 A 118,118 0 0 1 527,242" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M506,270 A 118,118 0 0 1 460,292" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M419,292 A 118,118 0 0 1 373,271" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M342,244 A 118,118 0 0 1 324,198" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M328,155 A 118,118 0 0 1 352,110" marker-end="url(#g-ar)"/>
+        <path class="fig-e" d="M375,79 A 118,118 0 0 1 420,60" marker-end="url(#g-ar)"/>
+
+        <text class="fig-s" x="20" y="60">n = 8，m = 3</text>
+        <text class="fig-s" x="20" y="84">出圈：3 6 1 5 2 8 4</text>
+        <text class="fig-s" x="20" y="108" style="fill:var(--ok)">幸存：7</text>
+        <text class="fig-f" x="20" y="136">红色 = 已出圈</text>
+
+        <text class="fig-s" x="640" y="60">循环链表解法要点：</text>
+        <text class="fig-s" x="640" y="84">① 先建 n 个结点，首尾相接</text>
+        <text class="fig-s" x="640" y="108">② pre 记住 p 的前驱，方便摘链</text>
+        <text class="fig-s" x="640" y="132">③ 报数 m-1 次后，p 停在出圈者</text>
+        <text class="fig-s" x="640" y="156">④ pre-&gt;next = p-&gt;next 摘链</text>
+        <text class="fig-s" x="640" y="180">⑤ 终止条件 p-&gt;next == p</text>
+        <text class="fig-s" x="640" y="204">　 （只剩一个结点，指向自己）</text>
+        <text class="fig-s" x="640" y="228" style="fill:var(--warn)">时间 O(n·m)，空间 O(n)</text>
+        <text class="fig-s" x="640" y="266">若用数学递推（第 13 讲）：</text>
+        <text class="fig-s" x="640" y="290">f(1)=0；f(i)=(f(i-1)+m)%i</text>
+        <text class="fig-s" x="640" y="314">答案 = f(n)+1，时间 O(n)、空间 O(1)</text>
+      </svg>
+      <figcaption>图 2-12　约瑟夫环（n=8, m=3）的出圈过程与循环链表解法的关键步骤</figcaption>
+    </figure>
+
+    <pre data-lang="cpp" data-file="josephus.cpp">// josephus.cpp —— 约瑟夫环：循环链表完整解法
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node {
+    int   id;                                   // 编号 1..n
+    Node* next;
+    Node(int i = 0, Node* n = nullptr) : id(i), next(n) {}
+};
+
+/* n 个人围成一圈，从 1 号开始报数，报到 m 的人出圈，返回最后剩下的人的编号 */
+int Josephus(int n, int m) {
+    if (n &lt;= 0 || m &lt;= 0) return -1;
+
+    /* 第一步：建环。先建 1 号，再尾插其余，最后让尾结点指回 1 号 */
+    Node* head = new Node(1);
+    Node* tail = head;
+    for (int i = 2; i &lt;= n; ++i) {
+        tail-&gt;next = new Node(i);
+        tail = tail-&gt;next;
+    }
+    tail-&gt;next = head;                          // 首尾相接，成环（这一步不能漏）
+
+    /* 第二步：反复报数 + 摘链 */
+    Node* pre = tail;                           // pre 始终是 p 的前驱
+    Node* p   = head;                           // 从 1 号开始报「1」
+    cout &lt;&lt; "出圈顺序: ";
+    while (p-&gt;next != p) {                      // 只剩一个结点时，p->next 指向自己
+        for (int k = 1; k &lt; m; ++k) {           // 报数到 m：走 m-1 步
+            pre = p;
+            p = p-&gt;next;
+        }
+        cout &lt;&lt; p-&gt;id &lt;&lt; " ";
+        pre-&gt;next = p-&gt;next;                     // 摘链：前驱跨过 p
+        Node* dead = p;
+        p = p-&gt;next;                            // 从下一位重新从 1 开始报数
+        delete dead;                            // 释放出圈者，防止内存泄漏
+    }
+    cout &lt;&lt; endl;
+
+    int survivor = p-&gt;id;
+    delete p;                                   // 最后一个结点也要释放
+    return survivor;
+}
+
+/* 对照：数学递推解法（O(n) 时间、O(1) 空间），第 13 讲会详细推导 */
+int JosephusMath(int n, int m) {
+    int f = 0;                                  // f(1) = 0（0-based）
+    for (int i = 2; i &lt;= n; ++i) f = (f + m) % i;
+    return f + 1;                               // 转回 1-based
+}
+
+int main() {
+    cout &lt;&lt; "n=8, m=3 => 幸存者 " &lt;&lt; Josephus(8, 3) &lt;&lt; endl;         // 7
+    cout &lt;&lt; "n=41, m=3 => 幸存者 " &lt;&lt; Josephus(41, 3) &lt;&lt; endl;       // 31（经典约瑟夫斯问题）
+    cout &lt;&lt; "数学法校验 n=8, m=3 => " &lt;&lt; JosephusMath(8, 3) &lt;&lt; endl;   // 7
+    cout &lt;&lt; "数学法校验 n=41, m=3 => " &lt;&lt; JosephusMath(41, 3) &lt;&lt; endl; // 31
+    return 0;
+}
+</pre>
+
+    <h3 id="s5-4">2.5.4 循环双链表：删除任意结点的终极形态</h3>
+
+    <p>
+      把「循环」和「双向」合起来，就得到<b>循环双链表 circular doubly linked list</b>：
+      头结点的 <code>prior</code> 指向尾结点，尾结点的 <code>next</code> 指向头结点，
+      <b>整条链上一个 NULL 都没有</b>。
+    </p>
+
+    <p>
+      这个「没有 NULL」的性质带来一个非常漂亮的结论：
+      <b>删除任意给定结点 <code>p</code> 只需要两行，而且完全不需要判空</b>：
+    </p>
+
+    <div class="formula center">p-&gt;prior-&gt;next = p-&gt;next;　　p-&gt;next-&gt;prior = p-&gt;prior;　　delete p;</div>
+
+    <p>
+      对比一下：普通双链表要写 <code>if (q-&gt;next) q-&gt;next-&gt;prior = ...</code>，
+      单链表还要先 O(n) 找前驱。循环双链表把这两种特判和额外开销全部消掉了，
+      代价仅仅是「头结点的两个指针都要正确初始化」。这也是为什么 STL 的
+      <code>std::list</code> 底层就是一个<b>带哨兵结点的循环双链表</b>。
+    </p>
+
+    <pre data-lang="cpp" data-file="circular_dlink.cpp">// circular_dlink.cpp —— 循环双链表：插入 / 删除任意结点都是 O(1)，且无需判空
+#include &lt;iostream&gt;
+using namespace std;
+
+struct DNode {
+    int    data;
+    DNode* prior;
+    DNode* next;
+    DNode(int d = 0, DNode* p = nullptr, DNode* n = nullptr)
+        : data(d), prior(p), next(n) {}
+};
+
+class CircDLink {
+private:
+    DNode* head;                       // 哨兵头结点：head->prior 是尾结点，head->next 是首元结点
+    int    len;
+
+public:
+    CircDLink() : len(0) {
+        head = new DNode();            // 空表时两个指针都指向自己
+        head-&gt;prior = head;
+        head-&gt;next  = head;
+    }
+    ~CircDLink() { while (!Empty()) PopFront(); delete head; head = nullptr; }
+
+    bool Empty() const { return head-&gt;next == head; }
+    int  Length() const { return len; }
+
+    /* 在 p 之后插入结点 s。四步，且 p->next 永远非空 ⇒ 不需要任何判空 */
+    void InsertAfter(DNode* p, int e) {
+        DNode* s = new DNode(e);
+        s-&gt;prior = p;                  // ①
+        s-&gt;next  = p-&gt;next;            // ②
+        p-&gt;next-&gt;prior = s;            // ③ 循环双链表里 p->next 一定存在，直接写，无需 if
+        p-&gt;next = s;                   // ④
+        ++len;
+    }
+
+    /* 删除结点 p 本身：只改两根指针。这是循环双链表最优雅的地方 */
+    void DeleteNode(DNode* p) {
+        if (!p || p == head) return;   // 保护：不允许删掉哨兵
+        p-&gt;prior-&gt;next = p-&gt;next;      // ① 前驱跨过自己
+        p-&gt;next-&gt;prior = p-&gt;prior;     // ② 后继回指前驱
+        delete p;                      // ③ 释放。没有 NULL 需要判断
+        --len;
+    }
+
+    void PushBack(int e) { InsertAfter(head-&gt;prior, e); }   // 尾插：在尾结点之后插
+    void PushFront(int e) { InsertAfter(head, e); }         // 头插：在头结点之后插
+    bool PopFront() {
+        if (Empty()) return false;
+        DeleteNode(head-&gt;next);
+        return true;
+    }
+
+    void PrintForward() const {
+        cout &lt;&lt; "(head)";
+        for (DNode* p = head-&gt;next; p != head; p = p-&gt;next) cout &lt;&lt; " &lt;=&gt; " &lt;&lt; p-&gt;data;
+        cout &lt;&lt; " &lt;=&gt; (head)" &lt;&lt; endl;
+    }
+    void PrintBackward() const {
+        cout &lt;&lt; "反向: (head)";
+        for (DNode* p = head-&gt;prior; p != head; p = p-&gt;prior) cout &lt;&lt; " &lt;=&gt; " &lt;&lt; p-&gt;data;
+        cout &lt;&lt; " &lt;=&gt; (head)" &lt;&lt; endl;
+    }
+};
+
+int main() {
+    CircDLink L;
+    L.PushBack(12);  L.PushBack(34);  L.PushBack(56);
+    L.PushFront(7);                      // 7 12 34 56
+    L.PrintForward();
+    L.PrintBackward();                   // 56 34 12 7（验证 prior 链）
+
+    DNode* p = L.Empty() ? nullptr : nullptr;
+    L.DeleteNode(nullptr);               // 安全：传入空指针直接被挡回
+    L.PopFront();                        // 删掉 7
+    L.PrintForward();
+    cout &lt;&lt; "len = " &lt;&lt; L.Length() &lt;&lt; endl;
+    return 0;
+}
+/* 说明：把 head 当作哨兵后，「在表头插入」「在表尾删除」都不再是特例，
+   这与 std::list 的内部实现思路一致（std::list 就是带哨兵的循环双链表）。 */
+</pre>
+
+    <!-- ============================================================ 2.6 -->
+    <h2 id="s6">2.6 静态链表：用数组模拟指针</h2>
+
+    <p>
+      在早期语言（如 BASIC、FORTRAN）里根本没有指针，
+      但人们又需要链表「插入删除不搬家」的好处，于是发明了<b>静态链表 static linked list</b>：
+      <b>用一整块数组存放结点，用数组下标代替指针</b>。
+      这个「代替指针的下标」有一个专门的名字——<b>游标 cursor</b>。
+    </p>
+
+    <div class="formula center">struct SNode { int data; int next; };　　// next 不是指针，是「下一个结点在数组中的下标」</div>
+
+    <p>
+      约定：<code>next == -1</code> 表示空指针 <code>NULL</code>（有些教材用 <code>0</code>，
+      但那样下标 0 就不能用了）。由于每个结点的「地址」就是它在数组里的下标，
+      我们<b>永远不需要真的取地址</b>，只需要在下标之间跳来跳去。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text class="fig-h" x="20" y="24" text-anchor="start">静态链表：数组下标即「地址」，next 存的是游标（-1 表示 NULL）</text>
+
+        <text class="fig-f" x="115" y="52" text-anchor="middle">下标</text>
+        <text class="fig-f" x="245" y="52" text-anchor="middle">data</text>
+        <text class="fig-f" x="375" y="52" text-anchor="middle">next（游标）</text>
+
+        <rect class="fig-box" x="60"  y="60" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="81" text-anchor="middle" style="font-size:12px">0</text>
+        <rect class="fig-box" x="190" y="60" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="81" text-anchor="middle">21</text>
+        <rect class="fig-ok"  x="320" y="60" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="81" text-anchor="middle" style="fill:var(--ok)">2</text>
+
+        <rect class="fig-box" x="60"  y="96" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="117" text-anchor="middle" style="font-size:12px">1</text>
+        <rect class="fig-box" x="190" y="96" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="117" text-anchor="middle" style="fill:var(--text-faint)">空闲</text>
+        <rect class="fig-box" x="320" y="96" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="117" text-anchor="middle" style="fill:var(--text-faint)">4</text>
+
+        <rect class="fig-box" x="60"  y="132" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="153" text-anchor="middle" style="font-size:12px">2</text>
+        <rect class="fig-box" x="190" y="132" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="153" text-anchor="middle">32</text>
+        <rect class="fig-ok"  x="320" y="132" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="153" text-anchor="middle" style="fill:var(--ok)">4</text>
+
+        <rect class="fig-box" x="60"  y="168" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="189" text-anchor="middle" style="font-size:12px">3</text>
+        <rect class="fig-box" x="190" y="168" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="189" text-anchor="middle">58</text>
+        <rect class="fig-bad" x="320" y="168" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="189" text-anchor="middle" style="fill:var(--danger)">-1</text>
+
+        <rect class="fig-box" x="60"  y="204" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="225" text-anchor="middle" style="font-size:12px">4</text>
+        <rect class="fig-box" x="190" y="204" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="225" text-anchor="middle">45</text>
+        <rect class="fig-ok"  x="320" y="204" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="225" text-anchor="middle" style="fill:var(--ok)">3</text>
+
+        <rect class="fig-box" x="60"  y="240" width="110" height="30" rx="4"/><text class="fig-t" x="115" y="261" text-anchor="middle" style="font-size:12px">5</text>
+        <rect class="fig-box" x="190" y="240" width="110" height="30" rx="4"/><text class="fig-t" x="245" y="261" text-anchor="middle" style="fill:var(--text-faint)">空闲</text>
+        <rect class="fig-box" x="320" y="240" width="110" height="30" rx="4"/><text class="fig-t" x="375" y="261" text-anchor="middle" style="fill:var(--text-faint)">-1</text>
+
+        <path class="fig-eb" d="M430,75 L470,75" marker-end="url(#g-arb)"/>
+        <text class="fig-s" x="486" y="79">head = 0，从下标 0 开始：</text>
+        <text class="fig-s" x="486" y="106">a[0] 存 21，游标 2 ⇒ 下一个看 a[2]</text>
+        <text class="fig-s" x="486" y="130">a[2] 存 32，游标 4 ⇒ 下一个看 a[4]</text>
+        <text class="fig-s" x="486" y="154">a[4] 存 45，游标 3 ⇒ 下一个看 a[3]</text>
+        <text class="fig-s" x="486" y="178">a[3] 存 58，游标 -1 ⇒ 到尾，结束</text>
+        <text class="fig-s" x="486" y="206" style="fill:var(--brand)">逻辑顺序：21 → 32 → 45 → 58</text>
+        <text class="fig-s" x="486" y="230" style="fill:var(--text-soft)">物理顺序：a[0] a[2] a[4] a[3]（下标跳跃，不再连续）</text>
+        <text class="fig-s" x="486" y="258">空闲结点（下标 1、5）串成一条「备用链表」：</text>
+        <text class="fig-s" x="486" y="280">插入时取一个，删除时还回去，等于自己实现 new / delete。</text>
+      </svg>
+      <figcaption>图 2-13　静态链表：data 存数据、next 存游标；物理上不连续，逻辑上靠游标串起来</figcaption>
+    </figure>
+
+    <p>
+      静态链表的插入删除代码与单链表<b>几乎一模一样</b>，只是把
+      <code>p = p-&gt;next</code> 换成 <code>p = a[p].next</code>，
+      把 <code>new Node(e)</code> 换成 <code>Malloc()</code>（从备用链表摘一个下标），
+      把 <code>delete q</code> 换成 <code>Free(q)</code>（还回备用链表）。
+    </p>
+
+    <pre data-lang="cpp" data-file="static_list.cpp">// static_list.cpp —— 静态链表：数组 + 游标，完整实现插入 / 删除 / 遍历
+#include &lt;iostream&gt;
+using namespace std;
+
+const int MAXN = 100;
+
+struct SNode {
+    int data;
+    int next;                  // 游标：下一个结点在数组中的下标，-1 表示 NULL
+};
+
+SNode a[MAXN];
+const int FREE_HEAD = 0;       // a[0] 作为「备用链表」的头结点（相当于内存分配器）
+const int HEAD      = 1;       // a[1] 作为「数据链表」的头结点（哨兵）
+
+void InitList() {
+    for (int i = 0; i &lt; MAXN - 1; ++i) a[i].next = i + 1;
+    a[MAXN - 1].next = -1;     // 先把所有结点串成一条备用链表
+    a[HEAD].next      = -1;    // 数据链表为空
+    a[FREE_HEAD].next = 2;     // 下标 0、1 已被占用，备用链表从 2 开始
+}
+
+int Malloc() {                 // 从备用链表借一个结点，返回下标；-1 表示空间耗尽
+    int i = a[FREE_HEAD].next;
+    if (i != -1) a[FREE_HEAD].next = a[i].next;
+    return i;                  // 这一步相当于 new 失败时返回空
+}
+
+void Free(int k) {             // 把下标 k 的结点还给备用链表（相当于 delete）
+    a[k].next = a[FREE_HEAD].next;
+    a[FREE_HEAD].next = k;
+}
+
+int Length() {
+    int n = 0;
+    for (int p = a[HEAD].next; p != -1; p = a[p].next) ++n;   // 注意：-1 才是终止条件
+    return n;
+}
+
+bool ListInsert(int i, int e) {                 // 在位序 i 插入
+    if (i &lt; 1 || i &gt; Length() + 1) return false;
+    int p = HEAD;                               // p 是「下标」，不是指针
+    for (int k = 1; k &lt; i; ++k) p = a[p].next;  // 走到第 i-1 个结点
+    int s = Malloc();
+    if (s == -1) return false;                  // 空间满，相当于 new 失败
+    a[s].data = e;
+    a[s].next = a[p].next;                      // ① 先连
+    a[p].next = s;                              // ② 后断——和单链表完全一样的套路
+    return true;
+}
+
+bool ListDelete(int i, int&amp; e) {                // 删除位序 i
+    if (i &lt; 1 || i &gt; Length()) return false;
+    int p = HEAD;
+    for (int k = 1; k &lt; i; ++k) p = a[p].next;  // 找前驱
+    int q = a[p].next;
+    e = a[q].data;
+    a[p].next = a[q].next;                      // 跨过 q
+    Free(q);                                    // 把下标还回备用链表
+    return true;
+}
+
+void PrintList() {
+    cout &lt;&lt; "head";
+    for (int p = a[HEAD].next; p != -1; p = a[p].next)
+        cout &lt;&lt; " -&gt; [" &lt;&lt; p &lt;&lt; "]" &lt;&lt; a[p].data;
+    cout &lt;&lt; " -&gt; -1　(len=" &lt;&lt; Length() &lt;&lt; ")" &lt;&lt; endl;
+}
+
+int main() {
+    InitList();
+    int arr[] = {21, 32, 45, 58};
+    for (int k = 0; k &lt; 4; ++k) ListInsert(Length() + 1, arr[k]);   // 依次追加
+    PrintList();                       // head -> [2]21 -> [3]32 -> [4]45 -> [5]58 -> -1
+
+    ListInsert(2, 7);                  // 在下标不连续的情况下「插队」
+    PrintList();
+
+    int del = 0;
+    ListDelete(3, del);
+    cout &lt;&lt; "删除了 " &lt;&lt; del &lt;&lt; endl;
+    PrintList();
+    /* 关键观察：整张表始终在同一个数组里，插入删除只改游标，没有任何元素搬家。 */
+    return 0;
+}
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">静态链表用在哪？</span>
+      <ul style="margin-bottom:0">
+        <li><b>不支持指针的语言</b>：早期的 BASIC / FORTRAN，以及某些嵌入式或脚本环境，只能用数组模拟。</li>
+        <li><b>竞赛中减少 new / delete 开销</b>：<code>new</code> 涉及堆管理和系统调用，常数很大；
+            开一个大数组循环使用，速度可以快几倍。图论里的「链式前向星」就是静态链表思想。</li>
+        <li><b>需要连续内存 + 稳定地址</b>：所有结点都在同一个数组里，便于序列化、
+            也便于「一次分配、永不搬家」的场景。</li>
+        <li>代价：容量固定（编写时就要定 <code>MAXN</code>），且游标是人为约定，
+            越界不会报错，调试时要自己画图确认。</li>
+      </ul>
+    </div>
+
+    <!-- ============================================================ 2.7 -->
+    <h2 id="s7">2.7 五者对比：一张表看清所有取舍</h2>
+
+    <p>
+      学到这里，我们已经见了五种线性表的实现。它们解决的是<b>同一个逻辑问题</b>，
+      差别全部集中在「怎么在内存里表示『下一个』」这一个决定上。
+      下面这张表请务必自己默写一遍——它是本章的「总账」。
+    </p>
+
+    <h3 id="s7-1">2.7.1 横向对比大表</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>对比维度</th>
+            <th>顺序表</th>
+            <th>单链表</th>
+            <th>双向链表</th>
+            <th>循环链表</th>
+            <th>静态链表</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>存储方式</b></td>
+            <td>一段连续内存，逻辑相邻 = 物理相邻</td>
+            <td>结点分散在堆上，靠指针相连</td>
+            <td>结点分散在堆上，两个指针相连</td>
+            <td>链式存储，尾结点指回头结点</td>
+            <td>数组 + 游标，物理不连续、逻辑相连</td>
+          </tr>
+          <tr>
+            <td><b>是否随机存取</b></td>
+            <td class="c-ok">是（O(1)）</td>
+            <td class="c-bad">否，只能顺序存取</td>
+            <td class="c-bad">否</td>
+            <td class="c-bad">否</td>
+            <td class="c-bad">否</td>
+          </tr>
+          <tr>
+            <td><b>查找第 i 个元素</b></td>
+            <td class="c-ok">O(1)，算地址即可</td>
+            <td>O(n)，走 i−1 步</td>
+            <td>O(n)（可从头或从尾取近的一侧，常数减半）</td>
+            <td>O(n)，注意别绕圈绕不停</td>
+            <td>O(n)，靠游标跳</td>
+          </tr>
+          <tr>
+            <td><b>按值查找</b></td>
+            <td>O(n)，平均比较 (n+1)/2 次</td>
+            <td>O(n)，比较 + 走指针</td>
+            <td>O(n)</td>
+            <td>O(n)</td>
+            <td>O(n)</td>
+          </tr>
+          <tr>
+            <td><b>插入 / 删除</b></td>
+            <td class="c-bad">O(n)，平均移动 n/2 或 (n−1)/2 个元素；<b>表尾均摊 O(1)</b></td>
+            <td>已知前驱 O(1)（改 2 根指针）；按位操作 O(n) 找前驱</td>
+            <td class="c-ok">已知结点 O(1)（改 4 根指针）；按位操作 O(n) 找位置</td>
+            <td>只设尾指针时头插 / 尾插均 O(1)</td>
+            <td>与单链表相同（O(n) 找前驱 + O(1) 改游标）</td>
+          </tr>
+          <tr>
+            <td><b>空间开销</b></td>
+            <td class="c-ok">无额外指针，存储密度 = 1（可能预留空位）</td>
+            <td>每结点 1 个指针域，存储密度 &lt; 1</td>
+            <td class="c-bad">每结点 2 个指针域，开销最大</td>
+            <td>同单链表（循环双链表则同双向链表）</td>
+            <td>每结点 1 个游标（通常 4 字节，比指针省一半）</td>
+          </tr>
+          <tr>
+            <td><b>能否双向遍历</b></td>
+            <td class="c-ok">能（下标增减即可）</td>
+            <td class="c-bad">不能</td>
+            <td class="c-ok">能，靠 prior</td>
+            <td>能绕圈正向，单向链表不能反向</td>
+            <td class="c-bad">不能</td>
+          </tr>
+          <tr>
+            <td><b>实现难度</b></td>
+            <td class="c-ok">低，几乎不出指针 bug</td>
+            <td>中，插入顺序 / 释放内存易错</td>
+            <td class="c-bad">高，四条指针顺序不能乱</td>
+            <td>中高，遍历终止条件易写错</td>
+            <td>中，游标越界不报错，调试靠画图</td>
+          </tr>
+          <tr>
+            <td><b>典型应用</b></td>
+            <td>查多改少的表；<code>vector</code>、字符串、哈希表的桶数组、图的邻接矩阵</td>
+            <td>频繁插入删除的表；栈 / 队列的链式实现、图的邻接表、哈希拉链、多项式加法</td>
+            <td>需要反向遍历或频繁删已知结点的场景；<code>std::list</code>、LRU 缓存、文本编辑器的行表、浏览器前进后退</td>
+            <td>轮流调度（时间片轮转）、约瑟夫环、环形缓冲区、链式队列</td>
+            <td>无指针语言；竞赛中的链式前向星、内存池</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s7-2">2.7.2 顺序表 vs 链表：复杂度总表</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>操作</th><th>顺序表</th><th>单链表</th><th>备注</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>按下标 / 位序取值 GetElem</td><td class="c-ok">O(1)</td><td class="c-bad">O(n)</td><td>顺序表的看家本领</td></tr>
+          <tr><td>按值查找 LocateElem</td><td>O(n)</td><td>O(n)</td><td>顺序表只比较，链表还要走指针，实际更慢</td></tr>
+          <tr><td>在表头插入</td><td class="c-bad">O(n)（全体后移）</td><td class="c-ok">O(1)</td><td>链表只需改两根指针</td></tr>
+          <tr><td>在表尾插入</td><td class="c-ok">O(1) 均摊</td><td>O(1)（带尾指针）/ O(n)（不带）</td><td>顺序表扩容那一次是 O(n)，均摊后为 O(1)</td></tr>
+          <tr><td>在中间第 i 个位置插入</td><td class="c-bad">O(n)，移动 n−i+1 个</td><td>O(n)（找前驱）+ O(1)（改指针）</td><td>都是 O(n)，但链表移动的是「指针」而不是「整个元素」，<b>元素很大时链表优势明显</b></td></tr>
+          <tr><td>删除表头</td><td class="c-bad">O(n)</td><td class="c-ok">O(1)</td><td>—</td></tr>
+          <tr><td>删除表尾</td><td class="c-ok">O(1)</td><td class="c-bad">O(n)（要找到倒数第二个）</td><td>双向链表可做到 O(1)</td></tr>
+          <tr><td>删除已知结点 p</td><td class="c-bad">O(n)（要前移）</td><td class="c-bad">O(n)（要找前驱）</td><td>双向链表 O(1)；单链表可用「后继覆盖法」O(1)（尾结点除外）</td></tr>
+          <tr><td>遍历全部元素</td><td>O(n)，缓存友好、常数极小</td><td>O(n)，缓存不友好、常数较大</td><td>实测顺序表常常快 2～10 倍</td></tr>
+          <tr><td>求表长</td><td class="c-ok">O(1)（存了 len）</td><td>O(1)（存了 len）/ O(n)（靠遍历数）</td><td>不设长度变量就只能数</td></tr>
+          <tr><td>额外空间</td><td>O(1)（不含预留空位）</td><td>O(n)（n 个指针域）</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">「链表插入删除是 O(1)」这句话并不完整</span>
+      必须加上前提：<b>已经持有插入位置的前驱（或待删结点）的指针</b>。
+      如果题目是「在第 i 个位置插入」，那么<b>找位置本身就要 O(n)</b>，整体仍是 O(n)。
+      很多同学在考试里把「按位插入」也答成 O(1)，这是最常见的丢分点。
+      正确说法是：<b>链表在「已知位置指针」时插入删除是 O(1)，这比顺序表强；
+      但定位到那个位置的代价是 O(n)，这比顺序表弱。</b>
+    </div>
+
+    <!-- ============================================================ 2.8 -->
+    <h2 id="s8">2.8 选型决策：这道题到底该用顺序表还是链表？</h2>
+
+    <p>
+      工程中选错存储结构，往往比写错一个循环更致命——因为它决定了整个系统的性能上限。
+      下面这张流程图把常见判断浓缩成三个问题，从上往下走一遍，基本就能定下来。
+    </p>
+
+    <figure class="figure">
+      <svg viewBox="0 0 880 612" width="880" height="612" xmlns="http://www.w3.org/2000/svg" role="img">
+        <rect class="fig-box" x="150" y="12" width="300" height="44" rx="10"/>
+        <text class="fig-t" x="300" y="40" text-anchor="middle" style="font-size:13px">要存一组同类型元素，怎么选？</text>
+        <path class="fig-e" d="M300,56 L300,80" marker-end="url(#g-ar)"/>
+
+        <polygon class="fig-warn" points="300,84 470,130 300,176 130,130"/>
+        <text class="fig-s" x="300" y="126" text-anchor="middle" style="fill:var(--warn)">需要按下标 O(1) 随机访问？</text>
+        <text class="fig-f" x="300" y="146" text-anchor="middle" style="fill:var(--warn)">（如「取第 k 个」「折半查找」）</text>
+        <path class="fig-eg" d="M470,130 L556,130" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="512" y="120" text-anchor="middle" style="fill:var(--ok)">是</text>
+        <rect class="fig-ok" x="560" y="100" width="300" height="60" rx="10"/>
+        <text class="fig-t" x="710" y="126" text-anchor="middle" style="fill:var(--ok);font-size:13px">顺序表 SeqList / vector&lt;T&gt;</text>
+        <text class="fig-f" x="710" y="146" text-anchor="middle">连续内存、cache 友好；若表长会涨，用动态扩容版</text>
+
+        <path class="fig-e" d="M300,176 L300,232" marker-end="url(#g-ar)"/>
+        <text class="fig-s" x="314" y="208" style="fill:var(--text-soft)">否</text>
+        <polygon class="fig-warn" points="300,236 475,282 300,328 125,282"/>
+        <text class="fig-s" x="300" y="278" text-anchor="middle" style="fill:var(--warn)">插入 / 删除是否几乎只在表尾？</text>
+        <text class="fig-f" x="300" y="298" text-anchor="middle" style="fill:var(--warn)">（如「一直往后追加」）</text>
+        <path class="fig-eg" d="M475,282 L556,282" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="516" y="272" text-anchor="middle" style="fill:var(--ok)">是</text>
+        <rect class="fig-ok" x="560" y="252" width="300" height="60" rx="10"/>
+        <text class="fig-t" x="710" y="278" text-anchor="middle" style="fill:var(--ok);font-size:13px">仍然推荐顺序表</text>
+        <text class="fig-f" x="710" y="298" text-anchor="middle">表尾追加均摊 O(1)，没有指针开销，还能随机访问</text>
+
+        <path class="fig-e" d="M300,328 L300,382" marker-end="url(#g-ar)"/>
+        <text class="fig-s" x="314" y="360" style="fill:var(--text-soft)">否</text>
+        <polygon class="fig-warn" points="300,386 485,432 300,478 115,432"/>
+        <text class="fig-s" x="300" y="428" text-anchor="middle" style="fill:var(--warn)">需要频繁找前驱 / 双向遍历？</text>
+        <text class="fig-f" x="300" y="448" text-anchor="middle" style="fill:var(--warn)">（如「删除已知结点」「从后往前」）</text>
+        <path class="fig-eg" d="M485,432 L556,432" marker-end="url(#g-arg)"/>
+        <text class="fig-s" x="520" y="422" text-anchor="middle" style="fill:var(--ok)">是</text>
+        <rect class="fig-ok" x="560" y="402" width="300" height="60" rx="10"/>
+        <text class="fig-t" x="710" y="428" text-anchor="middle" style="fill:var(--ok);font-size:13px">双向链表 DLinkList</text>
+        <text class="fig-f" x="710" y="448" text-anchor="middle">删除已知结点 O(1)，可反向遍历；代价是多一个指针域</text>
+
+        <path class="fig-e" d="M300,478 L300,518" marker-end="url(#g-ar)"/>
+        <text class="fig-s" x="314" y="504" style="fill:var(--text-soft)">否</text>
+        <rect class="fig-acc" x="150" y="520" width="300" height="56" rx="10"/>
+        <text class="fig-t" x="300" y="546" text-anchor="middle" style="fill:var(--brand);font-size:13px">单链表 SinglyList</text>
+        <text class="fig-f" x="300" y="566" text-anchor="middle">每个结点省一个指针域；插入删除集中在表头 / 中间时最优</text>
+
+        <text class="fig-s" x="560" y="500">补充四条经验：</text>
+        <text class="fig-s" x="560" y="524">· 只在两端进出 ⇒ 直接用栈 / 队列（第 03、04 讲）</text>
+        <text class="fig-s" x="560" y="548">· 需要「轮流循环」 ⇒ 循环链表</text>
+        <text class="fig-s" x="560" y="572">· 元素很大时，链表的「只搬指针」优势会被放大</text>
+        <text class="fig-s" x="560" y="596">· 拿不准就先写 vector，之后再优化</text>
+      </svg>
+      <figcaption>图 2-14　顺序表 / 链表的选型决策流程图（沿箭头回答三个问题即可定位）</figcaption>
+    </figure>
+
+    <div class="note tip">
+      <span class="note-title">工程上的实话</span>
+      现实中 90% 的场景应该先用 <code>std::vector</code>（顺序表）。原因有三：
+      一是 CPU 缓存对连续内存极其友好，实测遍历速度快数倍，实测数据常常盖过理论复杂度；
+      二是 <code>vector</code> 的插入虽然理论是 O(n)，但 <code>memmove</code> 搬字节的速度极快，
+      在几千个元素的规模下和链表的差距微乎其微；
+      三是它没有指针 bug、没有内存泄漏、迭代器更安全。
+      <b>只有当元素数量很大、元素本身很大、且插入删除极其频繁时，链表才真正划算。</b>
+    </div>
+
+    <!-- ============================================================ 2.9 -->
+    <h2 id="s9">2.9 C++ 实战与七条高频易错点</h2>
+
+    <p>
+      链表代码写不对，往往不是算法想不明白，而是踩了 C++ 内存管理的坑。
+      下面这七条，每一条都能让你的程序在「本地跑得好好的，一交上去就 RE」。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">易错 1：内存泄漏——new 了却忘记 delete</span>
+      链表结点是在堆上 <code>new</code> 出来的，<b>不会自动回收</b>。
+      常见泄漏点有三处：
+      ① 删除结点时只改了指针没 <code>delete q</code>；
+      ② 整表清空时没循环释放；
+      ③ 顺序表 <code>grow()</code> 时忘了 <code>delete[] data</code>。
+      更隐蔽的是「断链泄漏」：<code>p-&gt;next = s;</code> 先执行，
+      原来那段链就再也没有指针指向它，<code>delete</code> 无从谈起，整段内存永久丢失。
+      <b>自查方法</b>：每写一个 <code>new</code>，立刻在纸上标注「谁负责 delete 它」。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 2：野指针与重复释放（double free）</span>
+      <code>delete q;</code> 之后，<code>q</code> 这个变量里仍然存着那个已经失效的地址，
+      此时 <code>q</code> 就是<b>野指针 dangling pointer</b>。
+      再去 <code>q-&gt;data</code> 是未定义行为，再 <code>delete q</code> 一次就是 double free，程序直接 abort。
+      正确习惯是 <code>delete q; q = nullptr;</code>——虽然 <code>nullptr</code> 上的
+      <code>delete</code> 是安全的空操作，但访问 <code>nullptr-&gt;data</code> 会立刻段错误，
+      <b>把一个「随机崩溃」变成「稳定崩溃」</b>，这已经能省下几个小时的调试时间。
+      同理，顺序表的析构、拷贝构造、赋值运算符必须成套出现，否则
+      两个对象共用一块内存，析构时必然 double free。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 3：new 失败不是返回空指针，而是抛异常</span>
+      标准 <code>new</code> 在内存不足时抛出 <code>std::bad_alloc</code> 异常，
+      <b>不会返回 <code>nullptr</code></b>，所以写 <code>Node* p = new Node(); if (!p) ...</code>
+      这种检查是完全无效的（除非用了 <code>new (std::nothrow) Node()</code>）。
+      正确做法二选一：用 <code>try / catch</code> 捕获 <code>std::bad_alloc</code>；
+      或者在嵌入式等不允许异常的环境用 <code>new (std::nothrow)</code> 再判空。
+      另外，OG 竞赛平台上内存超限通常直接给出 MLE，题目数据规模大的话，
+      该用静态链表（数组模拟）就得用。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 4：结构体自引用必须用指针，且 typedef 有坑</span>
+      <code>struct Node { int data; Node* next; };</code> 里的 <code>Node*</code> 在 C++ 中没问题；
+      但在 C 语言里写成 <code>struct Node { int data; struct Node* next; };</code> 才行，
+      因为 C 的结构体名不会自动成为类型名。<code>typedef struct Node { ... } Node;</code> 之后
+      才可以直接写 <code>Node* next;</code>。
+      写成 <code>Node next;</code>（少星号）会报 <code>incomplete type</code>——
+      编译器算不出「包含自己的自己」有多大。这条错误信息在作业里出现率极高。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 5：模板类不能「声明在 .h、实现在 .cpp」</span>
+      如果你把 <code>template &lt;typename T&gt; class SeqList</code> 的声明放在
+      <code>seqlist.h</code>、成员函数定义放在 <code>seqlist.cpp</code>，
+      然后在 <code>main.cpp</code> 里 <code>#include "seqlist.h"</code>，
+      链接时一定报 <b>undefined reference</b>。
+      原因：模板本身不是代码，编译器在实例化 <code>SeqList&lt;int&gt;</code> 时才生成代码，
+      而编译 <code>seqlist.cpp</code> 时它看不到 <code>main.cpp</code> 用了哪个 <code>T</code>，
+      于是什么也没生成。
+      <b>三种解法</b>：① 全部写在头文件里（最常用）；② 头文件末尾
+      <code>#include "seqlist.cpp"</code>；③ 在 <code>.cpp</code> 里显式实例化
+      <code>template class SeqList&lt;int&gt;;</code>。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 6：nullptr 与 NULL 不是一回事</span>
+      <code>NULL</code> 在 C++ 里通常被定义为整数常量 <code>0</code>，
+      而 <code>nullptr</code> 是真正的空指针类型 <code>std::nullptr_t</code>。
+      这会导致重载决议诡异：
+      <code>void f(int); void f(char*); f(NULL);</code> 会调用 <code>f(int)</code>——
+      因为 <code>0</code> 是整数！而 <code>f(nullptr)</code> 才会正确调用 <code>f(char*)</code>。
+      链表代码里凡是判空、赋空，一律写 <code>nullptr</code>（C++11 起），
+      既能避免歧义，也能让模板推导更准确。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错 7：头结点的数据域不是 a1，表长也不含头结点</span>
+      头结点是「哑结点」，它的 <code>data</code> 没有意义（有些教材用来存表长）。
+      以下三条都算错：
+      ① 把 <code>head-&gt;data</code> 当成第一个元素返回；
+      ② 求表长时把 <code>head</code> 也算进去，得到 <code>n+1</code>；
+      ③ 遍历时写 <code>for (p = head; p; p = p-&gt;next)</code>，
+      结果多输出一个垃圾值。
+      标准写法永远是 <code>for (Node* p = head-&gt;next; p; p = p-&gt;next)</code>——
+      <b>从头结点的下一个开始</b>。
+    </div>
+
+    <!-- ============================================================ 2.10 -->
+    <h2 id="s10">2.10 本章小结</h2>
+
+    <p>
+      本章的骨架其实只有一句话：<b>逻辑结构相同，物理实现不同，复杂度就不同</b>。
+      线性表的逻辑是「一对一」，而「一对一」可以用连续内存的<b>位置相邻</b>来表示，
+      也可以用散落结点的<b>指针指向</b>来表示。前者叫顺序表，后者叫链表。
+      后续所有的展开——双向、循环、静态——都只是在这两个极端之间做加法和折中。
+    </p>
+
+    <h3 id="s10-1">2.10.1 一张图记住五种结构</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>结构</th><th>一句话记住它</th><th>核心代价</th><th>核心收益</th></tr></thead>
+        <tbody>
+          <tr><td>顺序表</td><td>元素挨着放，地址能算出来</td><td>插入删除 O(n)</td><td>随机存取 O(1)、缓存友好</td></tr>
+          <tr><td>单链表</td><td>结点散着放，用一根指针串起来</td><td>失去随机存取</td><td>插入删除只改指针</td></tr>
+          <tr><td>双向链表</td><td>再存一根「回头路」</td><td>每结点多一个指针域</td><td>删除已知结点 O(1)、可反向遍历</td></tr>
+          <tr><td>循环链表</td><td>尾巴接回头上，没有 NULL</td><td>遍历条件变成「回到起点」</td><td>从任意结点可遍历全表；只设尾指针时头尾都 O(1)</td></tr>
+          <tr><td>静态链表</td><td>用数组下标冒充指针</td><td>容量写死、游标不报错</td><td>无指针也能玩链表；省 new 开销</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s10-2">2.10.2 必须能默写出来的六段代码</h3>
+
+    <ol>
+      <li><b>顺序表插入</b>：边界 <code>len+1</code>、满了先 <code>grow()</code>、<b>从后往前</b>搬元素。</li>
+      <li><b>顺序表删除</b>：边界 <code>len</code>、先用引用带回被删值、<b>从前往后</b>搬元素。</li>
+      <li><b>单链表插入</b>：走 <code>i−1</code> 步找前驱、<b><code>s-&gt;next = p-&gt;next;</code> 在前</b>。</li>
+      <li><b>单链表删除</b>：先 <code>q = p-&gt;next;</code> 保存、再跨过、最后 <code>delete q;</code>。</li>
+      <li><b>反转链表（迭代）</b>：<code>pre/cur/nxt</code> 三指针，四步一轮。</li>
+      <li><b>Floyd 判环 + 找入口</b>：快慢指针相遇；两指针分别从表头与相遇点同步走。</li>
+    </ol>
+
+    <div class="note tip">
+      <span class="note-title">三句口诀</span>
+      ① <b>顺序表：按下标快，按值慢，插删要搬家。</b><br>
+      ② <b>链表：找位置慢，改指针快，多花一个域。</b><br>
+      ③ <b>指针顺序：先给新结点找出路，再让老结点改路标；要用旧值，就不能先覆盖。</b>
+    </div>
+
+    <!-- ============================================================ 2.11 -->
+    <h2 id="s11">2.11 考点归纳与自测</h2>
+
+    <div class="note exam">
+      <span class="note-title">本章高频考点清单</span>
+      <ol style="margin-bottom:0">
+        <li><b>概念判断</b>：首元素无前驱、尾元素无后继；线性表的逻辑特征与存储方式无关；
+            「顺序存储」≠「顺序存取」；「随机存取」只有顺序表具备。</li>
+        <li><b>地址计算</b>：<code>LOC(a<sub>i</sub>) = LOC(a<sub>1</sub>) + (i−1)×L</code>。
+            常以「已知首地址与每个元素字节数，求第 i 个元素的地址」形式出现，
+            注意位序与下标的转换。</li>
+        <li><b>平均移动次数</b>：插入 <code>n/2</code>，删除 <code>(n−1)/2</code>，
+            要求能写出求和推导过程。</li>
+        <li><b>头结点作用</b>：统一空表 / 非空表、统一首位置 / 其他位置的操作。</li>
+        <li><b>指针操作顺序</b>：单链表插入「先连后断」；双向链表「③ 在 ④ 之前」；
+            常以「下列代码哪一句顺序错了」的形式考。</li>
+        <li><b>复杂度对比</b>：给定场景选结构，或问「在单链表中删除 p 所指结点的时间复杂度」（O(n)）。</li>
+        <li><b>经典算法</b>：链表反转、快慢指针求中间结点 / 倒数第 k 个、Floyd 判环与环入口推导、
+            合并有序链表、删除重复元素。</li>
+        <li><b>循环链表</b>：遍历终止条件 <code>p != head</code>；空表判断 <code>head-&gt;next == head</code>；
+            只设尾指针时的头插 / 尾插代码。</li>
+        <li><b>静态链表</b>：游标的概念、<code>-1</code> 表示 NULL、适用场景。</li>
+      </ol>
+    </div>
+
+    <h3 id="s11-1">2.11.1 自测题（答案已折叠，请先自己做）</h3>
+
+    <div class="card">
+      <p><b>第 1 题（计算题）</b>　一个顺序表中有 <code>n = 10</code> 个元素，
+      现在要在第 <code>i = 3</code> 个位置插入一个新元素，需要移动多少个元素？
+      若在第 <code>i = 3</code> 个位置删除一个元素，又需要移动多少个？
+      并说明为什么「插入平均 n/2」而「删除平均 (n−1)/2」。</p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p><b>插入</b>：移动 <code>n − i + 1 = 10 − 3 + 1 = 8</code> 个元素
+          （原来的 <code>a<sub>3</sub>…a<sub>10</sub></code> 全部后移一格）。</p>
+          <p><b>删除</b>：移动 <code>n − i = 10 − 3 = 7</code> 个元素
+          （原来的 <code>a<sub>4</sub>…a<sub>10</sub></code> 前移一格）。</p>
+          <p><b>为什么平均值不同</b>：插入有 <code>n+1 = 11</code> 个合法位置，
+          移动次数分别是 <code>10, 9, 8, …, 1, 0</code>，总和 <code>55</code>，
+          平均 <code>55/11 = 5 = n/2</code>；
+          删除有 <code>n = 10</code> 个合法位置，移动次数分别是 <code>9, 8, …, 1, 0</code>，
+          总和 <code>45</code>，平均 <code>45/10 = 4.5 = (n−1)/2</code>。
+          差别来自「插入多了一个『插在表尾、移动 0 次』的位置」，因此分母更大、平均值更小。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 2 题（算法设计）</b>　带头结点的单链表中，删除所有值为 <code>x</code> 的结点。
+      要求：只遍历一遍链表，空间 O(1)，并正确处理「连续多个 x」「x 在表尾」「表里全是 x」三种情况。</p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p><b>思路</b>：用 <code>p</code> 指向「已确认保留」的最后一个结点，检查 <code>p-&gt;next</code>。
+          <b>关键点：删掉一个结点后 <code>p</code> 不能前进</b>，
+          因为新的 <code>p-&gt;next</code> 可能还是 <code>x</code>。</p>
+          <pre data-lang="cpp" data-file="delete_all_x.cpp">// delete_all_x.cpp —— 删除单链表中所有值为 x 的结点（一趟扫描，O(n) 时间 / O(1) 空间）
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node {
+    int   data;
+    Node* next;
+    Node(int d = 0, Node* n = nullptr) : data(d), next(n) {}
+};
+
+void DeleteAllX(Node* head, int x) {   // head 是头结点
+    Node* p = head;                    // p 是「最后一个确定保留的结点」
+    while (p-&gt;next) {
+        if (p-&gt;next-&gt;data == x) {
+            Node* q = p-&gt;next;         // 保存待删结点
+            p-&gt;next = q-&gt;next;         // 跨过它
+            delete q;                  // 释放
+            /* 注意：这里 p 不前进！新后继可能仍是 x */
+        } else {
+            p = p-&gt;next;               // 只有确认保留才前进
+        }
+    }
+}
+/* 三种情况都被覆盖：
+   - 连续多个 x：删掉一个后 p 不动，下一轮继续检查新的 p->next；
+   - x 在表尾：p->next 是尾结点，删除后 p->next 变成 nullptr，循环正常结束；
+   - 全是 x：p 始终停在头结点，把所有数据结点依次删光，最后 p->next == nullptr。 */
+
+/* 测试：1 2 2 2 3 4 2 —— 同时覆盖「连续多个 x」「x 在表尾」两种情况 */
+int main() {
+    Node* head = new Node();               // 头结点（哑结点）
+    Node* r = head;
+    int a[] = {1, 2, 2, 2, 3, 4, 2};
+    for (int k = 0; k &lt; 7; ++k) { r->next = new Node(a[k]); r = r->next; }
+
+    DeleteAllX(head, 2);
+
+    for (Node* p = head->next; p; p = p->next) cout &lt;&lt; p->data &lt;&lt; " ";
+    cout &lt;&lt; endl;                          // 1 3 4
+
+    for (Node* p = head; p; ) { Node* q = p->next; delete p; p = q; }  // 整表释放
+    return 0;
+}</pre>
+          <p><b>复杂度</b>：每个结点最多被访问一次，时间 O(n)；只用了两个指针变量，空间 O(1)。</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 3 题（证明题）</b>　请证明 Floyd 判环算法中「从表头与相遇点同时出发、每次走一步，
+      一定会在环入口相遇」。并说明：如果快指针每次走 3 步而不是 2 步，还能保证相遇吗？</p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p><b>第一问</b>：设表头到环入口为 <code>a</code> 步，环长为 <code>b</code>，
+          入口沿前进方向走 <code>c</code> 步到相遇点，slow 从出发到相遇共走 <code>t</code> 步。则：</p>
+          <div class="formula">
+            t = a + c　（slow 的路径）<br>
+            2t = a + c + m·b　（fast 多绕了 m 整圈，m ≥ 1）
+          </div>
+          <p>两式相减得 <code>t = m·b</code>，代回第一式：</p>
+          <div class="formula center">a = m·b − c = (m − 1)·b + (b − c)</div>
+          <p>
+            从相遇点出发走 <code>b − c</code> 步恰好回到环入口，再绕 <code>m − 1</code> 整圈仍回到环入口，
+            所以从相遇点走 <code>a</code> 步会停在环入口；
+            而从表头走 <code>a</code> 步同样停在环入口。
+            两个指针速度都是 1 步 / 轮，因此它们一定在同一轮同时到达该结点，即相遇于环入口。证毕。
+          </p>
+          <p><b>第二问</b>：<b>不一定能保证相遇</b>。
+          快指针每轮 3 步时，两者在环内的相对速度是 2 步 / 轮，
+          距离 <code>d</code> 的变化是 <code>d → d−2</code>，
+          当 <code>d</code> 为奇数时会出现 <code>1 → −1</code>，也就是<b>直接跨过</b>慢指针。
+          所以「每次 2 步」不是随便选的：<b>相对速度为 1 才能保证每轮最多缩短 1 格、必然命中</b>。
+          （这也是为什么标准写法固定是 slow 走 1、fast 走 2。）</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><b>第 4 题（对比与选型）</b>　某系统需要维护一个「最近访问列表」：
+      每次访问一个页面就把它移到列表头部，列表长度上限 1000，超限时淘汰末尾。
+      同时需要经常「判断某个页面是否已在列表中」。
+      请回答：应该选顺序表还是链表？是否需要双向？请说明理由与各操作的复杂度。</p>
+      <details class="fold">
+        <summary>查看答案与解析</summary>
+        <div class="fold-body">
+          <p><b>推荐：哈希表 + 双向链表</b>（这就是经典的 LRU 缓存结构）。但若只在本章范围内二选一：</p>
+          <ul>
+            <li><b>「移到表头」需要删除已知结点 + 头插</b>：单链表删除已知结点要 O(n) 找前驱；
+                双向链表因为持有 <code>prior</code>，删除是 <b>O(1)</b>。所以<b>必须双向</b>。</li>
+            <li><b>「淘汰末尾」</b>：双向链表维护一个尾指针即可 O(1)；
+                单链表能维护尾指针，但删除尾结点仍要 O(n) 找倒数第二个。</li>
+            <li><b>「判断是否存在」</b>：链表只能 O(n) 线性扫描，1000 个元素尚可接受；
+                若要求更快，必须再加一张哈希表（<code>unordered_map&lt;key, 结点指针&gt;</code>），
+                把查找降到 O(1)。</li>
+            <li><b>顺序表不适合</b>：每次「移到表头」都要把前面所有元素后移，是 O(n) 的搬家，而且元素一多代价急剧上升。</li>
+          </ul>
+          <p><b>结论</b>：选<b>双向链表（带尾指针）+ 哈希表</b>。
+          各操作复杂度：移到表头 O(1)、淘汰末尾 O(1)、判断存在 O(1)（有哈希表时）/ O(n)（只用链表时）。
+          本题也说明了本章的一个重要观点：<b>数据结构往往需要组合使用，而不是二选一。</b></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch01-intro.html"><span class="dir">← 上一讲</span><span class="ttl">01 绪论：数据结构与算法分析</span></a>
+      <a class="next" href="ch03-stack.html"><span class="dir">下一讲 →</span><span class="ttl">03 栈及其经典应用</span></a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

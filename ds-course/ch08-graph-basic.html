@@ -1,0 +1,3546 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 图：术语与存储结构 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch08', title: '图：术语与存储结构' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch08-viz.js" defer></script>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 08 讲</div>
+      <h1>图：术语与存储结构</h1>
+      <p class="lede">
+        线性表是「一对一」，树是「一对多」，而图是「多对多」——它是数据结构里最一般、也是现实世界中最常见的关系模型。
+        社交网络里的好友关系、地图上的道路、编译器中模块的依赖、课程之间的先修要求，全都是图。
+        本章先把图的语言（顶点、边、度、路径、连通、生成树）一次讲清，再把两种主流存储结构
+        （邻接矩阵、邻接表）连同链式前向星、十字链表、邻接多重表一起摊开对比，
+        最后用 DFS 与 BFS 两种遍历把它们串起来。
+      </p>
+      <div class="meta">
+        <span>预计 120 分钟</span>
+        <span>前置：第 07 讲树与二叉树、第 06 讲数组与矩阵压缩</span>
+        <span>关键词：G=(V,E) · 握手定理 · 邻接矩阵 · 邻接表 · DFS · BFS</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:0">
+        <li><b>8.1</b> 图的定义与分类 —— 把 <code>G = (V, E)</code> 讲透，弄清 <code>n</code> 与 <code>e</code> 的取值范围。</li>
+        <li><b>8.2</b> 术语体系 —— <b>本章第一道坎</b>：度、入度出度、握手定理、路径回路、连通分量、强连通分量、生成树，一个都不能含糊。</li>
+        <li><b>8.3</b> 邻接矩阵 —— 最直观的存储方式，配动画看「一条边写两格」的对称性，以及 <code>0x3f3f3f3f</code> 这个经典技巧。</li>
+        <li><b>8.4</b> 邻接表家族 —— 邻接表、逆邻接表、<b>链式前向星</b>（竞赛主流）、十字链表、邻接多重表。</li>
+        <li><b>8.5</b> 两种存储结构的九维对比 —— 考试最爱在这里出选择题。</li>
+        <li><b>8.6 / 8.7</b> DFS 与 BFS —— 遍历是后面所有图论算法的骨架，必须能手工推出访问序列。</li>
+        <li><b>8.8</b> 连通分量与生成树 —— 为下一讲的 Prim / Kruskal / Dijkstra 铺路。</li>
+        <li><b>8.9 / 8.10</b> 经典小题、易错点、考点与自测。</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">8.1 图是什么：定义、分类与规模</h2>
+
+    <h3 id="s1-1">8.1.1 从线性表、树到图：逻辑结构的第三次跳跃</h3>
+    <p>
+      回顾一下我们走过的路。第 02 讲的<b>线性表</b>里，每个元素最多有一个直接前驱和一个直接后继，
+      元素之间的关系是「一对一」的一条链；第 07 讲的<b>树</b>里，每个结点可以有多个孩子但只有一个双亲，
+      关系是「一对多」的层次结构。它们都有一个共同的前提：<b>元素之间不允许随便乱连</b>。
+      可是现实世界并不这么听话——城市之间的航线是对称的、课程之间的先修关系是有方向的、
+      人与人之间的好友关系既不对称也不分层。
+    </p>
+    <p>
+      当元素之间的关系变成任意的「多对多」时，线性表和树都不够用了，于是有了<b>图（graph）</b>。
+      请注意用词：树和图都是「非线性结构」，但树其实是图的一个特例——
+      一棵有 n 个结点的树，就是「有 n−1 条边、连通、无回路」的无向图。
+      换句话说，<b>图是比树更一般的结构，树是加了限制条件的图</b>。
+      理解了这一点，你就会发现本讲很多术语（路径、连通、生成树）在树那一讲其实已经见过，只是当时不需要强调。
+    </p>
+
+    <div class="grid c3">
+      <div class="card">
+        <h4 style="margin-top:0">线性表：一对一</h4>
+        <p style="margin-bottom:0">每个元素至多一个前驱、至多一个后继。<br>例：数组、链表、栈、队列。<br>关系可以画成一条链。</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">树：一对多</h4>
+        <p style="margin-bottom:0">每个结点至多一个双亲，可以有多个孩子。<br>例：目录树、表达式树、堆。<br>关系画出来是层次图，<b>无环</b>。</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">图：多对多</h4>
+        <p style="margin-bottom:0">任意两个元素之间都可能有关系，方向可有可无。<br>例：社交网络、路网、依赖图。<br>允许有环，也允许不连通。</p>
+      </div>
+    </div>
+
+    <h3 id="s1-2">8.1.2 图的严格定义：G = (V, E)</h3>
+    <p>
+      一个图由两部分组成，记作
+    </p>
+    <div class="formula center">
+      G = (V, E)　　其中 V 是<b>顶点集</b>（vertex set），E 是<b>边集</b>（edge set）
+    </div>
+    <ul>
+      <li>
+        <b>顶点（vertex / node）</b>：也叫结点，是图中的基本元素。顶点集 <code>V</code> 必须是非空有限集合
+        （教材约定 <code>V ≠ ∅</code>，因为空图没什么好研究的），顶点个数记作 <code>n = |V|</code>。
+      </li>
+      <li>
+        <b>边（edge / arc）</b>：顶点之间的连线。<b>无向边</b>记作 <code>(v, w)</code> 或 <code>vw</code>，圆括号表示无序；
+        <b>有向边（弧）</b>记作 <code>&lt;v, w&gt;</code>，尖括号表示有序，<code>v</code> 叫<b>弧尾（tail）</b>，
+        <code>w</code> 叫<b>弧头（head）</b>，表示「从 v 指向 w」。边数记作 <code>e = |E|</code>。
+      </li>
+      <li>
+        <b>顶点集不能为空，但边集可以为空</b>：<code>E = ∅</code> 时，图里只有 n 个孤零零的顶点，一条边也没有。
+        这种图叫<b>零图</b>，n = 1 时叫<b>平凡图</b>。
+      </li>
+    </ul>
+    <p>
+      一个常见的追问是：<b>「图里到底存不存顶点本身的数据？」</b>
+      答案是：数学意义上的图只关心「谁和谁连着」，不关心顶点上挂的信息。
+      但工程实现时（比如导航软件）我们会给顶点加上名字、经纬度，给边加上长度、限速——
+      这些叫<b>权（weight）</b>，加了权的图叫<b>网（network）</b>，见 8.2.6 节。
+    </p>
+    <p>
+      用集合的方式描述图，有个好处：<b>顶点编号完全可以重新排列</b>。
+      把 {0,1,2} 改叫 {A,B,C}，图的性质一点都不变。这叫图的<b>同构（isomorphism）</b>思想——
+      以后你写程序时看到「图长得不一样但答案一样」，就不必惊讶了。
+    </p>
+
+    <h3 id="s1-3">8.1.3 有向图、无向图、简单图、多重图、自环</h3>
+    <p>按边的性质，图可以分成几类，这些分类决定了后面存储结构和算法细节的选择：</p>
+    <dl class="def">
+      <dt>无向图 undirected graph</dt>
+      <dd>每条边都是无向边，<code>(v, w)</code> 与 <code>(w, v)</code> 是同一条边。例：好友关系、无向路网。</dd>
+      <dt>有向图 directed graph / digraph</dt>
+      <dd>每条边都是有向边（弧），<code>&lt;v, w&gt;</code> 与 <code>&lt;w, v&gt;</code> 是两条不同的弧。例：微博关注、课程先修、网页链接。</dd>
+      <dt>简单图 simple graph</dt>
+      <dd>满足两条：<b>不存在自环</b>，且<b>任意两点之间至多一条边</b>（有向图里是至多一条同向弧）。本讲后面谈「完全图」「邻接矩阵」时，默认都是简单图。</dd>
+      <dt>多重图 multigraph</dt>
+      <dd>允许两个顶点之间有<b>多条边</b>（平行边 / 重边）。例：两座城市之间有多条航线；此时邻接矩阵只能存「边的条数」或「最小权值」，不能只存 0/1。</dd>
+      <dt>自环 self-loop</dt>
+      <dd>边的两个端点重合，即 <code>(v, v)</code>。自环让该顶点的度<b>增加 2</b>（无向图），在邻接矩阵里表现为对角线上的 1。</dd>
+      <dt>稀疏图 / 稠密图</dt>
+      <dd>边数远小于 n² 的叫稀疏图，接近 n² 的叫稠密图。这只是「感觉」，工程上常取 <code>e &lt; n log n</code>（或 <code>e &lt; n²/10</code>）作为分界。</dd>
+    </dl>
+
+    <div class="note danger">
+      <span class="note-title">易错：无向边写圆括号，有向边写尖括号</span>
+      教材里 <code>(v, w)</code> 表示无向边、<code>&lt;v, w&gt;</code> 表示有向弧，<b>括号形状就是方向信息</b>。
+      考试时把 <code>&lt;v, w&gt;</code> 写成 <code>(v, w)</code>，在「求强连通分量」「求拓扑序」这类题里会直接导致答案错误——
+      因为 <code>(v, w)</code> 意味着 w 也能走到 v。写代码时同理：无向图一条边调用两次 <code>addEdge</code>，
+      有向图只调用一次，这两个「一次」和「两次」的差别贯穿全章。
+    </div>
+
+    <h3 id="s1-4">8.1.4 完全图、稠密图与稀疏图：n 与 e 的取值范围</h3>
+    <p>
+      一张有 n 个顶点的简单图，最多能有多少条边？这就是<b>完全图（complete graph）</b>要回答的问题。
+    </p>
+    <p>
+      <b>无向完全图</b>：任意两个顶点之间都恰好有一条边。数一数：n 个顶点两两配对，共有
+      <code>C(n, 2) = n(n−1)/2</code> 条边。所以简单无向图的边数范围是
+    </p>
+    <div class="formula center">
+      0 ≤ e ≤ n(n−1)/2　（无向简单图）
+    </div>
+    <p>
+      <b>有向完全图</b>：任意两个顶点之间都有一对方向相反的弧。每一对顶点贡献 2 条弧，所以边数上限翻倍：
+    </p>
+    <div class="formula center">
+      0 ≤ e ≤ n(n−1)　（有向简单图，n ≥ 1 时）
+    </div>
+    <p>
+      例如 n = 8 时，无向完全图有 <code>8×7/2 = 28</code> 条边，有向完全图有 <code>8×7 = 56</code> 条弧。
+      而本讲贯穿全篇的示例图只有 9 条边——它是典型的<b>稀疏图</b>（9 远远小于 28）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 320" width="900" height="320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk83a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+        </defs>
+
+        <text x="20" y="24" fill="var(--text)" font-size="13" font-weight="700">① 无向完全图 K4：e = n(n−1)/2 = 6</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="70" y1="70" x2="160" y2="70"/>
+          <line x1="70" y1="70" x2="70" y2="160"/>
+          <line x1="70" y1="70" x2="160" y2="160"/>
+          <line x1="160" y1="70" x2="70" y2="160"/>
+          <line x1="160" y1="70" x2="160" y2="160"/>
+          <line x1="70" y1="160" x2="160" y2="160"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6">
+          <circle cx="70" cy="70" r="16"/><circle cx="160" cy="70" r="16"/>
+          <circle cx="70" cy="160" r="16"/><circle cx="160" cy="160" r="16"/>
+        </g>
+        <g fill="var(--text)" font-size="13" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="70" y="75">A</text><text x="160" y="75">B</text>
+          <text x="70" y="165">C</text><text x="160" y="165">D</text>
+        </g>
+
+        <text x="250" y="24" fill="var(--text)" font-size="13" font-weight="700">② 无向完全图 K5：e = 5×4/2 = 10</text>
+        <g stroke="var(--border-strong)" stroke-width="1.6">
+          <line x1="330" y1="42" x2="396" y2="90"/><line x1="396" y1="90" x2="371" y2="168"/>
+          <line x1="371" y1="168" x2="289" y2="168"/><line x1="289" y1="168" x2="264" y2="90"/>
+          <line x1="264" y1="90" x2="330" y2="42"/>
+          <line x1="330" y1="42" x2="371" y2="168"/><line x1="330" y1="42" x2="289" y2="168"/>
+          <line x1="396" y1="90" x2="289" y2="168"/><line x1="396" y1="90" x2="264" y2="90"/>
+          <line x1="371" y1="168" x2="264" y2="90"/>
+        </g>
+        <g fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6">
+          <circle cx="330" cy="42" r="15"/><circle cx="396" cy="90" r="15"/><circle cx="371" cy="168" r="15"/>
+          <circle cx="289" cy="168" r="15"/><circle cx="264" cy="90" r="15"/>
+        </g>
+        <g fill="var(--text)" font-size="12" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="330" y="46">1</text><text x="396" y="94">2</text><text x="371" y="172">3</text>
+          <text x="289" y="172">4</text><text x="264" y="94">5</text>
+        </g>
+
+        <text x="480" y="24" fill="var(--text)" font-size="13" font-weight="700">③ 有向完全图：e = n(n−1) = 6</text>
+        <g stroke="var(--border-strong)" stroke-width="1.6" fill="none">
+          <line x1="618" y1="61" x2="680" y2="61" marker-end="url(#mk83a)"/>
+          <line x1="678" y1="79" x2="622" y2="79" marker-end="url(#mk83a)"/>
+          <line x1="694" y1="92" x2="665" y2="143" marker-end="url(#mk83a)"/>
+          <line x1="656" y1="138" x2="685" y2="87" marker-end="url(#mk83a)"/>
+          <line x1="606" y1="92" x2="635" y2="143" marker-end="url(#mk83a)"/>
+          <line x1="644" y1="138" x2="615" y2="87" marker-end="url(#mk83a)"/>
+        </g>
+        <g fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6">
+          <circle cx="600" cy="70" r="18"/><circle cx="700" cy="70" r="18"/><circle cx="650" cy="160" r="18"/>
+        </g>
+        <g fill="var(--text)" font-size="13" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="600" y="75">A</text><text x="700" y="75">B</text><text x="650" y="165">C</text>
+        </g>
+
+        <line x1="20" y1="220" x2="880" y2="220" stroke="var(--border)" stroke-width="1"/>
+        <text x="20" y="248" fill="var(--text)" font-size="12.5">边数范围：无向简单图 0 ≤ e ≤ n(n−1)/2；有向简单图 0 ≤ e ≤ n(n−1)。超出这个上界，就说明出现了重边或自环，不再是简单图。</text>
+        <text x="20" y="272" fill="var(--text-soft)" font-size="12.5">稀疏图：e 远小于 n²，工程上常以 e &lt; n log n 为界（本讲示例图 n=8、e=9，8×log₂8 = 24）；稠密图：e 接近 n²，常以 e &gt; n²/10 为界。</text>
+        <text x="20" y="296" fill="var(--text-faint)" font-size="12">为什么要区分疏密？因为邻接矩阵的空间是 O(n²) 与 e 无关，而邻接表的空间是 O(n + e)——稠密图两者相当，稀疏图里邻接表完胜。</text>
+      </svg>
+      <figcaption>图 8-1　完全图与边数上界：无向完全图、有向完全图、稀疏与稠密的分界</figcaption>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：边数范围的推导</span>
+      无向完全图的边数 <code>n(n−1)/2</code> 来自组合数 <code>C(n,2)</code>：从 n 个顶点中任取 2 个就确定一条边。
+      有向完全图则要先选 2 个顶点再定方向，共 <code>C(n,2) × 2 = n(n−1)</code> 条。
+      记住这两个数，很多判断题就能秒杀，例如「n 个顶点的无向连通图至少有多少条边？」——
+      答案是 <code>n−1</code>（此时它是一棵树），再多一条边就必然出现回路。
+    </div>
+
+    <h2 id="s2">8.2 图的术语体系：把「图的语言」说利索</h2>
+
+    <h3 id="s2-1">8.2.1 邻接点与度</h3>
+    <p>
+      如果两个顶点之间有一条边，就说它们<b>互为邻接点（adjacent）</b>，这条边与这两个顶点<b>相关联（incident）</b>。
+      在无向图里，「相邻」是对称的：v 与 w 相邻 ⟺ w 与 v 相邻。
+    </p>
+    <p>
+      <b>度（degree）</b> 是图论里出现频率最高的概念：顶点 v 的度 <code>d(v)</code>，就是与它相关联的边的<b>条数</b>。
+      一个小坑：<b>自环对度的贡献是 2</b>，因为这条边的两个端点都是 v，它「进出各算一次」。
+      度数为 0 的顶点叫<b>孤立点（isolated vertex）</b>，度数为 1 的顶点叫<b>悬挂点（pendant vertex）</b>，
+      与悬挂点相连的那条边叫<b>悬挂边</b>。
+    </p>
+    <p>
+      在有向图里，「度」被拆成两个方向：<b>入度（in-degree）</b><code>ID(v)</code> 是以 v 为<b>弧头</b>的弧的条数，
+      <b>出度（out-degree）</b><code>OD(v)</code> 是以 v 为<b>弧尾</b>的弧的条数，二者之和就是该顶点的度
+      <code>d(v) = ID(v) + OD(v)</code>。注意自环在有向图里会同时给入度和出度各加 1。
+    </p>
+    <p>
+      下面图 8-2 把所有术语都标在了同一张图上。请对照着把每个数字自己算一遍——
+      这一步花三分钟，后面所有算法都会轻松很多。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 430" width="900" height="430" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="24" fill="var(--text)" font-size="13" font-weight="700">示例图 G（无向、简单、连通）：n = 8，e = 9</text>
+
+        <g stroke="var(--brand)" stroke-width="3" stroke-linecap="round">
+          <line x1="102" y1="84" x2="275" y2="73"/>
+          <line x1="275" y1="73" x2="462" y2="96"/>
+          <line x1="462" y1="96" x2="567" y2="231"/>
+          <line x1="567" y1="231" x2="420" y2="328"/>
+          <line x1="420" y1="328" x2="190" y2="333"/>
+          <line x1="190" y1="333" x2="73" y2="212"/>
+          <line x1="190" y1="333" x2="301" y2="192"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="2.4" stroke-dasharray="7 5">
+          <line x1="102" y1="84" x2="73" y2="212"/>
+          <line x1="275" y1="73" x2="301" y2="192"/>
+        </g>
+
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8">
+          <circle cx="102" cy="84" r="17"/><circle cx="462" cy="96" r="17"/>
+          <circle cx="567" cy="231" r="17"/><circle cx="420" cy="328" r="17"/>
+          <circle cx="73" cy="212" r="17"/><circle cx="301" cy="192" r="17"/>
+        </g>
+        <g fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4">
+          <circle cx="275" cy="73" r="17"/><circle cx="190" cy="333" r="17"/>
+        </g>
+        <g fill="var(--text)" font-size="14" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="102" y="89">0</text><text x="275" y="78">1</text><text x="462" y="101">2</text>
+          <text x="567" y="236">3</text><text x="420" y="333">4</text><text x="190" y="338">5</text>
+          <text x="73" y="217">6</text><text x="301" y="197">7</text>
+        </g>
+        <g fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">
+          <text x="77" y="70" text-anchor="end">d=2</text>
+          <text x="275" y="44" text-anchor="middle">d=3</text>
+          <text x="490" y="90">d=2</text>
+          <text x="593" y="236">d=2</text>
+          <text x="420" y="366" text-anchor="middle">d=2</text>
+          <text x="164" y="368" text-anchor="end">d=3</text>
+          <text x="44" y="218" text-anchor="end">d=2</text>
+          <text x="326" y="196">d=2</text>
+        </g>
+        <text x="60" y="330" fill="var(--accent)" font-size="12">虚线 = 不在生成树上的边</text>
+
+        <g fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">
+          <text x="620" y="52">V = {0,1,2,3,4,5,6,7}</text>
+          <text x="620" y="76">n = |V| = 8（顶点数）</text>
+          <text x="620" y="100">e = |E| = 9（边数）</text>
+          <text x="620" y="132">d(0)=2  d(1)=3  d(2)=2</text>
+          <text x="620" y="154">d(3)=2  d(4)=2  d(5)=3</text>
+          <text x="620" y="176">d(6)=2  d(7)=2</text>
+          <text x="620" y="208" fill="var(--brand)">Σd(v) = 18 = 2e（握手定理）</text>
+          <text x="620" y="232">奇数度顶点：1、5，共 2 个</text>
+          <text x="620" y="264">adj(1) = {0, 2, 7}</text>
+          <text x="620" y="288">路径 0→1→2→3，长度 3</text>
+          <text x="620" y="312">回路 0-1-2-3-4-5-6-0</text>
+          <text x="620" y="344">粗线：一棵生成树，7 = n−1 条边</text>
+          <text x="620" y="368">任意两点互相可达 → 连通图</text>
+          <text x="620" y="400" fill="var(--text-faint)">子图、网（带权图）、DAG 见正文</text>
+        </g>
+      </svg>
+      <figcaption>图 8-2　无向示例图 G 的术语全标注：顶点集、边集、度数、邻接点、路径、回路、生成树</figcaption>
+    </div>
+
+    <h3 id="s2-2">8.2.2 入度与出度：有向图的两套账</h3>
+    <p>
+      有向图必须把「度」拆成入度和出度，因为方向决定了「能不能走出去」。
+      一个出度为 0 的顶点叫<b>汇点（sink）</b>，一个入度为 0 的顶点叫<b>源点（source）</b>；
+      这两类点在拓扑排序、网络流里都是重点关注对象。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 360" width="900" height="360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk82a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+        </defs>
+        <text x="16" y="24" fill="var(--text)" font-size="13" font-weight="700">有向图 D：5 个顶点、5 条弧</text>
+
+        <g stroke="var(--border-strong)" stroke-width="1.8" fill="none">
+          <line x1="142" y1="78" x2="298" y2="62" marker-end="url(#mk82a)"/>
+          <line x1="310" y1="79" x2="240" y2="210" marker-end="url(#mk82a)"/>
+          <line x1="217" y1="212" x2="133" y2="98" marker-end="url(#mk82a)"/>
+          <line x1="142" y1="82" x2="518" y2="116" marker-end="url(#mk82a)"/>
+          <line x1="547" y1="141" x2="593" y2="269" marker-end="url(#mk82a)"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8">
+          <circle cx="120" cy="80" r="18"/><circle cx="320" cy="60" r="18"/>
+          <circle cx="230" cy="230" r="18"/><circle cx="540" cy="120" r="18"/>
+          <circle cx="600" cy="290" r="18"/>
+        </g>
+        <g fill="var(--text)" font-size="14" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="120" y="85">A</text><text x="320" y="65">B</text><text x="230" y="235">C</text>
+          <text x="540" y="125">D</text><text x="600" y="295">E</text>
+        </g>
+        <g fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">
+          <text x="56" y="52" text-anchor="end">in=1, out=2</text>
+          <text x="320" y="30" text-anchor="middle">in=1, out=1</text>
+          <text x="230" y="276" text-anchor="middle">in=1, out=1</text>
+          <text x="566" y="104">in=1, out=1</text>
+          <text x="604" y="332">in=1, out=0（汇点）</text>
+        </g>
+        <path d="M168,168 Q250,150 200,300" stroke="var(--accent)" stroke-width="2" fill="none" stroke-dasharray="6 4"/>
+        <text x="250" y="300" fill="var(--accent)" font-size="12">回路 A→B→C→A（长度 3）</text>
+
+        <line x1="16" y1="322" x2="420" y2="322" stroke="var(--border)" stroke-width="1"/>
+        <text x="16" y="344" fill="var(--text-soft)" font-size="12.5">Σ出度 = 2+1+1+1+0 = 5 = e　　Σ入度 = 1+1+1+1+1 = 5 = e</text>
+        <text x="470" y="46" fill="var(--text-soft)" font-size="12.5">A、B、C 两两互相可达 → {A,B,C} 是一个强连通分量</text>
+        <text x="470" y="192" fill="var(--text-soft)" font-size="12.5">整张图不是强连通图（E 走不回去）</text>
+        <text x="470" y="216" fill="var(--text-soft)" font-size="12.5">缩点后 {ABC} → D → E 无环，是 DAG</text>
+        <text x="470" y="240" fill="var(--text-soft)" font-size="12.5">A 可以到达 B、C、D、E（可达）</text>
+        <text x="470" y="264" fill="var(--text-soft)" font-size="12.5">E 的出度为 0，无法到达任何点</text>
+        <text x="470" y="288" fill="var(--text-faint)" font-size="12">有向图求度：出度看「以我为尾」的弧，入度看「以我为头」的弧。</text>
+      </svg>
+      <figcaption>图 8-3　有向图的入度 / 出度、回路、强连通分量与可达性</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">一句话记住入度和出度</span>
+      <b>出度 = 「我主动连出去的边数」，入度 = 「别人连到我头上的边数」</b>。
+      社交网络里，关注别人的人数就是出度，粉丝数就是入度——微博大 V 的特征是入度极大而出度很小。
+    </div>
+
+    <h3 id="s2-3">8.2.3 握手定理：证明与例题</h3>
+    <p>
+      整章最重要的一个定量结论来了。它有一个形象的名字：<b>握手定理（handshaking lemma）</b>——
+      想象一次聚会，每握一次手都要用到两只手，所以「所有人握手的次数总和」一定是偶数。
+    </p>
+    <div class="formula center">
+      无向图：Σ<sub>v∈V</sub> d(v) = 2e　　（所有顶点的度数之和等于边数的两倍）
+    </div>
+    <div class="formula center">
+      有向图：Σ<sub>v∈V</sub> ID(v) = Σ<sub>v∈V</sub> OD(v) = e　（入度之和 = 出度之和 = 弧数）
+    </div>
+    <p><b>证明（无向图，用「算两次」的方法）：</b></p>
+    <ol>
+      <li>把图中所有顶点 <code>v</code> 的度数 <code>d(v)</code> 加起来，得到 <code>S = Σ d(v)</code>。</li>
+      <li>换个角度数同一个 <code>S</code>：每一条边 <code>(u, w)</code> 的端点有两个，它给 <code>d(u)</code> 贡献 1，也给 <code>d(w)</code> 贡献 1，所以<b>每条边对 S 的贡献恰好是 2</b>。</li>
+      <li>e 条边总共贡献 <code>2e</code>，于是 <code>S = 2e</code>。∎</li>
+    </ol>
+    <p>
+      第 2 步里「每条边被数了两次」，正是「握手要两只手」的严格表述。这个证明短得出奇，但它有三个威力巨大的推论：
+    </p>
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">推论 1：度数之和必为偶数</h4>
+        <p style="margin-bottom:0">因为 <code>Σd(v) = 2e</code> 一定是偶数。<br>
+        所以「n 个顶点度数分别是 3,3,3」这种描述在 n 为奇数时必然矛盾——3n 是奇数。</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">推论 2：奇度顶点的个数必为偶数</h4>
+        <p style="margin-bottom:0">把 <code>Σd(v)</code> 分成奇度部分与偶度部分：偶度部分之和是偶数，
+        总和也是偶数，所以奇度部分之和必为偶数，而若干奇数相加为偶数 ⟺ 奇数的个数是偶数。</p>
+      </div>
+    </div>
+    <p>
+      推论 2 有个漂亮的应用：<b>任何一张图的奇度顶点个数都是偶数，所以「只有 1 个奇度顶点」的图不存在</b>。
+      这也直接决定了欧拉路径的判定条件（见 8.9.4）。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">例题（握手定理的直接应用）</span>
+      <p style="margin:6px 0"><b>题目：</b>一个无向简单图有 10 个顶点、15 条边，且每个顶点的度数都相等，求每个顶点的度数；
+      并判断「10 个顶点中有 9 个度数为 3、剩下 1 个度数为 2」的无向图是否存在。</p>
+      <p style="margin:6px 0"><b>解答：</b></p>
+      <ol style="margin:6px 0">
+        <li>由握手定理，<code>Σd(v) = 2e = 30</code>，10 个顶点度数相同，故每个顶点的度为 <code>30/10 = 3</code>。</li>
+        <li>若 9 个顶点度为 3、1 个度为 2，则 <code>Σd(v) = 9×3 + 2 = 29</code>，是<b>奇数</b>，
+          而度数之和必须是偶数，矛盾，所以这样的图<b>不存在</b>。</li>
+      </ol>
+      <p style="margin:6px 0">（补充：10 个顶点、每点度数为 3 的图叫 3-正则图，是存在的，例如 Petersen 图与五棱柱图。）</p>
+    </div>
+
+    <pre data-lang="cpp" data-file="graph_handshake.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   握手定理的代码验证：Σdeg(v) == 2e
+   顺便演示“能否构成无向图”的判定
+   ============================================================ */
+struct Graph {
+    int n;
+    vector&lt;pair&lt;int,int&gt; &gt; edges;
+    vector&lt;int&gt; deg;
+    Graph(int n_) : n(n_), deg(n_, 0) {}
+    void addEdge(int u, int v) {
+        edges.push_back(make_pair(u, v));
+        deg[u]++; deg[v]++;              // 无向边给两个端点各 +1
+    }
+    int sumDeg() const {
+        int s = 0;
+        for (int d : deg) s += d;
+        return s;
+    }
+};
+
+/* 给定度数序列，判断是否存在一个无向简单图（只用必要条件做快速否定） */
+bool possible(const vector&lt;int&gt;&amp; d) {
+    int n = d.size(), s = 0, odd = 0;
+    for (int x : d) { s += x; if (x &amp; 1) odd++; if (x &lt; 0 || x &gt;= n) return false; }
+    if (s % 2 != 0) return false;        // 度数之和必须是偶数
+    if (odd % 2 != 0) return false;      // 奇度顶点个数必须是偶数（上一条的推论）
+    return true;                         // 只是必要条件，充分性要用 Havel-Hakimi
+}
+
+int main() {
+    Graph g(8);
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) g.addEdge(E[i][0], E[i][1]);
+
+    cout &lt;&lt; "e = " &lt;&lt; (int)g.edges.size() &lt;&lt; "\n";          // 9
+    for (int v = 0; v &lt; g.n; ++v) cout &lt;&lt; g.deg[v] &lt;&lt; " ";    // 2 3 2 2 2 3 2 2
+    cout &lt;&lt; "\nΣdeg = " &lt;&lt; g.sumDeg() &lt;&lt; " , 2e = " &lt;&lt; 2 * (int)g.edges.size() &lt;&lt; "\n";  // 18 18
+
+    vector&lt;int&gt; d1 = {3,3,3,3,3,3,3,3,3,3};
+    vector&lt;int&gt; d2 = {3,3,3,3,3,3,3,3,3,2};
+    cout &lt;&lt; possible(d1) &lt;&lt; "\n";        // 1：10 个 3 度点，和为 30，可行
+    cout &lt;&lt; possible(d2) &lt;&lt; "\n";        // 0：和为 29 是奇数，不可能
+    return 0;
+}</pre>
+
+    <h3 id="s2-4">8.2.4 路径、简单路径、回路与简单回路</h3>
+    <p>
+      <b>路径（path）</b>是从顶点 <code>v</code> 出发，经过一系列边到达顶点 <code>w</code> 的顶点序列，
+      例如 <code>0 → 1 → 2 → 3</code>。路径上边的条数叫<b>路径长度（length）</b>——
+      注意教材里「长度」数的是<b>边</b>而不是顶点，别数错了。
+    </p>
+    <ul>
+      <li><b>简单路径（simple path）</b>：路径上的顶点<b>不重复出现</b>（起点与终点也不重合）。</li>
+      <li><b>回路 / 环（cycle）</b>：起点与终点相同的路径，例如 <code>0-1-2-3-4-5-6-0</code>。</li>
+      <li><b>简单回路（simple cycle）</b>：除起点=终点外，其余顶点都不重复的回路。图 8-2 中的
+        <code>0-1-7-5-6-0</code> 就是一条简单回路。</li>
+      <li><b>有向路径 / 有向回路</b>：有向图里要求每一段都沿着弧的方向走。
+        <code>A→B→C→A</code> 是有向回路，但 <code>A→B→C</code> 之后再想「回」到 A 就必须有弧 <code>C→A</code>。</li>
+    </ul>
+    <div class="note warn">
+      <span class="note-title">易错：路径长度数边不数点</span>
+      顶点序列 <code>0→1→2→3</code> 有 4 个顶点、3 条边，<b>路径长度是 3</b>。
+      另外，「简单路径」与「简单回路」都要求顶点不重复；很多同学只记住「不重复」，做题时把
+      <code>0-1-7-5-1-2</code> 这种顶点 1 出现两次的走法也算成简单路径，就错了。
+    </div>
+
+    <h3 id="s2-5">8.2.5 连通、连通图、连通分量、强连通分量</h3>
+    <p>
+      <b>连通（connected）</b>是只对无向图说的：如果顶点 u 到 v 存在路径，就说 u 与 v 连通。
+      若图中<b>任意两个顶点都连通</b>，则称这张无向图是<b>连通图（connected graph）</b>。
+      图 8-2 的示例图就是连通的，你可以验证任意两点之间都能走通。
+    </p>
+    <p>
+      <b>连通分量（connected component）</b>是无向图里「极大的连通子图」：
+      把图拆成若干块，每块内部连通，块与块之间不连通，这些块就是连通分量。
+      关键词是<b>极大</b>——只要能再加一个顶点进去还保持连通，就说明还没取到极大。
+      连通图的连通分量个数是 1；孤立点自己单独构成一个连通分量。
+    </p>
+    <p>
+      有向图不能简单说「连通」，要分成三个层次：
+    </p>
+    <dl class="def">
+      <dt>强连通 strongly connected</dt>
+      <dd>有向图中，若对任意两个顶点 u、v，<b>既有 u 到 v 的路径，也有 v 到 u 的路径</b>，则称图强连通。注意是「双向可达」，缺一不可。</dd>
+      <dt>强连通分量 SCC</dt>
+      <dd>有向图的极大强连通子图，记作 <b>强连通分量（Strongly Connected Component）</b>。任何一个有向图都可以唯一地分解成若干强连通分量。求 SCC 的两大算法是 Kosaraju 与 Tarjan，属于下一讲的内容。</dd>
+      <dt>单向连通 / 弱连通</dt>
+      <dd>若任意两点之间至少有一个方向可达，称单向连通；若把弧都当成无向边后图是连通的，称弱连通。层次关系：强连通 ⟹ 单向连通 ⟹ 弱连通。</dd>
+    </dl>
+    <p>
+      图 8-3 中的有向图：<code>{A,B,C}</code> 内部两两可达，是一个强连通分量；
+      <code>D</code>、<code>E</code> 各自单独成为强连通分量（单个顶点永远强连通）。
+      把每个强连通分量「缩」成一个点，得到的图一定是 <b>DAG（有向无环图）</b>——这是缩点法的理论基础。
+    </p>
+
+    <div class="note tip">
+      <span class="note-title">无向图 vs 有向图：连通用词的对照表</span>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>概念</th><th>无向图</th><th>有向图</th></tr></thead>
+          <tbody>
+            <tr><td>两点之间</td><td>连通（互相可达）</td><td>可达（有方向）</td></tr>
+            <tr><td>整体性质</td><td>连通图</td><td>强连通 / 单向连通 / 弱连通</td></tr>
+            <tr><td>极大子图</td><td>连通分量</td><td>强连通分量</td></tr>
+            <tr><td>求法</td><td>DFS / BFS 一遍扫描</td><td>Tarjan / Kosaraju（下一讲）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 id="s2-6">8.2.6 子图、生成树、生成森林、网与 DAG</h3>
+    <dl class="def">
+      <dt>子图 subgraph</dt>
+      <dd>从原图中选出部分顶点和部分边构成的图，记作 <code>G' ⊆ G</code>：要求 <code>V' ⊆ V</code>、<code>E' ⊆ E</code>，且 <code>E'</code> 中的边端点都在 <code>V'</code> 里。若 <code>V' = V</code>，叫生成子图。</dd>
+      <dt>生成树 spanning tree</dt>
+      <dd>连通无向图的一个<b>生成子图</b>，它同时是一棵树（连通 + 无回路）。n 个顶点的连通图，其生成树恰好有 <code>n−1</code> 条边。图 8-2 里的粗线就是一棵生成树。</dd>
+      <dt>生成森林 spanning forest</dt>
+      <dd>非连通图的每个连通分量各取一棵生成树，合起来就是生成森林，共 <code>n − k</code> 条边（k 为连通分量个数）。</dd>
+      <dt>网 network / 带权图</dt>
+      <dd>边上带有数值（权值，如距离、费用、时间）的图叫<b>网</b>。带权图的邻接矩阵存的不再是 0/1 而是权值，无边处存 ∞。最短路径、最小生成树都是网上的问题。</dd>
+      <dt>有向无环图 DAG</dt>
+      <dd><b>Directed Acyclic Graph</b>，不存在有向回路的图。它是「可以拓扑排序」的等价说法，用于任务调度、依赖解析、动态规划的状态转移图。</dd>
+      <dt>稠密图与稀疏图</dt>
+      <dd>见 8.1.3。选择邻接矩阵还是邻接表，第一步就是判断图的疏密。</dd>
+    </dl>
+
+    <h3 id="s2-7">8.2.7 术语总表（考前速查）</h3>
+    <p>下面这张表把本章出现的术语一次收齐，建议对照图 8-2、图 8-3 逐个指着念一遍：</p>
+
+    <dl class="def">
+      <dt>顶点 vertex</dt><dd>图的基本元素，记 <code>n = |V|</code>。</dd>
+      <dt>边 / 弧 edge / arc</dt><dd>顶点间的连线，记 <code>e = |E|</code>。无向边 <code>(v,w)</code>，有向弧 <code>&lt;v,w&gt;</code>。</dd>
+      <dt>邻接点 adjacent</dt><dd>被同一条边连接的两个顶点互为邻接点。</dd>
+      <dt>度 degree</dt><dd>无向图中与 v 关联的边数 <code>d(v)</code>；自环贡献 2。</dd>
+      <dt>入度 in-degree</dt><dd>有向图中以 v 为弧头的弧数 <code>ID(v)</code>。</dd>
+      <dt>出度 out-degree</dt><dd>有向图中以 v 为弧尾的弧数 <code>OD(v)</code>。</dd>
+      <dt>握手定理</dt><dd><code>Σd(v) = 2e</code>；有向图 <code>ΣID = ΣOD = e</code>。推论：奇度顶点个数为偶数。</dd>
+      <dt>路径 path</dt><dd>顶点与边的交替序列；长度 = 边的条数。</dd>
+      <dt>简单路径</dt><dd>顶点不重复出现的路径。</dd>
+      <dt>回路 cycle</dt><dd>起点与终点相同的路径，也叫环。</dd>
+      <dt>简单回路</dt><dd>除起终点外顶点不重复的回路。</dd>
+      <dt>连通 connected</dt><dd>无向图中两点之间存在路径。</dd>
+      <dt>连通图</dt><dd>任意两点都连通的<b>无向</b>图。</dd>
+      <dt>连通分量</dt><dd>无向图的极大连通子图；个数用 DFS/BFS 扫描求得。</dd>
+      <dt>强连通图</dt><dd>有向图中任意两点<b>互相</b>可达。</dd>
+      <dt>强连通分量 SCC</dt><dd>有向图的极大强连通子图；缩点后得到 DAG。</dd>
+      <dt>子图 subgraph</dt><dd>顶点集与边集都是原图子集的图。</dd>
+      <dt>生成树</dt><dd>连通图的极小连通生成子图，恰有 <code>n−1</code> 条边。</dd>
+      <dt>生成森林</dt><dd>各连通分量生成树的并，共 <code>n−k</code> 条边。</dd>
+      <dt>网 network</dt><dd>边上带权的图；邻接矩阵中无边处记 ∞。</dd>
+      <dt>DAG</dt><dd>有向无环图，可拓扑排序。</dd>
+      <dt>完全图</dt><dd>任意两点间都有边；无向 <code>n(n−1)/2</code> 条，有向 <code>n(n−1)</code> 条。</dd>
+      <dt>稀疏图 / 稠密图</dt><dd>按 e 相对 n² 的大小划分，常以 <code>e &lt; n log n</code> 为稀疏的分界。</dd>
+      <dt>自环 / 重边</dt><dd>端点重合的边 / 两点间的多条边；两者都会破坏「简单图」的前提。</dd>
+      <dt>欧拉路径 / 欧拉回路</dt><dd>经过每条边恰好一次的路径 / 回路；判定见 8.9.4。</dd>
+      <dt>割点 / 桥</dt><dd>删掉后使连通分量个数增加的顶点 / 边；见 8.9.2。</dd>
+    </dl>
+
+    <h2 id="s3">8.3 存储结构（一）：邻接矩阵</h2>
+
+    <h3 id="s3-1">8.3.1 定义：用一个二维数组记录「谁和谁相邻」</h3>
+    <p>
+      图的逻辑结构是「多对多」，而计算机的内存是一维线性的，所以我们必须想办法把关系「压平」。
+      最朴素的想法是：把所有顶点两两之间的关系都记下来，做成一张 n×n 的表格。这就是<b>邻接矩阵（adjacency matrix）</b>。
+    </p>
+    <p>设图 <code>G = (V, E)</code>，<code>V = {v<sub>0</sub>, v<sub>1</sub>, …, v<sub>n−1</sub>}</code>，用一个二维数组 <code>A[n][n]</code> 表示：</p>
+    <div class="formula">
+      无权图：A[i][j] = 1（当 (i,j) ∈ E 或 &lt;i,j&gt; ∈ E）；否则 A[i][j] = 0<br>
+      带权图（网）：A[i][j] = w<sub>ij</sub>（边的权值）；无边时 A[i][j] = ∞（代码里用一个大数表示）<br>
+      约定：A[i][i] = 0（自己到自己没有边，权值也为 0）
+    </div>
+    <p>
+      注意「顶点必须编号」。矩阵的行列下标就是顶点编号，所以建图前要先给顶点编好 0..n−1 的号
+      （或者把字符串名字用 <code>map&lt;string,int&gt;</code> 映射成整数），这也是几乎所有图论题目的第一步。
+    </p>
+
+    <h4 id="s3-1-a">无向图：矩阵一定对称</h4>
+    <p>
+      无向边 <code>(u, v)</code> 既是 u 的边也是 v 的边，所以在矩阵里要写 <b>两格</b>：
+      <code>A[u][v] = 1</code> 且 <code>A[v][u] = 1</code>。于是无向图的邻接矩阵必然满足
+      <code>A[i][j] = A[j][i]</code>，即<b>关于主对角线对称</b>。
+    </p>
+    <p>
+      反过来，<b>有向图的邻接矩阵一般不对称</b>：<code>A[i][j] = 1</code> 表示有弧 <code>i→j</code>，
+      至于 j 能不能走到 i，要看 <code>A[j][i]</code> 是不是 1。这个差别让「求度」的公式也分成了两套（见 8.3.3）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 460" width="900" height="460" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="24" fill="var(--text)" font-size="13" font-weight="700">无向图 G（n = 8，e = 9）</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="60" y1="63" x2="166" y2="56"/><line x1="166" y1="56" x2="280" y2="71"/>
+          <line x1="280" y1="71" x2="345" y2="153"/><line x1="345" y1="153" x2="254" y2="212"/>
+          <line x1="254" y1="212" x2="114" y2="215"/><line x1="114" y1="215" x2="42" y2="141"/>
+          <line x1="114" y1="215" x2="182" y2="129"/><line x1="166" y1="56" x2="182" y2="129"/>
+          <line x1="42" y1="141" x2="60" y2="63"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6">
+          <circle cx="60" cy="63" r="13"/><circle cx="166" cy="56" r="13"/><circle cx="280" cy="71" r="13"/>
+          <circle cx="345" cy="153" r="13"/><circle cx="254" cy="212" r="13"/><circle cx="114" cy="215" r="13"/>
+          <circle cx="42" cy="141" r="13"/><circle cx="182" cy="129" r="13"/>
+        </g>
+        <g fill="var(--text)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="60" y="67">0</text><text x="166" y="60">1</text><text x="280" y="75">2</text>
+          <text x="345" y="157">3</text><text x="254" y="216">4</text><text x="114" y="219">5</text>
+          <text x="42" y="145">6</text><text x="182" y="133">7</text>
+        </g>
+        <text x="16" y="262" fill="var(--text)" font-size="12.5" font-weight="700">无向图的邻接矩阵一定是对称矩阵：</text>
+        <text x="16" y="286" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">A[i][j] = A[j][i]　（一条边写两格）</text>
+        <text x="16" y="316" fill="var(--text-soft)" font-size="12.5">对称矩阵可以压缩存储：只存下三角，空间从</text>
+        <text x="16" y="340" fill="var(--text-soft)" font-size="12.5">n² 降到 n(n+1)/2（第 06 讲的内容）。</text>
+        <text x="16" y="372" fill="var(--text-faint)" font-size="12">不过图论题目里 n 通常不大，为了代码简单，</text>
+        <text x="16" y="394" fill="var(--text-faint)" font-size="12">一般就直接开 n×n 的二维数组，不做压缩。</text>
+
+        <g font-family="Consolas, monospace" font-size="11">
+          <text x="430" y="52" fill="var(--text-faint)" text-anchor="middle">j0</text>
+          <text x="468" y="52" fill="var(--text-faint)" text-anchor="middle">j1</text>
+          <text x="506" y="52" fill="var(--text-faint)" text-anchor="middle">j2</text>
+          <text x="544" y="52" fill="var(--text-faint)" text-anchor="middle">j3</text>
+          <text x="582" y="52" fill="var(--text-faint)" text-anchor="middle">j4</text>
+          <text x="620" y="52" fill="var(--text-faint)" text-anchor="middle">j5</text>
+          <text x="658" y="52" fill="var(--text-faint)" text-anchor="middle">j6</text>
+          <text x="696" y="52" fill="var(--text-faint)" text-anchor="middle">j7</text>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="418" y="82" fill="var(--text-faint)" text-anchor="end">i0</text>
+          <text x="448" y="86" fill="var(--text)">0</text><text x="486" y="86" fill="var(--brand)">1</text><text x="524" y="86" fill="var(--text)">0</text><text x="562" y="86" fill="var(--text)">0</text><text x="600" y="86" fill="var(--text)">0</text><text x="638" y="86" fill="var(--text)">0</text><text x="676" y="86" fill="var(--brand)">1</text><text x="714" y="86" fill="var(--text)">0</text>
+          <text x="418" y="120" fill="var(--text-faint)" text-anchor="end">i1</text>
+          <text x="448" y="124" fill="var(--brand)">1</text><text x="486" y="124" fill="var(--text)">0</text><text x="524" y="124" fill="var(--brand)">1</text><text x="562" y="124" fill="var(--text)">0</text><text x="600" y="124" fill="var(--text)">0</text><text x="638" y="124" fill="var(--text)">0</text><text x="676" y="124" fill="var(--text)">0</text><text x="714" y="124" fill="var(--brand)">1</text>
+          <text x="418" y="158" fill="var(--text-faint)" text-anchor="end">i2</text>
+          <text x="448" y="162" fill="var(--text)">0</text><text x="486" y="162" fill="var(--brand)">1</text><text x="524" y="162" fill="var(--text)">0</text><text x="562" y="162" fill="var(--brand)">1</text><text x="600" y="162" fill="var(--text)">0</text><text x="638" y="162" fill="var(--text)">0</text><text x="676" y="162" fill="var(--text)">0</text><text x="714" y="162" fill="var(--text)">0</text>
+          <text x="418" y="196" fill="var(--text-faint)" text-anchor="end">i3</text>
+          <text x="448" y="200" fill="var(--text)">0</text><text x="486" y="200" fill="var(--text)">0</text><text x="524" y="200" fill="var(--brand)">1</text><text x="562" y="200" fill="var(--text)">0</text><text x="600" y="200" fill="var(--brand)">1</text><text x="638" y="200" fill="var(--text)">0</text><text x="676" y="200" fill="var(--text)">0</text><text x="714" y="200" fill="var(--text)">0</text>
+          <text x="418" y="234" fill="var(--text-faint)" text-anchor="end">i4</text>
+          <text x="448" y="238" fill="var(--text)">0</text><text x="486" y="238" fill="var(--text)">0</text><text x="524" y="238" fill="var(--text)">0</text><text x="562" y="238" fill="var(--brand)">1</text><text x="600" y="238" fill="var(--text)">0</text><text x="638" y="238" fill="var(--brand)">1</text><text x="676" y="238" fill="var(--text)">0</text><text x="714" y="238" fill="var(--text)">0</text>
+          <text x="418" y="272" fill="var(--text-faint)" text-anchor="end">i5</text>
+          <text x="448" y="276" fill="var(--text)">0</text><text x="486" y="276" fill="var(--text)">0</text><text x="524" y="276" fill="var(--text)">0</text><text x="562" y="276" fill="var(--text)">0</text><text x="600" y="276" fill="var(--brand)">1</text><text x="638" y="276" fill="var(--text)">0</text><text x="676" y="276" fill="var(--brand)">1</text><text x="714" y="276" fill="var(--brand)">1</text>
+          <text x="418" y="310" fill="var(--text-faint)" text-anchor="end">i6</text>
+          <text x="448" y="314" fill="var(--brand)">1</text><text x="486" y="314" fill="var(--text)">0</text><text x="524" y="314" fill="var(--text)">0</text><text x="562" y="314" fill="var(--text)">0</text><text x="600" y="314" fill="var(--text)">0</text><text x="638" y="314" fill="var(--brand)">1</text><text x="676" y="314" fill="var(--text)">0</text><text x="714" y="314" fill="var(--text)">0</text>
+          <text x="418" y="348" fill="var(--text-faint)" text-anchor="end">i7</text>
+          <text x="448" y="352" fill="var(--text)">0</text><text x="486" y="352" fill="var(--brand)">1</text><text x="524" y="352" fill="var(--text)">0</text><text x="562" y="352" fill="var(--text)">0</text><text x="600" y="352" fill="var(--text)">0</text><text x="638" y="352" fill="var(--brand)">1</text><text x="676" y="352" fill="var(--text)">0</text><text x="714" y="352" fill="var(--text)">0</text>
+        </g>
+        <g stroke="var(--border)" stroke-width="1" fill="none">
+          <rect x="432" y="60" width="300" height="304" rx="0"/>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="418" y="392" fill="var(--text-faint)" text-anchor="end">度 d(v)</text>
+          <text x="448" y="396" fill="var(--brand)">2</text><text x="486" y="396" fill="var(--brand)">3</text><text x="524" y="396" fill="var(--brand)">2</text><text x="562" y="396" fill="var(--brand)">2</text><text x="600" y="396" fill="var(--brand)">2</text><text x="638" y="396" fill="var(--brand)">3</text><text x="676" y="396" fill="var(--brand)">2</text><text x="714" y="396" fill="var(--brand)">2</text>
+        </g>
+        <text x="432" y="430" fill="var(--text-soft)" font-size="12.5">第 i 行之和 = 顶点 i 的度；矩阵中 1 的个数 = 2e = 18。</text>
+      </svg>
+      <figcaption>图 8-4　无向图的邻接矩阵：对称、行和等于度</figcaption>
+    </div>
+
+    <h4 id="s3-1-b">有向图：行和是出度，列和是入度</h4>
+    <p>
+      有向图的矩阵把方向信息直接编码进了下标顺序：<code>A[i][j] = 1</code> 读作「有一条从 i 出发、
+      指向 j 的弧」。所以<b>第 i 行非零元素的个数就是 i 的出度，第 i 列非零元素的个数就是 i 的入度</b>。
+      这个「行出列入」的口诀请务必背下来，考试里求入度出度的题基本都靠它。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 400" width="900" height="400" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk85a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+        </defs>
+        <text x="16" y="24" fill="var(--text)" font-size="13" font-weight="700">有向图 D（n = 5，e = 5）</text>
+        <g stroke="var(--border-strong)" stroke-width="1.6" fill="none">
+          <line x1="100" y1="98" x2="196" y2="86" marker-end="url(#mk85a)"/>
+          <line x1="206" y1="99" x2="166" y2="176" marker-end="url(#mk85a)"/>
+          <line x1="150" y1="178" x2="96" y2="114" marker-end="url(#mk85a)"/>
+          <line x1="100" y1="100" x2="332" y2="120" marker-end="url(#mk85a)"/>
+          <line x1="352" y1="136" x2="378" y2="206" marker-end="url(#mk85a)"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6">
+          <circle cx="84" cy="100" r="15"/><circle cx="212" cy="84" r="15"/><circle cx="160" cy="190" r="15"/>
+          <circle cx="348" cy="126" r="15"/><circle cx="386" cy="222" r="15"/>
+        </g>
+        <g fill="var(--text)" font-size="12" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="84" y="104">A</text><text x="212" y="88">B</text><text x="160" y="194">C</text>
+          <text x="348" y="130">D</text><text x="386" y="226">E</text>
+        </g>
+        <text x="16" y="264" fill="var(--text-soft)" font-size="12.5">弧：A→B，B→C，C→A，A→D，D→E</text>
+        <text x="16" y="288" fill="var(--text-soft)" font-size="12.5">矩阵一般不对称（除非正反两个方向都有弧）</text>
+        <text x="16" y="312" fill="var(--brand)" font-size="12.5" font-weight="700">求度口诀：行和 = 出度，列和 = 入度</text>
+        <text x="16" y="344" fill="var(--text-faint)" font-size="12">Σ行和 = Σ列和 = e = 5（有向图的握手定理）</text>
+
+        <g font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+          <text x="490" y="52" fill="var(--text-faint)">j0</text><text x="530" y="52" fill="var(--text-faint)">j1</text>
+          <text x="570" y="52" fill="var(--text-faint)">j2</text><text x="610" y="52" fill="var(--text-faint)">j3</text>
+          <text x="650" y="52" fill="var(--text-faint)">j4</text>
+          <text x="712" y="52" fill="var(--brand)">行和=出度</text>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="470" y="86" fill="var(--text-faint)" text-anchor="end">i0</text>
+          <text x="490" y="86" fill="var(--text)">0</text><text x="530" y="86" fill="var(--brand)">1</text><text x="570" y="86" fill="var(--text)">0</text><text x="610" y="86" fill="var(--brand)">1</text><text x="650" y="86" fill="var(--text)">0</text>
+          <text x="712" y="86" fill="var(--brand)">2</text>
+          <text x="470" y="126" fill="var(--text-faint)" text-anchor="end">i1</text>
+          <text x="490" y="126" fill="var(--text)">0</text><text x="530" y="126" fill="var(--text)">0</text><text x="570" y="126" fill="var(--brand)">1</text><text x="610" y="126" fill="var(--text)">0</text><text x="650" y="126" fill="var(--text)">0</text>
+          <text x="712" y="126" fill="var(--brand)">1</text>
+          <text x="470" y="166" fill="var(--text-faint)" text-anchor="end">i2</text>
+          <text x="490" y="166" fill="var(--brand)">1</text><text x="530" y="166" fill="var(--text)">0</text><text x="570" y="166" fill="var(--text)">0</text><text x="610" y="166" fill="var(--text)">0</text><text x="650" y="166" fill="var(--text)">0</text>
+          <text x="712" y="166" fill="var(--brand)">1</text>
+          <text x="470" y="206" fill="var(--text-faint)" text-anchor="end">i3</text>
+          <text x="490" y="206" fill="var(--text)">0</text><text x="530" y="206" fill="var(--text)">0</text><text x="570" y="206" fill="var(--text)">0</text><text x="610" y="206" fill="var(--text)">0</text><text x="650" y="206" fill="var(--brand)">1</text>
+          <text x="712" y="206" fill="var(--brand)">1</text>
+          <text x="470" y="246" fill="var(--text-faint)" text-anchor="end">i4</text>
+          <text x="490" y="246" fill="var(--text)">0</text><text x="530" y="246" fill="var(--text)">0</text><text x="570" y="246" fill="var(--text)">0</text><text x="610" y="246" fill="var(--text)">0</text><text x="650" y="246" fill="var(--text)">0</text>
+          <text x="712" y="246" fill="var(--brand)">0</text>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="470" y="290" fill="var(--accent)" text-anchor="end">列和=入度</text>
+          <text x="490" y="290" fill="var(--accent)">1</text><text x="530" y="290" fill="var(--accent)">1</text><text x="570" y="290" fill="var(--accent)">1</text><text x="610" y="290" fill="var(--accent)">1</text><text x="650" y="290" fill="var(--accent)">1</text>
+        </g>
+        <text x="470" y="330" fill="var(--text-soft)" font-size="12.5">A 的出度 = 2（行和 = 1+1）</text>
+        <text x="470" y="354" fill="var(--text-soft)" font-size="12.5">C 的入度 = 1（列和 = 1）</text>
+        <text x="470" y="378" fill="var(--text-soft)" font-size="12.5">E 所在行全 0 → 出度为 0，是汇点</text>
+      </svg>
+      <figcaption>图 8-5　有向图的邻接矩阵：行和是出度、列和是入度</figcaption>
+    </div>
+
+    <h3 id="s3-2">8.3.2 与第 06 讲的对称矩阵压缩存储接上头</h3>
+    <p>
+      第 06 讲我们讲过：如果一个 n×n 矩阵满足 <code>A[i][j] = A[j][i]</code>，它就是<b>对称矩阵</b>，
+      可以把 <code>n²</code> 个元素压缩进 <code>n(n+1)/2</code> 个单元，只存下三角（含对角线）。
+      映射公式是（行优先，下标从 0 开始）：
+    </p>
+    <div class="formula center">
+      k = i(i+1)/2 + j　（当 i ≥ j 时）
+    </div>
+    <p>
+      无向图的邻接矩阵天然满足对称性，所以理论上也能这么压。n = 1000 时，
+      <code>n² = 1,000,000</code> 而 <code>n(n+1)/2 ≈ 500,500</code>，省了一半。
+      但是——<b>实际写图论程序时几乎没人压缩</b>，原因有三个：
+    </p>
+    <ol>
+      <li>压缩后取值要算下标（多一次乘法与除法），代码复杂度上去了，常数也变大了；</li>
+      <li>稀疏图用邻接矩阵本来就是错的选择，压缩只是把「浪费」从 100% 降到 50%，治标不治本；</li>
+      <li>带权图要存 ∞，压缩后还要额外判断「这一格到底存过没存过」，得不偿失。</li>
+    </ol>
+    <p>
+      所以考试里「无向图的邻接矩阵是对称矩阵，可压缩存储」这句话你要会判断，
+      但写代码时请老老实实用二维数组或者干脆换邻接表。
+    </p>
+
+    <h3 id="s3-3">8.3.3 从矩阵能读出什么：度、邻接判断、邻接点枚举</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>要问的问题</th><th>无向图</th><th>有向图</th><th>复杂度</th></tr></thead>
+        <tbody>
+          <tr><td>i 与 j 是否相邻？</td><td><code>A[i][j] != 0</code></td><td><code>A[i][j] != 0</code>（i→j）</td><td class="c-ok">O(1)</td></tr>
+          <tr><td>顶点 i 的度</td><td>第 i 行之和</td><td>—</td><td>O(n)</td></tr>
+          <tr><td>顶点 i 的出度</td><td>—</td><td>第 i 行之和</td><td>O(n)</td></tr>
+          <tr><td>顶点 i 的入度</td><td>—</td><td>第 i 列之和</td><td>O(n)</td></tr>
+          <tr><td>枚举 i 的所有邻接点</td><td>扫描第 i 行</td><td>扫描第 i 行</td><td>O(n)</td></tr>
+          <tr><td>遍历整张图（DFS/BFS）</td><td colspan="2">每个顶点都要扫一整行</td><td class="c-bad">O(n²)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note danger">
+      <span class="note-title">易错：O(1) 与 O(n) 的对比要分清</span>
+      「判断两点是否相邻」是 <b>O(1)</b>（一次数组访问），这是邻接矩阵最大的优势；
+      但「枚举某点的所有邻接点」必须扫描整行，即使该点只有 1 个邻接点也要扫 n 次，是 <b>O(n)</b>。
+      很多人只记住「邻接矩阵查边快」，却忘了它在枚举邻居上很慢——这正是邻接表要补的短板。
+    </div>
+
+    <h3 id="s3-4">8.3.4 空间复杂度 O(n²)：与边数无关的代价</h3>
+    <p>
+      邻接矩阵占 <code>n²</code> 个存储单元，<b>与边数 e 完全无关</b>。
+      这意味着：一张有 10000 个顶点、却只有 100 条边的稀疏图（比如一个社交网络的局部），
+      用邻接矩阵要开 <code>10<sup>8</sup></code> 个 int，约 400 MB——直接内存超限；
+      而用邻接表只需要 <code>n + 2e ≈ 10200</code> 个单元，差了一万倍。
+    </p>
+    <p>
+      反过来，如果图很稠密（<code>e ≈ n²/2</code>），两者空间同阶，邻接矩阵因为实现简单、
+      访问连续反而更快。所以选择存储结构的第一原则永远是：<b>先看图的疏密，再看需要的操作</b>。
+    </p>
+    <p>
+      还有一个非常实用的技巧要在这里讲清楚：<b>用 <code>0x3f3f3f3f</code> 表示无穷大 INF</b>。
+      带权图的邻接矩阵里，两个不相邻的顶点之间的距离要填 ∞。C++ 里现成的 <code>INT_MAX</code> 是
+      <code>2147483647</code>，看起来正合适，但它在做松弛运算时会出事：
+    </p>
+    <pre data-lang="cpp" data-file="graph_matrix_inf.cpp">#include &lt;climits&gt;
+#include &lt;cstring&gt;
+#include &lt;iostream&gt;
+using namespace std;
+
+/* ============================================================
+   带权图的邻接矩阵（网）与 INF 的选取
+   ============================================================ */
+const int MAXN = 105;
+const int INF  = 0x3f3f3f3f;        // 1061109567
+
+int W[MAXN][MAXN];
+
+/* ---------- 为什么不用 INT_MAX？ ----------
+   Dijkstra / Floyd 里到处都有 W[u][v] + W[v][w] 这样的松弛运算。
+   若用 INT_MAX：
+       INT_MAX + INT_MAX = 4294967294  →  超出 int 上限，有符号溢出（未定义行为）
+       INT_MAX + 一条正常边权         →  同样溢出
+   若用 0x3f3f3f3f：
+       0x3f3f3f3f + 0x3f3f3f3f = 2122219134 &lt; INT_MAX = 2147483647  →  安全
+       “两个 INF 相加仍是（更大的）有限数，不会变成负数”是它最大的价值。 */
+
+void initWeighted(int n) {
+    memset(W, 0x3f, sizeof(W));     // 逐字节填 0x3f，每个 int 恰好变成 0x3f3f3f3f
+    for (int i = 0; i &lt; n; ++i) W[i][i] = 0;   // 自己到自己的距离为 0
+}
+
+void addWeightedEdge(int u, int v, int w) {    // 无向网：对称写两格
+    W[u][v] = W[v][u] = w;
+}
+
+int main() {
+    initWeighted(5);
+    addWeightedEdge(0, 1, 4);
+    addWeightedEdge(1, 2, 3);
+    addWeightedEdge(0, 2, 9);
+    addWeightedEdge(2, 3, 7);
+
+    cout &lt;&lt; "W[0][1] = " &lt;&lt; W[0][1] &lt;&lt; "\n";                 // 4
+    cout &lt;&lt; "W[0][4] = " &lt;&lt; W[0][4] &lt;&lt; "  (即 INF)\n";       // 1061109567
+    cout &lt;&lt; "INF*2  = " &lt;&lt; INF * 2 &lt;&lt; "\n";                  // 2122219134，未溢出
+    cout &lt;&lt; "INT_MAX= " &lt;&lt; INT_MAX &lt;&lt; "\n";                 // 2147483647
+    cout &lt;&lt; "W[0][4] + W[4][0] = " &lt;&lt; W[0][4] + W[4][0] &lt;&lt; "  ← 两个 INF 相加仍安全\n";
+    return 0;
+}</pre>
+    <div class="note tip">
+      <span class="note-title">INF 选取的三个候选</span>
+      <ul style="margin:6px 0 0">
+        <li><code>0x3f3f3f3f</code> = 1061109567：最推荐。两倍不溢出，可用 <code>memset(W, 0x3f, sizeof(W))</code> 一口气刷满，还能用 <code>W[u][v] == INF</code> 判断无边。</li>
+        <li><code>0x7fffffff</code>（INT_MAX）：<b>不能</b>参与加法，一加就溢出成负数，导致「无穷大居然比有限值还小」的诡异 bug。</li>
+        <li><code>1e9</code>（约 10 亿）：够大也够安全，缺点是只能用循环赋值，不能 memset。</li>
+      </ul>
+    </div>
+
+    <h3 id="s3-5">8.3.5 邻接矩阵的完整 C++ 实现</h3>
+    <p>
+      下面这份代码把「建图 → 求度 → 判相邻 → DFS → BFS」串成了一条完整链路，可以直接编译运行。
+      注意 <code>addEdge</code> 里的对称赋值，以及矩阵版 DFS 为什么必须扫描整行。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_matrix.cpp">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   邻接矩阵版：无向无权图
+   A[i][j] = 1 表示有边，0 表示无边
+   ============================================================ */
+const int MAXN = 105;
+int A[MAXN][MAXN];              // 全局数组，自动全部清零
+int n = 8, e = 0;               // 顶点数、边数
+
+void addEdge(int u, int v) {
+    if (A[u][v]) return;        // 已经有边（重边）就不再计数
+    A[u][v] = A[v][u] = 1;      // 无向图：对称写两格
+    ++e;
+}
+
+int degree(int u) {             // 无向图求度：第 u 行之和
+    int s = 0;
+    for (int v = 0; v &lt; n; ++v) s += A[u][v];
+    return s;
+}
+
+bool adjacent(int u, int v) { return A[u][v] != 0; }   // O(1) 判相邻
+
+/* ---------- 邻接矩阵上的 DFS：每个顶点要扫一整行 ---------- */
+void dfs(int u, vector&lt;bool&gt;&amp; vis, vector&lt;int&gt;&amp; order) {
+    vis[u] = true;
+    order.push_back(u);
+    for (int v = 0; v &lt; n; ++v)          // 注意是 O(n)，不是 O(deg(u))
+        if (A[u][v] &amp;&amp; !vis[v]) dfs(v, vis, order);
+}
+
+/* ---------- 邻接矩阵上的 BFS：顺带求无权最短路 ---------- */
+vector&lt;int&gt; bfs(int s) {
+    vector&lt;int&gt; dist(n, -1), order;
+    queue&lt;int&gt; q;
+    dist[s] = 0; q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int v = 0; v &lt; n; ++v)
+            if (A[u][v] &amp;&amp; dist[v] == -1) { dist[v] = dist[u] + 1; q.push(v); }
+    }
+    cout &lt;&lt; "dist[] = ";
+    for (int x : dist) cout &lt;&lt; x &lt;&lt; " ";
+    cout &lt;&lt; "\n";
+    return order;
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) addEdge(E[i][0], E[i][1]);
+
+    cout &lt;&lt; "n = " &lt;&lt; n &lt;&lt; ", e = " &lt;&lt; e &lt;&lt; "\n";
+    int sum = 0;
+    for (int u = 0; u &lt; n; ++u) { int d = degree(u); sum += d; cout &lt;&lt; "deg(" &lt;&lt; u &lt;&lt; ")=" &lt;&lt; d &lt;&lt; " "; }
+    cout &lt;&lt; "\nΣdeg = " &lt;&lt; sum &lt;&lt; " = 2e = " &lt;&lt; 2 * e &lt;&lt; "\n";
+    cout &lt;&lt; "0 与 1 相邻? " &lt;&lt; (adjacent(0, 1) ? "yes" : "no") &lt;&lt; "\n";   // yes
+    cout &lt;&lt; "0 与 2 相邻? " &lt;&lt; (adjacent(0, 2) ? "yes" : "no") &lt;&lt; "\n";   // no
+
+    vector&lt;bool&gt; vis(n, false);
+    vector&lt;int&gt; ord;
+    dfs(0, vis, ord);
+    cout &lt;&lt; "DFS: "; for (int x : ord) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";     // 0 1 2 3 4 5 6 7
+    cout &lt;&lt; "BFS: "; for (int x : bfs(0)) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";  // 0 1 6 2 7 5 3 4
+    return 0;
+}</pre>
+
+    <p>下面用同一张示例图，逐条边演示矩阵是怎么被填出来的。注意每一步都同时点亮两格——这就是对称性的来源：</p>
+
+    <div id="viz-graph-matrix"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：邻接矩阵的三个常数</span>
+      <ol style="margin:6px 0 0">
+        <li><b>空间</b>：<code>O(n²)</code>，与 e 无关。n = 1000 的无权图约需 1 MB（按 <code>bool</code> 或 <code>char</code> 存），
+          但若是 <code>int</code> 且 n = 10000，就已经是 400 MB。</li>
+        <li><b>遍历时间</b>：<code>O(n²)</code>。因为每个顶点都要扫描一整行，与边数无关。</li>
+        <li><b>求度时间</b>：<code>O(n)</code>。虽然比邻接表的 <code>O(deg)</code> 慢，但对稠密图来说差别不大。</li>
+      </ol>
+    </div>
+
+    <h2 id="s4">8.4 存储结构（二）：邻接表家族</h2>
+
+    <h3 id="s4-1">8.4.1 邻接表：只存真正存在的边</h3>
+    <p>
+      邻接矩阵的浪费来自「把不存在的边也记下来了」。邻接表的思路非常自然：
+      <b>为每个顶点挂一条链表，链表中只存它真正的邻接点</b>。
+      具体由两部分组成：
+    </p>
+    <ul>
+      <li><b>顶点表（vertex array）</b>：长度为 n 的一维数组，第 i 项存顶点 i 的信息（名字 / 数据）以及
+        指向它第一条出边的指针 <code>firstEdge</code>（或叫 <code>head[i]</code>）。</li>
+      <li><b>边结点（edge node）</b>：每个边结点至少有两个域——<code>adjvex</code>（该边另一端顶点的下标）
+        和 <code>next</code>（指向下一条边的指针）。带权图再加一个 <code>weight</code> 域。</li>
+    </ul>
+    <p>
+      于是「枚举顶点 u 的所有邻接点」就变成了「遍历 u 的链表」，花费的时间正比于 u 的度，
+      而不是 n。这就是邻接表相对邻接矩阵最本质的优势。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 430" width="900" height="430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk86a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+        </defs>
+        <text x="16" y="20" fill="var(--text)" font-size="13" font-weight="700">邻接表（无向图 G）：顶点表 vertex[0..7] + 边结点链 [adjvex | next]</text>
+        <text x="40" y="46" fill="var(--text-faint)" font-size="11">顶点表</text>
+        <text x="180" y="46" fill="var(--text-faint)" font-size="11">边结点（每个对应一条“半边”，无向图共 2e = 18 个）</text>
+
+        <g font-family="Consolas, monospace" font-size="12">
+          <text x="40" y="82" fill="var(--text)" text-anchor="middle">0</text>
+          <text x="40" y="126" fill="var(--text)" text-anchor="middle">1</text>
+          <text x="40" y="170" fill="var(--text)" text-anchor="middle">2</text>
+          <text x="40" y="214" fill="var(--text)" text-anchor="middle">3</text>
+          <text x="40" y="258" fill="var(--text)" text-anchor="middle">4</text>
+          <text x="40" y="302" fill="var(--text)" text-anchor="middle">5</text>
+          <text x="40" y="346" fill="var(--text)" text-anchor="middle">6</text>
+          <text x="40" y="390" fill="var(--text)" text-anchor="middle">7</text>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5">
+          <rect x="20" y="62" width="40" height="28" rx="4"/><rect x="64" y="62" width="34" height="28" rx="4"/>
+          <rect x="20" y="106" width="40" height="28" rx="4"/><rect x="64" y="106" width="34" height="28" rx="4"/>
+          <rect x="20" y="150" width="40" height="28" rx="4"/><rect x="64" y="150" width="34" height="28" rx="4"/>
+          <rect x="20" y="194" width="40" height="28" rx="4"/><rect x="64" y="194" width="34" height="28" rx="4"/>
+          <rect x="20" y="238" width="40" height="28" rx="4"/><rect x="64" y="238" width="34" height="28" rx="4"/>
+          <rect x="20" y="282" width="40" height="28" rx="4"/><rect x="64" y="282" width="34" height="28" rx="4"/>
+          <rect x="20" y="326" width="40" height="28" rx="4"/><rect x="64" y="326" width="34" height="28" rx="4"/>
+          <rect x="20" y="370" width="40" height="28" rx="4"/><rect x="64" y="370" width="34" height="28" rx="4"/>
+        </g>
+        <g fill="var(--brand)" font-family="Consolas, monospace" font-size="14" text-anchor="middle">
+          <text x="81" y="82">→</text><text x="81" y="126">→</text><text x="81" y="170">→</text><text x="81" y="214">→</text>
+          <text x="81" y="258">→</text><text x="81" y="302">→</text><text x="81" y="346">→</text><text x="81" y="390">→</text>
+        </g>
+
+        <g fill="var(--bg-soft)" stroke="var(--border)" stroke-width="1.4">
+          <rect x="120" y="62" width="42" height="28" rx="4"/><rect x="162" y="62" width="42" height="28" rx="4"/>
+          <rect x="216" y="62" width="42" height="28" rx="4"/><rect x="258" y="62" width="42" height="28" rx="4"/>
+          <rect x="120" y="106" width="42" height="28" rx="4"/><rect x="162" y="106" width="42" height="28" rx="4"/>
+          <rect x="216" y="106" width="42" height="28" rx="4"/><rect x="258" y="106" width="42" height="28" rx="4"/>
+          <rect x="312" y="106" width="42" height="28" rx="4"/><rect x="354" y="106" width="42" height="28" rx="4"/>
+          <rect x="120" y="150" width="42" height="28" rx="4"/><rect x="162" y="150" width="42" height="28" rx="4"/>
+          <rect x="216" y="150" width="42" height="28" rx="4"/><rect x="258" y="150" width="42" height="28" rx="4"/>
+          <rect x="120" y="194" width="42" height="28" rx="4"/><rect x="162" y="194" width="42" height="28" rx="4"/>
+          <rect x="216" y="194" width="42" height="28" rx="4"/><rect x="258" y="194" width="42" height="28" rx="4"/>
+          <rect x="120" y="238" width="42" height="28" rx="4"/><rect x="162" y="238" width="42" height="28" rx="4"/>
+          <rect x="216" y="238" width="42" height="28" rx="4"/><rect x="258" y="238" width="42" height="28" rx="4"/>
+          <rect x="120" y="282" width="42" height="28" rx="4"/><rect x="162" y="282" width="42" height="28" rx="4"/>
+          <rect x="216" y="282" width="42" height="28" rx="4"/><rect x="258" y="282" width="42" height="28" rx="4"/>
+          <rect x="312" y="282" width="42" height="28" rx="4"/><rect x="354" y="282" width="42" height="28" rx="4"/>
+          <rect x="120" y="326" width="42" height="28" rx="4"/><rect x="162" y="326" width="42" height="28" rx="4"/>
+          <rect x="216" y="326" width="42" height="28" rx="4"/><rect x="258" y="326" width="42" height="28" rx="4"/>
+          <rect x="120" y="370" width="42" height="28" rx="4"/><rect x="162" y="370" width="42" height="28" rx="4"/>
+          <rect x="216" y="370" width="42" height="28" rx="4"/><rect x="258" y="370" width="42" height="28" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12.5" text-anchor="middle">
+          <text x="141" y="82">1</text><text x="183" y="82">∧</text>
+          <text x="237" y="82">6</text><text x="279" y="82">∧</text>
+
+          <text x="141" y="126">0</text><text x="162" y="126" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="126">2</text><text x="258" y="126" fill="var(--brand)" font-size="13">→</text>
+          <text x="333" y="126">7</text><text x="375" y="126">∧</text>
+
+          <text x="141" y="170">1</text><text x="162" y="170" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="170">3</text><text x="279" y="170">∧</text>
+
+          <text x="141" y="214">2</text><text x="162" y="214" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="214">4</text><text x="279" y="214">∧</text>
+
+          <text x="141" y="258">3</text><text x="162" y="258" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="258">5</text><text x="279" y="258">∧</text>
+
+          <text x="141" y="302">4</text><text x="162" y="302" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="302">6</text><text x="258" y="302" fill="var(--brand)" font-size="13">→</text>
+          <text x="333" y="302">7</text><text x="375" y="302">∧</text>
+
+          <text x="141" y="346">0</text><text x="162" y="346" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="346">5</text><text x="279" y="346">∧</text>
+
+          <text x="141" y="390">1</text><text x="162" y="390" fill="var(--brand)" font-size="13">→</text>
+          <text x="237" y="390">5</text><text x="279" y="390">∧</text>
+        </g>
+        <g stroke="var(--brand)" stroke-width="1.6" fill="none">
+          <line x1="98" y1="76" x2="116" y2="76" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="120" x2="116" y2="120" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="164" x2="116" y2="164" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="208" x2="116" y2="208" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="252" x2="116" y2="252" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="296" x2="116" y2="296" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="340" x2="116" y2="340" marker-end="url(#mk86a)"/>
+          <line x1="98" y1="384" x2="116" y2="384" marker-end="url(#mk86a)"/>
+          <line x1="204" y1="120" x2="212" y2="120" marker-end="url(#mk86a)"/>
+          <line x1="300" y1="120" x2="308" y2="120" marker-end="url(#mk86a)"/>
+          <line x1="204" y1="164" x2="212" y2="164" marker-end="url(#mk86a)"/>
+          <line x1="204" y1="208" x2="212" y2="208" marker-end="url(#mk86a)"/>
+          <line x1="204" y1="252" x2="212" y2="252" marker-end="url(#mk86a)"/>
+          <line x1="204" y1="296" x2="212" y2="296" marker-end="url(#mk86a)"/>
+          <line x1="300" y1="296" x2="308" y2="296" marker-end="url(#mk86a)"/>
+        </g>
+        <text x="430" y="82" fill="var(--text-soft)" font-size="12.5">顶点 0 的邻接点：1, 6 → 度 = 2</text>
+        <text x="430" y="126" fill="var(--text-soft)" font-size="12.5">顶点 1 的邻接点：0, 2, 7 → 度 = 3</text>
+        <text x="430" y="170" fill="var(--text-soft)" font-size="12.5">顶点 2 的邻接点：1, 3 → 度 = 2</text>
+        <text x="430" y="258" fill="var(--text-soft)" font-size="12.5">顶点 4 的邻接点：3, 5 → 度 = 2</text>
+        <text x="430" y="302" fill="var(--text-soft)" font-size="12.5">顶点 5 的邻接点：4, 6, 7 → 度 = 3</text>
+        <text x="430" y="352" fill="var(--brand)" font-size="12.5">无向图：边结点数 = 2e = 18</text>
+        <text x="430" y="376" fill="var(--text-soft)" font-size="12.5">有向图：边结点数 = e（只存出边）</text>
+        <text x="430" y="404" fill="var(--text-faint)" font-size="12">链表中邻接点的顺序取决于插入顺序，与顶点编号无关。</text>
+      </svg>
+      <figcaption>图 8-6　邻接表：顶点表 + 每个顶点的边结点链（无向图需要 2e 个边结点）</figcaption>
+    </div>
+
+    <h3 id="s4-2">8.4.2 边结点数、求度，以及「入度不方便」引出的逆邻接表</h3>
+    <p>
+      邻接表有一个必须记牢的数字：<b>无向图的边结点数是 2e，有向图是 e</b>。
+      原因很简单——无向图的一条边 <code>(u,v)</code> 在数学上是一个对象，但在邻接表里必须
+      在 u 的链表和 v 的链表中各出现一次；有向图的弧 <code>u→v</code> 只出现在 u 的链表里，
+      所以正好 e 个。这也解释了 8.5 节对比表里的空间公式 <code>O(n + 2e) = O(n + e)</code>。
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>邻接表（无向）</th><th>邻接表（有向）</th><th>复杂度</th></tr></thead>
+        <tbody>
+          <tr><td>求顶点 u 的度 / 出度</td><td>遍历 u 的链表计数</td><td>遍历 u 的链表计数（出度）</td><td class="c-ok">O(deg(u))</td></tr>
+          <tr><td>求顶点 u 的入度</td><td>—</td><td class="c-bad">必须扫描全部 n 条链表，看谁指向 u</td><td class="c-bad">O(n + e)</td></tr>
+          <tr><td>枚举 u 的所有邻接点</td><td>遍历链表</td><td>遍历链表（出边）</td><td class="c-ok">O(deg(u))</td></tr>
+          <tr><td>判断 u、v 是否相邻</td><td class="c-bad">要在链表中查找</td><td>要在链表中查找</td><td class="c-bad">O(deg(u))</td></tr>
+          <tr><td>遍历整张图</td><td colspan="2">所有链表长度之和 = O(n + e)</td><td class="c-ok">O(n + e)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      注意倒数第二行：<b>判断两点是否相邻，邻接表反而比邻接矩阵慢</b>。
+      这是「没有免费午餐」的典型例子——邻接表省了空间、快了遍历，代价是查边变慢。
+    </p>
+    <p>
+      有向图的入度问题怎么解决？答案是再建一张<b>逆邻接表（inverse adjacency list）</b>：
+      它的链表里存的是<b>指向自己的</b>那些顶点。有了逆邻接表，求入度就变成「遍历自己的逆链表」，
+      也是 <code>O(deg)</code> 了。当然代价是空间翻倍，所以通常只在确实需要频繁问入度时才建
+      （例如拓扑排序的 Kahn 算法、Tarjan 求强连通分量）。
+    </p>
+    <p>
+      小技巧：如果图是静态的、不常改动，也可以干脆同时维护正向与逆向两套 <code>vector</code>，
+      建图时各 <code>push_back</code> 一次，代码几乎不增加复杂度，却把出入度都变成了 O(1) 级访问。
+    </p>
+
+    <h3 id="s4-3">8.4.3 邻接表的 C++ 实现（vector 版，最省心）</h3>
+    <p>
+      在 C++ 里，最省心的邻接表写法是 <code>vector&lt;vector&lt;int&gt; &gt;</code>：
+      外层 vector 对应顶点表，内层 vector 就是那条链表。
+      它不需要手写指针、不需要预先知道边数、还能用范围 for 循环遍历，非常适合教学与刷题。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_adjlist.cpp">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   邻接表版（vector&lt;vector&lt;int&gt; &gt;）：最省心的写法
+   无向图：addEdge 调用两次     有向图：只调用一次
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];            // g[u] 里存 u 的所有邻接点
+int n = 8;
+
+void addEdge(int u, int v) {    // 无向边
+    g[u].push_back(v);
+    g[v].push_back(u);
+}
+/* 若是有向图，只写 g[u].push_back(v); 一行即可 */
+
+int degree(int u) { return (int)g[u].size(); }   // 无向图的度 = 链表长度
+
+void dfs(int u, vector&lt;bool&gt;&amp; vis, vector&lt;int&gt;&amp; order) {
+    vis[u] = true;
+    order.push_back(u);
+    for (int v : g[u])                       // 只遍历真实存在的边 → O(deg(u))
+        if (!vis[v]) dfs(v, vis, order);
+}
+
+vector&lt;int&gt; bfs(int s) {
+    vector&lt;int&gt; dist(n, -1), order;
+    queue&lt;int&gt; q;
+    dist[s] = 0; q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int v : g[u])
+            if (dist[v] == -1) { dist[v] = dist[u] + 1; q.push(v); }
+    }
+    return order;
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) addEdge(E[i][0], E[i][1]);
+    for (int u = 0; u &lt; n; ++u) sort(g[u].begin(), g[u].end());   // 升序枚举
+
+    int total = 0;
+    for (int u = 0; u &lt; n; ++u) {
+        cout &lt;&lt; u &lt;&lt; " 的邻接点: ";
+        for (int v : g[u]) cout &lt;&lt; v &lt;&lt; " ";
+        cout &lt;&lt; " 度=" &lt;&lt; degree(u) &lt;&lt; "\n";
+        total += degree(u);
+    }
+    cout &lt;&lt; "所有链表长度之和 = " &lt;&lt; total &lt;&lt; " = 2e = " &lt;&lt; 2 * 9 &lt;&lt; "\n";
+
+    vector&lt;bool&gt; vis(n, false); vector&lt;int&gt; ord;
+    dfs(0, vis, ord);
+    cout &lt;&lt; "DFS: "; for (int x : ord) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    cout &lt;&lt; "BFS: "; for (int x : bfs(0)) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：链表中邻接点的顺序是不确定的</span>
+      <code>vector</code> 版邻接表里，邻接点的顺序就是<b>插入顺序</b>；如果用头插法的链式前向星，
+      顺序恰好<b>反过来</b>。所以同一张图，用不同的存储方式跑 DFS，得到的访问序列可能不同，
+      但<b>都是合法的 DFS 序列</b>。考试时若题目没有规定访问顺序，通常约定「按顶点编号从小到大访问」，
+      做题前先确认这一点，否则会和标准答案对不上。
+    </div>
+
+    <h3 id="s4-4">8.4.4 链式前向星：竞赛选手的主流写法</h3>
+    <p>
+      <code>vector&lt;vector&lt;int&gt; &gt;</code> 虽然好写，但有两个隐患：
+      一是每个顶点的 <code>vector</code> 都要单独申请堆内存，<b>内存不连续、缓存不友好</b>，
+      在 10<sup>6</sup> 级别的数据上常数明显偏大；二是频繁 <code>push_back</code> 可能触发扩容。
+      于是竞赛圈广泛使用一种「用数组模拟链表」的写法——<b>链式前向星（forward star）</b>。
+    </p>
+    <p>它只需要三个（带权时四个）一维数组：</p>
+    <dl class="def">
+      <dt>head[u]</dt><dd>以 u 为起点的「第一条边」在边数组中的下标；没有出边时为 −1。</dd>
+      <dt>to[idx]</dt><dd>第 idx 条边的终点（弧头）。</dd>
+      <dt>nxt[idx]</dt><dd>与第 idx 条边<b>同起点</b>的下一条边的下标，构成链表的后继指针；没有则为 −1。</dd>
+      <dt>w[idx]</dt><dd>第 idx 条边的权值（无权图可省略）。</dd>
+    </dl>
+    <p>插入一条边 u→v 只有三行：</p>
+    <div class="formula">
+      to[idx] = v;　nxt[idx] = head[u];　head[u] = idx;　++idx;
+    </div>
+    <p>
+      三行的含义分别是「记录终点」「把新结点接在原来的链表头部」「让 head 指向新结点」。
+      因为是头插法，<b>枚举顺序与插入顺序相反</b>——这一点在需要固定遍历顺序时要注意。
+      遍历顶点 u 的所有出边，写成一行经典的 for 循环：
+    </p>
+    <pre data-lang="cpp" data-file="graph_chain_forward_star.cpp">#include &lt;cstring&gt;
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   链式前向星（数组模拟邻接表）—— 竞赛主流写法
+   head[u] : u 的第一条出边下标（-1 表示没有）
+   to[i]   : 第 i 条边的终点
+   nxt[i]  : 与第 i 条边同起点的下一条边
+   w[i]    : 第 i 条边的权值
+   ============================================================ */
+const int MAXN = 100005;      // 顶点数上限
+const int MAXM = 200005;      // 边数上限（无向图要开 2 倍）
+
+int head[MAXN], to[MAXM], nxt[MAXM], w[MAXM];
+int idx = 0;                  // 下一个可用的边结点下标
+
+void initGraph() {
+    memset(head, -1, sizeof(head));   // -1 表示“链表为空”
+    idx = 0;
+}
+
+/* 加一条有向边 u -&gt; v，权值为 c；无向边请调用两次 */
+void addEdge(int u, int v, int c = 1) {
+    to[idx]  = v;
+    nxt[idx] = head[u];       // 新结点接在头部
+    w[idx]   = c;
+    head[u]  = idx;
+    ++idx;
+}
+
+/* 遍历 u 的所有出边：这是链式前向星最经典的循环 */
+void listEdges(int u) {
+    cout &lt;&lt; u &lt;&lt; " 的出边: ";
+    for (int i = head[u]; i != -1; i = nxt[i])
+        cout &lt;&lt; "(" &lt;&lt; u &lt;&lt; "-&gt;" &lt;&lt; to[i] &lt;&lt; ",w=" &lt;&lt; w[i] &lt;&lt; ") ";
+    cout &lt;&lt; "\n";
+}
+
+void dfs(int u, vector&lt;bool&gt;&amp; vis, vector&lt;int&gt;&amp; order) {
+    vis[u] = true;
+    order.push_back(u);
+    for (int i = head[u]; i != -1; i = nxt[i])
+        if (!vis[to[i]]) dfs(to[i], vis, order);
+}
+
+vector&lt;int&gt; bfs(int s, int n) {
+    vector&lt;int&gt; dist(n, -1), order;
+    queue&lt;int&gt; q;
+    dist[s] = 0; q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int i = head[u]; i != -1; i = nxt[i]) {
+            int v = to[i];
+            if (dist[v] == -1) { dist[v] = dist[u] + 1; q.push(v); }
+        }
+    }
+    return order;
+}
+
+int main() {
+    int n = 8;
+    initGraph();
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int k = 0; k &lt; 9; ++k) {         // 无向图 → 每条边插两次
+        addEdge(E[k][0], E[k][1]);
+        addEdge(E[k][1], E[k][0]);
+    }
+    cout &lt;&lt; "边结点总数 = " &lt;&lt; idx &lt;&lt; "（无向图 = 2e = 18）\n";   // 18
+
+    for (int u = 0; u &lt; n; ++u) listEdges(u);
+
+    vector&lt;bool&gt; vis(n, false); vector&lt;int&gt; ord;
+    dfs(0, vis, ord);
+    cout &lt;&lt; "DFS: "; for (int x : ord) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    cout &lt;&lt; "BFS: "; for (int x : bfs(0, n)) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 1000 490" width="1000" height="490" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk87a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">链式前向星：head[8] + to[18] + nxt[18]（无向图 9 条边 → 18 个边结点）</text>
+
+        <g font-family="Consolas, monospace" font-size="10.5">
+          <text x="52" y="60" fill="var(--text)" text-anchor="end">head[]</text>
+        </g>
+        <g fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6">
+          <rect x="56" y="40" width="28" height="26" rx="4"/><rect x="100" y="40" width="28" height="26" rx="4"/>
+          <rect x="144" y="40" width="28" height="26" rx="4"/><rect x="188" y="40" width="28" height="26" rx="4"/>
+          <rect x="232" y="40" width="28" height="26" rx="4"/><rect x="276" y="40" width="28" height="26" rx="4"/>
+          <rect x="320" y="40" width="28" height="26" rx="4"/><rect x="364" y="40" width="28" height="26" rx="4"/>
+        </g>
+        <g fill="var(--brand)" font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="70" y="59">2</text><text x="114" y="59">6</text><text x="158" y="59">8</text><text x="202" y="59">10</text>
+          <text x="246" y="59">12</text><text x="290" y="59">16</text><text x="334" y="59">15</text><text x="378" y="59">17</text>
+        </g>
+        <g fill="var(--text-faint)" font-family="Consolas, monospace" font-size="9" text-anchor="middle">
+          <text x="70" y="76">0</text><text x="114" y="76">1</text><text x="158" y="76">2</text><text x="202" y="76">3</text>
+          <text x="246" y="76">4</text><text x="290" y="76">5</text><text x="334" y="76">6</text><text x="378" y="76">7</text>
+        </g>
+
+        <g font-family="Consolas, monospace" font-size="10.5">
+          <text x="52" y="128" fill="var(--text)" text-anchor="end">to[]</text>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.3">
+          <rect x="56" y="112" width="28" height="26" rx="4"/><rect x="88" y="112" width="28" height="26" rx="4"/>
+          <rect x="120" y="112" width="28" height="26" rx="4"/><rect x="152" y="112" width="28" height="26" rx="4"/>
+          <rect x="184" y="112" width="28" height="26" rx="4"/><rect x="216" y="112" width="28" height="26" rx="4"/>
+          <rect x="248" y="112" width="28" height="26" rx="4"/><rect x="280" y="112" width="28" height="26" rx="4"/>
+          <rect x="312" y="112" width="28" height="26" rx="4"/><rect x="344" y="112" width="28" height="26" rx="4"/>
+          <rect x="376" y="112" width="28" height="26" rx="4"/><rect x="408" y="112" width="28" height="26" rx="4"/>
+          <rect x="440" y="112" width="28" height="26" rx="4"/><rect x="472" y="112" width="28" height="26" rx="4"/>
+          <rect x="504" y="112" width="28" height="26" rx="4"/><rect x="536" y="112" width="28" height="26" rx="4"/>
+          <rect x="568" y="112" width="28" height="26" rx="4"/><rect x="600" y="112" width="28" height="26" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="70" y="131">1</text><text x="102" y="131">0</text><text x="134" y="131">6</text><text x="166" y="131">0</text>
+          <text x="198" y="131">2</text><text x="230" y="131">1</text><text x="262" y="131">7</text><text x="294" y="131">1</text>
+          <text x="326" y="131">3</text><text x="358" y="131">2</text><text x="390" y="131">4</text><text x="422" y="131">3</text>
+          <text x="454" y="131">5</text><text x="486" y="131">4</text><text x="518" y="131">6</text><text x="550" y="131">5</text>
+          <text x="582" y="131">7</text><text x="614" y="131">5</text>
+        </g>
+
+        <g font-family="Consolas, monospace" font-size="10.5">
+          <text x="52" y="200" fill="var(--text)" text-anchor="end">nxt[]</text>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.3">
+          <rect x="56" y="184" width="28" height="26" rx="4"/><rect x="88" y="184" width="28" height="26" rx="4"/>
+          <rect x="120" y="184" width="28" height="26" rx="4"/><rect x="152" y="184" width="28" height="26" rx="4"/>
+          <rect x="184" y="184" width="28" height="26" rx="4"/><rect x="216" y="184" width="28" height="26" rx="4"/>
+          <rect x="248" y="184" width="28" height="26" rx="4"/><rect x="280" y="184" width="28" height="26" rx="4"/>
+          <rect x="312" y="184" width="28" height="26" rx="4"/><rect x="344" y="184" width="28" height="26" rx="4"/>
+          <rect x="376" y="184" width="28" height="26" rx="4"/><rect x="408" y="184" width="28" height="26" rx="4"/>
+          <rect x="440" y="184" width="28" height="26" rx="4"/><rect x="472" y="184" width="28" height="26" rx="4"/>
+          <rect x="504" y="184" width="28" height="26" rx="4"/><rect x="536" y="184" width="28" height="26" rx="4"/>
+          <rect x="568" y="184" width="28" height="26" rx="4"/><rect x="600" y="184" width="28" height="26" rx="4"/>
+        </g>
+        <g fill="var(--accent)" font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="70" y="203">-1</text><text x="102" y="203">-1</text><text x="134" y="203">0</text><text x="166" y="203">-1</text>
+          <text x="198" y="203">1</text><text x="230" y="203">-1</text><text x="262" y="203">4</text><text x="294" y="203">-1</text>
+          <text x="326" y="203">5</text><text x="358" y="203">-1</text><text x="390" y="203">9</text><text x="422" y="203">-1</text>
+          <text x="454" y="203">11</text><text x="486" y="203">-1</text><text x="518" y="203">13</text><text x="550" y="203">3</text>
+          <text x="582" y="203">14</text><text x="614" y="203">7</text>
+        </g>
+        <g fill="var(--text-faint)" font-family="Consolas, monospace" font-size="9" text-anchor="middle">
+          <text x="70" y="226">0</text><text x="102" y="226">1</text><text x="134" y="226">2</text><text x="166" y="226">3</text>
+          <text x="198" y="226">4</text><text x="230" y="226">5</text><text x="262" y="226">6</text><text x="294" y="226">7</text>
+          <text x="326" y="226">8</text><text x="358" y="226">9</text><text x="390" y="226">10</text><text x="422" y="226">11</text>
+          <text x="454" y="226">12</text><text x="486" y="226">13</text><text x="518" y="226">14</text><text x="550" y="226">15</text>
+          <text x="582" y="226">16</text><text x="614" y="226">17</text>
+        </g>
+
+        <line x1="16" y1="248" x2="980" y2="248" stroke="var(--border)" stroke-width="1"/>
+        <text x="16" y="274" fill="var(--text)" font-size="12.5">以顶点 5 为例，顺着 head[5] = 16 一路走 nxt：</text>
+        <g fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8">
+          <rect x="70" y="290" width="120" height="34" rx="5"/>
+          <rect x="250" y="290" width="120" height="34" rx="5"/>
+          <rect x="430" y="290" width="120" height="34" rx="5"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="130" y="312">#16 to=7</text>
+          <text x="310" y="312">#14 to=6</text>
+          <text x="490" y="312">#13 to=4</text>
+          <text x="596" y="312" fill="var(--text-soft)">nxt = -1（结束）</text>
+        </g>
+        <g stroke="var(--ok)" stroke-width="2" fill="none">
+          <path d="M190,307 L246,307" marker-end="url(#mk87a)"/>
+          <path d="M370,307 L426,307" marker-end="url(#mk87a)"/>
+        </g>
+        <text x="16" y="358" fill="var(--text-soft)" font-size="12.5">于是顶点 5 的邻接点是 7、6、4——注意顺序与插入顺序（4,6,7）相反，因为每次都是头插法。</text>
+        <text x="16" y="384" fill="var(--text-soft)" font-size="12.5">插入一条边只要三行：to[idx]=v; nxt[idx]=head[u]; head[u]=idx; ++idx;　复杂度 O(1)。</text>
+        <text x="16" y="410" fill="var(--text-soft)" font-size="12.5">遍历 u 的出边：for (int i = head[u]; i != -1; i = nxt[i]) …　总时间 O(n + e)。</text>
+        <text x="16" y="442" fill="var(--brand)" font-size="12.5">优点：三个一维数组、内存连续、无指针、无 vector 开销，常数极小；缺点：头插导致顺序逆序，删除边不方便。</text>
+        <text x="16" y="468" fill="var(--text-faint)" font-size="12">代价：必须预先估计边数上限（无向图要开 2e），开小了会数组越界。</text>
+      </svg>
+      <figcaption>图 8-7　链式前向星：head / to / nxt 三个数组如何拼出邻接表</figcaption>
+    </div>
+
+    <p>
+      下面这个动画用同一张示例图，把 18 个边结点一条一条插进去，你可以盯着 <code>head</code> 的变化看——
+      它永远指向最新插入的那条边：
+    </p>
+
+    <div id="viz-graph-list"></div>
+
+    <div class="note tip">
+      <span class="note-title">三种邻接表写法怎么选</span>
+      <ul style="margin:6px 0 0">
+        <li><b>教学 / 小数据 / 需要按序枚举</b>：<code>vector&lt;vector&lt;int&gt; &gt;</code>，最省心。</li>
+        <li><b>竞赛 / 大数据（n, e ≥ 10<sup>5</sup>）</b>：链式前向星，常数最小，但要注意开够数组。</li>
+        <li><b>需要频繁求入度</b>：额外建一张逆邻接表，或者用「正向 + 反向」两套 <code>vector</code>。</li>
+      </ul>
+    </div>
+
+    <h3 id="s4-5">8.4.5 十字链表：有向图的「出入两全」结构</h3>
+    <p>
+      邻接表存有向图的痛点是：出边很好找，入边很难找。能不能让每个顶点<b>同时</b>掌握自己的出边链和入边链？
+      能，这就是<b>十字链表（orthogonal list / cross list）</b>。
+      它把邻接表与逆邻接表「交叉」在一起，所以叫十字链表。
+    </p>
+    <p>结构分两部分：</p>
+    <dl class="def">
+      <dt>顶点结点</dt><dd>三个域：<code>data</code>（数据）、<code>firstIn</code>（指向第一条<b>以我为弧头</b>的边结点，即入边链）、<code>firstOut</code>（指向第一条<b>以我为弧尾</b>的边结点，即出边链）。</dd>
+      <dt>边结点（弧结点）</dt><dd>四个域：<code>tailVex</code>（弧尾顶点下标）、<code>headVex</code>（弧头顶点下标）、<code>hLink</code>（指向<b>同一个弧头</b>的下一条弧，串起入边链）、<code>tLink</code>（指向<b>同一个弧尾</b>的下一条弧，串起出边链）。</dd>
+    </dl>
+    <p>
+      记忆口诀：<b>t 开头管尾巴（tail），h 开头管脑袋（head）</b>。
+      于是：顺着 <code>firstOut</code> 走 <code>tLink</code>，得到该顶点的全部<b>出边</b>；
+      顺着 <code>firstIn</code> 走 <code>hLink</code>，得到该顶点的全部<b>入边</b>。
+      求入度和出度都变成了 O(deg)，而且每条弧只存一个结点，空间仍是 O(n + e)。
+    </p>
+    <p>
+      代价是每个边结点要多一个指针域，指针维护也更复杂，所以十字链表主要用于
+      <b>需要频繁修改、且同时关心出入边的有向图</b>场景（例如某些编译器中的依赖图、网络流建模）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 940 430" width="940" height="430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk88b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="mk88o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">十字链表：有向图 D（弧 0→1、0→2、1→2）</text>
+        <text x="30" y="52" fill="var(--text-faint)" font-size="11">顶点结点：data | firstIn | firstOut</text>
+        <text x="560" y="52" fill="var(--text-faint)" font-size="11">弧结点：tailVex | headVex | hLink | tLink</text>
+
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5">
+          <rect x="30" y="66" width="56" height="34" rx="4"/><rect x="86" y="66" width="72" height="34" rx="4"/><rect x="158" y="66" width="72" height="34" rx="4"/>
+          <rect x="30" y="146" width="56" height="34" rx="4"/><rect x="86" y="146" width="72" height="34" rx="4"/><rect x="158" y="146" width="72" height="34" rx="4"/>
+          <rect x="30" y="226" width="56" height="34" rx="4"/><rect x="86" y="226" width="72" height="34" rx="4"/><rect x="158" y="226" width="72" height="34" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12.5" text-anchor="middle">
+          <text x="58" y="88">v0</text><text x="122" y="88" fill="var(--accent)">∧</text><text x="194" y="88" fill="var(--brand)">→ A</text>
+          <text x="58" y="168">v1</text><text x="122" y="168" fill="var(--accent)">→ A</text><text x="194" y="168" fill="var(--brand)">→ C</text>
+          <text x="58" y="248">v2</text><text x="122" y="248" fill="var(--accent)">→ B</text><text x="194" y="248" fill="var(--brand)">∧</text>
+        </g>
+
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5">
+          <rect x="560" y="66" width="62" height="34" rx="4"/><rect x="622" y="66" width="62" height="34" rx="4"/>
+          <rect x="684" y="66" width="62" height="34" rx="4"/><rect x="746" y="66" width="62" height="34" rx="4"/>
+          <rect x="560" y="166" width="62" height="34" rx="4"/><rect x="622" y="166" width="62" height="34" rx="4"/>
+          <rect x="684" y="166" width="62" height="34" rx="4"/><rect x="746" y="166" width="62" height="34" rx="4"/>
+          <rect x="560" y="266" width="62" height="34" rx="4"/><rect x="622" y="266" width="62" height="34" rx="4"/>
+          <rect x="684" y="266" width="62" height="34" rx="4"/><rect x="746" y="266" width="62" height="34" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12.5" text-anchor="middle">
+          <text x="591" y="88">0</text><text x="653" y="88">1</text><text x="715" y="88" fill="var(--accent)">∧</text><text x="777" y="88" fill="var(--brand)">→ B</text>
+          <text x="591" y="188">0</text><text x="653" y="188">2</text><text x="715" y="188" fill="var(--accent)">→ C</text><text x="777" y="188" fill="var(--brand)">∧</text>
+          <text x="591" y="288">1</text><text x="653" y="288">2</text><text x="715" y="288" fill="var(--accent)">∧</text><text x="777" y="288" fill="var(--brand)">∧</text>
+        </g>
+        <g fill="var(--brand)" font-family="Consolas, monospace" font-size="12">
+          <text x="830" y="88">弧 A = 0→1</text>
+          <text x="830" y="188">弧 B = 0→2</text>
+          <text x="830" y="288">弧 C = 1→2</text>
+        </g>
+
+        <g stroke="var(--brand)" stroke-width="2" fill="none">
+          <path d="M232,84 C 380,84 420,60 556,78" marker-end="url(#mk88b)"/>
+          <path d="M232,164 C 320,200 420,240 556,280" marker-end="url(#mk88b)"/>
+          <path d="M814,83 C 870,110 870,150 812,176" marker-end="url(#mk88b)"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="2" fill="none">
+          <path d="M160,150 C 260,140 380,112 556,88" marker-end="url(#mk88o)"/>
+          <path d="M160,228 C 300,236 420,200 556,184" marker-end="url(#mk88o)"/>
+          <path d="M750,183 C 800,215 800,245 750,278" marker-end="url(#mk88o)"/>
+        </g>
+        <g fill="var(--brand)" font-size="11.5">
+          <text x="330" y="62">firstOut[0]</text>
+          <text x="300" y="248">firstOut[1]</text>
+          <text x="836" y="124">tLink(A)→B</text>
+        </g>
+        <g fill="var(--accent)" font-size="11.5">
+          <text x="238" y="132">firstIn[1]</text>
+          <text x="256" y="208">firstIn[2]</text>
+          <text x="806" y="240">hLink(B)→C</text>
+        </g>
+
+        <line x1="16" y1="330" x2="924" y2="330" stroke="var(--border)" stroke-width="1"/>
+        <text x="16" y="356" fill="var(--text-soft)" font-size="12.5">蓝色箭头 = 出边链（firstOut 起步，沿 tLink 走）：v0 → A → B；v1 → C。</text>
+        <text x="16" y="380" fill="var(--text-soft)" font-size="12.5">橙色箭头 = 入边链（firstIn 起步，沿 hLink 走）：v1 → A；v2 → B → C。</text>
+        <text x="16" y="404" fill="var(--brand)" font-size="12.5">结论：每条弧只占一个结点（空间 O(n+e)），而每个顶点的入度、出度都能在 O(deg) 内求出——邻接表做不到这一点。</text>
+      </svg>
+      <figcaption>图 8-8　十字链表：firstIn / firstOut 与 hLink / tLink 如何织出一张「十字」</figcaption>
+    </div>
+
+    <pre data-lang="cpp" data-file="graph_cross_list.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   十字链表（orthogonal list）—— 有向图专用
+   顶点结点：data + firstIn + firstOut
+   弧结点  ：tailVex + headVex + hLink + tLink
+   每条弧只存一个结点；出边链沿 tLink 走，入边链沿 hLink 走
+   ============================================================ */
+struct ArcBox {                  // 弧结点
+    int tailVex, headVex;        // 弧尾、弧头顶点下标
+    int hLink, tLink;            // 同弧头的下一条弧 / 同弧尾的下一条弧（数组下标，-1 表示空）
+    int weight;
+};
+
+struct VexNode {                 // 顶点结点
+    int data;
+    int firstIn, firstOut;
+};
+
+vector&lt;VexNode&gt; vex;
+vector&lt;ArcBox&gt;  arc;
+
+void initOL(int n) {
+    vex.assign(n, VexNode());
+    for (int i = 0; i &lt; n; ++i) { vex[i].data = i; vex[i].firstIn = -1; vex[i].firstOut = -1; }
+    arc.clear();
+}
+
+/* 插入一条弧 u -&gt; v */
+void addArc(int u, int v, int w = 1) {
+    ArcBox a;
+    a.tailVex = u; a.headVex = v; a.weight = w;
+    a.tLink = vex[u].firstOut;    // 头插到 u 的出边链
+    a.hLink = vex[v].firstIn;     // 头插到 v 的入边链
+    arc.push_back(a);
+    int id = (int)arc.size() - 1;
+    vex[u].firstOut = id;
+    vex[v].firstIn  = id;
+}
+
+void printOut(int u) {            // 枚举 u 的所有出弧（顺 tLink）
+    cout &lt;&lt; "v" &lt;&lt; u &lt;&lt; " 的出弧: ";
+    int c = 0;
+    for (int i = vex[u].firstOut; i != -1; i = arc[i].tLink) {
+        cout &lt;&lt; arc[i].tailVex &lt;&lt; "-&gt;" &lt;&lt; arc[i].headVex &lt;&lt; " ";
+        ++c;
+    }
+    cout &lt;&lt; " 出度=" &lt;&lt; c &lt;&lt; "\n";
+}
+
+void printIn(int u) {             // 枚举 u 的所有入弧（顺 hLink）
+    cout &lt;&lt; "v" &lt;&lt; u &lt;&lt; " 的入弧: ";
+    int c = 0;
+    for (int i = vex[u].firstIn; i != -1; i = arc[i].hLink) {
+        cout &lt;&lt; arc[i].tailVex &lt;&lt; "-&gt;" &lt;&lt; arc[i].headVex &lt;&lt; " ";
+        ++c;
+    }
+    cout &lt;&lt; " 入度=" &lt;&lt; c &lt;&lt; "\n";
+}
+
+int main() {
+    initOL(3);
+    addArc(0, 1);
+    addArc(0, 2);
+    addArc(1, 2);
+
+    for (int u = 0; u &lt; 3; ++u) { printOut(u); printIn(u); }
+    /* 输出：
+       v0 的出弧: 0->2 0->1  出度=2
+       v0 的入弧:             入度=0
+       v1 的出弧: 1->2        出度=1
+       v1 的入弧: 0->1        入度=1
+       v2 的出弧:             出度=0
+       v2 的入弧: 1->2 0->2   入度=2   */
+    cout &lt;&lt; "弧结点总数 = " &lt;&lt; arc.size() &lt;&lt; " = e = 3\n";
+    return 0;
+}</pre>
+
+    <h3 id="s4-6">8.4.6 邻接多重表：无向图里每条边只存一个结点</h3>
+    <p>
+      无向图的邻接表有个「冗余」：一条边要存两个结点。如果要做的操作是
+      「删除一条边」「给边打标记（比如判断某条边是否已经走过）」，就得同时找到两份并分别删除，很麻烦。
+      <b>邻接多重表（adjacency multilist）</b>正是为解决这个问题而生：
+      <b>每条边只存一个结点</b>，两个端点各自通过自己的指针链指向它。
+    </p>
+    <dl class="def">
+      <dt>边结点</dt><dd>五个域：<code>mark</code>（标记位，可用于「这条边是否访问过」）、<code>ivex</code>、<code>ilink</code>（顶点 ivex 的下一条关联边）、<code>jvex</code>、<code>jlink</code>（顶点 jvex 的下一条关联边）。</dd>
+      <dt>顶点结点</dt><dd><code>data</code> + <code>firstEdge</code>（指向第一条依附于该顶点的边结点）。</dd>
+    </dl>
+    <p>
+      于是 3 个顶点的完全图只需要 3 个边结点（邻接表要 6 个），空间从 <code>O(n + 2e)</code>
+      降到 <code>O(n + e)</code>，而且删除一条边只需摘掉一个结点。
+      代价是每个结点多两个指针域，结构更绕，所以它主要用于<b>需要频繁对边做标记 / 删除的无向图</b>算法
+      （例如欧拉路径的求解中给边打「已走过」标记）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 940 420" width="940" height="420" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mk89b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="mk89p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--purple)"/>
+          </marker>
+        </defs>
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">邻接多重表：无向完全图 K3（3 个顶点、3 条边、<tspan fill="var(--brand)">只有 3 个边结点</tspan>）</text>
+
+        <text x="30" y="56" fill="var(--text-faint)" font-size="11">顶点结点：data | firstEdge</text>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5">
+          <rect x="30" y="70" width="60" height="32" rx="4"/><rect x="90" y="70" width="70" height="32" rx="4"/>
+          <rect x="30" y="140" width="60" height="32" rx="4"/><rect x="90" y="140" width="70" height="32" rx="4"/>
+          <rect x="30" y="210" width="60" height="32" rx="4"/><rect x="90" y="210" width="70" height="32" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12.5" text-anchor="middle">
+          <text x="60" y="91">v0</text><text x="125" y="91" fill="var(--brand)">→ E0</text>
+          <text x="60" y="161">v1</text><text x="125" y="161" fill="var(--brand)">→ E0</text>
+          <text x="60" y="231">v2</text><text x="125" y="231" fill="var(--brand)">→ E1</text>
+        </g>
+
+        <text x="330" y="56" fill="var(--text-faint)" font-size="11">边结点：mark | ivex | ilink | jvex | jlink</text>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5">
+          <rect x="330" y="70" width="46" height="32" rx="4"/><rect x="376" y="70" width="52" height="32" rx="4"/>
+          <rect x="428" y="70" width="60" height="32" rx="4"/><rect x="488" y="70" width="52" height="32" rx="4"/>
+          <rect x="540" y="70" width="60" height="32" rx="4"/>
+          <rect x="330" y="160" width="46" height="32" rx="4"/><rect x="376" y="160" width="52" height="32" rx="4"/>
+          <rect x="428" y="160" width="60" height="32" rx="4"/><rect x="488" y="160" width="52" height="32" rx="4"/>
+          <rect x="540" y="160" width="60" height="32" rx="4"/>
+          <rect x="330" y="250" width="46" height="32" rx="4"/><rect x="376" y="250" width="52" height="32" rx="4"/>
+          <rect x="428" y="250" width="60" height="32" rx="4"/><rect x="488" y="250" width="52" height="32" rx="4"/>
+          <rect x="540" y="250" width="60" height="32" rx="4"/>
+        </g>
+        <g fill="var(--text)" font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <text x="353" y="91">0</text><text x="402" y="91">0</text><text x="458" y="91" fill="var(--purple)">→E1</text><text x="514" y="91">1</text><text x="570" y="91" fill="var(--purple)">→E2</text>
+          <text x="353" y="181">0</text><text x="402" y="181">0</text><text x="458" y="181" fill="var(--purple)">∧</text><text x="514" y="181">2</text><text x="570" y="181" fill="var(--purple)">→E2</text>
+          <text x="353" y="271">0</text><text x="402" y="271">1</text><text x="458" y="271" fill="var(--purple)">∧</text><text x="514" y="271">2</text><text x="570" y="271" fill="var(--purple)">∧</text>
+        </g>
+        <g fill="var(--brand)" font-size="12" font-family="Consolas, monospace">
+          <text x="620" y="91">E0 = 边 (0,1)</text>
+          <text x="620" y="181">E1 = 边 (0,2)</text>
+          <text x="620" y="271">E2 = 边 (1,2)</text>
+        </g>
+
+        <g stroke="var(--brand)" stroke-width="1.8" fill="none">
+          <path d="M160,86 C 230,86 280,80 326,84" marker-end="url(#mk89b)"/>
+          <path d="M160,156 C 230,150 280,100 326,92" marker-end="url(#mk89b)"/>
+          <path d="M160,226 C 230,230 280,180 326,174" marker-end="url(#mk89b)"/>
+        </g>
+        <g stroke="var(--purple)" stroke-width="1.8" fill="none">
+          <path d="M488,102 C 488,130 460,140 460,156" marker-end="url(#mk89p)"/>
+          <path d="M600,102 C 690,110 690,150 604,172" marker-end="url(#mk89p)"/>
+          <path d="M600,192 C 700,210 700,250 604,262" marker-end="url(#mk89p)"/>
+        </g>
+        <g fill="var(--purple)" font-size="11.5">
+          <text x="470" y="140">ilink(E0)→E1</text>
+          <text x="646" y="130">jlink(E0)→E2</text>
+          <text x="646" y="234">jlink(E1)→E2</text>
+        </g>
+
+        <line x1="16" y1="310" x2="924" y2="310" stroke="var(--border)" stroke-width="1"/>
+        <text x="16" y="336" fill="var(--text-soft)" font-size="12.5">从 v2 出发枚举邻接点：firstEdge[2] = E1(0,2) → E1 的 jvex = 2，所以另一端是 0；沿 jlink 到 E2(1,2)。</text>
+        <text x="16" y="360" fill="var(--text-soft)" font-size="12.5">E2 的 jvex = 2，另一端是 1；jlink = ∧，结束。于是 v2 的邻接点是 0、1 —— 3 条边、3 个结点，一条边没有被存两遍。</text>
+        <text x="16" y="390" fill="var(--brand)" font-size="12.5">适用场景：需要对边打标记（是否走过）、需要频繁删边的无向图；求欧拉路径时特别好用。</text>
+      </svg>
+      <figcaption>图 8-9　邻接多重表：无向图的每条边只占一个结点，mark 域便于给边做标记</figcaption>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">注意：图上的链顺序与代码输出的顺序可能相反</span>
+      图 8-9 为了便于阅读，把每个顶点的关联边链按 <code>ivex</code> 升序画出（v2 先看到边 (0,2) 再看到 (1,2)），
+      所以读出「邻接点是 0、1」；而下面这份代码用的是<b>头插法</b>（<code>e.ilink = mv[u].firstEdge;</code>），
+      后插入的边结点会跑到链首，实际会打印「v2 的邻接点: 1 0」。
+      两者是同一张表、同一组邻接点，只是链表的物理顺序不同——这也是所有「数组模拟链表」结构的通病，
+      <b>凡是不要求顺序的算法（遍历、求度、连通性）都不受影响；一旦题目要求按编号输出，就必须先排序或改用有序插入</b>。
+    </div>
+
+    <pre data-lang="cpp" data-file="graph_adj_multilist.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   邻接多重表 —— 无向图专用，每条边只存一个结点
+   边结点：mark + ivex + ilink + jvex + jlink
+   ============================================================ */
+struct EdgeBox {
+    bool mark;                   // 标记：这条边是否被访问过（欧拉路径等算法用）
+    int ivex, ilink;             // 端点 ivex 及其下一条关联边
+    int jvex, jlink;             // 端点 jvex 及其下一条关联边
+    int weight;
+};
+
+struct VexNode2 { int data; int firstEdge; };
+
+vector&lt;VexNode2&gt; mv;
+vector&lt;EdgeBox&gt;  me;
+
+void initML(int n) {
+    mv.assign(n, VexNode2());
+    for (int i = 0; i &lt; n; ++i) { mv[i].data = i; mv[i].firstEdge = -1; }
+    me.clear();
+}
+
+/* 插入无向边 (u,v)：只生成一个边结点，分别挂到两个端点的链上 */
+void addEdgeML(int u, int v, int w = 1) {
+    EdgeBox e;
+    e.mark = false;
+    e.ivex = u; e.jvex = v; e.weight = w;
+    e.ilink = mv[u].firstEdge;   // 挂到 u 的链
+    e.jlink = mv[v].firstEdge;   // 挂到 v 的链
+    me.push_back(e);
+    int id = (int)me.size() - 1;
+    mv[u].firstEdge = id;
+    mv[v].firstEdge = id;
+}
+
+/* 枚举顶点 u 的所有邻接点：注意先判断自己站在 ivex 还是 jvex 这一侧 */
+void neighbors(int u) {
+    cout &lt;&lt; "v" &lt;&lt; u &lt;&lt; " 的邻接点: ";
+    int deg = 0;
+    for (int i = mv[u].firstEdge; i != -1; ) {
+        EdgeBox&amp; e = me[i];
+        if (e.ivex == u) { cout &lt;&lt; e.jvex &lt;&lt; " "; i = e.ilink; }
+        else             { cout &lt;&lt; e.ivex &lt;&lt; " "; i = e.jlink; }
+        ++deg;
+    }
+    cout &lt;&lt; " 度=" &lt;&lt; deg &lt;&lt; "\n";
+}
+
+int main() {
+    initML(3);
+    addEdgeML(0, 1);
+    addEdgeML(0, 2);
+    addEdgeML(1, 2);
+
+    for (int u = 0; u &lt; 3; ++u) neighbors(u);
+    cout &lt;&lt; "边结点总数 = " &lt;&lt; me.size() &lt;&lt; " = e = 3（邻接表需要 2e = 6 个）\n";
+
+    /* 给边打标记只需改一个结点：把边 (0,2) 标记为已访问 */
+    for (size_t i = 0; i &lt; me.size(); ++i)
+        if ((me[i].ivex == 0 &amp;&amp; me[i].jvex == 2) || (me[i].ivex == 2 &amp;&amp; me[i].jvex == 0))
+            me[i].mark = true;
+    cout &lt;&lt; "边 (0,2) 已标记\n";
+    return 0;
+}</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：五种存储结构的适用场景</span>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th>结构</th><th>适用图</th><th>关键特征</th></tr></thead>
+          <tbody>
+            <tr><td>邻接矩阵</td><td>稠密图、需要 O(1) 判相邻</td><td>空间 O(n²)，对称</td></tr>
+            <tr><td>邻接表</td><td>稀疏图、需要枚举邻接点</td><td>无向 2e 个边结点，有向 e 个</td></tr>
+            <tr><td>逆邻接表</td><td>有向图、频繁求入度</td><td>与邻接表互补，可同时建</td></tr>
+            <tr><td>十字链表</td><td>有向图、出入边都要快</td><td>tailVex/headVex + hLink/tLink</td></tr>
+            <tr><td>邻接多重表</td><td>无向图、频繁删边或标记边</td><td>一条边一个结点，含 mark 域</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h2 id="s5">8.5 邻接矩阵 vs 邻接表：九个维度的大对比</h2>
+
+    <p>
+      前面两节把两种存储结构分别讲完了，现在把它们放到同一张表里逐项对比。
+      这张表是本讲最可能在选择题里出现的内容，建议<b>先自己填一遍</b>，再对照答案。
+      设图有 n 个顶点、e 条边，<code>deg(u)</code> 表示顶点 u 的度（有向图指出度）。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>对比维度</th><th>邻接矩阵</th><th>邻接表（含链式前向星）</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>空间复杂度</b></td>
+            <td class="c-bad">O(n²)，与 e 无关</td>
+            <td class="c-ok">O(n + e)（无向图 O(n + 2e)，同阶）</td>
+          </tr>
+          <tr>
+            <td><b>判断两点是否相邻</b></td>
+            <td class="c-ok"><code>A[u][v]</code>，O(1)</td>
+            <td class="c-bad">遍历 u 的链表查找，O(deg(u))</td>
+          </tr>
+          <tr>
+            <td><b>求某点的所有邻接点</b></td>
+            <td class="c-bad">扫描整行，O(n)</td>
+            <td class="c-ok">遍历链表，正比于度数 O(deg(u))</td>
+          </tr>
+          <tr>
+            <td><b>求无向图的度</b></td>
+            <td>第 u 行求和，O(n)</td>
+            <td class="c-ok">链表长度，可 O(1)（维护一个 deg 数组）或 O(deg)</td>
+          </tr>
+          <tr>
+            <td><b>求出度 / 入度（有向）</b></td>
+            <td>出度 = 行和 O(n)；入度 = 列和 O(n)</td>
+            <td>出度 = 链表长 O(deg)；<span class="c-bad">入度需扫全部链表 O(n+e)</span>，或者另建逆邻接表</td>
+          </tr>
+          <tr>
+            <td><b>增加一条边</b></td>
+            <td class="c-ok">O(1)，<code>A[u][v] = A[v][u] = 1</code></td>
+            <td class="c-ok">O(1)（vector 版均摊 O(1)；链式前向星头插 O(1)）</td>
+          </tr>
+          <tr>
+            <td><b>删除一条边</b></td>
+            <td class="c-ok">O(1)</td>
+            <td class="c-bad">要在链表中找到并摘除，O(deg(u))</td>
+          </tr>
+          <tr>
+            <td><b>增加 / 删除一个顶点</b></td>
+            <td class="c-bad">矩阵要扩容或搬移，O(n²) / O(n)</td>
+            <td>动的是数组与链表，O(1)~O(n)，相对容易</td>
+          </tr>
+          <tr>
+            <td><b>遍历整张图（DFS/BFS）</b></td>
+            <td class="c-bad">O(n²)</td>
+            <td class="c-ok">O(n + e)</td>
+          </tr>
+          <tr>
+            <td><b>适用图类型</b></td>
+            <td>稠密图（<code>e ≈ n²</code>）、需要频繁判相邻；实现最直观，适合教学与小数据</td>
+            <td>稀疏图（<code>e ≪ n²</code>）、需要枚举邻接点；绝大多数图论算法的首选</td>
+          </tr>
+          <tr>
+            <td><b>额外优点</b></td>
+            <td>可做矩阵运算：<code>A²</code> 的元素 <code>(A²)[i][j]</code> 就是 i 到 j 长度为 2 的路径条数；配合 Floyd 天然合适</td>
+            <td>每条边只存一次（有向图），天然支持「按边枚举」的算法（Kruskal、Tarjan）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：三句话总结这张表</span>
+      <ol style="margin:6px 0 0">
+        <li><b>空间看疏密</b>：稀疏图选邻接表（O(n+e)），稠密图两者都行。</li>
+        <li><b>查边看矩阵</b>：只有邻接矩阵能 O(1) 判断「u、v 之间有没有边」。</li>
+        <li><b>遍历看邻接表</b>：DFS/BFS 用邻接表是 O(n+e)，用矩阵是 O(n²)，这是最常考的对比。</li>
+      </ol>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">工程上怎么选？</span>
+      <ul style="margin:6px 0 0">
+        <li><b>n ≤ 1000 且图稠密</b>：直接上邻接矩阵，代码短、不易错，Floyd 求多源最短路也方便。</li>
+        <li><b>n, e ≥ 10<sup>5</sup></b>：必须邻接表 / 链式前向星，否则内存超限或超时。</li>
+        <li><b>需要同时求出度和入度</b>：建正向 + 反向两套邻接表，或使用十字链表。</li>
+        <li><b>需要频繁删边或给边打标记</b>：无向图考虑邻接多重表。</li>
+        <li><b>动态图（顶点边不断增加）</b>：<code>vector&lt;vector&lt;int&gt; &gt;</code> 最省事；链式前向星不能删边，要慎用。</li>
+      </ul>
+    </div>
+
+    <h2 id="s6">8.6 图的遍历（一）：深度优先搜索 DFS</h2>
+
+    <h3 id="s6-1">8.6.1 一句话本质：一条路走到黑，撞墙再回头</h3>
+    <p>
+      <b>深度优先搜索（Depth-First Search, DFS）</b>的思想可以用走迷宫来类比：
+      每到一个岔路口，先随便选一条没走过的路往前走；如果走不通（或者走到已经去过的地方），
+      就退回上一个岔路口，换一条路继续试，直到所有路都试完。
+    </p>
+    <p>
+      形式化地描述：从起点 s 出发，
+    </p>
+    <ol>
+      <li>访问 s，并把它标记为「已访问」；</li>
+      <li>依次检查 s 的每个邻接点 v：若 v 未被访问，就以 v 为新起点<b>递归</b>地做同样的事；</li>
+      <li>当 s 的所有邻接点都检查完，就<b>回溯</b>（退回上一层）。</li>
+    </ol>
+    <p>
+      这里有三个细节必须注意，它们决定了你的代码对不对：
+    </p>
+    <ul>
+      <li><b>访问标记要在「进入时就打」</b>，而不是「离开时」或者「发现时忘了打」。
+        否则在无向图里两点会互相递归，直接栈溢出。</li>
+      <li><b>无向图必须记录父结点</b>（或者用边编号），否则从 u 走到 v 后，v 又会看到「u 是邻接点且已访问」，
+        把来路误判成回路，见 8.6.6 的判环部分。</li>
+      <li><b>遍历顺序依赖于邻接点的枚举顺序</b>。同一张图，邻接点按升序枚举和按降序枚举，
+        得到的是两个不同的（但都合法的）DFS 序列。考试若无特别说明，按编号从小到大来。</li>
+    </ul>
+    <p>
+      DFS 与第 07 讲学的<b>二叉树先序遍历</b>本质上是同一个东西：都是「先访问自己，再递归子树」。
+      只不过二叉树的「子结点」只有两个且有左右之分，而图的邻接点有任意多个、还没有顺序。
+      所以可以说：<b>DFS 是「先序遍历」在图上的推广，图是「去掉左右与层次约束」的树</b>。
+    </p>
+
+    <h3 id="s6-2">8.6.2 手推完整过程：访问序列与每次回溯</h3>
+    <p>
+      我们仍然用本讲的示例图 G（n = 8、e = 9），从顶点 0 出发，约定<b>邻接点按编号从小到大访问</b>。
+      请拿一张纸跟着下面的表格一步步走，重点看「什么时候进、什么时候退」。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>当前顶点</th><th>看邻接表</th><th>动作</th><th>访问序列</th><th>递归栈（底→顶）</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>0</td><td>[1, 6]</td><td>访问 0，取邻接点 1（未访问）→ 递归</td><td class="c-ok">0</td><td>[0]</td></tr>
+          <tr><td>2</td><td>1</td><td>[0, 2, 7]</td><td>访问 1；0 是父结点 → 跳过；取 2（未访问）→ 递归</td><td class="c-ok">0 1</td><td>[0, 1]</td></tr>
+          <tr><td>3</td><td>2</td><td>[1, 3]</td><td>访问 2；1 是父结点 → 跳过；取 3（未访问）→ 递归</td><td class="c-ok">0 1 2</td><td>[0, 1, 2]</td></tr>
+          <tr><td>4</td><td>3</td><td>[2, 4]</td><td>访问 3；2 是父结点 → 跳过；取 4（未访问）→ 递归</td><td class="c-ok">0 1 2 3</td><td>[0, 1, 2, 3]</td></tr>
+          <tr><td>5</td><td>4</td><td>[3, 5]</td><td>访问 4；3 是父结点 → 跳过；取 5（未访问）→ 递归</td><td class="c-ok">0 1 2 3 4</td><td>[0, 1, 2, 3, 4]</td></tr>
+          <tr><td>6</td><td>5</td><td>[4, 6, 7]</td><td>访问 5；4 是父结点 → 跳过；取 6（未访问）→ 递归</td><td class="c-ok">0 1 2 3 4 5</td><td>[0, 1, 2, 3, 4, 5]</td></tr>
+          <tr><td>7</td><td>6</td><td>[0, 5]</td><td>访问 6；<b>0 已访问且不是父结点 → 回边 (0,6)，说明有环</b>；5 是父结点 → 跳过</td><td class="c-ok">0 1 2 3 4 5 6</td><td>[0, 1, 2, 3, 4, 5, 6]</td></tr>
+          <tr><td>8</td><td>6</td><td>—</td><td>邻接表扫完 → <b>回溯</b>，弹栈回到 5</td><td class="c-ok">0 1 2 3 4 5 6</td><td>[0, 1, 2, 3, 4, 5]</td></tr>
+          <tr><td>9</td><td>5</td><td>[4, 6, 7]</td><td>继续看 5 的邻接表：6 已访问；7 未访问 → 递归</td><td class="c-ok">0 1 2 3 4 5 6 7</td><td>[0, 1, 2, 3, 4, 5, 7]</td></tr>
+          <tr><td>10</td><td>7</td><td>[1, 5]</td><td><b>1 已访问且不是父结点 → 回边 (1,7)</b>；5 是父结点 → 跳过；扫完 → 回溯</td><td class="c-ok">0 1 2 3 4 5 6 7</td><td>[0, 1, 2, 3, 4, 5]</td></tr>
+          <tr><td>11</td><td>5→4→3→2→1→0</td><td>—</td><td>一路回溯：每个顶点的邻接表都已扫完，依次弹栈</td><td class="c-ok">0 1 2 3 4 5 6 7</td><td>[]</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      结论：<b>DFS 访问序列 = 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7</b>；
+      共走了 7 条<b>树边</b>（0-1、1-2、2-3、3-4、4-5、5-6、5-7），恰好构成一棵生成树；
+      另外发现 2 条<b>回边</b>（0-6、1-7），它们说明图中存在环。
+      数一数：树边 + 回边 = 7 + 2 = 9 = e，一条不多一条不少——<b>DFS 会把每条边恰好检查一遍</b>（无向图是两遍，每个方向一遍）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 430" width="900" height="430" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">左：DFS 对边的分类　　右：DFS 生成树（把回边去掉）</text>
+
+        <g stroke="var(--ok)" stroke-width="3" stroke-linecap="round">
+          <line x1="58" y1="72" x2="160" y2="65"/><line x1="160" y1="65" x2="270" y2="78"/>
+          <line x1="270" y1="78" x2="330" y2="160"/><line x1="330" y1="160" x2="245" y2="215"/>
+          <line x1="245" y1="215" x2="112" y2="218"/><line x1="112" y1="218" x2="175" y2="135"/>
+        </g>
+        <g stroke="var(--danger)" stroke-width="2.6" stroke-dasharray="7 5">
+          <line x1="58" y1="72" x2="40" y2="146"/>
+          <line x1="160" y1="65" x2="175" y2="135"/>
+        </g>
+        <g stroke="var(--border-strong)" stroke-width="1.6">
+          <line x1="40" y1="146" x2="58" y2="72"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6">
+          <circle cx="58" cy="72" r="15"/><circle cx="160" cy="65" r="15"/><circle cx="270" cy="78" r="15"/>
+          <circle cx="330" cy="160" r="15"/><circle cx="245" cy="215" r="15"/><circle cx="112" cy="218" r="15"/>
+          <circle cx="40" cy="146" r="15"/><circle cx="175" cy="135" r="15"/>
+        </g>
+        <g fill="var(--text)" font-size="12" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="58" y="76">0</text><text x="160" y="69">1</text><text x="270" y="82">2</text>
+          <text x="330" y="164">3</text><text x="245" y="219">4</text><text x="112" y="222">5</text>
+          <text x="40" y="150">6</text><text x="175" y="139">7</text>
+        </g>
+        <text x="20" y="270" fill="var(--ok)" font-size="12">绿实线 = 树边（7 条）</text>
+        <text x="20" y="292" fill="var(--danger)" font-size="12">红虚线 = 回边 (0,6)、(1,7)</text>
+        <text x="20" y="314" fill="var(--text-faint)" font-size="12">访问顺序：0 1 2 3 4 5 6 7</text>
+
+        <line x1="400" y1="40" x2="400" y2="400" stroke="var(--border)" stroke-width="1"/>
+
+        <g stroke="var(--brand)" stroke-width="2.4">
+          <line x1="470" y1="50" x2="470" y2="105"/>
+          <line x1="470" y1="105" x2="470" y2="160"/>
+          <line x1="470" y1="160" x2="470" y2="215"/>
+          <line x1="470" y1="215" x2="470" y2="270"/>
+          <line x1="470" y1="270" x2="470" y2="325"/>
+          <line x1="470" y1="325" x2="600" y2="300"/>
+          <line x1="470" y1="325" x2="600" y2="370"/>
+        </g>
+        <g fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8">
+          <circle cx="470" cy="50" r="15"/><circle cx="470" cy="105" r="15"/><circle cx="470" cy="160" r="15"/>
+          <circle cx="470" cy="215" r="15"/><circle cx="470" cy="270" r="15"/><circle cx="470" cy="325" r="15"/>
+          <circle cx="600" cy="300" r="15"/><circle cx="600" cy="370" r="15"/>
+        </g>
+        <g fill="var(--text)" font-size="13" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="470" y="55">0</text><text x="470" y="110">1</text><text x="470" y="165">2</text>
+          <text x="470" y="220">3</text><text x="470" y="275">4</text><text x="470" y="330">5</text>
+          <text x="600" y="305">6</text><text x="600" y="375">7</text>
+        </g>
+        <g fill="var(--text-soft)" font-size="12">
+          <text x="672" y="60">DFS 生成树的树高 = 8 层</text>
+          <text x="672" y="86">树边 7 条 = n − 1</text>
+          <text x="672" y="112">回边 2 条 = e − (n − 1)</text>
+          <text x="672" y="152">本图的 DFS 树退化成一条链，</text>
+          <text x="672" y="174">因为邻接点总是按编号升序被</text>
+          <text x="672" y="196">访问，于是一路向深处钻。</text>
+          <text x="600" y="410" fill="var(--text-faint)" font-size="12" text-anchor="middle">顶点 5 的两个孩子：6 与 7</text>
+        </g>
+      </svg>
+      <figcaption>图 8-10　DFS 生成树与回边：树边 7 条，回边 2 条，合计恰好是全部 9 条边</figcaption>
+    </div>
+
+    <p>下面的动画把整个过程逐帧展开，包括递归栈的变化、访问序列的生长、以及每一条边被判定为树边还是回边：</p>
+
+    <div id="viz-dfs"></div>
+
+    <div class="note warn">
+      <span class="note-title">易错：DFS 序列不是唯一的，但必须能推</span>
+      如果你把邻接点按<b>降序</b>枚举，从 0 出发得到的序列会变成
+      <code>0 → 6 → 5 → 7 → 1 → 2 → 3 → 4</code>（自己验证一下：0 先看 6，接着 6 看 5，5 先看 7……）。
+      两种都是正确答案，关键在于<b>题目是否规定了枚举顺序</b>。
+      考研 408 与教材习题通常规定「邻接点按编号从小到大」，请以题目为准；
+      答题时最好把枚举顺序写清楚，避免争议。
+    </div>
+
+    <h3 id="s6-3">8.6.3 DFS 的递归实现（邻接表版）</h3>
+    <pre data-lang="cpp" data-file="graph_dfs_recursive.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   邻接表 + 递归 DFS：同时完成三件事
+     1) 记录访问序列
+     2) 记录每个顶点的父结点（parent）
+     3) 对边分类：树边 / 回边，从而判断有没有环
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+vector&lt;bool&gt; vis;
+vector&lt;int&gt;  ord, parentNode;
+vector&lt;pair&lt;int,int&gt; &gt; treeEdges, backEdges;
+
+void dfs(int u, int p) {
+    vis[u] = true;
+    parentNode[u] = p;
+    ord.push_back(u);                       // 进入时记录 → 这就是 DFS 序列
+    for (size_t i = 0; i &lt; g[u].size(); ++i) {
+        int v = g[u][i];
+        if (!vis[v]) {
+            treeEdges.push_back(make_pair(u, v));
+            dfs(v, u);                      // 递归深入
+        } else if (v != p) {
+            /* 已访问且不是父结点 → 回边（无向图中回边等价于“有环”）
+               注意：无向图每条边存了两次，v == p 的那一次必须排除 */
+            int a = min(u, v), b = max(u, v);
+            bool dup = false;
+            for (size_t k = 0; k &lt; backEdges.size(); ++k)
+                if (backEdges[k].first == a &amp;&amp; backEdges[k].second == b) dup = true;
+            if (!dup) backEdges.push_back(make_pair(a, b));
+        }
+    }
+    /* 这里可以做“离开 u”的收尾工作，例如拓扑排序的逆序输出 */
+}
+
+int main() {
+    int n = 8;
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+    for (int u = 0; u &lt; n; ++u) sort(g[u].begin(), g[u].end());  // 保证升序枚举
+
+    vis.assign(n, false);
+    parentNode.assign(n, -1);
+    dfs(0, -1);
+
+    cout &lt;&lt; "DFS 序列: ";
+    for (int x : ord) cout &lt;&lt; x &lt;&lt; " ";              // 0 1 2 3 4 5 6 7
+    cout &lt;&lt; "\n树边 " &lt;&lt; treeEdges.size() &lt;&lt; " 条: ";
+    for (size_t i = 0; i &lt; treeEdges.size(); ++i)
+        cout &lt;&lt; "(" &lt;&lt; treeEdges[i].first &lt;&lt; "," &lt;&lt; treeEdges[i].second &lt;&lt; ") ";
+    cout &lt;&lt; "\n回边 " &lt;&lt; backEdges.size() &lt;&lt; " 条: ";
+    for (size_t i = 0; i &lt; backEdges.size(); ++i)
+        cout &lt;&lt; "(" &lt;&lt; backEdges[i].first &lt;&lt; "," &lt;&lt; backEdges[i].second &lt;&lt; ") ";   // (0,6) (1,7)
+    cout &lt;&lt; "\n";
+    cout &lt;&lt; "图中有环? " &lt;&lt; (backEdges.empty() ? "没有" : "有") &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错：递归深度可能爆栈</span>
+      C++ 的递归深度受栈空间限制，一般只有几 MB。当图退化成一条长度为 10<sup>5</sup>～10<sup>6</sup> 的链时，
+      <code>dfs</code> 的递归深度就等于 n，会直接<b>栈溢出（RE）</b>。
+      竞赛里遇到这种数据，要么改写成非递归（8.6.4），要么在编译时调大栈、或者用「手写栈」模拟。
+      另外，把 <code>vector</code> 按值传参也会让每层递归拷贝一次，务必传引用。
+    </div>
+
+    <h3 id="s6-4">8.6.4 DFS 的非递归实现（用栈模拟递归）</h3>
+    <p>
+      递归的本质是「系统帮你维护了一个栈」，所以改成非递归就是「自己维护一个栈」。
+      但这里有一个<b>非常经典的坑</b>：如果只是简单地把邻接点全部压栈，得到的访问序列
+      <b>和递归版不一样</b>。原因是「入栈时就打访问标记」会让某个顶点被过早地标记，
+      从而在栈里排到后面才弹出来，顺序就乱了。
+    </p>
+    <p>下面给出两个版本，请务必对比它们输出的差别：</p>
+
+    <pre data-lang="cpp" data-file="graph_dfs_stack.cpp">#include &lt;iostream&gt;
+#include &lt;stack&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+int n = 8;
+
+/* ---------- 版本 A：常见但“不等价”的写法 ----------
+   入栈时打标记，邻接点全部压栈（为了和递归顺序接近，要逆序压）。
+   它能正确地遍历所有顶点，但访问序列与递归版不同，也不能直接用来求“回溯顺序”。 */
+vector&lt;int&gt; dfsStackSimple(int s) {
+    vector&lt;int&gt; order;
+    vector&lt;bool&gt; vis(n, false);
+    stack&lt;int&gt; st;
+    st.push(s); vis[s] = true;             // 入栈即标记，避免同一个点被压多次
+    while (!st.empty()) {
+        int u = st.top(); st.pop();
+        order.push_back(u);
+        for (int i = (int)g[u].size() - 1; i &gt;= 0; --i) {   // 逆序压栈
+            int v = g[u][i];
+            if (!vis[v]) { vis[v] = true; st.push(v); }
+        }
+    }
+    return order;
+}
+
+/* ---------- 版本 B：与递归严格等价的写法 ----------
+   栈里保存“栈帧”：(当前顶点 u, 下一次要从它的第几个邻接点开始看)。
+   只有当 u 的邻接表全部扫完时，才真正弹栈——这正是递归里“函数返回”的时刻。 */
+vector&lt;int&gt; dfsStackExact(int s) {
+    vector&lt;int&gt; order;
+    vector&lt;bool&gt; vis(n, false);
+    vector&lt;pair&lt;int,int&gt; &gt; st;             // (u, next index)
+    vis[s] = true; order.push_back(s);
+    st.push_back(make_pair(s, 0));
+    while (!st.empty()) {
+        int u = st.back().first;
+        int&amp; i = st.back().second;         // 引用：直接改栈顶那一帧
+        if (i &gt;= (int)g[u].size()) { st.pop_back(); continue; }   // 扫完 → 回溯
+        int v = g[u][i++];                 // 取下一个邻接点，并把游标前移
+        if (!vis[v]) {
+            vis[v] = true;
+            order.push_back(v);            // 进入 v 的那一刻就记录
+            st.push_back(make_pair(v, 0));
+        }
+    }
+    return order;
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+    for (int u = 0; u &lt; n; ++u) sort(g[u].begin(), g[u].end());
+
+    cout &lt;&lt; "递归版     : 0 1 2 3 4 5 6 7\n";
+    cout &lt;&lt; "版本A(简单): "; for (int x : dfsStackSimple(0)) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    /* 输出 0 1 2 3 4 5 7 6 —— 顶点 6 被提前标记，弹栈顺序与递归不同 */
+    cout &lt;&lt; "版本B(等价): "; for (int x : dfsStackExact(0)) cout &lt;&lt; x &lt;&lt; " "; cout &lt;&lt; "\n";
+    /* 输出 0 1 2 3 4 5 6 7 —— 与递归版完全一致 */
+    return 0;
+}</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：栈版 DFS 的两个结论</span>
+      <ol style="margin:6px 0 0">
+        <li>教材上「用栈实现 DFS」通常指<b>版本 B</b>（栈里存顶点 + 游标，或等价地存「边」），
+          它和递归严格等价；只存顶点、入栈即标记的版本 A 得到的序列可能不同。</li>
+        <li>如果题目只要求「判断连通性 / 求连通分量」，两个版本都对；
+          但如果题目要求<b>输出指定的 DFS 序列</b>或<b>回溯顺序</b>，就必须用版本 B 或递归。</li>
+      </ol>
+    </div>
+
+    <h3 id="s6-5">8.6.5 DFS 的复杂度分析</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>存储结构</th><th>时间复杂度</th><th>为什么</th><th>空间复杂度</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>邻接表</td>
+            <td class="c-ok"><b>O(n + e)</b></td>
+            <td>每个顶点恰好访问一次（进入时），每条边恰好被检查两次（无向图）/ 一次（有向图）</td>
+            <td>O(n)：visited 数组 + 递归栈最深 O(n)</td>
+          </tr>
+          <tr>
+            <td>邻接矩阵</td>
+            <td class="c-bad"><b>O(n²)</b></td>
+            <td>每个顶点进入时都要扫描整行 n 个元素，共 n 次</td>
+            <td>O(n)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      解释一下「每条边恰好检查两次」：在无向图的 DFS 里，对边 <code>(u,v)</code>，
+      当我们在 u 的邻接表中看到 v 时检查一次，在 v 的邻接表中看到 u 时又检查一次
+      （第二次会被 <code>v == p</code> 或 <code>vis[v]</code> 挡掉）。所以总的检查次数是 <code>2e</code>，
+      加上 n 次「进入顶点」的开销，就是 <code>O(n + e)</code>。
+    </p>
+    <p>
+      如果图是<b>非连通</b>的，需要在外层对每个顶点做一次「未访问就 DFS」的循环，
+      总复杂度依然是 <code>O(n + e)</code>——因为每个顶点最多被当作起点一次，每次 DFS 只碰自己分量内的边。
+    </p>
+
+    <h3 id="s6-6">8.6.6 DFS 的六大应用</h3>
+
+    <h4 id="s6-6-1">① 求连通分量个数（最直接的应用）</h4>
+    <p>
+      外层循环对每个顶点检查一次：若未访问，说明发现了新分量，计数器 +1，并从这个顶点 DFS 把整个分量吃掉。
+      详见 8.8.1 的完整代码。
+    </p>
+
+    <h4 id="s6-6-2">② 判断无向图是否有环：看「是否访问过父结点」</h4>
+    <p>
+      无向图中，DFS 遇到一条「指向已访问顶点、且该顶点不是自己的父结点」的边，就说明存在回路。
+      为什么必须排除父结点？因为无向图的每条边在邻接表里出现两次，
+      从 u 走到 v 之后，v 一定会看到 u，如果不排除就会把这条<b>来路</b>误判成环，导致「任何一条边都被判成环」。
+    </p>
+    <p>
+      还有一个更简单的判据：<b>n 个顶点的无向图，若 DFS 产生过回边，则 e ≥ n</b>；
+      反之，若 <code>e ≥ n</code> 且图连通，则必有环（因为生成树只有 n−1 条边，多出来的边必然成环）。
+    </p>
+
+    <h4 id="s6-6-3">③ 判断有向图是否有环：三色标记法</h4>
+    <p>
+      有向图的判环不能用「父结点」那一套（因为有向边没有对称性），标准做法是<b>三色标记</b>：
+      白色 = 未访问，灰色 = 正在访问（在递归栈上），黑色 = 已完成。
+      如果在 DFS 中遇到一条指向<b>灰色</b>顶点的边，就说明找到了一个有向环。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_cycle_detect.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   两种判环：
+     无向图 —— DFS + “排除父结点”
+     有向图 —— DFS + 三色标记（白 0 / 灰 1 / 黑 2）
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; ug[MAXN], dg[MAXN];      // 无向图 / 有向图的邻接表
+int color[MAXN];                     // 0 未访问 1 在栈上 2 已完成
+
+/* ---------- 无向图判环 ---------- */
+bool undirectedHasCycle(int u, int parent, vector&lt;bool&gt;&amp; vis) {
+    vis[u] = true;
+    for (size_t i = 0; i &lt; ug[u].size(); ++i) {
+        int v = ug[u][i];
+        if (!vis[v]) {
+            if (undirectedHasCycle(v, u, vis)) return true;
+        } else if (v != parent) {
+            return true;                 // 撞到已访问且不是父结点 → 有环
+        }
+    }
+    return false;
+}
+
+/* ---------- 有向图判环（三色标记） ---------- */
+bool directedHasCycle(int u) {
+    color[u] = 1;                        // 灰：进入
+    for (size_t i = 0; i &lt; dg[u].size(); ++i) {
+        int v = dg[u][i];
+        if (color[v] == 1) return true;              // 指向栈上的祖先 → 有向环
+        if (color[v] == 0 &amp;&amp; directedHasCycle(v)) return true;
+    }
+    color[u] = 2;                        // 黑：离开，后续再遇到它不算环
+    return false;
+}
+
+int main() {
+    /* 无向图：示例图 G 有环（0-1-2-3-4-5-6-0） */
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { ug[E[i][0]].push_back(E[i][1]); ug[E[i][1]].push_back(E[i][0]); }
+    vector&lt;bool&gt; vis(8, false);
+    cout &lt;&lt; "无向图有环? " &lt;&lt; (undirectedHasCycle(0, -1, vis) ? "有" : "没有") &lt;&lt; "\n";  // 有
+
+    /* 无向图：一棵树（去掉两条边）应当无环 */
+    for (int i = 0; i &lt; 8; ++i) ug[i].clear();
+    int T[7][2] = {{0,1},{1,2},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 7; ++i) { ug[T[i][0]].push_back(T[i][1]); ug[T[i][1]].push_back(T[i][0]); }
+    vector&lt;bool&gt; vis2(8, false);
+    cout &lt;&lt; "这棵树有环? " &lt;&lt; (undirectedHasCycle(0, -1, vis2) ? "有" : "没有") &lt;&lt; "\n";  // 没有
+
+    /* 有向图：0→1→2→0 有环；0→1→2 无环 */
+    dg[0].push_back(1); dg[1].push_back(2); dg[2].push_back(0);
+    cout &lt;&lt; "有向图 0→1→2→0 有环? " &lt;&lt; (directedHasCycle(0) ? "有" : "没有") &lt;&lt; "\n";     // 有
+    for (int i = 0; i &lt; 3; ++i) { dg[i].clear(); color[i] = 0; }
+    dg[0].push_back(1); dg[1].push_back(2);
+    cout &lt;&lt; "有向图 0→1→2 有环? " &lt;&lt; (directedHasCycle(0) ? "有" : "没有") &lt;&lt; "\n";       // 没有
+    return 0;
+}</pre>
+
+    <h4 id="s6-6-4">④ 求割点与桥（Tarjan 的 low 值）</h4>
+    <p>
+      <b>割点（articulation point）</b>是「删掉它之后连通分量个数增加」的顶点；
+      <b>桥（bridge）</b>是「删掉它之后连通分量个数增加」的边。
+      DFS 过程中记录两个量：<code>dfn[u]</code>（时间戳，第几个被访问）与 <code>low[u]</code>
+      （u 及其子树能通过回边到达的最小时间戳），就能线性求出全部割点与桥。
+      判定规则：
+    </p>
+    <ul>
+      <li><b>桥</b>：若 <code>low[v] &gt; dfn[u]</code>（v 是 u 的孩子），则边 <code>(u,v)</code> 是桥——
+        因为 v 的子树没有任何回边能绕回 u 或 u 的祖先。</li>
+      <li><b>割点</b>：非根结点 u 只要有一个孩子 v 满足 <code>low[v] ≥ dfn[u]</code>，u 就是割点；
+        根结点则需<b>至少两个孩子</b>才是割点。</li>
+    </ul>
+
+    <pre data-lang="cpp" data-file="graph_cut_vertex.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   Tarjan 求割点与桥（无向连通图，顶点编号从 1 开始）
+   dfn[u]：u 被访问的时间戳
+   low[u]：u 及其子树通过回边能到达的最小 dfn
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+int dfn[MAXN], low[MAXN], timer = 0;
+bool isCut[MAXN];
+vector&lt;pair&lt;int,int&gt; &gt; bridges;
+int n, m;
+
+void tarjan(int u, int parent) {
+    dfn[u] = low[u] = ++timer;
+    int child = 0;
+    for (size_t i = 0; i &lt; g[u].size(); ++i) {
+        int v = g[u][i];
+        if (!dfn[v]) {                       // v 还没访问 → 树边
+            ++child;
+            tarjan(v, u);
+            low[u] = min(low[u], low[v]);
+            if (low[v] &gt; dfn[u]) bridges.push_back(make_pair(min(u,v), max(u,v)));   // 桥
+            if (parent != 0 &amp;&amp; low[v] &gt;= dfn[u]) isCut[u] = true;                     // 非根割点
+        } else if (v != parent) {            // 回边（重边场景需改用边编号判断）
+            low[u] = min(low[u], dfn[v]);
+        }
+    }
+    if (parent == 0 &amp;&amp; child &gt;= 2) isCut[u] = true;   // 根结点：两个孩子以上才是割点
+}
+
+int main() {
+    n = 6;
+    int E[6][2] = {{1,2},{2,3},{3,1},{3,4},{4,5},{5,6}};
+    m = 6;
+    for (int i = 0; i &lt; m; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+
+    tarjan(1, 0);
+
+    cout &lt;&lt; "割点: ";
+    for (int i = 1; i &lt;= n; ++i) if (isCut[i]) cout &lt;&lt; i &lt;&lt; " ";     // 割点: 3 4 5
+    cout &lt;&lt; "\n桥: ";
+    for (size_t i = 0; i &lt; bridges.size(); ++i)
+        cout &lt;&lt; "(" &lt;&lt; bridges[i].first &lt;&lt; "," &lt;&lt; bridges[i].second &lt;&lt; ") ";
+    cout &lt;&lt; "\n";
+    /* 实际输出：桥: (5,6) (4,5) (3,4) —— 顺序是 DFS 发现的先后，
+       但桥的集合就是 {(3,4), (4,5), (5,6)}：这条路 3-4-5-6 上每条边都是桥。 */
+    return 0;
+}</pre>
+
+    <h4 id="s6-6-5">⑤ 走迷宫与「一笔画」的路径搜索</h4>
+    <p>
+      迷宫问题把每个格子看成一个顶点，相邻可走的格子之间连边，于是「能不能走出去」就变成了
+      「起点与终点是否连通」，「最短步数」就变成了「无权图最短路」。
+      DFS 能找到一条可行路径（但不保证最短），BFS 才能保证最短——这是搜索类题目最基本的分工。
+    </p>
+
+    <h4 id="s6-6-6">⑥ 与二叉树先序遍历的关系</h4>
+    <p>
+      DFS 的前序写法（进入即访问）与二叉树先序遍历完全一致：<b>先访问自己，再依次递归每个孩子</b>。
+      后序写法（离开时才处理）对应二叉树后序遍历，它在<b>拓扑排序</b>、<b>强连通分量（Kosaraju）</b>、
+      <b>树形 DP 的答案回传</b>里都是关键；中序则在一般图上没有对应物，因为一般图没有「左右子树」的概念。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点：DFS 的应用清单</span>
+      <ul style="margin:6px 0 0">
+        <li><b>连通分量计数</b>：外层循环 + DFS，O(n+e)。</li>
+        <li><b>判环</b>：无向图排除父结点；有向图三色标记。</li>
+        <li><b>割点与桥</b>：Tarjan 的 dfn / low。</li>
+        <li><b>二分图判定</b>：DFS 染色（与 BFS 染色等价）。</li>
+        <li><b>欧拉路径</b>：DFS 找环并拼接（Hierholzer）。</li>
+        <li><b>拓扑排序</b>：DFS 后序的逆序。</li>
+        <li><b>强连通分量</b>：Tarjan / Kosaraju（下一讲）。</li>
+      </ul>
+    </div>
+
+    <h2 id="s7">8.7 图的遍历（二）：广度优先搜索 BFS</h2>
+
+    <h3 id="s7-1">8.7.1 一句话本质：一圈一圈向外扩散</h3>
+    <p>
+      <b>广度优先搜索（Breadth-First Search, BFS）</b>像往水里丢一颗石子：
+      波纹从源点开始，一层一层向外扩散。算法描述只有三步：
+    </p>
+    <ol>
+      <li>把源点 s 入队，并标记 <code>visited[s] = true</code>；</li>
+      <li>每次从队头取出一个顶点 u，把它的<b>所有未访问邻接点</b>依次入队并打标记；</li>
+      <li>重复第 2 步直到队列为空。</li>
+    </ol>
+    <p>
+      与 DFS 最大的区别是：DFS 用<b>栈</b>（后进先出，所以一路深入），BFS 用<b>队列</b>（先进先出，所以逐层扩散）。
+      数据结构一换，遍历的性质就全变了——这正是第 03、04 讲学栈与队列的用处。
+    </p>
+    <p>
+      BFS 有一个 DFS 没有的<b>重要性质</b>：<b>在无权图中，BFS 第一次到达某顶点时经过的边数，就是它到源点的最短距离</b>。
+      原因很直观：BFS 是按「距离源点 0 步、1 步、2 步……」的顺序访问顶点的，
+      第一次访问 v 时，所有可能更短的路径早就应该把它访问掉了。这个性质是「无权图单源最短路」的全部理论基础。
+    </p>
+    <div class="note warn">
+      <span class="note-title">易错：入队时标记，不是出队时标记</span>
+      如果偷懒写成「出队时才 <code>visited[u] = true</code>」，同一个顶点可能在入队前被多个邻居重复入队，
+      队列膨胀、复杂度退化，甚至在某些实现里造成重复计数。
+      <b>正确做法：一入队就立刻打标记</b>（<code>visited[v] = true</code> 写在 <code>push</code> 旁边）。
+      有向图还需要注意：BFS 沿弧的方向走，不能走回头路。
+    </div>
+
+    <h3 id="s7-2">8.7.2 手推过程：队列变化与分层</h3>
+    <p>仍然用示例图 G，从顶点 0 出发（邻接点按升序入队）：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>出队 u</th><th>扫描 u 的邻接点</th><th>入队的顶点</th><th>队列（front → back）</th><th>访问序列</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>—</td><td>初始化：源点入队</td><td>0</td><td>[0]</td><td>—</td></tr>
+          <tr><td>1</td><td>0</td><td>1（未访问）、6（未访问）</td><td>1, 6</td><td>[1, 6]</td><td class="c-ok">0</td></tr>
+          <tr><td>2</td><td>1</td><td>0（已访问）、2（未访问）、7（未访问）</td><td>2, 7</td><td>[6, 2, 7]</td><td class="c-ok">0 1</td></tr>
+          <tr><td>3</td><td>6</td><td>0（已访问）、5（未访问）</td><td>5</td><td>[2, 7, 5]</td><td class="c-ok">0 1 6</td></tr>
+          <tr><td>4</td><td>2</td><td>1（已访问）、3（未访问）</td><td>3</td><td>[7, 5, 3]</td><td class="c-ok">0 1 6 2</td></tr>
+          <tr><td>5</td><td>7</td><td>1、5 都已访问</td><td>—</td><td>[5, 3]</td><td class="c-ok">0 1 6 2 7</td></tr>
+          <tr><td>6</td><td>5</td><td>4（未访问）、6（已访问）、7（已访问）</td><td>4</td><td>[3, 4]</td><td class="c-ok">0 1 6 2 7 5</td></tr>
+          <tr><td>7</td><td>3</td><td>2（已访问）、4（已在队列中 → 已访问）</td><td>—</td><td>[4]</td><td class="c-ok">0 1 6 2 7 5 3</td></tr>
+          <tr><td>8</td><td>4</td><td>3、5 都已访问</td><td>—</td><td>[]</td><td class="c-ok">0 1 6 2 7 5 3 4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <b>BFS 访问序列：0 → 1 → 6 → 2 → 7 → 5 → 3 → 4</b>，它按层严格递增：
+    </p>
+    <div class="grid c4">
+      <div class="card"><h4 style="margin-top:0">第 0 层</h4><p style="margin-bottom:0">{0}　dist = 0</p></div>
+      <div class="card"><h4 style="margin-top:0">第 1 层</h4><p style="margin-bottom:0">{1, 6}　dist = 1</p></div>
+      <div class="card"><h4 style="margin-top:0">第 2 层</h4><p style="margin-bottom:0">{2, 7, 5}　dist = 2</p></div>
+      <div class="card"><h4 style="margin-top:0">第 3 层</h4><p style="margin-bottom:0">{3, 4}　dist = 3</p></div>
+    </div>
+    <p>
+      注意第 7 步：顶点 4 在顶点 3 出队之前就已经被 5 放进了队列，
+      所以 3 看到 4 时不能重复入队——这正是「<code>dist[v] == -1</code> 判断」的作用。
+      如果忘记判断，4 会被入队两次，队列长度失控。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 430" width="900" height="430" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">BFS 的层次划分与 BFS 生成树（源点 0）</text>
+
+        <g stroke="var(--border-strong)" stroke-width="1.6">
+          <line x1="60" y1="76" x2="150" y2="180"/><line x1="60" y1="76" x2="156" y2="62"/>
+          <line x1="156" y1="62" x2="266" y2="76"/><line x1="266" y1="76" x2="320" y2="160"/>
+          <line x1="320" y1="160" x2="240" y2="218"/><line x1="240" y1="218" x2="150" y2="180"/>
+        </g>
+        <g stroke="var(--ok)" stroke-width="3">
+          <line x1="60" y1="76" x2="156" y2="62"/><line x1="60" y1="76" x2="150" y2="180"/>
+          <line x1="156" y1="62" x2="266" y2="76"/><line x1="156" y1="62" x2="176" y2="140"/>
+          <line x1="150" y1="180" x2="110" y2="218"/><line x1="266" y1="76" x2="320" y2="160"/>
+          <line x1="110" y1="218" x2="240" y2="218"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="2.4" stroke-dasharray="6 4">
+          <line x1="320" y1="160" x2="240" y2="218"/>
+          <line x1="240" y1="218" x2="176" y2="140"/>
+        </g>
+        <g fill="var(--brand)" stroke="var(--brand)" stroke-width="1.6"><circle cx="60" cy="76" r="16"/></g>
+        <g fill="var(--accent)" stroke="var(--accent)" stroke-width="1.6"><circle cx="156" cy="62" r="16"/><circle cx="150" cy="180" r="16"/></g>
+        <g fill="var(--purple)" stroke="var(--purple)" stroke-width="1.6"><circle cx="266" cy="76" r="16"/><circle cx="176" cy="140" r="16"/><circle cx="110" cy="218" r="16"/></g>
+        <g fill="var(--ok)" stroke="var(--ok)" stroke-width="1.6"><circle cx="320" cy="160" r="16"/><circle cx="240" cy="218" r="16"/></g>
+        <g class="vz-text on" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="60" y="81">0</text><text x="156" y="67">1</text><text x="150" y="185">6</text>
+          <text x="266" y="81">2</text><text x="176" y="145">7</text><text x="110" y="223">5</text>
+          <text x="320" y="165">3</text><text x="240" y="223">4</text>
+        </g>
+
+        <line x1="400" y1="40" x2="400" y2="400" stroke="var(--border)" stroke-width="1"/>
+        <text x="430" y="56" fill="var(--text)" font-size="12.5" font-weight="700">层的划分（dist 值）</text>
+        <g font-size="12" font-family="Consolas, monospace">
+          <rect x="430" y="70" width="14" height="14" fill="var(--brand)"/>
+          <text x="454" y="82" fill="var(--text-soft)">L0 = {0}　dist = 0</text>
+          <rect x="430" y="100" width="14" height="14" fill="var(--accent)"/>
+          <text x="454" y="112" fill="var(--text-soft)">L1 = {1, 6}　dist = 1</text>
+          <rect x="430" y="130" width="14" height="14" fill="var(--purple)"/>
+          <text x="454" y="142" fill="var(--text-soft)">L2 = {2, 7, 5}　dist = 2</text>
+          <rect x="430" y="160" width="14" height="14" fill="var(--ok)"/>
+          <text x="454" y="172" fill="var(--text-soft)">L3 = {3, 4}　dist = 3</text>
+        </g>
+        <line x1="430" y1="196" x2="870" y2="196" stroke="var(--border)" stroke-width="1"/>
+        <text x="430" y="222" fill="var(--ok)" font-size="12">绿实线 = BFS 生成树的边（7 = n − 1 条）</text>
+        <text x="430" y="246" fill="var(--accent)" font-size="12">橙虚线 = 不出现在 BFS 树中的边：3-4、5-7</text>
+        <text x="430" y="278" fill="var(--text-soft)" font-size="12.5">BFS 序列：0 1 6 2 7 5 3 4</text>
+        <text x="430" y="302" fill="var(--text-soft)" font-size="12.5">dist[] = [0, 1, 2, 3, 3, 2, 1, 2]</text>
+        <text x="430" y="334" fill="var(--text-soft)" font-size="12.5">第 3 层的顶点 3、4 之间有一条边 (3,4)：</text>
+        <text x="430" y="356" fill="var(--text-soft)" font-size="12.5">它连接同一层的两个顶点，不会缩短任何距离，</text>
+        <text x="430" y="378" fill="var(--text-soft)" font-size="12.5">所以不可能进入 BFS 生成树。</text>
+      </svg>
+      <figcaption>图 8-11　BFS 的层次划分与 BFS 生成树（同层边不会成为树边）</figcaption>
+    </div>
+
+    <p>下面是 BFS 的逐帧动画，请对照队列表格观察队列的进出与 <code>dist[]</code> 的写入时刻：</p>
+
+    <div id="viz-bfs"></div>
+
+    <h3 id="s7-3">8.7.3 BFS 的复杂度</h3>
+    <p>与 DFS 完全一致，因为「每个顶点入队出队各一次、每条边检查常数次」这个事实没有变：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>存储结构</th><th>时间复杂度</th><th>空间复杂度</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>邻接表</td><td class="c-ok">O(n + e)</td><td>O(n)</td><td>队列最多同时装 O(n) 个顶点；visited / dist 数组各 O(n)</td></tr>
+          <tr><td>邻接矩阵</td><td class="c-bad">O(n²)</td><td>O(n)</td><td>每个顶点出队时扫描一整行</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      注意空间：BFS 的队列规模在最坏情况下可能接近 n（例如星形图，源点一次把所有叶子入队），
+      所以空间是 O(n) 而不是 O(1)。这也是 BFS 在超大规模图（如整个互联网的网页图）上不如 DFS 省内存的原因之一。
+    </p>
+
+    <h3 id="s7-4">8.7.4 重头戏：无权图的单源最短路（含路径还原）</h3>
+    <p>
+      「单源最短路（Single Source Shortest Path, SSSP）」是图论里最重要的问题家族。
+      带权图要用 Dijkstra / Bellman-Ford / SPFA（下一讲的内容），
+      但如果是<b>无权图</b>（或者每条边权都相同），用 BFS 就够了，而且更快、更简单：
+    </p>
+    <div class="formula center">
+      无权图单源最短路 = BFS + 一个 dist[] 数组 + 一个 pre[] 数组
+    </div>
+    <p>
+      <b>dist[v]</b> 记录源点到 v 的最短边数，<b>pre[v]</b> 记录「v 是从谁走过来的」（前驱）。
+      有了 pre[]，从终点一路 <code>v = pre[v]</code> 倒推到源点，把经过的顶点倒序输出，就得到了完整路径。
+      这两个数组是所有路径类问题的标配，务必熟练掌握。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_bfs_shortest.cpp">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   无权图单源最短路：BFS
+   返回 dist[]；同时用 pre[] 还原出 s 到 t 的具体路径
+   时间 O(n + e)，空间 O(n)
+   ============================================================ */
+const int MAXN = 100005;
+const int INF  = 0x3f3f3f3f;
+vector&lt;int&gt; g[MAXN];
+int n = 8;
+
+vector&lt;int&gt; dist, pre;
+
+void bfsShortest(int s) {
+    dist.assign(n, INF);          // INF 表示“还没到达”
+    pre.assign(n, -1);
+    queue&lt;int&gt; q;
+    dist[s] = 0;
+    q.push(s);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (size_t i = 0; i &lt; g[u].size(); ++i) {
+            int v = g[u][i];
+            if (dist[v] == INF) {          // 第一次到达 → 这就是最短距离
+                dist[v] = dist[u] + 1;
+                pre[v]  = u;               // 记录前驱，供路径还原
+                q.push(v);
+            }
+        }
+    }
+}
+
+/* 还原 s → t 的路径（正序）；若不可达返回空数组 */
+vector&lt;int&gt; getPath(int s, int t) {
+    vector&lt;int&gt; path;
+    if (dist[t] == INF) return path;       // 不可达
+    for (int v = t; v != -1; v = pre[v]) path.push_back(v);
+    reverse(path.begin(), path.end());
+    if (path[0] != s) return vector&lt;int&gt;();   // 安全校验
+    return path;
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+    for (int u = 0; u &lt; n; ++u) sort(g[u].begin(), g[u].end());
+
+    bfsShortest(0);
+
+    cout &lt;&lt; "从 0 出发的 dist[]: ";
+    for (int i = 0; i &lt; n; ++i) cout &lt;&lt; dist[i] &lt;&lt; " ";       // 0 1 2 3 3 2 1 2
+    cout &lt;&lt; "\n";
+
+    vector&lt;int&gt; p = getPath(0, 4);
+    cout &lt;&lt; "0 → 4 的最短路径: ";
+    for (size_t i = 0; i &lt; p.size(); ++i) cout &lt;&lt; p[i] &lt;&lt; (i + 1 &lt; p.size() ? " -> " : "");
+    cout &lt;&lt; "　长度 " &lt;&lt; dist[4] &lt;&lt; "\n";                     // 0 -> 6 -> 5 -> 4　长度 3
+
+    p = getPath(0, 3);
+    cout &lt;&lt; "0 → 3 的最短路径: ";
+    for (size_t i = 0; i &lt; p.size(); ++i) cout &lt;&lt; p[i] &lt;&lt; (i + 1 &lt; p.size() ? " -> " : "");
+    cout &lt;&lt; "　长度 " &lt;&lt; dist[3] &lt;&lt; "\n";                     // 0 -> 1 -> 2 -> 3　长度 3
+    return 0;
+}</pre>
+
+    <p>
+      注意上面 <code>0 → 3</code> 与 <code>0 → 4</code> 的两条路径长度都是 3，但走法完全不同——
+      BFS 求的是<b>长度</b>，最短路径本身可能有多条，BFS 只会还原出「按照邻接表枚举顺序」找到的那一条。
+      如果题目要求输出<b>字典序最小</b>的最短路，或者要求<b>统计最短路径条数</b>，
+      就要在 <code>dist[v] == dist[u] + 1</code> 时另行处理（累加计数 / 比较前驱编号）。
+    </p>
+
+    <p>下面的动画展示 <code>dist[]</code> 的逐层写入与最后的路径还原过程：</p>
+
+    <div id="viz-bfs-shortest"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：BFS 最短路的三个必答点</span>
+      <ol style="margin:6px 0 0">
+        <li><b>为什么 BFS 能求最短路？</b>因为队列保证了「按距离非递减的顺序」访问顶点，
+          第一次访问 v 时的路径长度必然最小。</li>
+        <li><b>只适用于无权图</b>（或等权图）。一旦边权不同，第 k 层到达不代表路径最短，必须换 Dijkstra。</li>
+        <li><b>路径还原靠 pre[]</b>，从终点倒推到源点再反转，时间 O(路径长度)。</li>
+      </ol>
+    </div>
+
+    <h3 id="s7-5">8.7.5 BFS 的另外两个经典应用</h3>
+
+    <h4 id="s7-5-1">① 二分图判定（染色法）</h4>
+    <p>
+      <b>二分图（bipartite graph）</b>是可以把顶点分成两个集合 X、Y，使得每条边的两个端点
+      分别落在不同集合里的图。等价说法：<b>可以用两种颜色给顶点染色，使每条边两端颜色不同</b>。
+    </p>
+    <p>
+      判定方法非常自然：从任意未染色顶点出发，染成颜色 0，然后 BFS/DFS，把它的邻居染成颜色 1，
+      邻居的邻居染成颜色 0……如果在过程中遇到一条边，两个端点颜色<b>相同</b>，就说明不是二分图。
+      本质上，这等价于判断「图中是否存在奇环（长度为奇数的环）」——
+      <b>一张图是二分图 ⟺ 它不含奇环</b>。示例图 G 中含有一个长度为 7 的环
+      <code>0-1-2-3-4-5-6-0</code>，是奇环，所以 G 不是二分图（你可以试着染一下，一定会在某个地方冲突）。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_bipartite.cpp">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   二分图判定：BFS 染色（0 / 1 两种颜色，-1 表示未染色）
+   注意外层循环：非连通图要对每个连通分量分别染色
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+int color[MAXN];                 // -1 未染色，0 / 1 两种颜色
+int n = 8;
+
+bool isBipartite() {
+    for (int i = 0; i &lt; n; ++i) color[i] = -1;
+    for (int s = 0; s &lt; n; ++s) {
+        if (color[s] != -1) continue;
+        color[s] = 0;
+        queue&lt;int&gt; q;
+        q.push(s);
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (size_t i = 0; i &lt; g[u].size(); ++i) {
+                int v = g[u][i];
+                if (color[v] == -1) {           // 未染色 → 染成相反色
+                    color[v] = color[u] ^ 1;
+                    q.push(v);
+                } else if (color[v] == color[u]) {
+                    return false;               // 相邻同色 → 不是二分图
+                }
+            }
+        }
+    }
+    return true;
+}
+
+int main() {
+    /* 图 1：一个偶环（0-1-2-3-0）→ 二分图 */
+    int E1[4][2] = {{0,1},{1,2},{2,3},{3,0}};
+    for (int i = 0; i &lt; 4; ++i) { g[E1[i][0]].push_back(E1[i][1]); g[E1[i][1]].push_back(E1[i][0]); }
+    cout &lt;&lt; "偶环图是二分图? " &lt;&lt; (isBipartite() ? "是" : "不是") &lt;&lt; "\n";    // 是
+
+    /* 图 2：加一条弦 0-2，出现三角形（奇环）→ 不是二分图 */
+    g[0].push_back(2); g[2].push_back(0);
+    cout &lt;&lt; "带三角形的图是二分图? " &lt;&lt; (isBipartite() ? "是" : "不是") &lt;&lt; "\n";  // 不是
+
+    /* 图 3：本讲示例图 G（含 7 元奇环）→ 不是二分图 */
+    for (int i = 0; i &lt; n; ++i) g[i].clear();
+    int E3[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { g[E3[i][0]].push_back(E3[i][1]); g[E3[i][1]].push_back(E3[i][0]); }
+    cout &lt;&lt; "示例图 G 是二分图? " &lt;&lt; (isBipartite() ? "是" : "不是") &lt;&lt; "\n";   // 不是
+    return 0;
+}</pre>
+
+    <h4 id="s7-5-2">② 层序类比：从二叉树层序遍历到图的 BFS</h4>
+    <p>
+      第 07 讲二叉树的<b>层序遍历</b>就是 BFS 的特例：用一个队列，先放根结点，
+      每次取出一个结点并把它的左右孩子入队，取出的顺序就是「一层一层」的。
+      图的 BFS 只是把「左右孩子」换成了「邻接表里的所有邻接点」，
+      把「树的唯一路径」换成了「需要 visited 去重的任意图」。
+    </p>
+    <p>
+      既然 BFS 天然分层，那么只要在出队时记录「当前层有几个结点」（<code>q.size()</code>），
+      就能一次处理一整层。这个技巧在「求二叉树最大宽度」「求图中距离为 k 的结点个数」
+      「多源 BFS（把所有源点同时入队）」里反复出现：
+    </p>
+    <pre data-lang="cpp" data-file="graph_bfs.cpp">#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   BFS 的三种常见写法
+     1) 基础版：求访问序列
+     2) 分层版：一次处理一整层（可统计层数、层宽）
+     3) 多源版：多个起点同时入队（例如“火势蔓延”“最近的出口”）
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+int n = 8;
+
+/* ---------- 1) 基础版 ---------- */
+vector&lt;int&gt; bfs(int s) {
+    vector&lt;int&gt; order;
+    vector&lt;bool&gt; vis(n, false);
+    queue&lt;int&gt; q;
+    vis[s] = true; q.push(s);              // 入队即打标记
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (size_t i = 0; i &lt; g[u].size(); ++i) {
+            int v = g[u][i];
+            if (!vis[v]) { vis[v] = true; q.push(v); }
+        }
+    }
+    return order;
+}
+
+/* ---------- 2) 分层版 ---------- */
+void bfsByLevel(int s) {
+    vector&lt;int&gt; dist(n, -1);
+    queue&lt;int&gt; q;
+    dist[s] = 0; q.push(s);
+    int level = 0;
+    while (!q.empty()) {
+        int sz = q.size();                 // 当前层的结点个数
+        cout &lt;&lt; "第 " &lt;&lt; level &lt;&lt; " 层（" &lt;&lt; sz &lt;&lt; " 个）: ";
+        for (int k = 0; k &lt; sz; ++k) {     // 只处理这一层
+            int u = q.front(); q.pop();
+            cout &lt;&lt; u &lt;&lt; " ";
+            for (size_t i = 0; i &lt; g[u].size(); ++i) {
+                int v = g[u][i];
+                if (dist[v] == -1) { dist[v] = dist[u] + 1; q.push(v); }
+            }
+        }
+        cout &lt;&lt; "\n";
+        ++level;
+    }
+}
+
+/* ---------- 3) 多源版 ---------- */
+vector&lt;int&gt; bfsMultiSource(const vector&lt;int&gt;&amp; srcs) {
+    vector&lt;int&gt; dist(n, -1);
+    queue&lt;int&gt; q;
+    for (size_t i = 0; i &lt; srcs.size(); ++i) { dist[srcs[i]] = 0; q.push(srcs[i]); }  // 源点同时入队
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (size_t i = 0; i &lt; g[u].size(); ++i) {
+            int v = g[u][i];
+            if (dist[v] == -1) { dist[v] = dist[u] + 1; q.push(v); }
+        }
+    }
+    return dist;
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+    for (int u = 0; u &lt; n; ++u) sort(g[u].begin(), g[u].end());
+
+    cout &lt;&lt; "BFS 序列: ";
+    vector&lt;int&gt; o = bfs(0);
+    for (size_t i = 0; i &lt; o.size(); ++i) cout &lt;&lt; o[i] &lt;&lt; " ";        // 0 1 6 2 7 5 3 4
+    cout &lt;&lt; "\n";
+    bfsByLevel(0);
+    /* 第 0 层（1 个）: 0
+       第 1 层（2 个）: 1 6
+       第 2 层（3 个）: 2 7 5
+       第 3 层（2 个）: 3 4 */
+
+    vector&lt;int&gt; srcs; srcs.push_back(0); srcs.push_back(3);
+    vector&lt;int&gt; d = bfsMultiSource(srcs);
+    cout &lt;&lt; "多源 dist（源点 0 与 3）: ";
+    for (int i = 0; i &lt; n; ++i) cout &lt;&lt; d[i] &lt;&lt; " ";
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <h2 id="s8">8.8 连通分量与生成树</h2>
+
+    <h3 id="s8-1">8.8.1 用 DFS / BFS 求连通分量个数</h3>
+    <p>
+      这是遍历最直接的应用：<b>外层循环扫一遍所有顶点，遇到没访问过的就启动一次遍历，
+      并把计数器 +1</b>。每一次遍历会把「一个完整的连通分量」全部标记为已访问，
+      所以计数器的值就是连通分量的个数。时间复杂度 O(n + e)，空间 O(n)。
+    </p>
+    <p>
+      为了演示多分量，我们在示例图 G 的基础上追加两个顶点：
+      <b>顶点 8</b> 与 <b>顶点 9</b> 之间连一条边，<b>顶点 10</b> 谁都不连（孤立点）。
+      记这张图为 G′：n = 11、e = 10，它的连通分量有 3 个：
+      <code>{0,1,2,3,4,5,6,7}</code>、<code>{8,9}</code>、<code>{10}</code>。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 470" width="900" height="470" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">G′ = G + 边(8,9) + 孤立点 10：n = 11，e = 10，连通分量个数 k = 3</text>
+
+        <g stroke="var(--brand)" stroke-width="3">
+          <line x1="86" y1="78" x2="212" y2="69"/><line x1="212" y1="69" x2="348" y2="86"/>
+          <line x1="348" y1="86" x2="425" y2="185"/><line x1="425" y1="185" x2="316" y2="256"/>
+          <line x1="316" y1="256" x2="150" y2="259"/><line x1="150" y1="259" x2="224" y2="155"/>
+          <line x1="86" y1="78" x2="64" y2="168"/><line x1="64" y1="168" x2="150" y2="259"/>
+          <line x1="212" y1="69" x2="224" y2="155"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="3">
+          <line x1="430" y1="330" x2="470" y2="400"/>
+        </g>
+        <g fill="var(--brand)" stroke="var(--brand)" stroke-width="1.6">
+          <circle cx="86" cy="78" r="15"/><circle cx="212" cy="69" r="15"/><circle cx="348" cy="86" r="15"/>
+          <circle cx="425" cy="185" r="15"/><circle cx="316" cy="256" r="15"/><circle cx="150" cy="259" r="15"/>
+          <circle cx="64" cy="168" r="15"/><circle cx="224" cy="155" r="15"/>
+        </g>
+        <g fill="var(--accent)" stroke="var(--accent)" stroke-width="1.6">
+          <circle cx="430" cy="330" r="15"/><circle cx="470" cy="400" r="15"/>
+        </g>
+        <g fill="var(--ok)" stroke="var(--ok)" stroke-width="1.6">
+          <circle cx="120" cy="390" r="15"/>
+        </g>
+        <g class="vz-text on" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="86" y="83">0</text><text x="212" y="74">1</text><text x="348" y="91">2</text>
+          <text x="425" y="190">3</text><text x="316" y="261">4</text><text x="150" y="264">5</text>
+          <text x="64" y="173">6</text><text x="224" y="160">7</text>
+          <text x="430" y="335">8</text><text x="470" y="405">9</text>
+          <text x="120" y="395">10</text>
+        </g>
+
+        <g font-size="12.5" font-family="Consolas, monospace">
+          <rect x="560" y="60" width="14" height="14" fill="var(--brand)"/>
+          <text x="584" y="72" fill="var(--text-soft)">分量 1：{0,1,2,3,4,5,6,7}，8 个顶点</text>
+          <rect x="560" y="92" width="14" height="14" fill="var(--accent)"/>
+          <text x="584" y="104" fill="var(--text-soft)">分量 2：{8,9}，2 个顶点</text>
+          <rect x="560" y="124" width="14" height="14" fill="var(--ok)"/>
+          <text x="584" y="136" fill="var(--text-soft)">分量 3：{10}，1 个顶点（孤立点）</text>
+        </g>
+        <line x1="560" y1="162" x2="880" y2="162" stroke="var(--border)" stroke-width="1"/>
+        <text x="560" y="188" fill="var(--text-soft)" font-size="12.5">计数方法：外层 for 扫全部顶点，</text>
+        <text x="560" y="210" fill="var(--text-soft)" font-size="12.5">遇到 visited[i] == false 就 cnt++，</text>
+        <text x="560" y="232" fill="var(--text-soft)" font-size="12.5">并从 i 出发 DFS/BFS 吃掉整个分量。</text>
+        <text x="560" y="264" fill="var(--brand)" font-size="12.5">cnt 的值 = 外层真正发起遍历的次数。</text>
+        <text x="560" y="294" fill="var(--text-soft)" font-size="12.5">生成森林的边数 = n − k = 11 − 3 = 8。</text>
+        <text x="560" y="324" fill="var(--text-soft)" font-size="12.5">e = 10 ≥ n − k = 8，符合连通性下界。</text>
+        <text x="560" y="356" fill="var(--text-faint)" font-size="12">单个顶点也是连通分量；</text>
+        <text x="560" y="378" fill="var(--text-faint)" font-size="12">空图（n = 0）的连通分量个数约定为 0。</text>
+      </svg>
+      <figcaption>图 8-12　连通分量的计算：颜色即分量编号，孤立点单独成一分量</figcaption>
+    </div>
+
+    <p>下面这个动画逐帧展示「从一个未访问顶点出发，把这个分量整个吃掉并染色」的过程：</p>
+
+    <div id="viz-connected"></div>
+
+    <pre data-lang="cpp" data-file="graph_components.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   求无向图的连通分量个数（以及每个顶点属于哪个分量）
+   时间 O(n + e)，空间 O(n)
+   ============================================================ */
+const int MAXN = 100005;
+vector&lt;int&gt; g[MAXN];
+int n, m;
+vector&lt;bool&gt; vis;
+vector&lt;int&gt;  comp;              // comp[v] = v 所属分量编号（从 0 开始）
+
+void dfs(int u, int cid) {
+    vis[u] = true;
+    comp[u] = cid;
+    for (size_t i = 0; i &lt; g[u].size(); ++i)
+        if (!vis[g[u][i]]) dfs(g[u][i], cid);
+}
+
+/* 若只要个数，把 comp 相关代码删掉即可；这里保留是为了能输出分量成员 */
+int countComponents() {
+    vis.assign(n, false);
+    comp.assign(n, -1);
+    int cnt = 0;
+    for (int i = 0; i &lt; n; ++i) {
+        if (!vis[i]) {                 // 发现新分量
+            dfs(i, cnt);               // 一次 DFS 吃掉整个分量
+            ++cnt;
+        }
+    }
+    return cnt;
+}
+
+int main() {
+    n = 11;                            // G′：8 个顶点的示例图 + 8-9 一条边 + 孤立点 10
+    int E[10][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7},{8,9}};
+    for (int i = 0; i &lt; 10; ++i) { g[E[i][0]].push_back(E[i][1]); g[E[i][1]].push_back(E[i][0]); }
+
+    int k = countComponents();
+    cout &lt;&lt; "连通分量个数 = " &lt;&lt; k &lt;&lt; "\n";        // 3
+    for (int c = 0; c &lt; k; ++c) {
+        cout &lt;&lt; "分量 " &lt;&lt; c + 1 &lt;&lt; ": ";
+        int sz = 0;
+        for (int v = 0; v &lt; n; ++v) if (comp[v] == c) { cout &lt;&lt; v &lt;&lt; " "; ++sz; }
+        cout &lt;&lt; "（" &lt;&lt; sz &lt;&lt; " 个顶点）\n";
+    }
+    /* 分量 1: 0 1 2 3 4 5 6 7 （8 个顶点）
+       分量 2: 8 9 （2 个顶点）
+       分量 3: 10 （1 个顶点）  */
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">另一种做法：并查集</span>
+      连通分量也可以用<b>并查集（Union-Find）</b>求：把每条边的两个端点 <code>union</code> 起来，
+      最后统计有多少个不同的根，就是连通分量个数，复杂度 <code>O(e·α(n))</code>。
+      并查集的好处是能<b>动态加边</b>（DFS 不能），坏处是不能求具体路径。
+      两种方法都要会，考试里「判断图是否连通」用哪种都行。
+    </div>
+
+    <h3 id="s8-2">8.8.2 生成树：定义与「n−1 条边」的证明</h3>
+    <p>
+      <b>生成树（spanning tree）</b>：连通无向图 G 的一个生成子图，它本身是一棵树。
+      换句话说，它包含 G 的全部 n 个顶点、<code>n−1</code> 条边，而且是连通的、无回路的。
+      若图不连通，则各连通分量各取一棵生成树，合起来叫<b>生成森林</b>。
+    </p>
+    <p><b>定理：n 个顶点的连通图，其任意生成树恰有 n−1 条边。</b>证明用「夹逼」的思路最清楚：</p>
+    <ol>
+      <li>
+        <b>连通性给出下界：e ≥ n−1。</b>
+        对 n 做归纳。n = 1 时平凡成立。设 n−1 个顶点的连通图至少 n−2 条边，
+        考虑 n 个顶点的连通图 G：若存在度为 1 的顶点 v（悬挂点），删去 v 及其悬挂边后剩下的图仍连通，
+        由归纳假设它有 ≥ n−2 条边，故 G 有 ≥ n−1 条边；
+        若不存在度为 1 的顶点，则所有顶点度 ≥ 2，由握手定理 <code>2e = Σd(v) ≥ 2n</code>，即 <code>e ≥ n &gt; n−1</code>，也成立。
+      </li>
+      <li>
+        <b>无回路给出上界：e ≤ n−1。</b>
+        从「n 个孤立顶点」（n 个连通块、0 条边）出发，每加一条边，最多把两个连通块合并成一个，
+        所以连通块数最多减少 1。要从 n 块变成 1 块（连通），至少要加 n−1 条边；
+        而如果加的边造成了回路，连通块数根本没减少，反而浪费了一条边。
+        因此一个「连通且无回路」的图，其边数恰好是 n−1（少于 n−1 不可能连通，多于 n−1 必然有回路）。
+      </li>
+    </ol>
+    <p>
+      两条合起来：生成树的边数<b>恰好</b>是 <code>n−1</code>。这个结论还有几个常用推论：
+    </p>
+    <ul>
+      <li>生成树是「<b>极小连通子图</b>」：删掉任意一条边就不连通了。</li>
+      <li>生成树是「<b>极大无回路子图</b>」：任意再加一条原图的边就必然成环。</li>
+      <li>加上任意一条非树边，会形成<b>唯一</b>的一个回路（叫基本回路），回路长度 = 该边两端点在树上的距离 + 1。</li>
+      <li>非连通图有 n 个顶点、k 个连通分量时，生成森林有 <code>n−k</code> 条边。</li>
+    </ul>
+
+    <h3 id="s8-3">8.8.3 DFS 生成树与 BFS 生成树</h3>
+    <p>
+      遍历一张连通图时，我们只会「沿着某些边」走到新顶点，这些边就是<b>树边</b>，
+      它们连同全部顶点构成一棵生成树。用 DFS 得到的叫 <b>DFS 生成树</b>，
+      用 BFS 得到的叫 <b>BFS 生成树</b>，两者的形状差别很大：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>对比项</th><th>DFS 生成树</th><th>BFS 生成树</th></tr></thead>
+        <tbody>
+          <tr><td>形状</td><td>细长、深度大（本讲例子里退化成一条链）</td><td>矮胖、层数最少</td></tr>
+          <tr><td>树高</td><td>可能达到 n−1</td><td>等于源点到最远顶点的最短距离（最小可能的树高）</td></tr>
+          <tr><td>非树边的类型</td><td>无向图只有<b>回边</b>（连到祖先）；有向图还有前向边、横叉边</td><td>无向图只有<b>同层边或跨一层边</b>（绝不会跨两层以上）</td></tr>
+          <tr><td>典型用途</td><td>求割点桥、强连通分量、拓扑排序</td><td>无权最短路、层次分析、二分图判定</td></tr>
+          <tr><td>边的条数</td><td colspan="2">都是 n−1（连通图）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      本讲示例图的结果：DFS 生成树的树边是
+      <code>0-1, 1-2, 2-3, 3-4, 4-5, 5-6, 5-7</code>（7 条），非树边是 <code>0-6, 1-7</code>；
+      BFS 生成树的树边是 <code>0-1, 0-6, 1-2, 1-7, 6-5, 2-3, 5-4</code>（7 条），
+      非树边是 <code>3-4, 5-7</code>。
+      两棵树的边集完全不同，但边数都是 7 = n−1，这就是「生成树不唯一」的最直接例证。
+    </p>
+    <div class="note warn">
+      <span class="note-title">易错：BFS 生成树里不可能出现「跨多层」的非树边</span>
+      设非树边连接 u、v，则 <code>|dist[u] − dist[v]| ≤ 1</code>。
+      反证：若 <code>dist[v] ≥ dist[u] + 2</code>，那么 u 出队时 v 必然还没被访问，
+      BFS 一定会沿 (u,v) 把 v 的距离更新为 <code>dist[u]+1</code>，矛盾。
+      本讲例子里 <code>(3,4)</code> 就是同层边：dist[3] = dist[4] = 3。
+    </div>
+
+    <h3 id="s8-4">8.8.4 生成树不唯一，最小生成树也不唯一（但权值和唯一）</h3>
+    <p>
+      从 8.8.3 的例子里已经看到：同一张图的生成树有很多棵。
+      如果给边加上权值（这时图叫<b>网</b>），我们就会问：
+      <b>哪一棵生成树的总权值最小？</b>这就是<b>最小生成树（Minimum Spanning Tree, MST）</b>问题，
+      求法有 Prim 与 Kruskal 两种经典算法，是下一讲的主角。
+    </p>
+    <p>这里先埋三个伏笔，下一讲会正式证明：</p>
+    <ol>
+      <li><b>最小生成树不一定唯一。</b>当图中存在权值相同的边时，可能有多棵不同的最小生成树。</li>
+      <li><b>但最小生成树的权值和一定唯一。</b>不管选出哪一棵，总权值都相同——这是 MST 最重要的性质，
+        也是很多题目「只问权值和」的底气所在。</li>
+      <li><b>切性质（cut property）</b>：把顶点任意分成两部分，横跨这两部分的所有边中权值最小的那条，
+        一定属于某棵最小生成树。Prim 与 Kruskal 都是这条性质的推论。</li>
+    </ol>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 380" width="900" height="380" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">带权图（网）：A-B=1、A-C=1、B-C=3、B-D=2、C-D=2</text>
+
+        <g stroke="var(--border-strong)" stroke-width="2">
+          <line x1="130" y1="90" x2="330" y2="90"/>
+          <line x1="120" y1="106" x2="212" y2="222"/>
+          <line x1="238" y1="228" x2="322" y2="106"/>
+          <line x1="344" y1="104" x2="452" y2="172"/>
+          <line x1="236" y1="240" x2="440" y2="184"/>
+        </g>
+        <g fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8">
+          <circle cx="110" cy="90" r="20"/><circle cx="350" cy="90" r="20"/>
+          <circle cx="222" cy="240" r="20"/><circle cx="472" cy="180" r="20"/>
+        </g>
+        <g fill="var(--text)" font-size="14" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="110" y="95">A</text><text x="350" y="95">B</text>
+          <text x="222" y="245">C</text><text x="472" y="185">D</text>
+        </g>
+        <g fill="var(--accent)" font-size="13" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="230" y="78">1</text>
+          <text x="146" y="172">1</text>
+          <text x="296" y="172">3</text>
+          <text x="414" y="126">2</text>
+          <text x="330" y="228">2</text>
+        </g>
+
+        <line x1="540" y1="40" x2="540" y2="330" stroke="var(--border)" stroke-width="1"/>
+        <text x="580" y="60" fill="var(--ok)" font-size="12.5" font-weight="700">最小：A-B(1) + A-C(1) + B-D(2) = 4</text>
+        <text x="580" y="86" fill="var(--ok)" font-size="12.5" font-weight="700">最小：A-B(1) + A-C(1) + C-D(2) = 4</text>
+        <text x="580" y="116" fill="var(--text-soft)" font-size="12.5">非最小：A-B(1) + B-C(3) + B-D(2) = 6</text>
+        <text x="580" y="142" fill="var(--text-soft)" font-size="12.5">非最小：A-C(1) + B-C(3) + C-D(2) = 6</text>
+        <text x="580" y="178" fill="var(--brand)" font-size="12.5">结论 1：最小生成树不唯一（上面两棵都是）</text>
+        <text x="580" y="204" fill="var(--brand)" font-size="12.5">结论 2：但最小权值和唯一，都是 4</text>
+        <text x="580" y="240" fill="var(--text-soft)" font-size="12.5">原因：D 必须经 B-D(2) 或 C-D(2) 接入，</text>
+        <text x="580" y="264" fill="var(--text-soft)" font-size="12.5">A、B、C 之间只要选权值和最小的两条边</text>
+        <text x="580" y="288" fill="var(--text-soft)" font-size="12.5">即 A-B 与 A-C（1+1），总和恒为 4。</text>
+        <text x="580" y="330" fill="var(--text-faint)" font-size="12">下一讲：Prim（加点）与 Kruskal（加边 + 并查集）。</text>
+      </svg>
+      <figcaption>图 8-13　带权图上的生成树：不唯一，但最小权值和唯一</figcaption>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：生成树相关结论速记</span>
+      <ul style="margin:6px 0 0">
+        <li>n 个顶点的连通图，生成树有且仅有 <code>n−1</code> 条边。</li>
+        <li>n 个顶点、k 个连通分量的图，生成森林有 <code>n−k</code> 条边。</li>
+        <li>连通图的生成树不唯一（除非它本身是一棵树）——<b>只要图中有回路，就能删掉回路上任意一条边得到另一棵生成树</b>。</li>
+        <li>最小生成树的<b>权值和唯一</b>，但树本身可能不唯一。</li>
+        <li>「加一条边成环，删一条边连通」是生成树的两个等价刻画。</li>
+      </ul>
+    </div>
+
+    <h2 id="s9">8.9 图的经典小题速览</h2>
+
+    <p>
+      这一节把图论里最常见的几个「小问题」集中过一遍。它们本身不难，但每一个都对应着一类
+      考试题与竞赛模板，而且都会在后面的算法课里反复出现。这里只给结论与一句话思路，
+      完整的推导留给对应的专题。
+    </p>
+
+    <h3 id="s9-1">8.9.1 判断二分图</h3>
+    <p>
+      <b>结论：一张图是二分图 ⟺ 它不含长度为奇数的环（奇环）。</b>
+      判定方法就是 BFS/DFS 染色：相邻顶点必须异色，一旦发现相邻同色就失败。
+      时间复杂度 O(n + e)（邻接表）。
+    </p>
+    <p>
+      直觉理解：沿着一条边颜色必然翻转，所以绕一个环走一圈回到起点时，颜色翻转的次数 = 环长。
+      环长为偶数时颜色能回到原样，为奇数时必然冲突。二分图的典型应用是<b>任务分配</b>与
+      <b>冲突检测</b>（例如「把学生分成两组，每组内部不能有矛盾关系」）。
+    </p>
+
+    <h3 id="s9-2">8.9.2 求无向图的割点与桥</h3>
+    <p>
+      <b>割点</b>是删掉后连通分量变多的顶点，<b>桥</b>是删掉后连通分量变多的边。
+      一句话思路：DFS 时记 <code>dfn</code>（时间戳）与 <code>low</code>（子树能回到的最小时间戳），
+      <code>low[v] ≥ dfn[u]</code> 说明 v 的子树「绕不回去」，u 就是割点；
+      <code>low[v] &gt; dfn[u]</code> 则说明这条边是桥。
+      根结点要单独判断（孩子数 ≥ 2 才是割点）。完整代码见 8.6.6 的 <code>graph_cut_vertex.cpp</code>。
+    </p>
+    <p>
+      应用场景：网络中的关键路由器（删掉它网络就分裂）、交通网中的咽喉要道、
+      社交网络中的「桥接人物」。这个算法也是 Tarjan 系列（强连通分量、双连通分量、2-SAT）的入门。
+    </p>
+
+    <h3 id="s9-3">8.9.3 有向图的可达性</h3>
+    <p>
+      「从 u 能不能走到 v」是最基础的有向图问题。如果只问一对点，一次 DFS/BFS 就够（O(n+e)）；
+      如果要把<b>所有点对</b>的可达性都算出来（叫<b>传递闭包</b>），有三种做法：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>做法</th><th>复杂度</th><th>适用</th></tr></thead>
+        <tbody>
+          <tr><td>对每个点各做一次 DFS/BFS</td><td>O(n(n + e))</td><td>稀疏图、n 中等</td></tr>
+          <tr><td><code>bitset</code> 优化</td><td>O(n(n + e)/64)</td><td>n ≤ 5000 左右的稠密图，写法极短</td></tr>
+          <tr><td>Floyd 思想（<code>reach[i][j] |= reach[i][k] &amp;&amp; reach[k][j]</code>）</td><td>O(n³)</td><td>n ≤ 500，最省心</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      传递闭包还有一个漂亮的等价说法：把 <code>reach</code> 矩阵看成布尔矩阵，
+      它等于 <code>I ∨ A ∨ A² ∨ … ∨ A<sup>n−1</sup></code>。这也顺便解释了 8.5 节里提到的
+      「<code>A²</code> 的元素是长度为 2 的路径条数」这一性质。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_reachability.cpp">#include &lt;bitset&gt;
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   有向图的可达性（传递闭包）
+   这里给出 bitset 版：reach[u] 的第 v 位为 1 表示 u 可达 v
+   ============================================================ */
+const int MAXN = 2005;
+vector&lt;int&gt; g[MAXN];
+bitset&lt;MAXN&gt; reach[MAXN];
+int n = 5;
+
+/* 从 s 出发 DFS，把所有可达点写进 reach[s] */
+void dfsReach(int u, int s) {
+    reach[s].set(u);                       // 进入即标记“可达”
+    for (int v : g[u])
+        if (!reach[s].test(v)) dfsReach(v, s);
+}
+
+/* Floyd 版：n ≤ 500 时最省事 */
+void floydReach(vector&lt;vector&lt;bool&gt;&gt;&amp; r) {
+    for (int k = 0; k &lt; n; ++k)
+        for (int i = 0; i &lt; n; ++i)
+            if (r[i][k])
+                for (int j = 0; j &lt; n; ++j)
+                    if (r[k][j]) r[i][j] = true;
+}
+
+int main() {
+    /* 有向图：0→1, 1→2, 2→3, 0→3, 3→4 */
+    g[0].push_back(1); g[1].push_back(2); g[2].push_back(3);
+    g[0].push_back(3); g[3].push_back(4);
+
+    for (int s = 0; s &lt; n; ++s) dfsReach(s, s);
+    for (int u = 0; u &lt; n; ++u) {
+        cout &lt;&lt; u &lt;&lt; " 可达: ";
+        for (int v = 0; v &lt; n; ++v) if (reach[u].test(v)) cout &lt;&lt; v &lt;&lt; " ";
+        cout &lt;&lt; "\n";
+    }
+    /* 0 可达: 0 1 2 3 4
+       1 可达: 1 2 3 4
+       2 可达: 2 3 4
+       3 可达: 3 4
+       4 可达: 4      */
+
+    cout &lt;&lt; "0 可达 4 ? " &lt;&lt; (reach[0].test(4) ? "是" : "否") &lt;&lt; "\n";   // 是
+    cout &lt;&lt; "4 可达 0 ? " &lt;&lt; (reach[4].test(0) ? "是" : "否") &lt;&lt; "\n";   // 否（单向）
+    cout &lt;&lt; "整张图强连通? " &lt;&lt; ([&amp;]{ for (int i = 0; i &lt; n; ++i) if ((int)reach[i].count() != n) return false; return true; }() ? "是" : "否") &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <h3 id="s9-4">8.9.4 欧拉路径与欧拉回路（一笔画问题）</h3>
+    <p>
+      <b>欧拉路径（Euler path）</b>：经过图中<b>每条边恰好一次</b>的路径（顶点可以重复经过）。
+      <b>欧拉回路（Euler circuit）</b>：起点与终点相同的欧拉路径。
+      这就是小时候玩的「一笔画」——笔不离开纸，每条线只画一次。
+    </p>
+    <p>判定条件（无向图）要先保证「所有度数大于 0 的顶点在同一个连通块里」，然后数奇度顶点的个数：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>奇度顶点个数</th><th>结论</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>0 个</td><td class="c-ok">存在<b>欧拉回路</b></td><td>可以从任意顶点出发并回到它，也叫欧拉图</td></tr>
+          <tr><td>2 个</td><td class="c-ok">存在<b>欧拉路径</b>（不是回路）</td><td>必须从其中一个奇度顶点出发，在另一个结束</td></tr>
+          <tr><td>其它（4、6、…）</td><td class="c-bad">不存在</td><td>由握手定理的推论，奇度顶点个数必为偶数</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      有向图的判定稍作修改：把「度数为偶数」换成「每个顶点的入度 = 出度」（欧拉回路），
+      或者「恰有一个顶点出度 = 入度+1（起点）、一个顶点入度 = 出度+1（终点），其余入度 = 出度」（欧拉路径），
+      再加上「把有向边当成无向边后图连通」。
+    </p>
+    <p>
+      看看我们的示例图 G：度数为 2,3,2,2,2,3,2,2，奇度顶点恰好是 1 和 5，共 2 个，且图连通，
+      所以<b>存在欧拉路径，必须从 1 出发、到 5 结束</b>。这条路径是：
+      <code>1 → 0 → 6 → 5 → 4 → 3 → 2 → 1 → 7 → 5</code>，正好走完 9 条边、每条一次。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_euler.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   无向图的欧拉路径 / 欧拉回路：判定 + Hierholzer 求路径
+   判定：① 所有度 &gt; 0 的顶点连通  ② 奇度顶点个数为 0（回路）或 2（路径）
+   Hierholzer：DFS 走到底，回溯时把顶点压栈，最后逆序输出即为欧拉路径
+   ============================================================ */
+const int MAXN = 1005;
+const int MAXM = 10005;
+int deg[MAXN];
+vector&lt;pair&lt;int,int&gt; &gt; g[MAXN];      // (邻接点, 边编号)
+bool usedEdge[MAXM];
+bool visV[MAXN];
+vector&lt;int&gt; ans;
+int n = 8, m = 0;
+
+void addEdge(int u, int v) {
+    g[u].push_back(make_pair(v, m));
+    g[v].push_back(make_pair(u, m));
+    deg[u]++; deg[v]++;
+    ++m;
+}
+
+void dfsConnect(int u) {                  // 只关心有边的顶点是否连通
+    visV[u] = true;
+    for (size_t i = 0; i &lt; g[u].size(); ++i)
+        if (!visV[g[u][i].first]) dfsConnect(g[u][i].first);
+}
+
+void hierholzer(int u) {
+    for (size_t i = 0; i &lt; g[u].size(); ++i) {
+        int v = g[u][i].first, id = g[u][i].second;
+        if (usedEdge[id]) continue;       // 每条边只走一次
+        usedEdge[id] = true;
+        hierholzer(v);
+    }
+    ans.push_back(u);                     // 回溯时才记录 → 逆序输出即为路径
+}
+
+int main() {
+    int E[9][2] = {{0,1},{0,6},{1,2},{1,7},{2,3},{3,4},{4,5},{5,6},{5,7}};
+    for (int i = 0; i &lt; 9; ++i) addEdge(E[i][0], E[i][1]);
+
+    /* ① 连通性检查 */
+    int startV = -1;
+    for (int v = 0; v &lt; n; ++v) if (deg[v] &gt; 0) { startV = v; break; }
+    dfsConnect(startV);
+    bool connected = true;
+    for (int v = 0; v &lt; n; ++v) if (deg[v] &gt; 0 &amp;&amp; !visV[v]) connected = false;
+
+    /* ② 数奇度顶点 */
+    int odd = 0, first = -1;
+    for (int v = 0; v &lt; n; ++v)
+        if (deg[v] % 2) { ++odd; if (first &lt; 0) first = v; }
+
+    if (!connected || (odd != 0 &amp;&amp; odd != 2)) {
+        cout &lt;&lt; "不存在欧拉路径\n";
+        return 0;
+    }
+    int s = (odd == 2) ? first : startV;          // 有奇度点就必须从奇度点出发
+    cout &lt;&lt; (odd == 0 ? "存在欧拉回路，起点 " : "存在欧拉路径，起点 ") &lt;&lt; s &lt;&lt; "\n";
+    hierholzer(s);
+    cout &lt;&lt; "路径: ";
+    for (int i = (int)ans.size() - 1; i &gt;= 0; --i)
+        cout &lt;&lt; ans[i] &lt;&lt; (i ? " -&gt; " : "\n");
+    /* 存在欧拉路径，起点 1
+       路径: 1 -&gt; 0 -&gt; 6 -&gt; 5 -&gt; 4 -&gt; 3 -&gt; 2 -&gt; 1 -&gt; 7 -&gt; 5  */
+    cout &lt;&lt; "共经过 " &lt;&lt; m &lt;&lt; " 条边，每条恰好一次\n";
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：欧拉路径 ≠ 哈密顿路径</span>
+      <b>欧拉路径</b>要求「每条<b>边</b>恰好走一次」（顶点可重复），判定只需数度数，有 O(n+e) 的算法；
+      <b>哈密顿路径</b>要求「每个<b>顶点</b>恰好经过一次」，判定是 NP 完全问题，没有多项式算法。
+      这两个名字很像、条件却完全相反，考试里经常放在一起辨析，务必分清。
+    </div>
+
+    <h2 id="s10">8.10 本章小结、易错点与自测</h2>
+
+    <h3 id="s10-1">8.10.1 必须记住的十件事</h3>
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">概念与结论</h4>
+        <ol style="margin-bottom:0">
+          <li>图 <code>G = (V, E)</code>；<code>n = |V|</code>、<code>e = |E|</code>；
+            无向简单图 <code>0 ≤ e ≤ n(n−1)/2</code>，有向 <code>0 ≤ e ≤ n(n−1)</code>。</li>
+          <li><b>握手定理</b>：<code>Σd(v) = 2e</code>；有向图 <code>Σ入度 = Σ出度 = e</code>；
+            推论：奇度顶点个数为偶数。</li>
+          <li>无向图矩阵<b>对称</b>，有向图矩阵<b>一般不对称</b>；求度口诀「<b>行出列入</b>」。</li>
+          <li>邻接矩阵空间 <code>O(n²)</code>、遍历 <code>O(n²)</code>；邻接表空间 <code>O(n+e)</code>、
+            遍历 <code>O(n+e)</code>。</li>
+          <li>无向图邻接表边结点 <code>2e</code> 个，有向图 <code>e</code> 个。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">算法与结构</h4>
+        <ol start="6" style="margin-bottom:0">
+          <li>DFS 用<b>栈</b>（递归），BFS 用<b>队列</b>；都要「进入 / 入队时立刻打标记」。</li>
+          <li>DFS / BFS 的时间：邻接表 <code>O(n+e)</code>，邻接矩阵 <code>O(n²)</code>。</li>
+          <li>无权图单源最短路 = BFS + <code>dist[]</code>；路径还原靠 <code>pre[]</code> 倒推。</li>
+          <li>连通分量个数 = 外层循环真正发起遍历的次数；生成树有 <code>n−1</code> 条边，
+            生成森林有 <code>n−k</code> 条边。</li>
+          <li>链式前向星三行插入：<code>to[idx]=v; nxt[idx]=head[u]; head[u]=idx; ++idx;</code>
+            遍历：<code>for (i = head[u]; i != -1; i = nxt[i])</code>。</li>
+        </ol>
+      </div>
+    </div>
+
+    <h3 id="s10-2">8.10.2 易错点清单</h3>
+    <div class="note danger">
+      <span class="note-title">易错点（一）：存储结构与计数的细节</span>
+      <ul style="margin:6px 0 0">
+        <li><b>无向图忘记写两格 / 忘记 addEdge 两次</b>：邻接矩阵只写 <code>A[u][v]</code> 而漏掉
+          <code>A[v][u]</code>；邻接表只 push 一次。结果度算少一半、遍历走不通。</li>
+        <li><b>把有向图当无向图存</b>：有向图的 <code>addEdge</code> 只能 <code>g[u].push_back(v)</code> 一次。</li>
+        <li><b>自环对度的贡献算成 1</b>：应该是 <b>2</b>；有向图自环同时给入度和出度各 +1。</li>
+        <li><b>邻接表边结点数记错</b>：无向图是 <code>2e</code>，有向图是 <code>e</code>。</li>
+        <li><b>链式前向星数组开小</b>：无向图要开 <code>2e</code> 个边结点，只开 e 会越界 RE。</li>
+        <li><b>用 <code>memset(head, -1, sizeof(head))</code> 却把 head 定义成 <code>vector</code></b>：
+          对 vector 用 memset 是未定义行为，必须用循环或 <code>fill</code>。</li>
+      </ul>
+    </div>
+    <div class="note danger">
+      <span class="note-title">易错点（二）：遍历与判定的细节</span>
+      <ul style="margin:6px 0 0">
+        <li><b>BFS 出队时才打标记</b>：会导致重复入队、队列爆炸，必须「入队即标记」。</li>
+        <li><b>无向图判环忘记排除父结点</b>：每条边会被判成环，结论完全错误。</li>
+        <li><b>有向图判环用「父结点」那一套</b>：有向边不对称，必须用三色标记或拓扑排序。</li>
+        <li><b>DFS 递归深度爆栈</b>：链状图 n = 10<sup>5</sup> 就可能在默认栈下 RE。</li>
+        <li><b>认为「DFS 序列唯一」</b>：序列取决于邻接点的枚举顺序，答题要写清约定。</li>
+        <li><b>把 BFS 当带权最短路用</b>：边权不同时 BFS 失效，必须 Dijkstra。</li>
+        <li><b>非连通图只从一个点遍历</b>：外层必须套一层 for 扫描全部顶点，否则漏掉分量。</li>
+      </ul>
+    </div>
+    <div class="note warn">
+      <span class="note-title">易错点（三）：概念辨析</span>
+      <ul style="margin:6px 0 0">
+        <li><b>路径长度数边不数点</b>：<code>0→1→2</code> 的长度是 2 而不是 3。</li>
+        <li><b>连通 vs 强连通</b>：前者是无向图的概念，后者要求有向图里「双向可达」。</li>
+        <li><b>生成树 vs 生成森林</b>：只有连通图才有生成树；非连通图得到的是森林。</li>
+        <li><b>欧拉路径 vs 哈密顿路径</b>：一个走遍所有的边，一个走遍所有的点。</li>
+        <li><b>稀疏与稠密是相对的</b>：判据是 <code>e</code> 相对 <code>n²</code> 的大小，不是 e 的绝对值。</li>
+      </ul>
+    </div>
+
+    <h3 id="s10-3">8.10.3 考点速查</h3>
+    <div class="note exam">
+      <span class="note-title">高频考点（选择题 / 填空题 / 简答题）</span>
+      <ol style="margin:6px 0 0">
+        <li><b>度数计算</b>：给邻接矩阵或邻接表求某点的度 / 入度 / 出度，或反过来由度数序列判断图是否存在。</li>
+        <li><b>握手定理</b>：求度数之和、判断给定度数序列是否可行、求边数。</li>
+        <li><b>边数范围</b>：完全图的边数 <code>n(n−1)/2</code> 与 <code>n(n−1)</code>；
+          连通图至少 <code>n−1</code> 条边。</li>
+        <li><b>遍历序列</b>：给定图与起点，写出 DFS 序列 / BFS 序列，或判断某序列是否可能是 DFS/BFS 序列。</li>
+        <li><b>生成树</b>：生成树的边数、生成森林的边数、由遍历得到的生成树是否唯一。</li>
+        <li><b>存储结构对比</b>：空间、判相邻、求度、遍历效率的表格题。</li>
+        <li><b>连通性判断</b>：连通分量个数、强连通分量个数、割点与桥的识别。</li>
+        <li><b>最短路</b>：无权图用 BFS，写出 dist 数组与路径。</li>
+      </ol>
+    </div>
+    <div class="note tip">
+      <span class="note-title">答题小技巧</span>
+      遇到「求 DFS/BFS 序列」的题，<b>先在草稿纸上把邻接表完整写出来</b>（按升序排列），
+      再照着表走，比直接在图上比划可靠得多。
+      遇到「求度」的题，先用握手定理 <code>Σd = 2e</code> 做一次校验，能立刻发现算错的地方。
+    </div>
+
+    <h3 id="s10-4">8.10.4 自测题（5 道）</h3>
+
+    <details class="fold">
+      <summary>1. 握手定理计算：一个无向图有 10 个顶点、15 条边。求所有顶点的度数之和；若每个顶点的度都相等，这个度是多少？另外判断：是否存在「10 个顶点中 9 个度数为 3、剩下 1 个度数为 2」的无向图？</summary>
+      <div class="fold-body">
+        <p><b>解：</b></p>
+        <ol>
+          <li>由握手定理 <code>Σd(v) = 2e = 2 × 15 = 30</code>。</li>
+          <li>若每个顶点度数相同，则该度数 <code>= 30 / 10 = 3</code>（这样的图叫 3-正则图）。</li>
+          <li>若 9 个顶点度为 3、1 个度为 2，则 <code>Σd(v) = 9×3 + 2 = 29</code>，
+            是<b>奇数</b>；而度数之和必须是偶数（<code>2e</code>），矛盾。
+            所以这样的图<b>不存在</b>。</li>
+        </ol>
+        <p>（顺带记一个推论：任何图中奇度顶点的个数必为偶数。上题里「3 出现 9 次」本身就是奇数次，
+          一眼就能否定。）</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>2. 邻接矩阵求度：有向图 D 的邻接矩阵中，顶点 2 所在的行为 <code>0 1 0 1 0</code>，所在的列为 <code>1 0 0 1 0</code>。求顶点 2 的出度与入度；若把 D 改成无向图（矩阵对称化），顶点 2 的度是多少？</summary>
+      <div class="fold-body">
+        <p><b>解：</b></p>
+        <ul>
+          <li><b>出度 = 行和</b>：<code>0+1+0+1+0 = 2</code>，即顶点 2 有两条出弧：<code>2→1</code>、<code>2→3</code>。</li>
+          <li><b>入度 = 列和</b>：<code>1+0+0+1+0 = 2</code>，即有两条弧指向 2：<code>0→2</code>、<code>3→2</code>。</li>
+          <li>对称化后，邻接点集合 = 出邻接点 ∪ 入邻接点 = <code>{1,3} ∪ {0,3} = {0,1,3}</code>，
+            所以<b>度为 3</b>（顶点 3 与 2 之间有两条方向相反的弧，但在无向图里只算一条边）。</li>
+        </ul>
+        <p><b>易错提醒：</b>对称化时不能把行和 + 列和直接相加（那是 4），因为「两个方向都有弧」的那一对
+          在无向图中只贡献 1 条边，会被重复计数。</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>3. DFS 序列：对本章示例图 G（V = {0..7}，E = {(0,1),(0,6),(1,2),(1,7),(2,3),(3,4),(4,5),(5,6),(5,7)}），从顶点 <b>3</b> 出发、邻接点按编号从小到大访问，写出 DFS 访问序列、树边与回边。</summary>
+      <div class="fold-body">
+        <p><b>解：</b>先写出邻接表（升序）：</p>
+        <p><code>adj(0)={1,6}　adj(1)={0,2,7}　adj(2)={1,3}　adj(3)={2,4}　adj(4)={3,5}　adj(5)={4,6,7}　adj(6)={0,5}　adj(7)={1,5}</code></p>
+        <p>从 3 出发的递归过程：</p>
+        <ol>
+          <li>访问 <b>3</b>；邻接点 2 未访问 → 树边 (3,2)，进入 2。</li>
+          <li>访问 <b>2</b>；邻接点 1 未访问 → 树边 (2,1)，进入 1（3 是父结点，跳过）。</li>
+          <li>访问 <b>1</b>；邻接点 0 未访问 → 树边 (1,0)，进入 0（2 是父结点，跳过）。</li>
+          <li>访问 <b>0</b>；邻接点 6 未访问 → 树边 (0,6)，进入 6（1 是父结点，跳过）。</li>
+          <li>访问 <b>6</b>；邻接点 5 未访问 → 树边 (6,5)，进入 5（0 是父结点，跳过）。</li>
+          <li>访问 <b>5</b>；邻接点 4 未访问 → 树边 (5,4)，进入 4（6 是父结点，跳过）。</li>
+          <li>访问 <b>4</b>；邻接点 3 已访问且不是父结点（4 的父结点是 5）→ <b>回边 (3,4)</b>；5 是父结点，跳过。</li>
+          <li>4 无路可走 → 回溯到 5；5 的下一个邻接点 6 已访问，7 未访问 → 树边 (5,7)，进入 7。</li>
+          <li>访问 <b>7</b>；邻接点 1 已访问且不是父结点（7 的父结点是 5）→ <b>回边 (1,7)</b>；5 是父结点，跳过。</li>
+          <li>7 回溯 → 5 → 6 → 0 → 1 → 2 → 3 依次回溯，全部结束。</li>
+        </ol>
+        <p><b>DFS 序列：3 → 2 → 1 → 0 → 6 → 5 → 4 → 7</b></p>
+        <p><b>树边（7 条 = n−1）</b>：(3,2)、(2,1)、(1,0)、(0,6)、(6,5)、(5,4)、(5,7)</p>
+        <p><b>回边（2 条 = e−(n−1)）</b>：(3,4)、(1,7)</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>4. BFS 与最短路：对同一张示例图 G，从顶点 <b>2</b> 出发做 BFS（邻接点升序入队），写出访问序列与 <code>dist[]</code>，并还原 2 到 6 的最短路径。</summary>
+      <div class="fold-body">
+        <p><b>解：</b>逐层推进：</p>
+        <ul>
+          <li>dist[2] = 0，队列 [2]</li>
+          <li>出队 2 → 1、3 入队，dist[1] = dist[3] = 1，队列 [1, 3]</li>
+          <li>出队 1 → 0、7 入队，dist[0] = dist[7] = 2，队列 [3, 0, 7]</li>
+          <li>出队 3 → 4 入队，dist[4] = 2，队列 [0, 7, 4]</li>
+          <li>出队 0 → 6 入队，dist[6] = 3，队列 [7, 4, 6]</li>
+          <li>出队 7 → 5 入队，dist[5] = 3，队列 [4, 6, 5]</li>
+          <li>出队 4、6、5 时邻接点都已访问，队列清空，结束</li>
+        </ul>
+        <p><b>访问序列：2 → 1 → 3 → 0 → 7 → 4 → 6 → 5</b></p>
+        <p><b>dist[] = [2, 1, 0, 1, 2, 3, 3, 2]</b>（按顶点 0..7 排列）</p>
+        <p><b>2 → 6 的最短路径</b>：pre[6] = 0，pre[0] = 1，pre[1] = 2，
+          倒推得 <code>6 ← 0 ← 1 ← 2</code>，反转后为 <b>2 → 1 → 0 → 6</b>，长度 = dist[6] = <b>3</b>。</p>
+        <p>顺便可以读出各层：L0 = {2}，L1 = {1,3}，L2 = {0,7,4}，L3 = {6,5}。</p>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>5. 存储结构选择：一张无向图有 n = 10000 个顶点、e = 20000 条边（稀疏图）。分别估算邻接矩阵与邻接表的存储单元数量与内存占用（每个整型 4 字节），并说明该选哪一种、为什么。</summary>
+      <div class="fold-body">
+        <p><b>邻接矩阵：</b>需要 <code>n² = 10000² = 10<sup>8</sup></code> 个存储单元，
+          按每个 int 4 字节算约 <b>400 MB</b>（即使用 <code>char</code> 存 0/1 也要 100 MB），
+          而且这个开销<b>与边数无关</b>——20000 条边只占其中极小一部分，浪费率超过 99.9%。</p>
+        <p><b>邻接表：</b></p>
+        <ul>
+          <li>顶点表（表头数组）：<code>n = 10000</code> 个单元；</li>
+          <li>边结点：无向图需要 <code>2e = 40000</code> 个结点，每个结点至少 2 个域（adjvex + next），
+            共 <code>40000 × 2 = 80000</code> 个单元；</li>
+          <li>合计约 <code>90000</code> 个单元 ≈ <b>0.36 MB</b>。</li>
+        </ul>
+        <p><b>结论：</b>选<b>邻接表</b>（或等价的链式前向星）。两者内存相差约
+          <code>10<sup>8</sup> / 9×10<sup>4</sup> ≈ 1100</code> 倍；而且用邻接表做 DFS/BFS 是
+          <code>O(n + e) = 3×10<sup>4</sup></code> 级别，用邻接矩阵则是
+          <code>O(n²) = 10<sup>8</sup></code> 级别，时间上也差了几千倍。</p>
+        <p><b>补充：</b>如果 n 只有几百且图很稠密（<code>e ≈ n²/2</code>），那邻接矩阵反而更好写、更快，
+          因为它判相邻是 O(1)、内存也连续。选结构永远先看数据规模与疏密。</p>
+      </div>
+    </details>
+
+    <h3 id="s10-5">8.10.5 配套编程练习</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>练习</th><th>任务</th><th>提示 / 验收标准</th></tr></thead>
+        <tbody>
+          <tr><td>练习 1</td><td>把本章示例图 G 分别用邻接矩阵、<code>vector</code> 邻接表、链式前向星存三遍，输出每个顶点的度，验证三者一致且 <code>Σdeg = 18</code></td><td>熟悉三种建图模板</td></tr>
+          <tr><td>练习 2</td><td>用 DFS 与 BFS 分别打印访问序列，并与正文的手推结果对照（DFS: 0 1 2 3 4 5 6 7；BFS: 0 1 6 2 7 5 3 4）</td><td>若不一致，先检查是否把邻接表排了序</td></tr>
+          <tr><td>练习 3</td><td>在示例图上从每个顶点出发各跑一次 BFS，输出 <code>dist</code> 矩阵（即所有点对的最短距离）</td><td>无权图全源最短路，O(n(n+e))</td></tr>
+          <tr><td>练习 4</td><td>给示例图加一条边 (2,7)，重新统计奇度顶点个数，判断欧拉路径是否还存在</td><td>度数变为 2,3,3,2,2,3,2,3 → 4 个奇度点 → 不存在</td></tr>
+          <tr><td>练习 5</td><td>实现「判断无向图是否有环」的两个版本：DFS 排除父结点、以及「e ≥ n 且连通」的计数法，并比较两者适用范围</td><td>计数法只能在「无重边无自环」的简单图上用</td></tr>
+          <tr><td>练习 6</td><td>把示例图改为有向图（每条无向边 <code>(u,v)</code> 换成正反两条弧），求每个顶点的入度与出度，并判断图是否强连通</td><td>强连通则需要双向可达</td></tr>
+          <tr><td>练习 7</td><td>用 Tarjan 求示例图的所有割点与桥</td><td>提示：示例图中 1、5 是割点吗？自己验证</td></tr>
+          <tr><td>练习 8</td><td>实现「多源 BFS」：给定 k 个起点，求每个顶点到最近起点的距离</td><td>所有源点 <code>dist = 0</code> 同时入队</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">洛谷练习建议</span>
+      在洛谷题库中用以下关键词搜索即可找到对应题目（<b>题号请以站内搜索结果为准</b>，本页不列出具体编号）：
+      <b>「图的遍历」「DFS 序」「连通块」「欧拉路径」「二分图染色」「割点」「单源最短路径（无权版）」</b>。
+      建议的刷题顺序是：先把「图的存储与遍历」的模板题各写一遍（邻接矩阵版 + 邻接表版），
+      再练连通块与二分图，最后挑战割点与欧拉路径。
+      第 14 讲洛谷题单会给出更完整的分层练习计划。
+    </div>
+
+    <div class="note">
+      <span class="note-title">下一讲预告</span>
+      本讲解决的是「图怎么存、怎么走」；下一讲进入「图能算什么」：
+      <b>最小生成树</b>（Prim 加点、Kruskal 加边 + 并查集）、
+      <b>最短路径</b>（Dijkstra、Bellman-Ford、Floyd）、
+      <b>拓扑排序</b>与<b>强连通分量</b>（Tarjan 缩点）。
+      它们全部建立在今天的 DFS/BFS 与两种存储结构之上——所以本讲的手推练习一定要做扎实。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch07-tree.html">
+        <span class="dir">← 上一讲</span>
+        <span class="ttl">07 树与二叉树</span>
+      </a>
+      <a class="next" href="ch09-graph-algo.html">
+        <span class="dir">下一讲 →</span>
+        <span class="ttl">09 图论算法：生成树与最短路径</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

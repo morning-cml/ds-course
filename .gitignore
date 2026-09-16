@@ -1,0 +1,37 @@
+# ---------- 系统 / 编辑器 ----------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# ---------- 临时文件 ----------
+*.tmp
+*.temp
+*.bak
+*.orig
+*.before-mine-restore
+.tmp-*
+*.part
+
+# ---------- 编辑器崩溃恢复 / 自动保存 ----------
+*.autosave
+*.sav
+
+# ---------- 课件目录里的临时产物（如果再次出现） ----------
+_build/
+_cppout/
+.cppcheck/
+tools/_*
+tools/_tmpcpp*/
+*.exe
+*.out
+*.cerr
+
+# 注意：课件本体（*.html / assets / tools / *.md / package.json）必须全部入库，
+# 不要在这里忽略它们，否则回退时会缺文件。

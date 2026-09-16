@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 综合自测与速查手册 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch15', title: '综合自测与速查手册' };</script>
+<script src="assets/js/course.js" defer></script>
+<style>
+  .kbd { font-family:var(--mono); font-size:12px; border:1px solid var(--border-strong);
+         border-bottom-width:2px; border-radius:5px; padding:1px 6px; background:var(--panel-2); }
+  .quiz-q { font-weight:700; margin:22px 0 6px; }
+  .cheat { font-size:13.5px; }
+  .cheat th { position:sticky; top:0; }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 15 讲 · 复习课</div>
+      <h1>综合自测与速查手册</h1>
+      <p class="lede">
+        这一讲把整门课的结论压成几张表、几段模板代码和一套自测题。
+        建议用法：先做自测卷，错哪题就回哪一章；所有动画重看一遍；最后把速查表当公式背下来。
+      </p>
+      <div class="meta">
+        <span>建议用时 150 分钟</span>
+        <span>前置：全部章节</span>
+        <span>关键词：速查 · 模板 · 自测 · 易错辨析</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本讲导航</span>
+      <ul style="margin:0">
+        <li><b>15.1</b> 全课程复杂度速查大表</li>
+        <li><b>15.2</b> 数据结构横向对比（线性表 / 栈队列 / 树 / 图 / 查找结构）</li>
+        <li><b>15.3</b> C++ STL 容器与算法速查（含每个操作的复杂度）</li>
+        <li><b>15.4</b> 算法模板库（可直接复制进比赛/作业）</li>
+        <li><b>15.5</b> 五十条易错概念辨析</li>
+        <li><b>15.6</b> 模拟自测卷（概念题 + 计算题 + 算法设计题，含答案）</li>
+        <li><b>15.7</b> 期末/考研复习路线图</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">15.1 全课程复杂度速查大表</h2>
+
+    <p>把这张表抄在笔记本第一页。注意三点：<b>n</b> 是数据规模，<b>平均</b>与<b>最坏</b>经常不同，<b>额外空间</b>不含输入本身占用的空间。</p>
+
+    <h3 id="s1-1">15.1.1 线性结构</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead>
+          <tr><th>结构 / 操作</th><th>查找第 i 个</th><th>按值查找</th><th>插入</th><th>删除</th><th>额外空间</th><th>关键结论</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>顺序表（数组）</td><td class="c-ok">O(1)</td><td>O(n)</td><td class="c-bad">O(n)</td><td class="c-bad">O(n)</td><td>O(1)</td><td>随机存取换来了插入删除的搬移代价</td></tr>
+          <tr><td>单链表</td><td>O(n)</td><td>O(n)</td><td>O(1)（已知前驱）</td><td>O(1)（已知前驱）</td><td>每结点 8 字节指针</td><td>头插/头删都是 O(1)</td></tr>
+          <tr><td>双向链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td class="c-ok">O(1)（已知结点即可）</td><td>每结点 16 字节指针</td><td>不用找前驱，代价是多一个指针域</td></tr>
+          <tr><td>循环链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td>O(1)</td><td>同单链表</td><td>只设尾指针可 O(1) 完成两端插入</td></tr>
+          <tr><td>静态链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td>O(1)</td><td>数组模拟</td><td>不支持指针时的替代方案</td></tr>
+          <tr><td>顺序栈</td><td>—</td><td>—</td><td class="c-ok">O(1) 均摊</td><td class="c-ok">O(1)</td><td>可能浪费</td><td>只在一端操作</td></tr>
+          <tr><td>链栈</td><td>—</td><td>—</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>指针开销</td><td>不会栈满，无需预分配</td></tr>
+          <tr><td>循环队列</td><td>—</td><td>—</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>O(1)</td><td>牺牲一个单元判满</td></tr>
+          <tr><td>链队列</td><td>—</td><td>—</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>指针开销</td><td>出队后若为空要重置 rear</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s1-2">15.1.2 串与矩阵</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>算法 / 结构</th><th>预处理</th><th>匹配 / 访问</th><th>额外空间</th><th>关键结论</th></tr></thead>
+        <tbody>
+          <tr><td>朴素模式匹配 BF</td><td>—</td><td class="c-bad">最坏 O(n×m)</td><td>O(1)</td><td>主串指针回溯是瓶颈</td></tr>
+          <tr><td>KMP</td><td>O(m) 求 π</td><td class="c-ok">O(n)</td><td>O(m)</td><td>i 永不后退，最坏 O(n+m)</td></tr>
+          <tr><td>BM（坏字符 + 好后缀）</td><td>O(m + σ)</td><td class="c-ok">平均 O(n/m)</td><td>O(m + σ)</td><td>从右往左比，自然文本最快</td></tr>
+          <tr><td>对称矩阵压缩</td><td>—</td><td class="c-ok">O(1)</td><td>n(n+1)/2</td><td><code>k = i(i+1)/2 + j</code>（i≥j）</td></tr>
+          <tr><td>下三角矩阵压缩</td><td>—</td><td class="c-ok">O(1)</td><td>n(n+1)/2 + 1</td><td>常数 c 单独占一个单元</td></tr>
+          <tr><td>三对角矩阵压缩</td><td>—</td><td class="c-ok">O(1)</td><td>3n − 2</td><td><code>k = 2i + j</code> 修正后使用</td></tr>
+          <tr><td>稀疏矩阵（三元组 / CSR）</td><td>—</td><td class="c-bad">O(t) 或 O(log t)</td><td>O(t)</td><td>牺牲随机存取换取空间</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s1-3">15.1.3 树结构</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>结构与操作</th><th>平均</th><th>最坏</th><th>额外空间</th><th>关键结论</th></tr></thead>
+        <tbody>
+          <tr><td>二叉树四种遍历</td><td>O(n)</td><td>O(n)</td><td>递归栈 O(h)</td><td>每结点恰好访问一次</td></tr>
+          <tr><td>二叉排序树 BST 查找</td><td>O(log n)</td><td class="c-bad">O(n)（退化成链）</td><td>O(h)</td><td>有序插入会退化，需要平衡</td></tr>
+          <tr><td>由前序 + 中序建树</td><td>O(n)</td><td>O(n²)（朴素找根）</td><td>O(n)</td><td>用哈希表定位根可优化到 O(n)</td></tr>
+          <tr><td>赫夫曼树构造</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n)</td><td>WPL 最小且唯一，树形不唯一</td></tr>
+          <tr><td>并查集 find</td><td class="c-ok">≈O(α(n))</td><td>≈O(α(n))</td><td>O(n)</td><td>路径压缩 + 按秩合并后几乎常数</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s1-4">15.1.4 图论算法</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>算法</th><th>时间复杂度</th><th>空间</th><th>解决的问题</th><th>限制</th></tr></thead>
+        <tbody>
+          <tr><td>DFS / BFS 遍历</td><td>邻接表 O(n+e) / 邻接矩阵 O(n²)</td><td>O(n)</td><td>连通性、遍历序列、连通分量</td><td>递归 DFS 深度过大会爆栈</td></tr>
+          <tr><td>BFS 最短路</td><td>O(n+e)</td><td>O(n)</td><td>无权图单源最短路</td><td>权值必须相同</td></tr>
+          <tr><td>Prim（朴素）</td><td>O(n²)</td><td>O(n)</td><td>MST</td><td>适合稠密图</td></tr>
+          <tr><td>Prim（堆优化）</td><td>O(m log n)</td><td>O(n+m)</td><td>MST</td><td>适合稀疏图</td></tr>
+          <tr><td>Kruskal</td><td>O(m log m)</td><td>O(n+m)</td><td>MST</td><td>需要并查集；稀疏图首选</td></tr>
+          <tr><td>Dijkstra（朴素）</td><td>O(n²)</td><td>O(n)</td><td>单源最短路</td><td class="c-bad">不能有负权边</td></tr>
+          <tr><td>Dijkstra（堆优化）</td><td class="c-ok">O(m log n)</td><td>O(n+m)</td><td>单源最短路</td><td>不能有负权边</td></tr>
+          <tr><td>Bellman-Ford</td><td>O(nm)</td><td>O(n)</td><td>单源最短路 + 判负环</td><td>较慢</td></tr>
+          <tr><td>SPFA</td><td>平均 O(km)，最坏 O(nm)</td><td>O(n+m)</td><td>单源最短路 + 判负环</td><td class="c-warn">容易被特殊数据卡</td></tr>
+          <tr><td>Floyd</td><td>O(n³)</td><td>O(n²)</td><td>全源最短路、传递闭包</td><td>n 通常 ≤ 500</td></tr>
+          <tr><td>拓扑排序（Kahn）</td><td>O(n+e)</td><td>O(n)</td><td>DAG 的线性序、判环</td><td>只适用于 DAG</td></tr>
+          <tr><td>关键路径</td><td>O(n+e)</td><td>O(n+e)</td><td>AOE 网的最短工期与关键活动</td><td>要求是有向无环网且只有一个源点/汇点</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s1-5">15.1.5 查找</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>查找方法</th><th>前提</th><th>成功 ASL</th><th>时间复杂度</th><th>关键结论</th></tr></thead>
+        <tbody>
+          <tr><td>顺序查找（无序）</td><td>无</td><td>(n+1)/2</td><td>O(n)</td><td>不成功需 n（或 n+1）次</td></tr>
+          <tr><td>顺序查找（有序）</td><td>有序</td><td>(n+1)/2</td><td>O(n)</td><td>失败 ASL 可降到约 n/2</td></tr>
+          <tr><td>折半查找</td><td>顺序存储 + 有序</td><td>≈log₂(n+1) − 1</td><td>O(log n)</td><td>判定树高 ⌈log₂(n+1)⌉，是平衡二叉树</td></tr>
+          <tr><td>插值查找</td><td>顺序存储 + 有序 + 均匀</td><td>—</td><td>均匀时 O(log log n)</td><td>分布极不均匀时退化到 O(n)</td></tr>
+          <tr><td>斐波那契查找</td><td>顺序存储 + 有序</td><td>略优于折半</td><td>O(log n)</td><td>只用加减，适合不能做除法/乘法的场景</td></tr>
+          <tr><td>分块查找</td><td>块间有序、块内无序</td><td>√n + 1（块长 √n 时）</td><td>O(√n)</td><td>兼顾插入删除与查找的折中</td></tr>
+          <tr><td>哈希表（开放定址）</td><td>装填因子 α &lt; 1</td><td>与 α 相关，约 1/(1−α) 量级</td><td>理想 O(1)</td><td>线性探测会堆积；删除要用墓碑</td></tr>
+          <tr><td>哈希表（链地址法）</td><td>α 可 &gt; 1</td><td>≈ 1 + α/2</td><td>理想 O(1)</td><td>删除方便，工程主流</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">必背：折半查找 n = 11 的标准答案</span>
+      判定树有 11 个内部结点，层数分布为 <b>1、2、4、4</b>（第 1 层 1 个、第 2 层 2 个、第 3 层 4 个、第 4 层 4 个），
+      因此 <code>ASL_success = (1×1 + 2×2 + 3×4 + 4×4) / 11 = 33/11 = 3</code>。
+      这个例子在 408 里出现过多次，务必能默画判定树并现场算 ASL。
+    </div>
+
+    <h2 id="s2">15.2 数据结构横向对比</h2>
+
+    <h3 id="s2-1">15.2.1 顺序存储 vs 链式存储</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>维度</th><th>顺序存储</th><th>链式存储</th></tr></thead>
+        <tbody>
+          <tr><td>存储单元</td><td>连续</td><td>任意（由指针连接）</td></tr>
+          <tr><td>随机存取</td><td class="c-ok">支持 O(1)</td><td class="c-bad">不支持，必须顺序走</td></tr>
+          <tr><td>插入 / 删除</td><td class="c-bad">平均搬移 n/2 个元素</td><td class="c-ok">改指针即可 O(1)</td></tr>
+          <tr><td>空间开销</td><td>无额外指针；但可能预留浪费</td><td>每结点额外指针；碎片化</td></tr>
+          <tr><td>容量</td><td>需预分配或动态扩容（扩容要整体搬运）</td><td>按需分配，理论无上限</td></tr>
+          <tr><td>缓存友好性</td><td class="c-ok">好（连续访存）</td><td class="c-bad">差（指针跳转，cache miss 多）</td></tr>
+          <tr><td>典型用途</td><td>数组、栈、队列、堆、哈希表、邻接矩阵</td><td>链表、树、图、LRU 缓存、邻接表</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s2-2">15.2.2 栈 vs 队列 vs 双端队列</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>结构</th><th>操作端</th><th>顺序</th><th>典型应用</th></tr></thead>
+        <tbody>
+          <tr><td>栈 Stack</td><td>同一端（栈顶）进出</td><td>后进先出 LIFO</td><td>函数调用、括号匹配、表达式求值、DFS、回溯、撤销</td></tr>
+          <tr><td>队列 Queue</td><td>一端进、另一端出</td><td>先进先出 FIFO</td><td>BFS、任务调度、缓冲、排队模拟</td></tr>
+          <tr><td>双端队列 Deque</td><td>两端都可进出</td><td>—</td><td>单调队列、滑动窗口、工作窃取</td></tr>
+          <tr><td>优先队列</td><td>按优先级出队</td><td>最大/最小先出</td><td>堆排序、Dijkstra、Prim、任务调度</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:13.5px;color:var(--text-soft);margin-top:8px">
+        三者关系：<b>栈和队列都是双端队列的特例</b>（限制其中一端的操作即得栈；两端各限制一半即得队列）。
+      </p>
+    </div>
+
+    <h3 id="s2-3">15.2.3 邻接矩阵 vs 邻接表 vs 链式前向星</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead><tr><th>维度</th><th>邻接矩阵</th><th>邻接表（vector）</th><th>链式前向星</th></tr></thead>
+        <tbody>
+          <tr><td>空间</td><td class="c-bad">O(n²)</td><td>O(n+e)</td><td class="c-ok">O(n+e)，常数最小</td></tr>
+          <tr><td>判断 u-v 是否相邻</td><td class="c-ok">O(1)</td><td>O(deg(u))</td><td>O(deg(u))</td></tr>
+          <tr><td>枚举 u 的邻接点</td><td>O(n)</td><td class="c-ok">O(deg(u))</td><td class="c-ok">O(deg(u))</td></tr>
+          <tr><td>求入度</td><td class="c-ok">O(n)（列和）</td><td class="c-bad">需逆邻接表</td><td class="c-bad">需逆图或额外数组</td></tr>
+          <tr><td>加边</td><td>O(1)</td><td>O(1)</td><td>O(1)</td></tr>
+          <tr><td>删边</td><td>O(1)</td><td>O(deg)</td><td>O(deg)</td></tr>
+          <tr><td>适用</td><td>稠密图、需频繁判相邻、Floyd</td><td>通用，写法最简</td><td>竞赛首选，省内存且 cache 友好</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s2-4">15.2.4 十种排序总对比（<b>核心大表，必背</b>）</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead>
+          <tr>
+            <th>排序算法</th><th>类别</th><th>最好</th><th>平均</th><th>最坏</th>
+            <th>空间</th><th>稳定</th><th>是否基于比较</th><th>特点 / 适用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><b>冒泡排序</b></td><td>交换类</td><td class="c-ok">O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td class="c-ok">稳定</td><td>是</td><td>教学用；加「本趟无交换即结束」可提前退出</td></tr>
+          <tr><td><b>快速排序</b></td><td>交换类</td><td>O(n log n)</td><td class="c-ok">O(n log n)</td><td class="c-bad">O(n²)</td><td>O(log n)</td><td class="c-bad">不稳定</td><td>是</td><td>实测最快；有序输入 + 取端点做基准会退化</td></tr>
+          <tr><td><b>直接插入排序</b></td><td>插入类</td><td class="c-ok">O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td class="c-ok">稳定</td><td>是</td><td>小规模 / 基本有序时极快，是高级排序的收尾手段</td></tr>
+          <tr><td><b>希尔排序</b></td><td>插入类</td><td>O(n log n)</td><td>与增量有关 ≈O(n^1.3)</td><td>O(n²)</td><td>O(1)</td><td class="c-bad">不稳定</td><td>是</td><td>增量序列决定性能；Hibbard 增量可达 O(n^1.5)</td></tr>
+          <tr><td><b>简单选择排序</b></td><td>选择类</td><td>O(n²)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td class="c-bad">不稳定</td><td>是</td><td>交换次数最少（≤ n−1 次），适合交换代价大的场景</td></tr>
+          <tr><td><b>堆排序</b></td><td>选择类</td><td>O(n log n)</td><td>O(n log n)</td><td class="c-ok">O(n log n)</td><td class="c-ok">O(1)</td><td class="c-bad">不稳定</td><td>是</td><td>唯一「最坏 O(n log n) + 原地」的常用算法；cache 不友好</td></tr>
+          <tr><td><b>归并排序</b></td><td>归并类</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td class="c-bad">O(n)</td><td class="c-ok">稳定</td><td>是</td><td>唯一稳定的 O(n log n) 比较排序；适合外排序、链表排序</td></tr>
+          <tr><td><b>基数排序</b></td><td>基数类</td><td>O(d(n+r))</td><td>O(d(n+r))</td><td>O(d(n+r))</td><td>O(n+r)</td><td class="c-ok">稳定</td><td class="c-ok">否</td><td>d = 位数，r = 基数；适合整数 / 定长字符串</td></tr>
+          <tr><td><b>计数排序</b></td><td>基数类</td><td>O(n+k)</td><td>O(n+k)</td><td>O(n+k)</td><td>O(n+k)</td><td class="c-ok">稳定</td><td class="c-ok">否</td><td>值域 k 必须可控；是基数排序的子过程</td></tr>
+          <tr><td><b>桶排序</b></td><td>基数类</td><td>O(n)</td><td>O(n)</td><td>O(n²)</td><td>O(n+k)</td><td class="c-ok">稳定</td><td class="c-ok">否</td><td>数据均匀分布时线性；桶划分不好会退化</td></tr>
+          <tr><td><b>锦标赛排序</b></td><td>选择类</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n)</td><td class="c-bad">不稳定</td><td>是</td><td>用完全二叉树保存比较结果，是堆排序的原型</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">四个「唯一性」结论（考试高频）</span>
+      <ul style="margin:6px 0 0">
+        <li>唯一一个「最坏情况也是 O(n log n) 且空间 O(1)」的常用排序：<b>堆排序</b>。</li>
+        <li>唯一一个「平均 O(n log n) 且稳定」的比较排序：<b>归并排序</b>。</li>
+        <li>唯一一个「不基于比较」还能做到线性时间的常用排序：<b>基数排序</b>（及其子过程计数排序）。</li>
+        <li>「交换次数最少」的排序：<b>简单选择排序</b>（最多 n−1 次交换）。</li>
+      </ul>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">稳定性速记口诀</span>
+      <b>不稳定</b>的只有四个：<b>快</b>（快速排序）、<b>些</b>（希尔排序）、<b>选</b>（简单选择排序）、<b>堆</b>（堆排序）——
+      「快些选堆」四个字。其余（冒泡、插入、归并、基数、计数）都稳定。
+    </div>
+
+    <h2 id="s3">15.3 C++ STL 容器与算法速查</h2>
+
+    <h3 id="s3-1">15.3.1 容器对比</h3>
+    <div class="table-wrap">
+      <table class="cheat">
+        <thead>
+          <tr><th>容器</th><th>底层结构</th><th>随机访问</th><th>插入</th><th>删除</th><th>查找</th><th>特点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>vector</code></td><td>动态数组</td><td class="c-ok">O(1)</td><td>尾部 O(1) 均摊，中间 O(n)</td><td>尾部 O(1)，中间 O(n)</td><td>O(n)</td><td>默认首选；<code>reserve</code> 避免反复扩容</td></tr>
+          <tr><td><code>deque</code></td><td>分段连续数组</td><td class="c-ok">O(1)</td><td>两端 O(1)</td><td>两端 O(1)</td><td>O(n)</td><td>queue / stack 的默认底层</td></tr>
+          <tr><td><code>list</code></td><td>双向链表</td><td class="c-bad">O(n)</td><td>已知迭代器 O(1)</td><td>已知迭代器 O(1)</td><td>O(n)</td><td>splice 是 O(1)，但 cache 差</td></tr>
+          <tr><td><code>forward_list</code></td><td>单链表</td><td class="c-bad">O(n)</td><td>已知前驱 O(1)</td><td>已知前驱 O(1)</td><td>O(n)</td><td>最省内存</td></tr>
+          <tr><td><code>stack</code></td><td>deque 适配</td><td>—</td><td>push O(1)</td><td>pop O(1)</td><td>—</td><td>只有 top/push/pop</td></tr>
+          <tr><td><code>queue</code></td><td>deque 适配</td><td>—</td><td>push O(1)</td><td>pop O(1)</td><td>—</td><td>不能遍历</td></tr>
+          <tr><td><code>priority_queue</code></td><td>二叉堆（vector）</td><td>—</td><td>O(log n)</td><td>O(log n)</td><td>top O(1)</td><td>默认大根堆；小根堆要写 <code>greater&lt;int&gt;</code></td></tr>
+          <tr><td><code>set</code> / <code>map</code></td><td>红黑树</td><td>—</td><td>O(log n)</td><td>O(log n)</td><td>O(log n)</td><td>有序，可 <code>lower_bound</code></td></tr>
+          <tr><td><code>multiset</code> / <code>multimap</code></td><td>红黑树</td><td>—</td><td>O(log n)</td><td>O(log n)</td><td>O(log n)</td><td>允许重复键</td></tr>
+          <tr><td><code>unordered_set</code> / <code>unordered_map</code></td><td>哈希表</td><td>—</td><td>平均 O(1)</td><td>平均 O(1)</td><td class="c-ok">平均 O(1)</td><td>无序；可能被构造数据卡到 O(n)</td></tr>
+          <tr><td><code>bitset</code></td><td>位数组</td><td class="c-ok">O(1)</td><td>—</td><td>—</td><td>—</td><td>支持位运算，空间压缩 32/64 倍</td></tr>
+          <tr><td><code>string</code></td><td>动态字符数组</td><td class="c-ok">O(1)</td><td>尾部均摊 O(1)</td><td>中间 O(n)</td><td>O(n)（<code>find</code>）</td><td>可直接当字符容器用</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s3-2">15.3.2 常用算法与技巧速查</h3>
+    <pre data-lang="cpp" data-file="stl_cheatsheet.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+int main() {
+    /* ---------- 1. 排序与去重 ---------- */
+    vector&lt;int&gt; a = {3, 1, 4, 1, 5, 9, 2, 6};
+    sort(a.begin(), a.end());                        // 升序，O(n log n)
+    sort(a.begin(), a.end(), greater&lt;int&gt;());        // 降序
+    stable_sort(a.begin(), a.end());                 // 稳定排序，O(n log^2 n) 或 O(n log n)
+    a.erase(unique(a.begin(), a.end()), a.end());    // 去重（必须先排序）
+    reverse(a.begin(), a.end());                     // 反转
+    /* random_shuffle 已在 C++17 中废弃，改用 shuffle + 随机数引擎： */
+    mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+    shuffle(a.begin(), a.end(), rng);                // 随机打乱，O(n)
+
+    /* ---------- 2. 二分查找（必须有序） ---------- */
+    auto it1 = lower_bound(a.begin(), a.end(), 4);   // 第一个 >= 4 的位置
+    auto it2 = upper_bound(a.begin(), a.end(), 4);   // 第一个 >  4 的位置
+    bool has = binary_search(a.begin(), a.end(), 4); // 是否存在
+    int cnt = upper_bound(a.begin(), a.end(), 4) - lower_bound(a.begin(), a.end(), 4);  // 出现次数
+
+    /* ---------- 3. 最值与统计 ---------- */
+    int mx = *max_element(a.begin(), a.end());
+    int mn = *min_element(a.begin(), a.end());
+    long long sum = accumulate(a.begin(), a.end(), 0LL);   // 注意初值写 0LL 防溢出
+
+    /* ---------- 4. 排列 ---------- */
+    sort(a.begin(), a.end());
+    do {
+        // 处理当前排列
+    } while (next_permutation(a.begin(), a.end()));  // 枚举全排列 O(n!)
+
+    /* ---------- 5. 小根堆的两种写法 ---------- */
+    priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt; pqMin;
+    priority_queue&lt;int&gt; pqMax;                       // 默认大根堆
+    pqMin.push(3); pqMin.push(1);
+    int top = pqMin.top();                           // 1
+    pqMin.pop();
+    /* 对 pair 排序：先比 first 再比 second；大根堆取负值即可变相实现小根堆 */
+
+    /* ---------- 6. 万能头与快读 ---------- */
+    ios::sync_with_stdio(false);                     // 关同步，cin/cout 提速
+    cin.tie(nullptr);
+
+    /* ---------- 7. 常用常量与边界 ---------- */
+    const int INF = 0x3f3f3f3f;                      // 10^9 级，两个 INF 相加不溢出 int
+    const long long LINF = 0x3f3f3f3f3f3f3f3fLL;
+    /* memset 只能按字节填充：0 / -1 / 0x3f 是安全的，其它值不要用 memset */
+
+    /* ---------- 8. 字符串流分割 ---------- */
+    string line = "10 20 30";
+    istringstream iss(line);
+    int x;
+    while (iss &gt;&gt; x) { /* 依次读出 10 20 30 */ }
+
+    return 0;
+}</pre>
+
+    <h2 id="s4">15.4 算法模板库</h2>
+
+    <p>下面这些模板可以直接复制到作业与比赛中使用，全部经过验证。</p>
+
+    <h3 id="s4-1">15.4.1 基础工具</h3>
+    <pre data-lang="cpp" data-file="template_base.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+const int INF = 0x3f3f3f3f;
+const int MOD = 1e9 + 7;
+
+/* 快速幂：a^b mod p，O(log b) */
+ll qpow(ll a, ll b, ll p = MOD) {
+    ll r = 1; a %= p;
+    while (b) {
+        if (b &amp; 1) r = r * a % p;
+        a = a * a % p;
+        b &gt;&gt;= 1;
+    }
+    return r;
+}
+
+/* 最大公约数 / 最小公倍数 */
+ll gcd(ll a, ll b) { return b ? gcd(b, a % b) : a; }
+ll lcm(ll a, ll b) { return a / gcd(a, b) * b; }
+
+/* 埃氏筛：求 [1,n] 内所有质数，O(n log log n) */
+vector&lt;int&gt; sieve(int n) {
+    vector&lt;bool&gt; is(n + 1, true);
+    vector&lt;int&gt; primes;
+    is[0] = is[1] = false;
+    for (int i = 2; i &lt;= n; ++i) {
+        if (!is[i]) continue;
+        primes.push_back(i);
+        if ((ll)i * i &lt;= n)
+            for (ll j = (ll)i * i; j &lt;= n; j += i) is[j] = false;
+    }
+    return primes;
+}
+
+/* 欧拉线性筛：同时求质数与最小质因子，O(n) */
+vector&lt;int&gt; linearSieve(int n, vector&lt;int&gt;&amp; minp) {
+    vector&lt;bool&gt; comp(n + 1, false);
+    vector&lt;int&gt; primes;
+    minp.assign(n + 1, 0);
+    for (int i = 2; i &lt;= n; ++i) {
+        if (!comp[i]) { primes.push_back(i); minp[i] = i; }
+        for (int p : primes) {
+            if ((ll)i * p &gt; n) break;
+            comp[i * p] = true;
+            minp[i * p] = p;
+            if (i % p == 0) break;
+        }
+    }
+    return primes;
+}
+
+/* 扩展欧几里得：求 ax + by = gcd(a,b) 的一组解 */
+ll exgcd(ll a, ll b, ll&amp; x, ll&amp; y) {
+    if (!b) { x = 1; y = 0; return a; }
+    ll d = exgcd(b, a % b, y, x);
+    y -= a / b * x;
+    return d;
+}
+
+int main() {
+    cout &lt;&lt; qpow(2, 10) &lt;&lt; "\n";        // 1024
+    cout &lt;&lt; gcd(12, 18) &lt;&lt; "\n";       // 6
+    auto ps = sieve(30);
+    for (int p : ps) cout &lt;&lt; p &lt;&lt; ' ';
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <h3 id="s4-2">15.4.2 并查集 / 堆 / 哈希</h3>
+    <pre data-lang="cpp" data-file="template_dsu_heap.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+/* ================= 并查集（路径压缩 + 按大小合并） ================= */
+struct DSU {
+    vector&lt;int&gt; fa, sz;
+    explicit DSU(int n) : fa(n), sz(n, 1) { iota(fa.begin(), fa.end(), 0); }
+    int find(int x) {                       // 路径压缩：均摊 O(α(n))
+        return fa[x] == x ? x : fa[x] = find(fa[x]);
+    }
+    bool unite(int a, int b) {
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (sz[a] &lt; sz[b]) swap(a, b);
+        fa[b] = a; sz[a] += sz[b];
+        return true;
+    }
+    bool same(int a, int b) { return find(a) == find(b); }
+};
+
+/* ================= 手写小根堆（也可直接用 priority_queue） ================= */
+struct MinHeap {
+    vector&lt;int&gt; h;
+    void push(int x) {
+        h.push_back(x);
+        int i = h.size() - 1;
+        while (i &amp;&amp; h[(i - 1) / 2] &gt; h[i]) { swap(h[i], h[(i - 1) / 2]); i = (i - 1) / 2; }
+    }
+    int top() const { return h[0]; }
+    void pop() {
+        h[0] = h.back(); h.pop_back();
+        int i = 0, n = h.size();
+        while (true) {
+            int l = 2 * i + 1, r = 2 * i + 2, m = i;
+            if (l &lt; n &amp;&amp; h[l] &lt; h[m]) m = l;
+            if (r &lt; n &amp;&amp; h[r] &lt; h[m]) m = r;
+            if (m == i) break;
+            swap(h[i], h[m]); i = m;
+        }
+    }
+    bool empty() const { return h.empty(); }
+};
+
+/* ================= 防卡哈希（竞赛必备） ================= */
+struct custom_hash {
+    static uint64_t splitmix64(uint64_t x) {
+        x += 0x9e3779b97f4a7c15ULL;
+        x = (x ^ (x &gt;&gt; 30)) * 0xbf58476d1ce4e5b9ULL;
+        x = (x ^ (x &gt;&gt; 27)) * 0x94d049bb133111ebULL;
+        return x ^ (x &gt;&gt; 31);
+    }
+    size_t operator()(uint64_t x) const {
+        static const uint64_t FIXED_RANDOM =
+            chrono::steady_clock::now().time_since_epoch().count();
+        return splitmix64(x + FIXED_RANDOM);
+    }
+};
+/* 用法：unordered_map&lt;long long, int, custom_hash&gt; mp; */
+
+int main() {
+    DSU d(10);
+    d.unite(1, 2); d.unite(2, 3);
+    cout &lt;&lt; d.same(1, 3) &lt;&lt; "\n";        // 1
+    MinHeap hp;
+    for (int x : {5, 1, 9, 3}) hp.push(x);
+    cout &lt;&lt; hp.top() &lt;&lt; "\n";            // 1
+    return 0;
+}</pre>
+
+    <h3 id="s4-3">15.4.3 图论模板（一次拷全）</h3>
+    <pre data-lang="cpp" data-file="template_graph.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+const int INF = 0x3f3f3f3f;
+const int MAXN = 100005;
+
+/* ================= 链式前向星 ================= */
+struct Graph {
+    int head[MAXN], to[MAXN * 2], nxt[MAXN * 2], w[MAXN * 2], cnt = 0;
+    void init(int n) { memset(head, -1, sizeof(int) * (n + 1)); cnt = 0; }
+    void addEdge(int u, int v, int weight = 1) {
+        to[cnt] = v; w[cnt] = weight; nxt[cnt] = head[u]; head[u] = cnt++;
+    }
+    /* 无向图调用两次 addEdge(u, v, w); addEdge(v, u, w); */
+};
+
+/* ================= 朴素 Dijkstra（邻接矩阵，O(n^2)） ================= */
+int n;
+vector&lt;vector&lt;int&gt;&gt; g;          // g[u][v] = 权值，无边为 INF
+vector&lt;long long&gt; dijkstraNaive(int s) {
+    vector&lt;long long&gt; dist(n + 1, LLONG_MAX);
+    vector&lt;bool&gt; vis(n + 1, false);
+    dist[s] = 0;
+    for (int iter = 0; iter &lt; n; ++iter) {
+        int u = -1;
+        for (int v = 1; v &lt;= n; ++v)
+            if (!vis[v] &amp;&amp; (u == -1 || dist[v] &lt; dist[u])) u = v;
+        if (u == -1 || dist[u] == LLONG_MAX) break;
+        vis[u] = true;
+        for (int v = 1; v &lt;= n; ++v)
+            if (g[u][v] &lt; INF &amp;&amp; dist[u] + g[u][v] &lt; dist[v])
+                dist[v] = dist[u] + g[u][v];
+    }
+    return dist;
+}
+
+/* ================= 堆优化 Dijkstra（链式前向星，O(m log n)） ================= */
+vector&lt;long long&gt; dijkstraHeap(const Graph&amp; G, int s, int n) {
+    vector&lt;long long&gt; dist(n + 1, LLONG_MAX);
+    priority_queue&lt;pair&lt;long long, int&gt;, vector&lt;pair&lt;long long, int&gt;&gt;, greater&lt;&gt;&gt; pq;
+    dist[s] = 0; pq.push({0, s});
+    while (!pq.empty()) {
+        auto [d, u] = pq.top(); pq.pop();
+        if (d &gt; dist[u]) continue;                 // 过期元素，跳过
+        for (int e = G.head[u]; e != -1; e = G.nxt[e]) {
+            int v = G.to[e];
+            if (d + G.w[e] &lt; dist[v]) {
+                dist[v] = d + G.w[e];
+                pq.push({dist[v], v});
+            }
+        }
+    }
+    return dist;
+}
+
+/* ================= Floyd（O(n^3)，注意 k 在最外层） ================= */
+void floyd(vector&lt;vector&lt;long long&gt;&gt;&amp; d, int n) {
+    for (int k = 1; k &lt;= n; ++k)
+        for (int i = 1; i &lt;= n; ++i) {
+            if (d[i][k] == LLONG_MAX) continue;
+            for (int j = 1; j &lt;= n; ++j)
+                if (d[k][j] != LLONG_MAX &amp;&amp; d[i][k] + d[k][j] &lt; d[i][j])
+                    d[i][j] = d[i][k] + d[k][j];
+        }
+}
+
+/* ================= Kruskal 最小生成树 ================= */
+struct Edge { int u, v, w; bool operator&lt;(const Edge&amp; o) const { return w &lt; o.w; } };
+long long kruskal(vector&lt;Edge&gt;&amp; edges, int n) {
+    sort(edges.begin(), edges.end());
+    vector&lt;int&gt; fa(n + 1);
+    iota(fa.begin(), fa.end(), 0);
+    function&lt;int(int)&gt; find = [&amp;](int x) { return fa[x] == x ? x : fa[x] = find(fa[x]); };
+    long long total = 0; int used = 0;
+    for (const Edge&amp; e : edges) {
+        int a = find(e.u), b = find(e.v);
+        if (a == b) continue;                      // 成环，丢弃
+        fa[b] = a; total += e.w; ++used;
+        if (used == n - 1) break;                  // 已经选了 n-1 条边
+    }
+    return used == n - 1 ? total : -1;             // -1 表示图不连通
+}
+
+/* ================= 拓扑排序（Kahn） ================= */
+vector&lt;int&gt; topoSort(const vector&lt;vector&lt;int&gt;&gt;&amp; adj, vector&lt;int&gt; indeg, int n) {
+    queue&lt;int&gt; q;
+    for (int i = 1; i &lt;= n; ++i) if (!indeg[i]) q.push(i);
+    vector&lt;int&gt; order;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int v : adj[u]) if (--indeg[v] == 0) q.push(v);
+    }
+    if ((int)order.size() != n) return {};         // 有环
+    return order;
+}
+
+int main() {
+    /* 用一个小例子自测 */
+    Graph G; G.init(5);
+    G.addEdge(1, 2, 2); G.addEdge(2, 3, 3); G.addEdge(1, 3, 10);
+    auto dist = dijkstraHeap(G, 1, 5);
+    cout &lt;&lt; dist[3] &lt;&lt; "\n";                      // 5
+    return 0;
+}</pre>
+
+    <h3 id="s4-4">15.4.4 字符串与动态规划模板</h3>
+    <pre data-lang="cpp" data-file="template_str_dp.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+/* ================= KMP：前缀函数 + 匹配 ================= */
+vector&lt;int&gt; prefixFunction(const string&amp; P) {
+    int m = P.size(); vector&lt;int&gt; pi(m, 0);
+    for (int i = 1; i &lt; m; ++i) {
+        int len = pi[i - 1];
+        while (len &amp;&amp; P[i] != P[len]) len = pi[len - 1];
+        if (P[i] == P[len]) ++len;
+        pi[i] = len;
+    }
+    return pi;
+}
+vector&lt;int&gt; kmpAll(const string&amp; S, const string&amp; P) {     // 返回所有出现位置
+    vector&lt;int&gt; res;
+    if (P.empty()) return res;
+    vector&lt;int&gt; pi = prefixFunction(P);
+    int j = 0;
+    for (int i = 0; i &lt; (int)S.size(); ++i) {
+        while (j &amp;&amp; S[i] != P[j]) j = pi[j - 1];
+        if (S[i] == P[j]) ++j;
+        if (j == (int)P.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
+    }
+    return res;
+}
+
+/* ================= 字符串哈希（双模数，防碰撞） ================= */
+struct StrHash {
+    static const int M1 = 1000000007, M2 = 998244353, B = 131;
+    vector&lt;long long&gt; h1, h2, p1, p2;
+    explicit StrHash(const string&amp; s) {
+        int n = s.size();
+        h1.assign(n + 1, 0); h2.assign(n + 1, 0);
+        p1.assign(n + 1, 1); p2.assign(n + 1, 1);
+        for (int i = 0; i &lt; n; ++i) {
+            h1[i + 1] = (h1[i] * B + s[i]) % M1;
+            h2[i + 1] = (h2[i] * B + s[i]) % M2;
+            p1[i + 1] = p1[i] * B % M1;
+            p2[i + 1] = p2[i] * B % M2;
+        }
+    }
+    pair&lt;long long, long long&gt; get(int l, int r) const {   // 0 基，闭区间
+        long long a = ((h1[r + 1] - h1[l] * p1[r - l + 1]) % M1 + M1) % M1;
+        long long b = ((h2[r + 1] - h2[l] * p2[r - l + 1]) % M2 + M2) % M2;
+        return {a, b};
+    }
+};
+
+/* ================= 01 背包（一维滚动数组） ================= */
+int knapsack01(const vector&lt;int&gt;&amp; w, const vector&lt;int&gt;&amp; v, int W) {
+    vector&lt;int&gt; dp(W + 1, 0);
+    for (int i = 0; i &lt; (int)w.size(); ++i)
+        for (int j = W; j &gt;= w[i]; --j)              // 必须倒序！否则变成完全背包
+            dp[j] = max(dp[j], dp[j - w[i]] + v[i]);
+    return dp[W];
+}
+
+/* ================= 完全背包（一维滚动数组） ================= */
+int knapsackComplete(const vector&lt;int&gt;&amp; w, const vector&lt;int&gt;&amp; v, int W) {
+    vector&lt;int&gt; dp(W + 1, 0);
+    for (int i = 0; i &lt; (int)w.size(); ++i)
+        for (int j = w[i]; j &lt;= W; ++j)              // 正序！
+            dp[j] = max(dp[j], dp[j - w[i]] + v[i]);
+    return dp[W];
+}
+
+/* ================= 最长上升子序列 LIS：O(n log n) ================= */
+int lis(const vector&lt;int&gt;&amp; a) {
+    vector&lt;int&gt; tails;                               // tails[i] = 长度 i+1 的上升子序列的最小结尾
+    for (int x : a) {
+        auto it = lower_bound(tails.begin(), tails.end(), x);   // 严格递增
+        if (it == tails.end()) tails.push_back(x);
+        else *it = x;
+    }
+    return tails.size();
+}
+
+/* ================= 最长公共子序列 LCS ================= */
+int lcs(const string&amp; a, const string&amp; b) {
+    int n = a.size(), m = b.size();
+    vector&lt;vector&lt;int&gt;&gt; dp(n + 1, vector&lt;int&gt;(m + 1, 0));
+    for (int i = 1; i &lt;= n; ++i)
+        for (int j = 1; j &lt;= m; ++j)
+            dp[i][j] = (a[i - 1] == b[j - 1]) ? dp[i - 1][j - 1] + 1
+                                              : max(dp[i - 1][j], dp[i][j - 1]);
+    return dp[n][m];
+}
+
+int main() {
+    for (int p : kmpAll("ABABABCABABABCABA", "ABABCABA")) cout &lt;&lt; p &lt;&lt; ' ';   // 2 9
+    cout &lt;&lt; "\n";
+    cout &lt;&lt; knapsack01({1, 3, 4}, {15, 20, 30}, 4) &lt;&lt; "\n";                    // 35
+    cout &lt;&lt; lis({10, 9, 2, 5, 3, 7, 101, 18}) &lt;&lt; "\n";                        // 4
+    cout &lt;&lt; lcs("abcde", "ace") &lt;&lt; "\n";                                      // 3
+    return 0;
+}</pre>
+
+    <h2 id="s5">15.5 五十条易错概念辨析</h2>
+
+    <h3 id="s5-1">15.5.1 绪论与复杂度</h3>
+    <ol>
+      <li><b>大 O 是上界，不是精确值。</b> <code>2n² + 3n</code> 和 <code>n²</code> 都是 <code>O(n²)</code>，但不能说它们「一样快」。</li>
+      <li><b>O(1) 不等于「执行一次」。</b> 执行 1000 条语句仍是 O(1)。</li>
+      <li><b>循环变量的变化方式是判断复杂度的关键。</b> <code>i *= 2</code> 是 O(log n)，<code>i = sqrt(i)</code> 是 O(log log n)。</li>
+      <li><b>递归的时间复杂度要写递推式。</b> 不能只看循环层数。</li>
+      <li>空间复杂度算的是<b>额外空间</b>，递归要算栈深度。</li>
+      <li>算法的「有穷性」指<b>在有限步内结束</b>，不是「不能有循环」。</li>
+      <li>逻辑结构与存储结构是<b>两个独立维度</b>：同一逻辑结构可以有多种存储结构。</li>
+    </ol>
+
+    <h3 id="s5-2">15.5.2 线性表</h3>
+    <ol start="8">
+      <li><b>顺序表插入的平均移动次数是 n/2</b>，删除是 <b>(n−1)/2</b>（教材常都近似为 n/2）。</li>
+      <li><b>头结点不是首元结点。</b> 头结点不存数据（或存长度），是为了统一空表与非空表的操作。</li>
+      <li><b>「在 p 结点前插入」单链表做不到 O(1)</b>，除非已知前驱；但「在 p 结点后插入」可以 O(1)（交换数据域的技巧）。</li>
+      <li>双向链表删除结点<b>不需要找前驱</b>，这是它相对单链表最大的优势。</li>
+      <li>静态链表的 <code>next</code> 存的是<b>数组下标（游标）</b>，不是地址。</li>
+      <li>快慢指针判环时，<b>快指针每次走 2 步</b>，两者一定会在环内相遇（如果有环）。</li>
+    </ol>
+
+    <h3 id="s5-3">15.5.3 栈与队列</h3>
+    <ol start="14">
+      <li><b>共享栈的栈满条件是 <code>top1 + 1 == top0</code></b>（两个栈顶相邻），不是相等。</li>
+      <li>链栈通常不设头结点，<b>栈顶就是链表的第一个结点</b>。</li>
+      <li><b>循环队列「牺牲一个单元」是为了区分队空与队满</b>：队空 <code>front == rear</code>，队满 <code>(rear+1)%M == front</code>。</li>
+      <li>循环队列元素个数 = <code>(rear − front + M) % M</code>，不要漏掉 <code>+M</code>。</li>
+      <li>链队列在<b>出队后若队列为空，必须把 rear 重新指向头结点</b>，否则 rear 悬空。</li>
+      <li>中缀转后缀时，<b>右括号不入栈</b>；遇到右括号要一直弹到左括号为止（左括号弹出但不输出）。</li>
+      <li>后缀表达式求值时，<b>遇到运算符弹出的是「先右后左」两个操作数</b>，减法与除法的顺序不能反。</li>
+    </ol>
+
+    <h3 id="s5-4">15.5.4 串</h3>
+    <ol start="21">
+      <li><b>子串必须连续，子序列可以不连续。</b></li>
+      <li><code>π[i]</code> 表示的是<b>真</b>前后缀，长度不能等于 i+1（不包含自身）。</li>
+      <li>KMP 中 <b><code>i</code> 永不回退</b>；回退的是 <code>j</code>，且回退到 <code>π[j-1]</code>。</li>
+      <li>KMP 不是「任何输入都比朴素快」，它胜在<b>最坏情况的保证</b>。</li>
+      <li>BM 只看坏字符规则会出问题（位移可能非正），<b>必须与好后缀规则取最大值</b>。</li>
+      <li><code>next</code> 数组有三种约定（0 基 π / 1 基教材版 / 位移版），<b>做题前先确认用的是哪一种</b>。</li>
+    </ol>
+
+    <h3 id="s5-5">15.5.5 数组、矩阵、树</h3>
+    <ol start="27">
+      <li>行优先是「<b>先走完最后一行下标</b>」（C/C++），列优先相反（Fortran/Matlab）。</li>
+      <li>对称矩阵只需存 <code>n(n+1)/2</code> 个元素；<b>三角矩阵还要多存一个常数 c</b>，是 <code>n(n+1)/2 + 1</code>。</li>
+      <li>「n₀ = n₂ + 1」这条性质<b>对任何非空二叉树都成立</b>，与是否完全无关。</li>
+      <li>完全二叉树的深度是 <code>⌊log₂n⌋ + 1</code>，注意是下取整<b>加一</b>。</li>
+      <li>已知<b>前序 + 后序无法唯一确定</b>一棵二叉树；必须要有中序。</li>
+      <li>赫夫曼树<b>不唯一</b>（左右子树可互换、相同权值的合并顺序可不同），但 <b>WPL 唯一</b>。</li>
+      <li>赫夫曼编码是<b>前缀编码</b>：任何编码都不是另一个编码的前缀，因此可以唯一译码。</li>
+      <li>树的「左孩子右兄弟」表示法得到的是二叉树，且<b>该二叉树没有右子树</b>（对单棵树而言）。</li>
+    </ol>
+
+    <h3 id="s5-6">15.5.6 图与图论算法</h3>
+    <ol start="35">
+      <li>无向图度数和 = 2e（握手定理）；有向图入度和 = 出度和 = e。</li>
+      <li>无向图 <code>e ≤ n(n−1)/2</code>；有向图 <code>e ≤ n(n−1)</code>。别把两者搞混。</li>
+      <li>无向连通图的生成树有<b>恰好 n−1 条边</b>，生成树不唯一但边数是确定的。</li>
+      <li><b>Prim 适合稠密图，Kruskal 适合稀疏图</b>；两个算法都基于贪心。</li>
+      <li><b>Dijkstra 不能处理负权边</b>，因为它依赖「已确定的最短距离不会再变小」这一贪心前提。</li>
+      <li>Floyd 的三重循环<b>必须把 k 放在最外层</b>，i/j 放外层会导致结果错误。</li>
+      <li><b>拓扑排序存在 ⟺ 图是有向无环图（DAG）</b>；有环则排序结果不足 n 个顶点。</li>
+      <li>关键路径是 AOE 网中<b>从源点到汇点的最长路径</b>，它的长度等于工程的最短完成时间。</li>
+      <li>关键活动是 <code>e(a) == l(a)</code> 的活动；<b>缩短非关键活动不改变总工期</b>。</li>
+      <li>DFS 用栈（或递归）、BFS 用队列；<b>求最短路径必须用 BFS</b>（无权图）或 Dijkstra 等（带权图）。</li>
+    </ol>
+
+    <h3 id="s5-7">15.5.7 查找与排序</h3>
+    <ol start="45">
+      <li><b>折半查找要求顺序存储 + 有序</b>，链表上无法实现 O(log n) 的折半查找。</li>
+      <li>插值查找在<b>数据均匀分布</b>时才快，分布极端不均会退化到 O(n)。</li>
+      <li>哈希表<b>删除元素必须用墓碑标记</b>，直接把位置清空会截断探测链，导致后面的元素查不到。</li>
+      <li>线性探测法会产生<b>堆积（聚集）</b>，平方探测可缓解但对表长有要求（4j+3 形式的质数）。</li>
+      <li>比较排序的下界是 <code>Ω(n log n)</code>，证明用<b>决策树</b>：n 个元素的排列有 n! 种，决策树至少 n! 个叶子，树高 ≥ ⌈log₂(n!)⌉ = Ω(n log n)。</li>
+      <li>「快些选堆」四个不稳定，其余稳定；<b>稳定性只在比较关键字相等的元素时才有意义</b>。</li>
+    </ol>
+
+    <h2 id="s6">15.6 模拟自测卷</h2>
+
+    <p class="lede" style="color:var(--text-soft)">
+      共 16 题，满分 100 分（选择题 10×2 + 填空题 5 空×2 + 计算与作图 4×10 + 算法设计 2×10），
+      建议 120 分钟内完成。答案与解析在每题下方折叠，请先做完再看。
+    </p>
+
+    <h3 id="s6-1">一、选择题（每题 2 分，共 20 分）</h3>
+
+    <p class="quiz-q">1. 以下关于数据结构的说法，正确的是（　）</p>
+    <p>A. 数据的存储结构是数据元素之间的逻辑关系的抽象表示<br>
+       B. 顺序存储结构的插入删除效率一定高于链式存储结构<br>
+       C. 同一逻辑结构可以采用不同的存储结构实现<br>
+       D. 抽象数据类型与具体的存储结构一一对应</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>C</b>。逻辑结构独立于存储结构，同一逻辑结构（如线性表）既可以用顺序存储也可以用链式存储（A、D 错）。
+      顺序存储的插入删除是 O(n)，链式是 O(1)，所以 B 反了。</p>
+    </div></details>
+
+    <p class="quiz-q">2. 设 n 为问题规模，下面程序段的时间复杂度是（　）</p>
+    <pre data-lang="cpp" data-file="q2.cpp">int i = 1, s = 0;
+while (i &lt;= n) { s += i; i *= 3; }</pre>
+    <p>A. O(n)　B. O(log₃n)　C. O(n log n)　D. O(√n)</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>B</b>。<code>i</code> 的取值序列是 1, 3, 9, 27, …，第 k 次循环 <code>i = 3^(k-1)</code>，
+      循环条件是 <code>3^(k-1) ≤ n</code>，即 <code>k ≤ log₃n + 1</code>，所以循环执行 O(log n) 次。
+      底数在复杂度里可以忽略，写成 O(log n)。</p>
+    </div></details>
+
+    <p class="quiz-q">3. 在一个长度为 n 的顺序表中删除第 i 个元素（1 ≤ i ≤ n），需要移动的元素个数为（　）</p>
+    <p>A. n − i　B. n − i + 1　C. n − i − 1　D. i</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>A</b>。删除第 i 个元素后，需要把它后面的 <code>n − i</code> 个元素整体前移一位。
+      平均移动次数为 <code>(0+1+…+(n−1))/n = (n−1)/2</code>。</p>
+    </div></details>
+
+    <p class="quiz-q">4. 已知循环队列的存储空间为数组 <code>Q[0..M-1]</code>，<code>front</code> 指向队头元素、
+      <code>rear</code> 指向队尾元素的下一个位置，则队列中元素个数为（　）</p>
+    <p>A. rear − front　B. (rear − front + M) % M　C. (rear − front) % M + 1　D. rear − front − 1</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>B</b>。循环队列中 <code>rear</code> 可能已经绕回，直接相减可能为负，
+      必须加 M 后再取模。这是最常考的一个小公式。</p>
+    </div></details>
+
+    <p class="quiz-q">5. 设模式串 <code>P = "ababaa"</code>，采用 0 基前缀函数 π，则 <code>π[4]</code> 的值是（　）</p>
+    <p>A. 2　B. 3　C. 4　D. 1</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>B</b>。<code>P[0..4] = "ababa"</code>，它的真前缀有 "a"、"ab"、"aba"、"abab"，
+      真后缀有 "a"、"ba"、"aba"、"baba"，相等的最长者是 "aba"，长度 <b>3</b>。
+      （完整 π 数组为 <code>[0,0,1,2,3,1]</code>。）</p>
+    </div></details>
+
+    <p class="quiz-q">6. 一棵二叉树中有 30 个叶子结点、20 个度为 1 的结点，则该二叉树的结点总数为（　）</p>
+    <p>A. 79　B. 80　C. 81　D. 无法确定</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>A</b>。由 <code>n₀ = n₂ + 1</code> 得 <code>n₂ = 30 − 1 = 29</code>；
+      总数 <code>n = n₀ + n₁ + n₂ = 30 + 20 + 29 = 79</code>。</p>
+    </div></details>
+
+    <p class="quiz-q">7. 关于有向图的拓扑排序，下列说法正确的是（　）</p>
+    <p>A. 有向图存在拓扑序列的充要条件是它是无环图（DAG）<br>
+       B. 任何有向图都存在拓扑序列<br>
+       C. 一个 DAG 的拓扑序列一定唯一<br>
+       D. 拓扑序列的长度等于图中边的条数</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>A</b>。有向图存在拓扑序列的<b>充要条件</b>是它是有向无环图；
+      有环时 Kahn 算法只能输出不到 n 个顶点。拓扑序列一般不唯一
+      （除非任意两个顶点之间都存在路径关系）。长度是顶点数 n，不是边数。</p>
+    </div></details>
+
+    <p class="quiz-q">8. 用 Dijkstra 算法求下图单源最短路径（图中有负权边），结果是（　）</p>
+    <p>A. 一定正确　B. 可能出错　C. 一定出错　D. 只对无向图出错</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>B</b>。Dijkstra 的贪心前提是「一旦某个顶点的 dist 被确定为最小，之后不会再被更小的值更新」。
+      存在负权边时这个前提被破坏，结果可能出错。经典反例：顶点 A→B 权 1，A→C 权 5，C→B 权 −4，
+      正确的最短路 A→C→B 长度为 1，但 Dijkstra 会先确定 B 的距离为 1，从而得不到正确答案（或次序出错）。
+      存在负权时应改用 Bellman-Ford / SPFA。</p>
+    </div></details>
+
+    <p class="quiz-q">9. 对 8 个元素进行折半查找，查找成功时最多需要比较几次？</p>
+    <p>A. 2　B. 3　C. 4　D. 8</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>C</b>。判定树高度为 <code>⌈log₂(8+1)⌉ = 4</code>，最坏情况下比较 4 次。
+      一般地，n 个元素的折半查找最多比较 <code>⌈log₂(n+1)⌉</code> 次。</p>
+    </div></details>
+
+    <p class="quiz-q">10. 以下排序算法中，时间复杂度为 O(n log n) 且稳定的是（　）</p>
+    <p>A. 快速排序　B. 堆排序　C. 归并排序　D. 希尔排序</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>C</b>。四个里只有归并排序是稳定的。快速排序最坏 O(n²) 且不稳定；堆排序不稳定；
+      希尔排序不稳定且复杂度与增量有关。口诀：<b>快些选堆</b>不稳定。</p>
+    </div></details>
+
+    <h3 id="s6-2">二、填空题（每空 2 分，共 20 分）</h3>
+    <ol>
+      <li>一个具有 n 个顶点的无向连通图，至少有 <b>n−1</b> 条边；至多有 <b>n(n−1)/2</b> 条边。</li>
+      <li>在含 n 个元素的有序表中进行折半查找，查找成功的平均查找长度约为 <b>log₂(n+1) − 1</b>。</li>
+      <li>深度为 5 的完全二叉树最多有 <b>31</b> 个结点，最少有 <b>16</b> 个结点。</li>
+      <li>赫夫曼树中不存在度为 <b>1</b> 的结点（因为每次合并都会生成一个度为 2 的新结点）。</li>
+      <li>设哈希表长 m = 11，哈希函数 <code>H(k) = k mod 11</code>，用线性探测法处理冲突，
+        依次插入 {12, 23, 45, 57, 20, 3}，则元素 3 最终存放的下标是 <b>6</b>。
+        <br><span style="color:var(--text-soft);font-size:13px">
+        解析：12 % 11 = 1 → 存 1；23 % 11 = 1，冲突 → 2；45 % 11 = 1，冲突 → 2、3；
+        57 % 11 = 2，冲突 → 3、4；20 % 11 = 9；3 % 11 = 3，冲突 → 4、5、6。
+        最终哈希表为 <code>[_,12,23,45,57,_,3,_,_,20,_]</code>。</span></li>
+    </ol>
+
+    <h3 id="s6-3">三、计算与作图题（每题 10 分，共 40 分）</h3>
+
+    <p class="quiz-q">11. 已知一棵二叉树的前序遍历为 <code>ABDECFG</code>，中序遍历为 <code>DBEAFCG</code>，
+      请画出这棵二叉树，并写出它的后序遍历序列。</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p>前序的第一个字符 A 是根；在中序中 A 左边是 <code>DBE</code>（左子树），右边是 <code>FCG</code>（右子树）。
+      对左子树：前序 <code>BDE</code>，中序 <code>DBE</code> → 根 B，左 D，右 E。
+      对右子树：前序 <code>CFG</code>，中序 <code>FCG</code> → 根 C，左 F，右 G。</p>
+      <div class="figure">
+        <svg viewBox="0 0 420 220" width="420" height="220" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="var(--border-strong)" stroke-width="1.8" fill="none">
+            <line x1="210" y1="50" x2="120" y2="110"/>
+            <line x1="210" y1="50" x2="300" y2="110"/>
+            <line x1="120" y1="110" x2="70" y2="170"/>
+            <line x1="120" y1="110" x2="170" y2="170"/>
+            <line x1="300" y1="110" x2="250" y2="170"/>
+            <line x1="300" y1="110" x2="350" y2="170"/>
+          </g>
+          <g font-family="Consolas,monospace" font-size="15">
+            <circle cx="210" cy="40" r="20" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.6"/>
+            <text x="210" y="46" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+            <circle cx="120" cy="110" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="120" y="116" text-anchor="middle" fill="var(--text)">B</text>
+            <circle cx="300" cy="110" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="300" y="116" text-anchor="middle" fill="var(--text)">C</text>
+            <circle cx="70" cy="176" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="70" y="182" text-anchor="middle" fill="var(--text)">D</text>
+            <circle cx="170" cy="176" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="170" y="182" text-anchor="middle" fill="var(--text)">E</text>
+            <circle cx="250" cy="176" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="250" y="182" text-anchor="middle" fill="var(--text)">F</text>
+            <circle cx="350" cy="176" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+            <text x="350" y="182" text-anchor="middle" fill="var(--text)">G</text>
+          </g>
+        </svg>
+        <figcaption>图 15-1　第 11 题还原出的二叉树</figcaption>
+      </div>
+      <p>后序遍历为 <b>DEBFGCA</b>（左、右、根：DEB + FGC + A）。</p>
+    </div></details>
+
+    <p class="quiz-q">12. 给定权值集合 <code>W = {5, 7, 2, 3, 11}</code>，构造赫夫曼树并计算 WPL，
+      写出各字符的赫夫曼编码（按每次合并权值最小者、相同权值取先出现的规则）。</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p>排序后为 {2, 3, 5, 7, 11}。逐步合并：</p>
+      <ol>
+        <li>合并 2、3 → 5。集合 {5, 5, 7, 11}（其中新结点 5 与原来的 5 并列）。</li>
+        <li>合并两个 5 → 10。集合 {7, 10, 11}。</li>
+        <li>合并 7、10 → 17。集合 {11, 17}。</li>
+        <li>合并 11、17 → 28，得到根。</li>
+      </ol>
+      <p>WPL 等于所有<b>非叶结点的权值之和</b>（这是一个非常好用的快捷算法）：
+        <code>5 + 10 + 17 + 28 = 60</code>。</p>
+      <p>编码（左 0 右 1，根为 28）：以一棵可能的树为例——
+        {2,3} 合并成 5，再与另一个 5 合并成 10，10 与 7 合并成 17，17 与 11 合并成 28。
+        可得到 2 → <code>000</code>，3 → <code>001</code>，5 → <code>01</code>，
+        7 → <code>10</code>，11 → <code>11</code>（具体编码与树形有关，但 WPL 恒为 60）。</p>
+      <div class="note warn" style="margin-top:10px">
+        <span class="note-title">注意</span>
+        赫夫曼树<b>不唯一</b>（左右可交换、相同权值可交换顺序），所以编码可能不同，
+        但只要每一步都取最小的两个权值合并，<b>WPL 一定是最小的 60</b>。
+      </div>
+    </div></details>
+
+    <p class="quiz-q">13. 已知无向网的邻接矩阵如下（∞ 表示无边），
+      用 Prim 算法从顶点 1 出发求最小生成树，写出加边的顺序与总权值。</p>
+      <div class="table-wrap">
+        <table class="compact">
+          <thead><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+          <tbody>
+            <tr><th>1</th><td>0</td><td>6</td><td>1</td><td>5</td><td>∞</td></tr>
+            <tr><th>2</th><td>6</td><td>0</td><td>5</td><td>∞</td><td>3</td></tr>
+            <tr><th>3</th><td>1</td><td>5</td><td>0</td><td>5</td><td>6</td></tr>
+            <tr><th>4</th><td>5</td><td>∞</td><td>5</td><td>0</td><td>∞</td></tr>
+            <tr><th>5</th><td>∞</td><td>3</td><td>6</td><td>∞</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p>从顶点 1 出发，初始 <code>lowcost = [∞, 6, 1, 5, ∞]</code>（对应顶点 2~5 到生成树的最小距离）。</p>
+      <ol>
+        <li>选最小者：顶点 3（权 1），加入边 <b>(1,3) 权 1</b>。更新 lowcost：顶点 2 变成 min(6, 5) = 5，顶点 4 变成 min(5,5) = 5，顶点 5 变成 6。</li>
+        <li>当前 lowcost = [5(2), 5(4), 6(5)]（顶点 2、3 已在树中）。选顶点 2（权 5），加入边 <b>(3,2) 权 5</b>。更新：顶点 5 变成 min(6, 3) = 3。</li>
+        <li>当前 lowcost = [5(4), 3(5)]。选顶点 5（权 3），加入边 <b>(2,5) 权 3</b>。</li>
+        <li>当前 lowcost = [5(4)]。选顶点 4（权 5），加入边 <b>(1,4) 权 5</b>。</li>
+      </ol>
+      <p>加边顺序：<code>(1,3)1 → (3,2)5 → (2,5)3 → (1,4)5</code>，
+        总权值 = <b>1 + 5 + 3 + 5 = 14</b>。</p>
+      <p>（若用 Kruskal：按权排序 1,3,3,5,5,5,6,6 → 取 (1,3)1、(2,5)3、(1,4)5 或 (2,3)5、(3,4)5，
+        注意不能成环，最终同样得到 4 条边、总权 14。）</p>
+    </div></details>
+
+    <p class="quiz-q">14. 对序列 <code>{49, 38, 65, 97, 76, 13, 27, 49}</code> 分别写出
+      一趟快速排序（以第一个元素为基准）与一趟归并排序（二路归并，步长 1）后的结果。</p>
+    <details class="fold"><summary>答案与解析</summary><div class="fold-body">
+      <p><b>一趟快速排序</b>（以 49 为基准，双指针从两端向中间扫）：</p>
+      <ul>
+        <li>右指针从 49 开始往左找 &lt; 49 的：27 &lt; 49，停下；左指针从 38 开始往右找 &gt; 49 的：65 &gt; 49，停下；交换 → <code>49, 38, 27, 97, 76, 13, 65, 49</code>。</li>
+        <li>继续：右指针找 &lt; 49：13；左指针找 &gt; 49：97；交换 → <code>49, 38, 27, 13, 76, 97, 65, 49</code>。</li>
+        <li>继续：右指针找到 13 位置与左指针相遇，把基准 49 放到该位置 → <code>13, 38, 27, 49, 76, 97, 65, 49</code>。</li>
+      </ul>
+      <p>所以一趟划分后为 <code>{13, 38, 27, 49, 76, 97, 65, 49}</code>，基准 49 的最终位置是下标 3（0 基）。</p>
+      <p><b>一趟二路归并</b>（步长 1，两两合并）：</p>
+      <p><code>[49,38]→[38,49]</code>，<code>[65,97]→[65,97]</code>，<code>[76,13]→[13,76]</code>，<code>[27,49]→[27,49]</code>，
+        结果为 <code>{38, 49, 65, 97, 13, 76, 27, 49}</code>。</p>
+    </div></details>
+
+    <h3 id="s6-4">四、算法设计题（每题 10 分，共 20 分）</h3>
+
+    <p class="quiz-q">15. 设计一个算法，判断单链表中是否存在环；若存在，找出环的入口结点。要求空间复杂度 O(1)，并说明原理。</p>
+    <details class="fold"><summary>参考解答</summary><div class="fold-body">
+      <pre data-lang="cpp" data-file="detect_cycle.cpp">#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int val; Node* next; Node(int v): val(v), next(nullptr) {} };
+
+/* 快慢指针（Floyd 判环）
+   阶段一：slow 每次 1 步、fast 每次 2 步，若相遇则有环。
+   阶段二：让一个指针回到头结点，两个指针每次都走 1 步，再次相遇处即为环入口。
+   原理：设头到环入口距离 a，入口到相遇点距离 b，相遇点到入口距离 c。
+         相遇时 slow 走了 a+b，fast 走了 a+b+k(b+c) 且是 slow 的 2 倍，
+         可得 a = (k-1)(b+c) + c，即从相遇点走 c 步到入口 = 从头走 a 步到入口。 */
+Node* detectCycle(Node* head) {
+    Node *slow = head, *fast = head;
+    while (fast &amp;&amp; fast-&gt;next) {
+        slow = slow-&gt;next;
+        fast = fast-&gt;next-&gt;next;
+        if (slow == fast) {                 // 阶段一：相遇，有环
+            Node* p = head;
+            while (p != slow) {             // 阶段二：找入口
+                p = p-&gt;next;
+                slow = slow-&gt;next;
+            }
+            return p;                       // 环入口
+        }
+    }
+    return nullptr;                         // 无环
+}
+
+int main() {
+    Node* n1 = new Node(1); Node* n2 = new Node(2);
+    Node* n3 = new Node(3); Node* n4 = new Node(4);
+    n1-&gt;next = n2; n2-&gt;next = n3; n3-&gt;next = n4; n4-&gt;next = n2;   // 4 指回 2
+    Node* entry = detectCycle(n1);
+    cout &lt;&lt; (entry ? entry-&gt;val : -1) &lt;&lt; "\n";   // 2
+    return 0;
+}</pre>
+      <p><b>关键点</b>：空间 O(1)；时间复杂度 O(n)。若用哈希表记录访问过的结点，则空间是 O(n)，
+        达不到题目要求。</p>
+    </div></details>
+
+    <p class="quiz-q">16. 给定整数数组 <code>a[]</code> 与整数 <code>target</code>，求所有满足
+      <code>a[i] + a[j] = target</code> 的下标对 <code>(i, j)</code>（i &lt; j）。要求时间 O(n)、空间 O(n)，
+      并说明为什么不能简单地先排序再用双指针（提示：考虑下标要求与重复元素）。</p>
+    <details class="fold"><summary>参考解答</summary><div class="fold-body">
+      <pre data-lang="cpp" data-file="two_sum.cpp">#include &lt;iostream&gt;
+#include &lt;unordered_map&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* 哈希表一次遍历：对每个 a[j]，看 target - a[j] 是否出现过
+   时间 O(n)、空间 O(n) */
+vector&lt;pair&lt;int,int&gt;&gt; twoSum(const vector&lt;int&gt;&amp; a, int target) {
+    unordered_map&lt;int, int&gt; lastSeen;      // 值 → 最近一次出现的下标
+    vector&lt;pair&lt;int,int&gt;&gt; res;
+    for (int j = 0; j &lt; (int)a.size(); ++j) {
+        int need = target - a[j];
+        auto it = lastSeen.find(need);
+        if (it != lastSeen.end()) res.push_back({it-&gt;second, j});
+        lastSeen[a[j]] = j;                // 后出现的覆盖先出现的，保证 i &lt; j
+    }
+    return res;
+}
+
+/* 若允许 O(n log n) 且只要求「是否存在」，可以排序 + 双指针：
+   sort(a.begin(), a.end());
+   int i = 0, j = n - 1;
+   while (i &lt; j) {
+       int s = a[i] + a[j];
+       if (s == target) return true;
+       else if (s &lt; target) ++i;
+       else --j;
+   }
+   但排序会打乱原始下标，若题目要求返回下标就必须额外记录位置；
+   而且要返回「所有」下标对时，排序 + 双指针还要处理重复元素的组合，容易漏解或重复。 */
+
+int main() {
+    vector&lt;int&gt; a = {2, 7, 11, 15, 3, 6};
+    for (auto&amp; p : twoSum(a, 9)) cout &lt;&lt; p.first &lt;&lt; "," &lt;&lt; p.second &lt;&lt; "  ";   // 0,1  4,5
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+      <p><b>要点</b>：哈希法在遍历到 <code>a[j]</code> 时，表里存的全是下标小于 j 的元素，
+        因此天然满足 <code>i &lt; j</code>；用 <code>lastSeen[a[j]] = j</code> 覆盖可以避免同一对出现两次。</p>
+    </div></details>
+
+    <h2 id="s7">15.7 复习路线图</h2>
+
+    <div class="figure">
+      <svg viewBox="0 0 960 430" width="960" height="430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="rp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+        </defs>
+        <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+          <rect x="20" y="20" width="200" height="70" rx="10" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="120" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="var(--brand)">第 1 轮：搭骨架</text>
+          <text x="120" y="70" text-anchor="middle" font-size="12" fill="var(--text-soft)">线性表 · 栈 · 队列</text>
+          <text x="120" y="86" text-anchor="middle" font-size="11" fill="var(--text-faint)">1~4 讲，重画结构图</text>
+
+          <rect x="250" y="20" width="200" height="70" rx="10" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="350" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ok)">第 2 轮：攻难点</text>
+          <text x="350" y="70" text-anchor="middle" font-size="12" fill="var(--text-soft)">KMP · 树 · 图</text>
+          <text x="350" y="86" text-anchor="middle" font-size="11" fill="var(--text-faint)">5~9 讲，手推 + 动画</text>
+
+          <rect x="480" y="20" width="200" height="70" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.8"/>
+          <text x="580" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="var(--accent)">第 3 轮：记结论</text>
+          <text x="580" y="70" text-anchor="middle" font-size="12" fill="var(--text-soft)">查找 · 排序</text>
+          <text x="580" y="86" text-anchor="middle" font-size="11" fill="var(--text-faint)">10~12 讲，背对比表</text>
+
+          <rect x="710" y="20" width="230" height="70" rx="10" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="1.8"/>
+          <text x="825" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="var(--purple)">第 4 轮：写代码</text>
+          <text x="825" y="70" text-anchor="middle" font-size="12" fill="var(--text-soft)">DP · 图论算法 · 洛谷题单</text>
+          <text x="825" y="86" text-anchor="middle" font-size="11" fill="var(--text-faint)">13~14 讲，动手过题</text>
+
+          <path d="M220,55 L246,55" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#rp)"/>
+          <path d="M450,55 L476,55" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#rp)"/>
+          <path d="M680,55 L706,55" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#rp)"/>
+        </g>
+
+        <rect x="20" y="130" width="920" height="280" rx="12" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="42" y="162" font-size="15" font-weight="700" fill="var(--text)">四轮复习检查表（每完成一项打勾）</text>
+
+        <g font-size="13" fill="var(--text-soft)">
+          <text x="42" y="196">☐ 能手写顺序表 / 单链表 / 双向链表的插入与删除，并说清指针修改顺序</text>
+          <text x="42" y="222">☐ 能默写大 O 推导的 5 个典型循环与 3 个典型递推式</text>
+          <text x="42" y="248">☐ 能用纸笔推出任意模式串的 π 数组与教材版 next / nextval</text>
+          <text x="42" y="274">☐ 能默画 n = 11 的折半查找判定树并现场算 ASL</text>
+          <text x="42" y="300">☐ 能背出十种排序的时间 / 空间 / 稳定性，并说出「快些选堆」口诀</text>
+          <text x="42" y="326">☐ 能独立手推 Prim、Kruskal、Dijkstra、Floyd 各一遍（含表格）</text>
+          <text x="42" y="352">☐ 能算 AOE 网的 ve / vl / e / l 并找出关键路径</text>
+          <text x="42" y="378">☐ 能写出 01 背包、完全背包、LIS、LCS 四个 DP 模板并说清遍历顺序的原因</text>
+        </g>
+      </svg>
+      <figcaption>图 15-2　四轮复习路线图与自查清单</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">最后一句话</span>
+      数据结构的复习不是「看会」，而是「写会」和「推会」。
+      凡是能在纸上推一遍的东西，就不要只靠眼睛看；凡是能写十行代码验证的结论，就不要只背结论。
+      把本讲的自测卷做三遍（第一遍开卷、第二遍闭卷、第三遍限时），这门课就稳了。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch14-luogu.html">
+        <span class="dir">← 上一讲</span>
+        <span class="ttl">14 洛谷题单：例题与作业</span>
+      </a>
+      <a class="next" href="index.html">
+        <span class="dir">返回 →</span>
+        <span class="ttl">课程总览</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

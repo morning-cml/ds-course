@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 绪论：数据结构与算法分析 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch01', title: '绪论：数据结构与算法分析' };</script>
+<script src="assets/js/course.js" defer></script>
+<style>
+  /* 本章静态 SVG 图解的公共样式（颜色全部取自 course.css 的 CSS 变量，自动适配深色主题） */
+  .fg-box   { fill: var(--panel);        stroke: var(--border-strong); stroke-width: 1.6; }
+  .fg-soft  { fill: var(--bg-soft);      stroke: var(--border);        stroke-width: 1.4; }
+  .fg-bs    { fill: var(--brand-soft);   stroke: var(--brand);         stroke-width: 1.8; }
+  .fg-gs    { fill: var(--ok-soft);      stroke: var(--ok);            stroke-width: 1.8; }
+  .fg-os    { fill: var(--accent-soft);  stroke: var(--accent);        stroke-width: 1.8; }
+  .fg-ps    { fill: var(--purple-soft);  stroke: var(--purple);        stroke-width: 1.8; }
+  .fg-rs    { fill: var(--danger-soft);  stroke: var(--danger);        stroke-width: 1.8; }
+  .fg-ws    { fill: var(--warn-soft);    stroke: var(--warn);          stroke-width: 1.8; }
+  .fg-t     { fill: var(--text);         font-family: var(--mono); font-size: 13px; }
+  .fg-tm    { fill: var(--text);         font-family: var(--mono); font-size: 13px; text-anchor: middle; }
+  .fg-tb    { fill: var(--text);         font-size: 14px; font-weight: 700; }
+  .fg-tbm   { fill: var(--text);         font-size: 14px; font-weight: 700; text-anchor: middle; }
+  .fg-b     { fill: var(--text-soft);    font-size: 12.5px; }
+  .fg-bm    { fill: var(--text-soft);    font-size: 12.5px; text-anchor: middle; }
+  .fg-l     { fill: var(--text-faint);   font-family: var(--mono); font-size: 11px; }
+  .fg-lm    { fill: var(--text-faint);   font-family: var(--mono); font-size: 11px; text-anchor: middle; }
+  .fg-on    { fill: #fff; }
+  .fg-onb   { fill: #fff; font-weight: 700; }
+  .fg-e     { stroke: var(--border-strong); stroke-width: 1.8; fill: none; }
+  .fg-eb    { stroke: var(--brand);   stroke-width: 2;   fill: none; }
+  .fg-eo    { stroke: var(--accent);  stroke-width: 2;   fill: none; }
+  .fg-eg    { stroke: var(--ok);      stroke-width: 2;   fill: none; }
+  .fg-grid  { stroke: var(--border);        stroke-width: 1; }
+  .fg-axis  { stroke: var(--border-strong); stroke-width: 1.6; }
+  .fg-c1 { stroke: var(--ok);     stroke-width: 2.4; fill: none; }
+  .fg-c2 { stroke: var(--brand);  stroke-width: 2.4; fill: none; }
+  .fg-c3 { stroke: var(--purple); stroke-width: 2.4; fill: none; }
+  .fg-c4 { stroke: var(--accent); stroke-width: 2.4; fill: none; }
+  .fg-c5 { stroke: var(--warn);   stroke-width: 2.4; fill: none; }
+  .fg-c6 { stroke: var(--danger); stroke-width: 2.4; fill: none; }
+  /* 本章术语表：把默认 92px 的术语列加宽，并给英文名一个弱化样式 */
+  dl.def.wide { grid-template-columns: 176px 1fr; }
+  dl.def.wide dt { font-size: 13.5px; line-height: 1.5; }
+  dl.def .en { color: var(--text-faint); font-weight: 400; font-size: 12px; }
+  .qlist > li { margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <!-- 全页共用的 SVG 箭头 marker（0 尺寸隐藏，仅提供 defs） -->
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mk-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+        </marker>
+        <marker id="mk-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+        </marker>
+        <marker id="mk-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="mk-ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+        </marker>
+        <marker id="mk-ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--purple)"/>
+        </marker>
+        <marker id="mk-aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
+        </marker>
+      </defs>
+    </svg>
+
+    <div class="doc-head">
+      <div class="kicker">数据结构与算法设计 · 第 01 讲</div>
+      <h1>第 01 讲　绪论：数据结构与算法分析</h1>
+      <p class="lede">
+        这一讲不写复杂算法，只做一件事：把「数据结构」这四个字拆开揉碎，让你知道后面 14 讲要学的每一个结构
+        究竟在解决什么问题；再交给你一把尺子——大 O 记号，用来衡量任何一个算法的快慢与省费。
+      </p>
+      <div class="meta">
+        <span>预计 90 分钟</span>
+        <span>前置：C++ 基础语法（变量 / 数组 / 函数 / 指针）</span>
+        <span>关键词：逻辑结构 · 存储结构 · 抽象数据类型 · 时间复杂度 · 空间复杂度</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin-bottom:0">
+        <li><b>先立概念</b>：数据、数据元素、数据项、数据对象四个词经常被混用，考试却专挑它们出选择题。</li>
+        <li><b>再分两层</b>：逻辑结构（跟计算机无关的关系）与存储结构（内存里怎么摆），两层分清，后面所有结构都是这两层的组合。</li>
+        <li><b>然后抽象</b>：抽象数据类型 ADT 把「能做什么」和「怎么做」彻底分开，这是工程代码能长期维护的根本原因。</li>
+        <li><b>最后量尺</b>：算法效率不看秒表看渐近，本章给出大 O 的严格定义、三条推导法则、8 道手推例题。</li>
+        <li><b>顺手打底</b>：末尾的 43 条中英对照术语表覆盖全课程，建议打印出来贴在书桌前。</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">1.1 五个必须分清的概念：数据、数据元素、数据项、数据对象、数据结构</h2>
+
+    <p>
+      很多同学学完一学期数据结构，仍然说不清「数据项」和「数据元素」的区别。问题不在记忆力，而在于
+      一开始就没有把这些词放进同一个层级去看。我们换一个最熟悉的场景——<b>学生成绩表</b>——把它们一次性掰开。
+    </p>
+
+    <h3 id="s1-1">1.1.1 数据（data）</h3>
+    <p>
+      <b>数据</b>是<b>信息的载体</b>，是对客观事物的符号表示，是能输入到计算机中并被计算机程序识别和处理的
+      符号的集合。注意这句话里有两个关键词：
+    </p>
+    <ul>
+      <li><b>能输入计算机</b>：写在纸上的诗当然也是「信息」，但如果不被数字化，就不是这里说的数据；</li>
+      <li><b>能被程序处理</b>：一串随机乱码虽然存进了磁盘，但程序无法赋予它含义，它只是垃圾字节。</li>
+    </ul>
+    <p>
+      随着技术发展，数据的范围早就从「数字」扩展到了字符、声音、图像、视频。所以在数据结构课上，
+      我们干脆把数据看成「<b>一堆符号</b>」，重点研究的是这些符号之间<b>怎么组织</b>。这里有一个常被忽略的结论：
+      <em>数据的逻辑含义与它的存储形式是两回事</em>。整数 <code>65</code> 在内存里是 <code>0x41</code>，
+      而字符 <code>'A'</code> 在内存里也是 <code>0x41</code>——同样的比特，不同的解释，就得到不同的数据。
+      这个「同一份存储、多种解释」的思想，正是后面「同一逻辑结构可以有多种存储结构」的伏笔。
+    </p>
+
+    <h3 id="s1-2">1.1.2 数据元素（data element）与数据项（data item）</h3>
+    <p>
+      <b>数据元素</b>是<b>数据的基本单位</b>，在程序中通常作为一个整体被考虑和处理。它有时候也被称为
+      <b>记录</b>（record）或<b>结点</b>（node）——「结点」这个词你在链表、树、图里会反复见到。
+      在我们例子里，「张三同学这一整条成绩记录」就是一个数据元素：
+    </p>
+    <div class="formula center">张三 &nbsp;|&nbsp; 学号 1001 &nbsp;|&nbsp; 计科 1 班 &nbsp;|&nbsp; 高数 92</div>
+    <p>
+      而构成这条记录的一个个字段——学号 1001、姓名张三、班级计科 1 班、高数 92——就是<b>数据项</b>。
+      <b>数据项是数据的不可分割的最小单位</b>。为什么强调「不可分割」？因为再往下拆就失去了独立含义：
+      把「1001」拆成「1」「0」「0」「1」在数据结构层面没有意义。
+    </p>
+    <p>
+      两者的关系是一句话：<b>数据元素由若干数据项组成，数据项是数据元素的组成部分</b>。
+      有时候一个数据元素只由一个数据项构成，比如一个整数数组里的 <code>a[3] = 7</code>，
+      此时「数据元素」和「数据项」在形态上重合了，但概念层级依然不同。
+    </p>
+
+    <h3 id="s1-3">1.1.3 数据对象（data object）</h3>
+    <p>
+      <b>数据对象</b>是<b>性质相同的数据元素的集合</b>，是数据的一个子集。请注意「性质相同」这四个字：
+      全班 50 个学生的成绩记录，每一条都是「学号 + 姓名 + 班级 + 成绩」这个格式，所以它们构成一个数据对象；
+      而把学生记录和课程记录混在一起，就不是一个数据对象了。
+    </p>
+    <p>
+      数据对象和数据结构经常被放在一起比较：<b>数据对象强调「有哪些成员」，数据结构强调「成员之间是什么关系」</b>。
+      一个数据对象可以是无穷的（比如全体正整数），也可以是有穷的（比如一张成绩表）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 790 380" width="790" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="数据、数据对象、数据元素、数据项的层次关系">
+        <rect x="12" y="14" width="766" height="352" rx="12" class="fg-soft" stroke-dasharray="7 5"/>
+        <text x="30" y="40" class="fg-tb">数据 data：一切能输入计算机并被程序处理、具有含义的符号集合</text>
+
+        <rect x="32" y="60" width="344" height="272" rx="10" class="fg-ps"/>
+        <text x="204" y="86" class="fg-tbm">数据对象：学生成绩表</text>
+        <text x="204" y="106" class="fg-lm">data object —— 性质相同的数据元素的集合</text>
+
+        <rect x="50" y="120" width="308" height="46" rx="6" class="fg-box"/>
+        <text x="64" y="149" class="fg-t">数据元素 1：张三 1001 计科1班 92</text>
+        <rect x="50" y="172" width="308" height="46" rx="6" class="fg-box"/>
+        <text x="64" y="201" class="fg-t">数据元素 2：李四 1002 计科1班 78</text>
+        <rect x="50" y="224" width="308" height="46" rx="6" class="fg-box"/>
+        <text x="64" y="253" class="fg-t">数据元素 3：王五 1003 计科2班 85</text>
+        <text x="204" y="300" class="fg-lm">… 共 n 条记录，每一条都是一个数据元素 …</text>
+        <text x="204" y="320" class="fg-bm">（在链表 / 树 / 图中，也常被称为「结点 node」）</text>
+
+        <line x1="358" y1="143" x2="428" y2="143" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="393" y="134" class="fg-lm">取出一条</text>
+
+        <rect x="430" y="60" width="330" height="190" rx="10" class="fg-bs"/>
+        <text x="595" y="86" class="fg-tbm">一个数据元素（一条记录 / 一个结点）</text>
+        <rect x="448" y="100" width="294" height="38" rx="6" class="fg-box"/>
+        <text x="462" y="124" class="fg-t">数据项 1：学号 = 1001</text>
+        <rect x="448" y="144" width="294" height="38" rx="6" class="fg-box"/>
+        <text x="462" y="168" class="fg-t">数据项 2：姓名 = 张三</text>
+        <rect x="448" y="188" width="294" height="38" rx="6" class="fg-box"/>
+        <text x="462" y="212" class="fg-t">数据项 3：班级 = 计科 1 班</text>
+
+        <text x="446" y="284" class="fg-b">数据项：不可再分割的最小单位（也叫「字段 field」）</text>
+        <text x="446" y="306" class="fg-b">数据元素：数据的基本单位，由若干数据项组成</text>
+        <text x="446" y="328" class="fg-b">数据对象：性质相同的数据元素的集合，是数据的子集</text>
+
+        <text x="30" y="356" class="fg-l">层级关系：数据 ⊇ 数据对象 ⊇ 数据元素 ⊇ 数据项</text>
+      </svg>
+      <figcaption>图 1-1　数据、数据对象、数据元素、数据项四者的层级关系（以学生成绩表为例）</figcaption>
+    </div>
+
+    <h3 id="s1-4">1.1.4 数据结构的严格定义</h3>
+    <p>把上面的铺垫收拢，给出教材上那个必须一字不差记住的定义：</p>
+    <div class="note exam">
+      <span class="note-title">定义 1-1　数据结构（data structure）</span>
+      <b>数据结构</b>是<b>相互之间存在一种或多种特定关系的数据元素的集合</b>。
+      换句话说，数据结构 = <b>数据元素</b> + <b>元素之间的关系</b>。没有关系的一堆数据只是「一袋土豆」，
+      戴上关系这顶帽子，它才成为「结构」。
+    </div>
+    <p>
+      这个定义里最值钱的是「<b>关系</b>」两个字。数组里有下标相邻关系，链表里有指针指向关系，
+      二叉树里有父子关系，图里有邻接关系。所以学一个新结构时，第一句要问的就是：
+      <em>它的元素之间到底是什么关系？</em>
+    </p>
+    <p>
+      但这还不完整。只谈关系，算法没法运行，因为关系必须落到内存上。于是数据结构包含三个方面的内容：
+    </p>
+    <div class="formula center">数据结构 = 逻辑结构 + 存储结构（物理结构） + 数据的运算</div>
+    <ul>
+      <li><b>逻辑结构</b>：数据元素之间的抽象关系，面向问题、面向人，<b>与计算机无关</b>；</li>
+      <li><b>存储结构</b>：逻辑结构在计算机存储器中的表示，也叫物理结构，<b>与机器、语言实现有关</b>；</li>
+      <li><b>数据的运算</b>：定义在该结构上的一组操作（增、删、改、查、遍历、排序……），
+          运算「定义在逻辑结构上」，但「实现依赖于存储结构」。</li>
+    </ul>
+    <p>
+      这三者的关系可以用一句话概括：<b>逻辑结构决定「能做什么运算」，存储结构决定「这些运算要花多少代价」</b>。
+      后面第 1.4 节会用顺序表和链表把这个结论演示得非常具体。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 830 350" width="830" height="350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="数据结构三要素及其关系">
+        <rect x="315" y="16" width="200" height="52" rx="12" fill="var(--brand)"/>
+        <text x="415" y="48" class="fg-tbm fg-onb">数据结构</text>
+
+        <line x1="380" y1="68" x2="160" y2="118" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="415" y1="68" x2="415" y2="118" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="450" y1="68" x2="670" y2="118" class="fg-e" marker-end="url(#mk-ar)"/>
+
+        <rect x="40" y="122" width="240" height="46" rx="8" class="fg-bs"/>
+        <text x="160" y="150" class="fg-tbm">① 逻辑结构</text>
+        <rect x="295" y="122" width="240" height="46" rx="8" class="fg-gs"/>
+        <text x="415" y="150" class="fg-tbm">② 存储结构（物理）</text>
+        <rect x="550" y="122" width="240" height="46" rx="8" class="fg-os"/>
+        <text x="670" y="150" class="fg-tbm">③ 数据的运算</text>
+
+        <text x="160" y="192" class="fg-bm">集合 / 线性 / 树形 / 图形</text>
+        <text x="160" y="212" class="fg-lm">面向问题，与计算机无关</text>
+        <text x="160" y="232" class="fg-lm">研究「元素之间是什么关系」</text>
+
+        <text x="415" y="192" class="fg-bm">顺序 / 链式 / 索引 / 散列</text>
+        <text x="415" y="212" class="fg-lm">面向机器，与语言实现有关</text>
+        <text x="415" y="232" class="fg-lm">研究「关系在内存里怎么表示」</text>
+
+        <text x="670" y="192" class="fg-bm">增 / 删 / 改 / 查 / 遍历 / 排序</text>
+        <text x="670" y="212" class="fg-lm">定义在逻辑结构上</text>
+        <text x="670" y="232" class="fg-lm">实现依赖存储结构，代价不同</text>
+
+        <path d="M160,246 L160,272 L415,272" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <path d="M670,246 L670,272 L415,272" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="415" y="292" class="fg-bm">存储结构是逻辑结构的「机器投影」；运算效率由二者共同决定</text>
+
+        <rect x="40" y="306" width="750" height="34" rx="8" class="fg-soft"/>
+        <text x="415" y="329" class="fg-bm">记忆口诀：逻辑结构管「关系」 · 存储结构管「落地」 · 运算管「操作」 · 三者合起来才叫数据结构</text>
+      </svg>
+      <figcaption>图 1-2　数据结构的三要素：逻辑结构、存储结构与数据的运算</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">一个常见误解</span>
+      不少同学把「数据结构」等同于「存储结构」，于是觉得「数组是一种数据结构，链表是另一种数据结构」。
+      更准确的说法是：<b>线性表是逻辑结构，顺序表和链表是它的两种存储实现</b>。
+      把这句话想通，第 1.4 节就无须再讲。
+    </div>
+
+    <h2 id="s2">1.2 逻辑结构：四类基本结构</h2>
+
+    <p>
+      逻辑结构只关心一件事：<b>元素之间有没有关系、是什么关系</b>。按关系的复杂程度，可以把常见的逻辑结构
+      分成四类：<b>集合结构、线性结构、树形结构、图形结构（网状结构）</b>。
+      这四类几乎覆盖了本课程后面全部的章节，所以务必把它们的图示刻进脑子里。
+    </p>
+
+    <h3 id="s2-1">1.2.1 集合结构：只有「同属一伙」这一种关系</h3>
+    <p>
+      集合结构中的元素除了<b>「同属于一个集合」</b>之外，没有任何其他关系。元素之间没有次序、没有层级、
+      没有邻接。它是四类里关系最弱的一种。
+    </p>
+    <p>
+      典型的例子是并查集（Union-Find）里维护的等价类，或者 C++ 的 <code>std::set</code>：
+      你只关心「某个元素在不在这个集合里」，不关心它排第几、旁边是谁。
+      集合结构的运算通常是：判断元素是否属于集合、求并集、求交集、求差集。
+    </p>
+
+    <h3 id="s2-2">1.2.2 线性结构：一对一的前驱后继</h3>
+    <p>
+      线性结构中，数据元素之间存在<b>一对一</b>的线性关系。如果把它画出来，就是一条链。它必须满足：
+    </p>
+    <ul>
+      <li>有且仅有一个<b>开始元素</b>（第一个元素），它没有前驱；</li>
+      <li>有且仅有一个<b>终端元素</b>（最后一个元素），它没有后继；</li>
+      <li>除第一个元素外，每个元素<b>有且仅有一个直接前驱</b>；</li>
+      <li>除最后一个元素外，每个元素<b>有且仅有一个直接后继</b>。</li>
+    </ul>
+    <p>
+      线性结构是本课程最庞大的家族：<b>线性表、栈、队列、双端队列、串、数组</b>都属于线性结构。
+      它们之间的区别只在于「限制在哪里」——栈限制只能在一端插入删除，队列限制一端进另一端出，
+      串限制元素是字符且操作以「子串」为单位。抓住这条主线，第 2～6 讲会非常轻松。
+    </p>
+
+    <h3 id="s2-3">1.2.3 树形结构：一对多的层次关系</h3>
+    <p>
+      树形结构中，数据元素之间存在<b>一对多</b>的层次关系：每个元素最多有一个直接前驱（父结点），
+      但可以有多个直接后继（孩子结点）。树形结构最贴近现实世界的组织方式——文件目录、家族谱系、
+      公司组织架构、HTML 文档结构，全都是树。
+    </p>
+    <p>
+      树形结构天生适合表达<b>「分类」与「层次」</b>：从根到叶的一条路径就是一次「细分」。
+      也正因为层次的存在，树上的查找、插入、删除可以做到 O(log n)（平衡树），
+      这是线性结构做不到的——这就是「结构决定算法」的最好例证。
+    </p>
+
+    <h3 id="s2-4">1.2.4 图形结构（网状结构）：多对多</h3>
+    <p>
+      图形结构中，数据元素之间存在<b>多对多</b>的任意关系：任一元素都可以与任意多个其他元素相邻。
+      图是四类逻辑结构里表达能力最强、也最难处理的：交通网、社交网络、课程先修关系、
+      状态机、依赖关系图，都只能用它描述。
+    </p>
+    <p>
+      强表达能力的代价是算法复杂度。比如「求两点间最短路径」，在树上是唯一的简单路径（沿树走即可），
+      在图上却要考虑指数级的路径数量，于是才有了 Dijkstra、Floyd、Bellman-Ford 这些算法。
+    </p>
+
+    <div class="grid c4">
+      <div class="figure" style="margin:6px 0">
+        <svg viewBox="0 0 220 176" width="220" height="176" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="集合结构示意">
+          <ellipse cx="110" cy="88" rx="94" ry="66" class="fg-soft" stroke-dasharray="6 5"/>
+          <circle cx="58" cy="52" r="17" class="fg-box"/><text x="58" y="57" class="fg-tm">1</text>
+          <circle cx="122" cy="42" r="17" class="fg-box"/><text x="122" y="47" class="fg-tm">2</text>
+          <circle cx="170" cy="76" r="17" class="fg-box"/><text x="170" y="81" class="fg-tm">3</text>
+          <circle cx="70" cy="122" r="17" class="fg-box"/><text x="70" y="127" class="fg-tm">4</text>
+          <circle cx="140" cy="126" r="17" class="fg-box"/><text x="140" y="131" class="fg-tm">5</text>
+          <text x="110" y="168" class="fg-lm">元素间无任何连线</text>
+        </svg>
+        <figcaption>图 1-3　集合结构（关系：同属一个集合）</figcaption>
+      </div>
+      <div class="figure" style="margin:6px 0">
+        <svg viewBox="0 0 220 176" width="220" height="176" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="线性结构示意">
+          <rect x="12" y="70" width="40" height="36" rx="6" class="fg-bs"/><text x="32" y="93" class="fg-tm">a1</text>
+          <rect x="66" y="70" width="40" height="36" rx="6" class="fg-bs"/><text x="86" y="93" class="fg-tm">a2</text>
+          <rect x="120" y="70" width="40" height="36" rx="6" class="fg-bs"/><text x="140" y="93" class="fg-tm">a3</text>
+          <rect x="174" y="70" width="40" height="36" rx="6" class="fg-bs"/><text x="194" y="93" class="fg-tm">a4</text>
+          <line x1="52" y1="88" x2="62" y2="88" class="fg-eb" marker-end="url(#mk-ab)"/>
+          <line x1="106" y1="88" x2="116" y2="88" class="fg-eb" marker-end="url(#mk-ab)"/>
+          <line x1="160" y1="88" x2="170" y2="88" class="fg-eb" marker-end="url(#mk-ab)"/>
+          <text x="110" y="140" class="fg-lm">一对一：唯一前驱 / 唯一后继</text>
+          <text x="110" y="158" class="fg-lm">除首尾外每个元素前后各一个</text>
+        </svg>
+        <figcaption>图 1-4　线性结构（关系：一对一）</figcaption>
+      </div>
+      <div class="figure" style="margin:6px 0">
+        <svg viewBox="0 0 220 176" width="220" height="176" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="树形结构示意">
+          <circle cx="110" cy="38" r="17" class="fg-gs"/><text x="110" y="43" class="fg-tm">A</text>
+          <circle cx="58" cy="98" r="17" class="fg-box"/><text x="58" y="103" class="fg-tm">B</text>
+          <circle cx="162" cy="98" r="17" class="fg-box"/><text x="162" y="103" class="fg-tm">C</text>
+          <circle cx="32" cy="152" r="15" class="fg-box"/><text x="32" y="157" class="fg-tm">D</text>
+          <circle cx="88" cy="152" r="15" class="fg-box"/><text x="88" y="157" class="fg-tm">E</text>
+          <circle cx="162" cy="152" r="15" class="fg-box"/><text x="162" y="157" class="fg-tm">F</text>
+          <line x1="98" y1="52" x2="70" y2="84" class="fg-e"/>
+          <line x1="122" y1="52" x2="150" y2="84" class="fg-e"/>
+          <line x1="48" y1="112" x2="38" y2="138" class="fg-e"/>
+          <line x1="68" y1="112" x2="80" y2="138" class="fg-e"/>
+          <line x1="162" y1="115" x2="162" y2="137" class="fg-e"/>
+        </svg>
+        <figcaption>图 1-5　树形结构（关系：一对多的层次）</figcaption>
+      </div>
+      <div class="figure" style="margin:6px 0">
+        <svg viewBox="0 0 220 176" width="220" height="176" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="图形结构示意">
+          <line x1="48" y1="52" x2="160" y2="46" class="fg-e"/>
+          <line x1="48" y1="52" x2="70" y2="130" class="fg-e"/>
+          <line x1="160" y1="46" x2="70" y2="130" class="fg-e"/>
+          <line x1="160" y1="46" x2="176" y2="126" class="fg-e"/>
+          <line x1="70" y1="130" x2="176" y2="126" class="fg-e"/>
+          <line x1="48" y1="52" x2="176" y2="126" class="fg-e"/>
+          <circle cx="48" cy="52" r="17" class="fg-os"/><text x="48" y="57" class="fg-tm">1</text>
+          <circle cx="160" cy="46" r="17" class="fg-os"/><text x="160" y="51" class="fg-tm">2</text>
+          <circle cx="70" cy="130" r="17" class="fg-os"/><text x="70" y="135" class="fg-tm">3</text>
+          <circle cx="176" cy="126" r="17" class="fg-os"/><text x="176" y="131" class="fg-tm">4</text>
+        </svg>
+        <figcaption>图 1-6　图形结构（关系：多对多，任意相连）</figcaption>
+      </div>
+    </div>
+
+    <h3 id="s2-5">1.2.5 换个切法：线性结构与非线性结构</h3>
+    <p>
+      四类结构还可以再粗分一刀，这也是考试里出现频率极高的一个划分：
+      <b>线性结构</b>（线性表、栈、队列、串、数组）与<b>非线性结构</b>（集合、树、图）。
+      判断标准只有一个：<b>元素之间是否是一对一的线性关系</b>。
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>划分</th><th>包含的逻辑结构</th><th>关系特征</th><th>本课程对应章节</th><th>典型运算代价</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag b">线性结构</span></td>
+            <td>线性表、栈、队列、双端队列、串、数组</td>
+            <td>一对一，有唯一首元素与唯一尾元素</td>
+            <td>第 02 ～ 06 讲</td>
+            <td>按位置访问 O(1)（顺序存储）或 O(n)（链式）</td>
+          </tr>
+          <tr>
+            <td><span class="tag p">非线性结构</span></td>
+            <td>集合、树形结构、图形结构</td>
+            <td>一对多（树）、多对多（图）、无关系（集合）</td>
+            <td>第 07 ～ 09 讲</td>
+            <td>树查找 O(log n)、图遍历 O(V+E)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 820 250" width="820" height="250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="线性结构与非线性结构的划分">
+        <rect x="330" y="14" width="160" height="46" rx="10" fill="var(--brand)"/>
+        <text x="410" y="44" class="fg-tbm fg-onb">逻辑结构</text>
+        <line x1="380" y1="60" x2="210" y2="98" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="440" y1="60" x2="610" y2="98" class="fg-e" marker-end="url(#mk-ar)"/>
+
+        <rect x="60" y="102" width="300" height="40" rx="8" class="fg-bs"/>
+        <text x="210" y="128" class="fg-tbm">线性结构（一对一）</text>
+        <rect x="460" y="102" width="300" height="40" rx="8" class="fg-ps"/>
+        <text x="610" y="128" class="fg-tbm">非线性结构（一对多 / 多对多）</text>
+
+        <rect x="60" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="106" y="179" class="fg-tm">线性表</text>
+        <rect x="160" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="206" y="179" class="fg-tm">栈</text>
+        <rect x="260" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="306" y="179" class="fg-tm">队列</text>
+        <rect x="60" y="200" width="140" height="36" rx="6" class="fg-box"/><text x="130" y="223" class="fg-tm">串 / 数组</text>
+        <text x="240" y="223" class="fg-lm">（都只有唯一前驱与后继）</text>
+
+        <rect x="460" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="506" y="179" class="fg-tm">集合</text>
+        <rect x="560" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="606" y="179" class="fg-tm">树</text>
+        <rect x="660" y="156" width="92" height="36" rx="6" class="fg-box"/><text x="706" y="179" class="fg-tm">图</text>
+        <text x="606" y="223" class="fg-lm">（关系不再是一对一）</text>
+      </svg>
+      <figcaption>图 1-7　逻辑结构的两种分法：四分类与「线性 / 非线性」二分</figcaption>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错点</span>
+      「数组是线性结构」这句话只在讨论<b>逻辑结构</b>时成立。二维数组在逻辑上依然是线性结构（它是「数组的数组」，
+      每个元素有唯一后继），但在<b>存储</b>时它被映射成一维连续空间，于是有了行优先 / 列优先的地址计算问题，
+      这一点第 06 讲会专门讲。
+    </div>
+
+    <h2 id="s3">1.3 存储结构（物理结构）：四种落地手段</h2>
+
+    <p>
+      逻辑结构是纸上谈兵，它必须被放进计算机的存储器里才能真正跑起来。<b>存储结构</b>（也叫<b>物理结构</b>）
+      研究的就是：<b>数据元素本身怎么存，元素之间的关系怎么存</b>。请注意这句话有两半，很多人只做了前一半。
+      只把数据丢进内存是不够的，你还得把「谁挨着谁」「谁指向谁」也存下来——而表示关系的方式，
+      恰恰是区分不同存储结构的唯一标准。
+    </p>
+    <p>
+      教材上把存储结构分成四种：<b>顺序存储、链式存储、索引存储、散列存储</b>。前两种是基础，
+      后两种是「加外挂」的思路。下面逐一拆解。
+    </p>
+
+    <h3 id="s3-1">1.3.1 顺序存储：用「物理相邻」表示「逻辑相邻」</h3>
+    <p>
+      顺序存储把逻辑上相邻的元素存放在<b>物理位置也相邻</b>的存储单元里，元素之间的逻辑关系
+      <b>不需要额外空间</b>来记录——因为「挨着」这件事本身就蕴含了「相邻」这个关系。
+      这就是顺序存储最漂亮的地方：<b>关系是免费的</b>。
+    </p>
+    <p>由于每个元素占用的字节数固定，第 i 个元素的地址可以直接算出来：</p>
+    <div class="formula center">LOC(a<sub>i</sub>) = LOC(a<sub>1</sub>) + (i − 1) × sizeof(ElemType)</div>
+    <p>
+      有了这个公式，<b>随机访问（random access）</b>就成了可能：访问第 1 个元素和访问第 10⁶ 个元素，
+      花的时间完全一样，都是 O(1)。代价也很直接——插入和删除时，为了保持「物理相邻」，
+      必须成片地搬移元素，最坏 O(n)。另外，顺序存储通常要求<b>预先分配一段连续空间</b>，
+      空间不够要扩容（重新申请 + 整体拷贝），空间富余则浪费。
+    </p>
+    <p>
+      典型例子：C++ 的 <code>std::vector</code>、<code>std::array</code>、字符串的字面量存储、
+      完全二叉树的顺序存储（第 07 讲）。
+    </p>
+
+    <h3 id="s3-2">1.3.2 链式存储：用「指针」显式记录关系</h3>
+    <p>
+      链式存储不要求物理相邻，它在每个元素上附加<b>指针（pointer）</b>，用指针的取值
+      显式地指出下一个元素在哪儿。这时「关系」不再免费——每个结点都要多花几个字节来存指针。
+      换来的是巨大的灵活性：
+    </p>
+    <ul>
+      <li><b>插入删除快</b>：只要改几条指针，不必搬移别的元素（前提是已经拿到位置）；</li>
+      <li><b>空间按需分配</b>：来一个结点申请一个结点，不需要大块连续内存，不会因扩容整体搬移；</li>
+      <li><b>失去随机访问</b>：想找第 i 个结点，只能从头指针开始一个一个数过去，O(n)。</li>
+    </ul>
+    <p>
+      典型例子：单链表、双向链表、循环链表、静态链表（用数组下标模拟指针）、
+      二叉链表（第 07 讲）、邻接表（第 08 讲）、散列表的链地址法。
+      一句话总结：<b>顺序存储用「地址的算术」换「关系空间」，链式存储用「关系空间」换「地址的算术」</b>。
+    </p>
+
+    <h3 id="s3-3">1.3.3 索引存储：主表 + 索引表的二级结构</h3>
+    <p>
+      索引存储同时维护两份数据：一份是存放全部元素的<b>数据表（主表）</b>，另一份是
+      <b>索引表</b>，索引表的每一项形如「<b>关键字 → 该记录的存储地址</b>」。查找时先查索引表定位，
+      再按地址直接取记录。
+    </p>
+    <p>
+      它的优点是<b>检索速度快</b>（索引表通常远小于数据表，可以常驻内存甚至做成树形索引），
+      缺点是<b>多了一份索引的空间开销</b>，而且插入、删除记录时必须同步维护索引表，
+      否则索引就失效了。现实中的数据库索引（B+ 树）、图书目录、字典的部首表都是这个思路。
+      注意索引存储里的数据表本身既可以是顺序的，也可以是链式的——这再次说明
+      <b>存储结构的四种划分不是互斥的，而是可以叠加的</b>。
+    </p>
+
+    <h3 id="s3-4">1.3.4 散列存储：由关键字直接算出地址</h3>
+    <p>
+      散列存储（哈希存储）用<b>散列函数 h(key)</b> 直接由关键字算出存储地址，
+      理想情况下「查找一次命中」，平均时间复杂度 O(1)。它最激进的地方在于：
+      <b>它放弃了元素之间的顺序关系</b>。散列表里元素是「乱」的，所以你没法做范围查询
+      （「查所有成绩在 80～90 之间的学生」），也没法按序遍历。
+    </p>
+    <p>
+      另一个必须面对的问题是<b>冲突（collision）</b>：不同的 key 可能算出同一个地址。
+      解决办法有开放定址法、链地址法、再散列法、公共溢出区法四种，第 10 讲会逐一展开，
+      并教你手算平均查找长度 ASL。这里先记住结论：<b>散列存储是用「顺序性」换「常数级查找」</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>存储结构</th><th>关系怎么表示</th><th>随机访问</th><th>插入 / 删除</th><th>空间特点</th><th>典型例子</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>顺序存储</b></td>
+            <td>物理相邻即逻辑相邻，无需额外空间</td>
+            <td class="c-ok">O(1)</td>
+            <td class="c-bad">O(n)，需搬移</td>
+            <td>需预分配连续空间，可能浪费或扩容</td>
+            <td><code>vector</code>、数组、完全二叉树顺序表</td>
+          </tr>
+          <tr>
+            <td><b>链式存储</b></td>
+            <td>指针显式指出后继 / 前驱的地址</td>
+            <td class="c-bad">O(n)</td>
+            <td class="c-ok">O(1)（已知位置时）</td>
+            <td>每结点多 1～2 个指针，空间利用率略低</td>
+            <td>单链表、二叉链表、邻接表</td>
+          </tr>
+          <tr>
+            <td><b>索引存储</b></td>
+            <td>索引项（关键字 → 地址）间接定位</td>
+            <td class="c-warn">O(log n) 或 O(1)</td>
+            <td class="c-warn">O(n)，需维护索引</td>
+            <td>多一张索引表，空间换时间</td>
+            <td>数据库 B+ 树索引、分块查找</td>
+          </tr>
+          <tr>
+            <td><b>散列存储</b></td>
+            <td>由 h(key) 直接计算地址，不记录顺序关系</td>
+            <td class="c-ok">平均 O(1)</td>
+            <td class="c-ok">平均 O(1)</td>
+            <td>需要预留装填因子空间，装太满性能骤降</td>
+            <td><code>unordered_map</code>、哈希表、布隆过滤器</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      下面这张图是本章最重要的一张图：<b>同一个逻辑结构（线性表）分别用顺序存储与链式存储实现</b>。
+      请特别留意图中标注的<b>内存地址</b>与<b>指针箭头</b>的差别。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 860 424" width="860" height="424" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="线性表的顺序存储与链式存储对照">
+        <text x="30" y="30" class="fg-tb">① 逻辑结构：线性表 L = (a1, a2, a3, a4)　—— 元素之间是一对一的前驱后继关系</text>
+        <rect x="30" y="42" width="100" height="46" rx="6" class="fg-bs"/><text x="80" y="71" class="fg-tm">a1</text>
+        <rect x="160" y="42" width="100" height="46" rx="6" class="fg-bs"/><text x="210" y="71" class="fg-tm">a2</text>
+        <rect x="290" y="42" width="100" height="46" rx="6" class="fg-bs"/><text x="340" y="71" class="fg-tm">a3</text>
+        <rect x="420" y="42" width="100" height="46" rx="6" class="fg-bs"/><text x="470" y="71" class="fg-tm">a4</text>
+        <line x1="134" y1="65" x2="154" y2="65" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="264" y1="65" x2="284" y2="65" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="394" y1="65" x2="414" y2="65" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="560" y="71" class="fg-b">逻辑相邻 ≠ 物理相邻，逻辑结构不规定存放位置</text>
+
+        <text x="30" y="126" class="fg-tb">② 顺序存储：逻辑相邻 ⇒ 物理相邻，地址可以算出来</text>
+        <text x="36" y="141" class="fg-lm">1000</text>
+        <text x="136" y="141" class="fg-lm">1004</text>
+        <text x="236" y="141" class="fg-lm">1008</text>
+        <text x="336" y="141" class="fg-lm">1012</text>
+        <rect x="30" y="146" width="100" height="52" rx="4" class="fg-box"/>
+        <rect x="130" y="146" width="100" height="52" rx="4" class="fg-box"/>
+        <rect x="230" y="146" width="100" height="52" rx="4" class="fg-box"/>
+        <rect x="330" y="146" width="100" height="52" rx="4" class="fg-box"/>
+        <text x="80" y="178" class="fg-tm">a1</text>
+        <text x="180" y="178" class="fg-tm">a2</text>
+        <text x="280" y="178" class="fg-tm">a3</text>
+        <text x="380" y="178" class="fg-tm">a4</text>
+        <text x="80" y="216" class="fg-lm">下标 0</text>
+        <text x="180" y="216" class="fg-lm">下标 1</text>
+        <text x="280" y="216" class="fg-lm">下标 2</text>
+        <text x="380" y="216" class="fg-lm">下标 3</text>
+        <line x1="132" y1="228" x2="228" y2="228" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="180" y="246" class="fg-bm">相邻元素地址相差 sizeof(ElemType) = 4 字节</text>
+        <text x="450" y="178" class="fg-b">地址连续 ⇒ 第 i 个元素地址可直接计算 ⇒ 随机访问 O(1)</text>
+        <text x="450" y="202" class="fg-b">插入 / 删除需整体搬移后继元素 ⇒ 最坏 O(n)</text>
+        <text x="450" y="226" class="fg-b">容量固定，扩容要重新申请并整体拷贝</text>
+
+        <text x="30" y="272" class="fg-tb">③ 链式存储：结点 = 数据域 + 指针域，地址任意（不必连续）</text>
+        <text x="116" y="292" class="fg-lm">2000</text>
+        <text x="316" y="292" class="fg-lm">2104</text>
+        <text x="516" y="292" class="fg-lm">2020</text>
+        <text x="716" y="292" class="fg-lm">2160</text>
+
+        <rect x="60" y="298" width="62" height="56" rx="4" class="fg-bs"/><text x="91" y="332" class="fg-tm">a1</text>
+        <rect x="122" y="298" width="50" height="56" rx="4" class="fg-soft"/><text x="147" y="322" class="fg-lm">next</text>
+        <rect x="260" y="298" width="62" height="56" rx="4" class="fg-bs"/><text x="291" y="332" class="fg-tm">a2</text>
+        <rect x="322" y="298" width="50" height="56" rx="4" class="fg-soft"/><text x="347" y="322" class="fg-lm">next</text>
+        <rect x="460" y="298" width="62" height="56" rx="4" class="fg-bs"/><text x="491" y="332" class="fg-tm">a3</text>
+        <rect x="522" y="298" width="50" height="56" rx="4" class="fg-soft"/><text x="547" y="322" class="fg-lm">next</text>
+        <rect x="660" y="298" width="62" height="56" rx="4" class="fg-bs"/><text x="691" y="332" class="fg-tm">a4</text>
+        <rect x="722" y="298" width="50" height="56" rx="4" class="fg-soft"/><text x="747" y="322" class="fg-lm">NULL</text>
+
+        <text x="8" y="332" class="fg-l">head</text>
+        <line x1="36" y1="328" x2="56" y2="328" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="172" y1="328" x2="254" y2="328" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="213" y="320" class="fg-lm">2104</text>
+        <line x1="372" y1="328" x2="454" y2="328" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="413" y="320" class="fg-lm">2020</text>
+        <line x1="572" y1="328" x2="654" y2="328" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="613" y="320" class="fg-lm">2160</text>
+
+        <text x="30" y="386" class="fg-b">· 结点之间靠指针 next 相连，内存地址可以不连续（2000 → 2104 → 2020 → 2160）</text>
+        <text x="30" y="408" class="fg-b">· 想找第 i 个结点，必须从 head 顺着指针走 i 步，无法直接算地址 ⇒ 按位查找 O(n)；已知前驱时插入只需改两条指针 ⇒ O(1)</text>
+      </svg>
+      <figcaption>图 1-8　同一个逻辑结构（线性表）的两种存储结构对照：上部是逻辑结构，中部是顺序存储，下部是链式存储</figcaption>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 850 330" width="850" height="330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储与散列存储示意">
+        <text x="26" y="30" class="fg-tb">索引存储 index storage</text>
+        <text x="96" y="52" class="fg-bm">索引表（关键字 → 地址）</text>
+        <text x="325" y="52" class="fg-bm">数据表（记录存放区）</text>
+        <rect x="26" y="60" width="140" height="184" rx="8" class="fg-bs"/>
+        <rect x="240" y="60" width="170" height="184" rx="8" class="fg-box"/>
+        <rect x="36" y="74" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="97" class="fg-tm">1001 → @30</text>
+        <rect x="36" y="120" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="143" class="fg-tm">1002 → @34</text>
+        <rect x="36" y="166" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="189" class="fg-tm">1003 → @38</text>
+        <rect x="36" y="212" width="120" height="26" rx="5" class="fg-soft"/><text x="96" y="230" class="fg-lm">…</text>
+        <rect x="250" y="74" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="97" class="fg-tm">记录 1001</text>
+        <rect x="250" y="120" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="143" class="fg-tm">记录 1002</text>
+        <rect x="250" y="166" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="189" class="fg-tm">记录 1003</text>
+        <rect x="250" y="212" width="150" height="26" rx="5" class="fg-soft"/><text x="325" y="230" class="fg-lm">…</text>
+        <line x1="176" y1="92" x2="234" y2="92" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="176" y1="138" x2="234" y2="138" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="176" y1="184" x2="234" y2="184" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="26" y="272" class="fg-b">先查索引表定位，再按地址取记录；检索快。</text>
+        <text x="26" y="294" class="fg-b">代价：索引本身占空间，插入删除要同步维护。</text>
+        <text x="26" y="316" class="fg-b">数据表本身可以是顺序或链式存储（两种可叠加）。</text>
+
+        <line x1="428" y1="20" x2="428" y2="316" class="fg-grid" stroke-dasharray="6 6"/>
+
+        <text x="460" y="30" class="fg-tb">散列存储 hash storage</text>
+        <rect x="460" y="60" width="120" height="44" rx="6" class="fg-os"/><text x="520" y="88" class="fg-tm">关键字 key</text>
+        <line x1="584" y1="82" x2="614" y2="82" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <rect x="618" y="60" width="196" height="44" rx="6" class="fg-bs"/><text x="716" y="88" class="fg-tm">散列函数 h(key) = key % 7</text>
+        <line x1="716" y1="108" x2="716" y2="134" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <rect x="576" y="138" width="238" height="152" rx="8" class="fg-box"/>
+        <text x="695" y="158" class="fg-bm">散列表（桶数组）</text>
+        <rect x="588" y="168" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="184" class="fg-l">[0]  空</text>
+        <rect x="588" y="192" width="214" height="22" rx="4" class="fg-bs"/><text x="598" y="208" class="fg-l">[1]  1001</text>
+        <rect x="588" y="216" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="232" class="fg-l">[2]  空</text>
+        <rect x="588" y="240" width="214" height="22" rx="4" class="fg-rs"/><text x="598" y="256" class="fg-l">[3]  1010 → 1003（冲突链）</text>
+        <rect x="588" y="264" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="280" class="fg-l">[4]  空</text>
+        <text x="460" y="312" class="fg-b">由关键字算出地址，平均查找 O(1)；代价是失去顺序性。</text>
+      </svg>
+      <figcaption>图 1-9　索引存储与散列存储：两种「加外挂」式的存储结构</figcaption>
+    </div>
+
+    <h2 id="s4">1.4 逻辑结构与存储结构的关系</h2>
+
+    <h3 id="s4-1">1.4.1 为什么逻辑结构独立于存储结构</h3>
+    <p>
+      逻辑结构描述的是「元素之间的关系」，这个关系是<b>数学意义上的关系</b>，与元素在内存第几个字节毫无关系。
+      同一份逻辑关系，你可以用 C++ 写，也可以用 Python 写；可以放在 32 位机器上，也可以放在 64 位机器上。
+      逻辑结构不变，只是因为它压根没提过「地址」这两个字。
+    </p>
+    <p>
+      这个「独立性」不是文字游戏，它带来两个非常实用的好处：
+    </p>
+    <ol>
+      <li><b>可以脱离实现思考算法</b>。分析算法时我们只关心「这个操作要访问几个元素」，
+          不关心机器是几核、内存多快。这就是大 O 记号能够成立的前提——它只统计<b>运算次数的增长趋势</b>。</li>
+      <li><b>可以换实现而不改接口</b>。今天用顺序表实现了栈，明天发现数据量太大需要换成链栈，
+          只要 ADT 接口不变，调用方的代码一行都不用改。这就是 1.5 节要讲的抽象数据类型。</li>
+    </ol>
+
+    <h3 id="s4-2">1.4.2 为什么同一逻辑结构可以有多种存储结构</h3>
+    <p>
+      因为「关系」只是一个约束，满足这个约束的物理排布方式往往有很多种。线性表要求「一对一、有首有尾」，
+      那么：
+    </p>
+    <ul>
+      <li>把元素放在连续内存里，靠地址算术表示相邻 → <b>顺序表</b>；</li>
+      <li>把元素放在任意位置，用指针串成一串 → <b>单链表</b>；</li>
+      <li>不开指针，用数组下标当「游标」模拟指针 → <b>静态链表</b>；</li>
+      <li>用双向指针，既能前又能后 → <b>双向链表</b>；</li>
+      <li>甚至用散列函数直接算出位置，也勉强能存一组「无序的」元素 → <b>散列表</b>（此时顺序关系丢失）。</li>
+    </ul>
+    <p>
+      它们全都满足线性结构的逻辑约束，但性能特征截然不同。所以选存储结构，本质是<b>在时间、空间、
+      实现复杂度之间做取舍</b>——这也是本课程后面每一章都在重复的动作。
+    </p>
+
+    <h3 id="s4-3">1.4.3 存储结构如何影响算法效率：一个必须亲手算一遍的例子</h3>
+    <p>
+      「取线性表中第 i 个元素」这个运算，在逻辑结构层面是一模一样的：
+      给定位置 i，返回对应元素。但两种存储下的代价差了一个数量级。
+    </p>
+    <p>
+      <b>顺序表</b>：元素地址 = 首地址 + (i-1) × 元素大小。这是一个乘法加一次访存，
+      <b>与表长 n 无关</b>，所以是 O(1)——常数时间。
+    </p>
+    <p>
+      <b>单链表</b>：第 i 个结点在哪里？没有人知道。必须从 <code>head</code> 出发，
+      沿着 <code>next</code> 一步一步走 i-1 次。<b>与 i 成正比</b>，最坏（i = n）要走 n 步，所以是 O(n)。
+      如果 n = 10⁶，顺序表 1 次访存就够，链表要 100 万次。
+    </p>
+    <p>
+      反过来，如果在「已知前驱结点 p」的位置插入一个新元素：链表只要改两条指针，O(1)；
+      顺序表却要把 p 后面的所有元素整体后移，O(n)。<b>没有绝对的好坏，只有场景的匹配</b>。
+      读多写少选顺序表，频繁在中间插删且已有位置信息选链表。
+    </p>
+
+    <pre data-lang="cpp" data-file="seqlist_access.cpp">// seqlist_access.cpp —— 顺序存储：逻辑相邻 ⇒ 物理相邻，按位查找 O(1)
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+
+template &lt;typename T&gt;
+class SeqList {
+public:
+    explicit SeqList(int cap = 16)
+        : data(new T[cap]), len(0), capacity(cap) {}
+    ~SeqList() { delete[] data; }
+
+    // 按位查找：一次地址计算 + 一次访存，与 i 和 len 都无关
+    T&amp; at(int i) {
+        if (i &lt; 0 || i &gt;= len) throw std::out_of_range("index out of range");
+        return data[i];
+    }
+
+    // 插入：把下标 i 及其后的元素整体后移一位 → 最坏 O(n)
+    void insert(int i, const T&amp; v) {
+        if (len == capacity) grow();
+        for (int k = len; k &gt; i; --k) data[k] = data[k - 1];
+        data[i] = v;
+        ++len;
+    }
+
+    int size() const { return len; }
+
+private:
+    void grow() {                       // 扩容：重新申请 + 整体拷贝 O(n)
+        capacity *= 2;
+        T* nd = new T[capacity];
+        for (int k = 0; k &lt; len; ++k) nd[k] = data[k];
+        delete[] data;
+        data = nd;
+    }
+    T* data;
+    int len;
+    int capacity;
+};
+
+int main() {
+    SeqList&lt;int&gt; L;
+    for (int i = 0; i &lt; 5; ++i) L.insert(L.size(), i * 10);
+    std::cout &lt;&lt; L.at(3) &lt;&lt; '\n';   // 30：一步到位，O(1)
+    L.insert(0, 999);                // 头部插入要搬移 5 个元素，O(n)
+    std::cout &lt;&lt; L.at(0) &lt;&lt; '\n';   // 999
+    return 0;
+}
+</pre>
+
+    <pre data-lang="cpp" data-file="linklist_access.cpp">// linklist_access.cpp —— 链式存储：靠指针串联，按位查找 O(n)
+#include &lt;iostream&gt;
+
+struct Node {
+    int val;
+    Node* next;
+    Node(int v, Node* n = nullptr) : val(v), next(n) {}
+};
+
+// 按位查找：必须从头指针出发走 i 步，无法直接算出地址，最坏 O(n)
+Node* locate(Node* head, int i) {
+    Node* p = head;
+    while (p != nullptr &amp;&amp; i-- &gt; 0) p = p-&gt;next;
+    return p;
+}
+
+// 已知前驱结点 p 时的插入：只改两条指针，与表长无关 → O(1)
+void insertAfter(Node* p, int v) {
+    Node* s = new Node(v, p-&gt;next);
+    p-&gt;next = s;
+}
+
+int main() {
+    Node* head = nullptr;
+    for (int i = 5; i &gt;= 1; --i) head = new Node(i * 10, head);
+    std::cout &lt;&lt; locate(head, 3)-&gt;val &lt;&lt; '\n';   // 40：走了 3 步，O(n)
+    insertAfter(head, 999);                      // O(1)
+    std::cout &lt;&lt; locate(head, 1)-&gt;val &lt;&lt; '\n';   // 999
+    return 0;
+}
+</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 860 300" width="860" height="300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="同一逻辑结构对应多种存储结构">
+        <rect x="340" y="12" width="180" height="46" rx="10" fill="var(--brand)"/>
+        <text x="430" y="42" class="fg-tbm fg-onb">逻辑结构：线性表</text>
+        <line x1="380" y1="58" x2="120" y2="106" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="410" y1="58" x2="325" y2="106" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="450" y1="58" x2="535" y2="106" class="fg-e" marker-end="url(#mk-ar)"/>
+        <line x1="480" y1="58" x2="740" y2="106" class="fg-e" marker-end="url(#mk-ar)"/>
+
+        <rect x="30" y="110" width="180" height="42" rx="8" class="fg-bs"/><text x="120" y="137" class="fg-tbm">顺序表</text>
+        <rect x="235" y="110" width="180" height="42" rx="8" class="fg-gs"/><text x="325" y="137" class="fg-tbm">单链表 / 双向链表</text>
+        <rect x="440" y="110" width="180" height="42" rx="8" class="fg-os"/><text x="530" y="137" class="fg-tbm">静态链表</text>
+        <rect x="645" y="110" width="180" height="42" rx="8" class="fg-ps"/><text x="735" y="137" class="fg-tbm">散列表</text>
+
+        <text x="120" y="176" class="fg-bm">数组存数据</text>
+        <text x="120" y="196" class="fg-bm">逻辑相邻 = 物理相邻</text>
+        <text x="120" y="216" class="fg-bm">随机访问 O(1)</text>
+        <text x="120" y="236" class="fg-bm">插删要搬元素 O(n)</text>
+
+        <text x="325" y="176" class="fg-bm">结点 + 指针</text>
+        <text x="325" y="196" class="fg-bm">物理位置任意</text>
+        <text x="325" y="216" class="fg-bm">按位查找 O(n)</text>
+        <text x="325" y="236" class="fg-bm">已知前驱插删 O(1)</text>
+
+        <text x="530" y="176" class="fg-bm">用数组下标当游标</text>
+        <text x="530" y="196" class="fg-bm">不依赖指针类型</text>
+        <text x="530" y="216" class="fg-bm">容量固定</text>
+        <text x="530" y="236" class="fg-bm">需维护空闲链表</text>
+
+        <text x="735" y="176" class="fg-bm">关键字 → 地址</text>
+        <text x="735" y="196" class="fg-bm">平均查找 O(1)</text>
+        <text x="735" y="216" class="fg-bm">顺序性丢失</text>
+        <text x="735" y="236" class="fg-bm">不支持范围查询</text>
+
+        <rect x="30" y="254" width="795" height="34" rx="8" class="fg-soft"/>
+        <text x="427" y="277" class="fg-bm">存储结构可以随便换，逻辑结构始终不变 —— 这就是「逻辑结构独立于存储结构」的含义</text>
+      </svg>
+      <figcaption>图 1-10　一个逻辑结构，多种存储实现：换的是代价，不换的是语义</figcaption>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点　三种代价的对比</span>
+      设线性表长度为 n，在下表所列操作上，两种存储结构的复杂度差异是必考内容：
+      <div class="table-wrap" style="margin-bottom:0">
+        <table class="compact">
+          <thead><tr><th>运算</th><th>顺序存储（顺序表）</th><th>链式存储（单链表）</th><th>原因</th></tr></thead>
+          <tbody>
+            <tr><td>按位查找第 i 个</td><td class="c-ok">O(1)</td><td class="c-bad">O(n)</td><td>地址可否直接计算</td></tr>
+            <tr><td>按值查找</td><td class="c-warn">O(n)</td><td class="c-warn">O(n)</td><td>都得逐个比较</td></tr>
+            <tr><td>已知位置插入 / 删除</td><td class="c-bad">O(n)</td><td class="c-ok">O(1)</td><td>是否需要搬移后继元素</td></tr>
+            <tr><td>表尾追加</td><td class="c-ok">O(1)（均摊）</td><td>O(1)（保留尾指针）或 O(n)</td><td>是否维护尾指针</td></tr>
+            <tr><td>存储密度（数据占比）</td><td class="c-ok">= 1</td><td class="c-warn">&lt; 1（要存指针）</td><td>是否需要额外关系空间</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h2 id="s5">1.5 抽象数据类型 ADT：把「能做什么」和「怎么做」分开</h2>
+
+    <h3 id="s5-1">1.5.1 ADT 的定义</h3>
+    <p>
+      <b>抽象数据类型（Abstract Data Type, ADT）</b>是指一个<b>数学模型</b>以及定义在该模型上的一组操作。
+      它由三部分组成：
+    </p>
+    <ul>
+      <li><b>数据对象</b>：这个类型里能放哪些数据（例如「所有整数」）；</li>
+      <li><b>数据关系</b>：这些数据之间满足什么结构（例如「一对一线性关系」）；</li>
+      <li><b>基本操作</b>：能对它做哪些事，每个操作的<b>语义</b>是什么（做什么，而不是怎么做）。</li>
+    </ul>
+    <p>
+      ADT 的关键词是「<b>抽象</b>」。抽象的意思是：<b>只保留「做什么」的说明，隐藏「怎么做」的细节</b>。
+      你家里的电视机遥控器就是一个完美的 ADT——它告诉你「按 + 键音量变大」，
+      但绝不告诉你红外编码怎么发、功放电路怎么调。你也不需要知道。
+    </p>
+    <p>
+      在 C++ 里，ADT 通常用<b>类（class）</b>来落地：用 <code>public</code> 成员函数描述基本操作（接口），
+      用 <code>private</code> 成员描述内部实现（数据与细节）。而当我们希望「同一个抽象接口有多种实现」时，
+      就再加上<b>模板（template）</b>支持泛型，用<b>纯虚函数</b>定义接口契约。
+    </p>
+
+    <h3 id="s5-2">1.5.2 泛型线性表的 ADT 接口（C++）</h3>
+    <p>
+      下面这份头文件就是「线性表」这个 ADT 的完整规格说明。请注意注释里那段用伪码写的形式化描述，
+      它是教材里描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P。
+    </p>
+
+    <pre data-lang="cpp" data-file="list_adt.h">// list_adt.h —— 线性表的抽象数据类型（ADT）接口
+//
+// ADT List {
+//   数据对象：D = { a_i | a_i 属于 ElemSet, i = 1, 2, ..., n, n &gt;= 0 }
+//   数据关系：R = { &lt;a_(i-1), a_i&gt; | a_(i-1), a_i 属于 D, i = 2, ..., n }
+//   基本操作：
+//     InitList(&amp;L)          初始化，构造一个空的线性表
+//     DestroyList(&amp;L)       销毁线性表，释放全部空间
+//     ListEmpty(L)          判空：空返回 true
+//     ListLength(L)         求长度：返回元素个数
+//     GetElem(L, i, &amp;e)     取值：用 e 返回第 i 个元素
+//     LocateElem(L, e)      查找：返回第一个与 e 满足关系的元素位序
+//     PriorElem(L, cur, &amp;pre)  求前驱
+//     NextElem(L, cur, &amp;next)  求后继
+//     ListInsert(&amp;L, i, e)   插入：在第 i 个位置前插入 e
+//     ListDelete(&amp;L, i, &amp;e)  删除：删除第 i 个元素并用 e 返回其值
+//     ListTraverse(L, visit) 遍历：对每个元素调用 visit
+// } ADT List
+//
+// 注意：ADT 只规定「做什么」，不规定「怎么做」——
+//       用数组还是链表、要不要扩容、地址怎么算，全部由实现者决定。
+#pragma once
+#include &lt;cstddef&gt;
+
+template &lt;typename T&gt;
+class List {
+public:
+    virtual ~List() {}
+
+    virtual bool empty() const = 0;                    // 判空
+    virtual int  size()  const = 0;                    // 求长度
+    virtual T&amp;   at(int i) = 0;                        // 取值（第 i 个，从 0 开始）
+    virtual int  locate(const T&amp; v) const = 0;         // 按值查找，失败返回 -1
+    virtual bool insert(int i, const T&amp; v) = 0;        // 在第 i 个位置前插入
+    virtual bool erase(int i) = 0;                     // 删除第 i 个元素
+    virtual void traverse(void (*visit)(const T&amp;)) const = 0;   // 遍历
+};
+</pre>
+
+    <p>
+      接口一旦定下来，实现就可以有很多份。下面这份是顺序表的实现（完整版留给第 02 讲），
+      注意它对外提供的仍然是上面那 7 个操作，一个不多一个不少。
+    </p>
+
+    <pre data-lang="cpp" data-file="seqlist_impl.cpp">// seqlist_impl.cpp —— 线性表 ADT 的一种实现：顺序表
+#include "list_adt.h"
+#include &lt;stdexcept&gt;
+
+template &lt;typename T&gt;
+class SeqList : public List&lt;T&gt; {
+public:
+    explicit SeqList(int cap = 16) : data_(new T[cap]), len_(0), cap_(cap) {}
+    ~SeqList() override { delete[] data_; }
+
+    bool empty() const override { return len_ == 0; }
+    int  size()  const override { return len_; }
+
+    T&amp; at(int i) override {                      // O(1)：地址可直接计算
+        if (i &lt; 0 || i &gt;= len_) throw std::out_of_range("bad index");
+        return data_[i];
+    }
+    int locate(const T&amp; v) const override {      // O(n)：必须逐个比较
+        for (int i = 0; i &lt; len_; ++i) if (data_[i] == v) return i;
+        return -1;
+    }
+    bool insert(int i, const T&amp; v) override {    // O(n)：后继元素整体后移
+        if (i &lt; 0 || i &gt; len_) return false;
+        if (len_ == cap_) grow();
+        for (int k = len_; k &gt; i; --k) data_[k] = data_[k - 1];
+        data_[i] = v; ++len_;
+        return true;
+    }
+    bool erase(int i) override {                 // O(n)：后继元素整体前移
+        if (i &lt; 0 || i &gt;= len_) return false;
+        for (int k = i; k &lt; len_ - 1; ++k) data_[k] = data_[k + 1];
+        --len_;
+        return true;
+    }
+    void traverse(void (*visit)(const T&amp;)) const override {
+        for (int i = 0; i &lt; len_; ++i) visit(data_[i]);
+    }
+
+private:
+    void grow() {
+        cap_ *= 2;
+        T* nd = new T[cap_];
+        for (int k = 0; k &lt; len_; ++k) nd[k] = data_[k];
+        delete[] data_;
+        data_ = nd;
+    }
+    T*  data_;
+    int len_;
+    int cap_;
+};
+</pre>
+
+    <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
+    <p>
+      判断一个设计是否「抽象」，有一个很实用的测试：<b>把实现整个换掉，调用方的代码需要改几行？</b>
+      如果一行都不用改，说明抽象是干净的；如果要改十处，那说明调用方偷偷依赖了实现细节。
+    </p>
+
+    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 调用方只认识 ADT 接口，不认识任何实现细节
+#include "list_adt.h"
+#include &lt;iostream&gt;
+
+// 这个函数只依赖 List&lt;T&gt; 抽象接口：
+// 传顺序表它能跑，传链表它也能跑，将来传静态链表、跳表照样能跑。
+template &lt;typename T&gt;
+void report(const List&lt;T&gt;&amp; L) {
+    std::cout &lt;&lt; "元素个数 = " &lt;&lt; L.size() &lt;&lt; "，内容：";
+    L.traverse([](const T&amp; v) { std::cout &lt;&lt; v &lt;&lt; ' '; });
+    std::cout &lt;&lt; '\n';
+}
+
+int main() {
+    SeqList&lt;int&gt; L;                 // 唯一的「实现相关」一行，只出现在这里
+    for (int i = 0; i &lt; 5; ++i) L.insert(L.size(), i * i);
+    L.erase(0);                     // 删掉 0
+    report(L);                      // 这里完全不关心底层是数组还是链表
+    return 0;
+}
+</pre>
+
+    <div class="grid c3">
+      <div class="card">
+        <h3 id="s5-4" style="margin-top:0">抽象之一：隐藏表示</h3>
+        <p style="margin-bottom:0">
+          调用方看不到 <code>data_</code> 指针，也不知道容量怎么翻倍。表示的改变被隔离在类内部，
+          不会像涟漪一样扩散到全工程。
+        </p>
+      </div>
+      <div class="card">
+        <h3 id="s5-5" style="margin-top:0">抽象之二：泛化元素类型</h3>
+        <p style="margin-bottom:0">
+          <code>template &lt;typename T&gt;</code> 把「元素是什么类型」也抽象掉了。
+          一套代码同时服务 <code>int</code>、<code>string</code>、自定义的 <code>Student</code>。
+        </p>
+      </div>
+      <div class="card">
+        <h3 id="s5-6" style="margin-top:0">抽象之三：分离语义与代价</h3>
+        <p style="margin-bottom:0">
+          ADT 规定了操作的<b>语义</b>（做什么），而<b>代价</b>（多快）交给实现。
+          于是「同一个 <code>at(i)</code> 在顺序表里是 O(1)、在链表里是 O(n)」，
+          这正是第 1.4 节的结论。
+        </p>
+      </div>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">工程视角</span>
+      抽象数据类型是「面向接口编程」在数据结构课里的第一次登场。真实项目里，一个模块的接口
+      设计得好不好，几乎决定了它三年后还能不能被维护。当你想不清楚怎么实现时，
+      先把 ADT 写出来——把「要提供哪些操作」列清楚了，实现往往是水到渠成的事。
+    </div>
+
+    <h2 id="s6">1.6 算法及其特性</h2>
+
+    <h3 id="s6-1">1.6.1 算法的定义</h3>
+    <p>
+      <b>算法（algorithm）</b>是对特定问题求解步骤的一种描述，它是指令的<b>有限序列</b>，
+      其中每条指令表示一个或多个操作。更通俗地说：算法就是「<b>把输入变成输出的一套确定步骤</b>」。
+    </p>
+    <p>
+      程序 = 数据结构 + 算法，这句话是 Pascal 之父沃斯（Niklaus Wirth）说的，
+      它点明了一个事实：数据结构负责「把数据摆好」，算法负责「按步骤处理」，
+      两者缺一不可。只有好的结构没有算法，数据是死物；只有算法没有合适的结构，
+      再聪明的算法也会被低效的存储拖垮。
+    </p>
+
+    <h3 id="s6-2">1.6.2 算法的五大特性</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>特性</th><th>含义</th><th>不满足时会发生什么</th><th>典型反例</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>有穷性</b><br><span class="tag">finiteness</span></td>
+            <td>算法必须在执行<b>有穷步</b>之后结束，且每一步都在有穷时间内完成</td>
+            <td>程序永远不返回，用户等到天荒地老</td>
+            <td>用 while 循环求「所有自然数之和」</td>
+          </tr>
+          <tr>
+            <td><b>确定性</b><br><span class="tag">definiteness</span></td>
+            <td>每条指令有<b>确切含义</b>，无二义性；相同输入在任何时候都产生相同输出</td>
+            <td>同一份数据跑两次结果不同，无法调试</td>
+            <td>「若 x 较大则……」却没说多大算较大</td>
+          </tr>
+          <tr>
+            <td><b>可行性</b><br><span class="tag">effectiveness</span></td>
+            <td>每一步都能<b>机械地执行</b>，并且能在有限时间内完成；可以只由基本运算构成</td>
+            <td>写出计算机根本做不到的步骤</td>
+            <td>「若方程无实根，则跳过」这类无法机械判定的描述</td>
+          </tr>
+          <tr>
+            <td><b>输入</b><br><span class="tag">input</span></td>
+            <td>有 <b>0 个或多个</b>输入（0 个也算：如求 1+2+…+100 的固定算式）</td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><b>输出</b><br><span class="tag">output</span></td>
+            <td>必须有 <b>1 个或多个</b>输出，没有输出的算法毫无意义</td>
+            <td>算完什么也不留下，等于白算</td>
+            <td>只做计算却从不使用结果的代码</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">最容易搞混的两个：有穷性 vs 可行性</span>
+      <b>有穷性</b>说的是「整个算法会结束」，是<b>宏观</b>的；<b>可行性</b>说的是「每一步都能做到」，
+      是<b>微观</b>的。一个算法可以每一步都可行，但整体不终止（死循环），此时它违反的是有穷性而不是可行性。
+      反过来，如果某一步是「求出任意大整数的精确阶乘并立刻打印」，在有限字长的机器上这一步不可行，
+      哪怕它会结束，也违反可行性。
+    </div>
+
+    <h3 id="s6-3">1.6.3 算法与程序的区别</h3>
+    <p>
+      很多人把两者当成同义词，其实它们有明确区别：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>比较维度</th><th>算法 algorithm</th><th>程序 program</th></tr></thead>
+        <tbody>
+          <tr><td>存在形式</td><td>一种解决问题的<b>方法 / 思想</b>，可以脱离语言存在</td><td>用某种程序设计语言写成的<b>具体代码</b></td></tr>
+          <tr><td>有穷性</td><td><b>必须</b>满足，否则不能叫算法</td><td>可以<b>不满足</b>：操作系统、服务器主循环会一直运行</td></tr>
+          <tr><td>描述精度</td><td>可以用自然语言、流程图、伪码描述</td><td>必须严格符合语言的语法与语义</td></tr>
+          <tr><td>是否含 IO / 交互</td><td>只关心「计算」，不关心界面与文件</td><td>可以包含输入输出、图形界面、网络通信</td></tr>
+          <tr><td>关系</td><td colspan="2" style="text-align:center">算法 + 数据结构 + 语言实现 = 程序；一个算法可以有无数个程序实现</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      一句话记住：<b>程序可以永远不结束，算法不行</b>。这也是为什么我们能在纸上分析算法，
+      却往往难以在纸上分析一个完整程序。
+    </p>
+
+    <h3 id="s6-4">1.6.4 评价算法的四个维度</h3>
+    <p>
+      同一个问题往往有很多算法，怎么比？教材给了四个维度，注意它们是有优先级的：
+    </p>
+    <ol>
+      <li>
+        <b>正确性（correctness）</b>——最高优先级。算法应当能正确处理合法输入，并且对典型、
+        苛刻、边界输入都能给出符合规格说明的结果。一个跑得飞快但答案是错的算法，价值是负的。
+      </li>
+      <li>
+        <b>可读性（readability）</b>——第二优先级。算法首先是给人看的，其次才是给机器执行的。
+        可读性差的代码无法维护、无法调试、无法被别人复用。变量名 <code>a1</code>、<code>a2</code>、<code>tmp2</code>
+        泛滥的代码，两周后连作者自己都看不懂。
+      </li>
+      <li>
+        <b>健壮性（robustness）</b>——面对非法输入时的表现。用户输入了负数、字符串、空指针，
+        算法应该给出恰当反应（报错、返回错误码、使用默认值），而不是崩溃或悄悄算出一个错答案。
+      </li>
+      <li>
+        <b>效率（efficiency）</b>——包括<b>时间效率</b>（运行快慢）与<b>存储效率</b>（占用空间大小），
+        两者往往互相矛盾：想快就得多花内存（空间换时间），想省内存就得多算几遍（时间换空间）。
+      </li>
+    </ol>
+    <p>
+      为什么把效率排在最后？因为<b>前三个不达标时，效率毫无意义</b>。但反过来说，
+      当输入规模达到 10⁶、10⁷ 时，效率就成了唯一的瓶颈——一个 O(n²) 的「正确」算法
+      在 n = 10⁶ 时要跑上万亿次操作，根本等不到它输出正确答案。这也是本讲后半部分
+      要花大力气研究复杂度分析的原因。
+    </p>
+
+    <pre data-lang="cpp" data-file="gcd_and_counterexample.cpp">// gcd_and_counterexample.cpp —— 用两个小函数体会「有穷性」与「可行性」
+#include &lt;iostream&gt;
+
+// 欧几里得算法：有穷（余数严格递减）、确定（不含随机与二义）、可行（每步都是基本运算）
+// 复杂度 O(log min(a, b))，是一个各方面都合格的算法
+int gcd(int a, int b) {
+    while (b != 0) {          // 每次迭代 b 至少减半量级，必然终止
+        int r = a % b;
+        a = b;
+        b = r;
+    }
+    return a;
+}
+
+// 反例：以下循环不是算法，因为它不满足有穷性
+// int sumAll() {
+//     int s = 0, i = 1;
+//     while (true) s += i++;   // 永不返回，「求所有自然数之和」在有穷时间内做不到
+//     return s;
+// }
+
+// 反例：以下写法不满足确定性 —— 注释里没有说清「较大」的判定标准
+// int pick(int x, int y) { return x 较大 ? x : y; }
+
+int main() {
+    std::cout &lt;&lt; gcd(1071, 462) &lt;&lt; '\n';   // 21
+    std::cout &lt;&lt; gcd(17, 5) &lt;&lt; '\n';       // 1
+    return 0;
+}
+</pre>
+
+    <h2 id="s7">1.7 算法效率的度量：从掐秒表到渐近分析</h2>
+
+    <h3 id="s7-1">1.7.1 事后统计法 vs 事前分析估算法</h3>
+    <p>
+      想知道一个算法快不快，最直接的办法就是跑一遍看时间。这叫<b>事后统计法</b>。
+      它直观，但作为研究方法几乎不可用，原因有四条：
+    </p>
+    <ol>
+      <li>必须先把程序写出来并跑起来，如果算法本身是错的或写不出来，就无从统计；</li>
+      <li>时间依赖于<b>机器硬件</b>（CPU 主频、缓存大小）、<b>编译选项</b>（<code>-O0</code> 还是 <code>-O2</code>）、
+          <b>运行时环境</b>（有没有别的进程抢 CPU），换个环境结论就变了；</li>
+      <li>测试数据<b>规模太小</b>看不出差别，<b>规模太大</b>又等不起；不测到 n = 10⁶ 以上，
+          往往分辨不出 O(n log n) 和 O(n²)；</li>
+      <li>只能比较「已实现的几个算法」，无法预测「换一种思路会不会更好」。</li>
+    </ol>
+    <p>
+      所以我们改用在纸面上就能做的<b>事前分析估算法</b>：认为算法运行时间正比于<b>其中基本操作的执行次数</b>，
+      只考察当问题规模 n 增大时这个次数的<b>增长趋势</b>，忽略常数与低阶项。
+      这就是「渐近分析」，也是整门课衡量算法优劣的统一语言。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>对比项</th><th>事后统计法</th><th>事前分析估算法</th></tr></thead>
+        <tbody>
+          <tr><td>时机</td><td>程序写完之后</td><td>算法设计阶段即可分析</td></tr>
+          <tr><td>依赖条件</td><td>硬件、编译器、测试数据、运行环境</td><td>只依赖算法本身的控制结构</td></tr>
+          <tr><td>结论形式</td><td>具体毫秒数（会随环境变化）</td><td>渐近量级，如 O(n log n)</td></tr>
+          <tr><td>能否预测大规模行为</td><td class="c-bad">不能</td><td class="c-ok">能，正是它的目的</td></tr>
+          <tr><td>典型用途</td><td>工程调优时最后的实测验证</td><td>算法选型、考试分析、论文比较</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s7-2">1.7.2 语句频度：把「时间」换成一个可以数的量</h3>
+    <p>
+      <b>语句频度（statement frequency）</b>指一条语句在算法中被<b>重复执行的次数</b>。
+      算法中所有语句的频度之和记作 T(n)，它是问题规模 n 的函数。我们约定：
+      <b>T(n) 越大，算法执行时间越长</b>（两者成正比，比例常数由机器决定，我们不去管它）。
+    </p>
+    <p>
+      来看一个最经典的例子，请顺便留意计数口径的问题：
+    </p>
+
+    <pre data-lang="cpp" data-file="count_ops.cpp">// count_ops.cpp —— 亲手统计语句频度，观察 T(n)/n^2 收敛到常数
+#include &lt;iostream&gt;
+#include &lt;iomanip&gt;
+
+// 计数口径：统计「条件判断 + 循环体」这两类语句的执行次数
+long long T(long long n) {
+    long long c = 0;
+    ++c;                                  // 语句 1：long long x = 0;
+    for (long long i = 0; i &lt; n; ++i) {
+        ++c;                              // 语句 2：外层条件判断（成立）  执行 n 次
+        for (long long j = 0; j &lt; n; ++j) {
+            ++c;                          // 语句 3：内层条件判断（成立）  执行 n^2 次
+            ++c;                          // 语句 4：循环体 x++            执行 n^2 次
+        }
+        ++c;                              // 语句 5：内层条件判断（不成立）执行 n 次
+    }
+    ++c;                                  // 语句 6：外层条件判断（不成立）执行 1 次
+    return c;
+}
+
+int main() {
+    std::cout &lt;&lt; std::fixed &lt;&lt; std::setprecision(4);
+    long long ns[] = {1, 2, 5, 10, 100, 1000, 10000};
+    for (long long n : ns) {
+        long long t = T(n);
+        std::cout &lt;&lt; "n = " &lt;&lt; std::setw(6) &lt;&lt; n
+                  &lt;&lt; "   T(n) = " &lt;&lt; std::setw(12) &lt;&lt; t
+                  &lt;&lt; "   T(n)/n^2 = " &lt;&lt; (double)t / (double)(n * n) &lt;&lt; '\n';
+    }
+    return 0;
+}
+// 输出节选：n=1000 时 T(n)=2002002，T(n)/n^2 = 2.0020 —— 比值稳定在 2 附近，
+// 说明 T(n) 与 2n^2 同阶，记作 T(n) = O(n^2)。低阶项 2n+2 在 n 变大后被彻底淹没。
+</pre>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>语句</th><th>执行次数（语句频度）</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>long long c = 0;</code></td><td>1</td><td>只执行一次</td></tr>
+          <tr><td>外层 <code>for</code> 条件判断 <code>i &lt; n</code>（成立）</td><td>n</td><td>每轮外层循环一次</td></tr>
+          <tr><td>外层 <code>for</code> 条件判断（不成立、退出）</td><td>1</td><td>循环退出时多判一次</td></tr>
+          <tr><td>内层 <code>for</code> 条件判断 <code>j &lt; n</code>（成立）</td><td>n²</td><td>外层 n 轮 × 每轮 n 次</td></tr>
+          <tr><td>内层 <code>for</code> 条件判断（不成立）</td><td>n</td><td>外层每轮多判一次</td></tr>
+          <tr><td>循环体 <code>x++</code></td><td>n²</td><td>真正干活的部分</td></tr>
+          <tr><td colspan="2"><b>合计 T(n) = 2n² + 2n + 2</b></td><td class="c-ok">最高阶项：n²</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">为什么不同教材算出的式子不一样？</span>
+      同一段代码，有的教材写成 T(n) = 3n² + 2n + 1，有的写成 2n² + 2n + 2，还有的干脆只算循环体得到 n²。
+      差别就在<b>计数口径</b>：算不算 <code>for</code> 的初始化？算不算最后一次失败的判断？
+      但请注意：<b>无论怎么数，最高阶项都是 n²，系数都是常数</b>。
+      这正是大 O 记号干脆把系数和低阶项全部扔掉的理由——它们本就不携带「增长趋势」的信息。
+    </div>
+
+    <h3 id="s7-3">1.7.3 大 O 记号的严格定义</h3>
+    <p>
+      上面我们反复说「同阶」，现在把它变成一个可以写进证明里的定义。这是本章必须逐字记住的第二个定义：
+    </p>
+    <div class="note exam">
+      <span class="note-title">定义 1-2　大 O 记号（渐进上界）</span>
+      设 f(n) 和 g(n) 是定义在正整数集上的两个函数。若存在<b>正常数 c</b> 和<b>正整数 n₀</b>，
+      使得当 <b>n ≥ n₀</b> 时，恒有
+      <div class="formula center" style="margin:10px 0">0 ≤ f(n) ≤ c · g(n)</div>
+      则称 f(n) 的阶<b>不高于</b> g(n)，记作 <b>f(n) = O(g(n))</b>。
+    </div>
+    <p>把定义拆成三块来看，每一块都有它的用意：</p>
+    <ul>
+      <li><b>「存在正常数 c」</b>：意思是允许你放大任意一个常数倍。因为常数倍只影响「快 3 倍还是慢 5 倍」，
+          不影响「n 翻倍时耗时翻几倍」这种本质差异。</li>
+      <li><b>「存在 n₀，当 n ≥ n₀」</b>：意思是只看<b>足够大</b>的规模。小规模时低阶项可能占主导
+          （比如 n = 3 时 100n 比 n² 大得多），但渐近分析只关心大势。</li>
+      <li><b>「0 ≤ f(n) ≤ c·g(n)」</b>：左边的不等式说明我们只讨论非负的运行时间，
+          右边的 ≤ 说明 <b>c·g(n) 是 f(n) 的天花板</b>。</li>
+    </ul>
+    <p>
+      所以大 O 的本质是：<b>g(n) 是 f(n) 的一个渐进上界（asymptotic upper bound）</b>，
+      f 的增长<b>不会快于</b> g。注意「上界」不等于「恰好等于」：
+    </p>
+    <div class="formula">
+      3n² + 2n + 1 = O(n²)　✔　（取 c = 6、n₀ = 1 即可：3n²+2n+1 ≤ 6n² 对 n ≥ 1 成立）<br>
+      3n² + 2n + 1 = O(n³)　✔　（上界可以很松，c = 1、n₀ = 6）<br>
+      3n² + 2n + 1 = O(2ⁿ)　✔　（更松的上界，没人这么写，但定义上成立）
+    </div>
+    <p>
+      既然 3n²+2n+1 同时等于 O(n²)、O(n³)、O(2ⁿ)，那等号岂不是失效了？没错——
+      大 O 里的「=」<b>不是等价关系，而应当读作「属于」</b>。
+      严格的写法是 f(n) ∈ O(g(n))，表示 f 这个函数<b>落在</b> O(g) 这个函数集合里。
+      只是习惯上我们写等号，读作「是……阶的」。我们平时说「这个算法是 O(n²) 的」，
+      隐含的意思是「这是我们能给出的<b>最紧的</b>上界」。
+    </p>
+
+    <h3 id="s7-4">1.7.4 顺带认识 Ω 与 Θ：下界与紧确界</h3>
+    <p>
+      大 O 只描述上界，那么「至少要花多少时间」呢？这就要用到 Ω；而当我们既能给出上界又能给出下界时，
+      就用 Θ 把两者合起来。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>记号</th><th>名称</th><th>形式化定义</th><th>直观含义</th><th>例子</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>O</b></td>
+            <td>渐进上界<br><span class="tag">upper bound</span></td>
+            <td>存在 c &gt; 0、n₀ &gt; 0，使 n ≥ n₀ 时 0 ≤ f(n) ≤ c·g(n)</td>
+            <td>f 增长<b>不快于</b> g（最坏也就这样）</td>
+            <td>冒泡排序 = O(n²)</td>
+          </tr>
+          <tr>
+            <td><b>Ω</b></td>
+            <td>渐进下界<br><span class="tag">lower bound</span></td>
+            <td>存在 c &gt; 0、n₀ &gt; 0，使 n ≥ n₀ 时 0 ≤ c·g(n) ≤ f(n)</td>
+            <td>f 增长<b>不慢于</b> g（至少要这么多）</td>
+            <td>比较排序 = Ω(n log n)</td>
+          </tr>
+          <tr>
+            <td><b>Θ</b></td>
+            <td>渐进紧确界<br><span class="tag">tight bound</span></td>
+            <td>存在 c₁, c₂ &gt; 0、n₀ &gt; 0，使 n ≥ n₀ 时 c₁·g(n) ≤ f(n) ≤ c₂·g(n)</td>
+            <td>f 与 g <b>同阶</b>（把 f 夹在两条 c·g 之间）</td>
+            <td>归并排序 = Θ(n log n)</td>
+          </tr>
+          <tr>
+            <td><b>o / ω</b></td>
+            <td>严格上界 / 严格下界</td>
+            <td>对<b>任意</b> c &gt; 0 都成立（相当于不取等号）</td>
+            <td>f 严格地比 g 低阶 / 高阶</td>
+            <td>n = o(n log n)，n log n = ω(n)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      三者的关系一句话说清：<b>Θ(g) = O(g) ∩ Ω(g)</b>。
+      如果一个算法既满足 f = O(g) 又满足 f = Ω(g)，那么 f = Θ(g)。
+      例如 3n² + 2n + 1：它既是 O(n²) 又是 Ω(n²)，所以是 Θ(n²)——这才是关于它最准确的描述。
+    </p>
+    <p>
+      那为什么本课程（以及绝大多数工程讨论）几乎只用大 O？因为估计算法时我们最怕的是「最坏情况会有多糟」，
+      上界正是回答这个问题的；并且很多时候下界并不容易证明。
+      例如第 12 讲要讲的<b>比较排序下界 Ω(n log n)</b>，就是靠一棵决策树的叶子数才证出来的，
+      那是全课程里少见的高难度证明。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 292" width="900" height="292" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="大O、Omega、Theta 的几何含义">
+        <!-- 面板 1：大 O -->
+        <rect x="142" y="44" width="123" height="188" fill="var(--brand-soft)" opacity="0.65"/>
+        <line x1="40" y1="232" x2="280" y2="232" class="fg-axis"/>
+        <line x1="40" y1="232" x2="40" y2="44" class="fg-axis"/>
+        <path d="M20,200 L265,70" class="fg-c2"/>
+        <path d="M20,120 L265,150" class="fg-c4"/>
+        <line x1="142" y1="232" x2="142" y2="44" class="fg-eo" stroke-dasharray="5 4"/>
+        <text x="262" y="62" class="fg-l" text-anchor="end">c·g(n)</text>
+        <text x="262" y="176" class="fg-l" text-anchor="end">f(n)</text>
+        <text x="142" y="248" class="fg-lm">n0</text>
+        <text x="150" y="270" class="fg-bm">f(n) = O(g(n))：上界</text>
+        <text x="150" y="288" class="fg-lm">n ≥ n0 后 f 被 c·g 压住</text>
+
+        <!-- 面板 2：大 Omega -->
+        <rect x="442" y="44" width="123" height="188" fill="var(--warn-soft)" opacity="0.8"/>
+        <line x1="340" y1="232" x2="580" y2="232" class="fg-axis"/>
+        <line x1="340" y1="232" x2="340" y2="44" class="fg-axis"/>
+        <path d="M320,120 L565,150" class="fg-c2"/>
+        <path d="M320,200 L565,70" class="fg-c4"/>
+        <line x1="442" y1="232" x2="442" y2="44" class="fg-eo" stroke-dasharray="5 4"/>
+        <text x="562" y="168" class="fg-l" text-anchor="end">c·g(n)</text>
+        <text x="562" y="62" class="fg-l" text-anchor="end">f(n)</text>
+        <text x="442" y="248" class="fg-lm">n0</text>
+        <text x="450" y="270" class="fg-bm">f(n) = Ω(g(n))：下界</text>
+        <text x="450" y="288" class="fg-lm">n ≥ n0 后 f 始终高于 c·g</text>
+
+        <!-- 面板 3：大 Theta -->
+        <rect x="790" y="44" width="75" height="188" fill="var(--ok-soft)" opacity="0.9"/>
+        <line x1="640" y1="232" x2="880" y2="232" class="fg-axis"/>
+        <line x1="640" y1="232" x2="640" y2="44" class="fg-axis"/>
+        <path d="M620,140 L865,50" class="fg-c2"/>
+        <path d="M620,150 L865,95" class="fg-c4"/>
+        <path d="M620,180 L865,145" class="fg-c2"/>
+        <line x1="790" y1="232" x2="790" y2="44" class="fg-eo" stroke-dasharray="5 4"/>
+        <text x="862" y="42" class="fg-l" text-anchor="end">c2·g(n)</text>
+        <text x="862" y="112" class="fg-l" text-anchor="end">f(n)</text>
+        <text x="862" y="164" class="fg-l" text-anchor="end">c1·g(n)</text>
+        <text x="790" y="248" class="fg-lm">n0</text>
+        <text x="750" y="270" class="fg-bm">f(n) = Θ(g(n))：紧确界</text>
+        <text x="750" y="288" class="fg-lm">f 被两条 c·g 夹在中间</text>
+
+        <line x1="300" y1="30" x2="300" y2="256" class="fg-grid" stroke-dasharray="4 5"/>
+        <line x1="600" y1="30" x2="600" y2="256" class="fg-grid" stroke-dasharray="4 5"/>
+      </svg>
+      <figcaption>图 1-11　O、Ω、Θ 的几何含义：只有当 n ≥ n₀ 时，不等式才开始稳定成立</figcaption>
+    </div>
+
+    <h3 id="s7-5">1.7.5 推导大 O 的三条法则</h3>
+    <p>
+      有了定义，实际计算时并不需要每次都去找 c 和 n₀。下面三条法则可以让你在几秒内写出答案，
+      它们全都可以由定义直接证明。
+    </p>
+
+    <div class="card">
+      <h3 id="s7-6" style="margin-top:0">法则一　加法法则：只保留最高阶项</h3>
+      <p>
+        若 T(n) = T₁(n) + T₂(n)，且 T₁(n) = O(f(n))、T₂(n) = O(g(n))，
+        则 <b>T(n) = O(max(f(n), g(n)))</b>。
+      </p>
+      <p style="margin-bottom:0">
+        为什么？设 f 是较高阶的那个，那么 f(n) + g(n) ≤ f(n) + f(n) = 2f(n)（当 n 足够大时 g 不超过 f），
+        取 c = 2 即可。这说明<b>低阶项被高阶项吸收</b>：
+        <code>T(n) = n³ + 100n² + 5000n</code>，当 n = 10⁴ 时 n³ = 10¹²，而后两项加起来才 1.5×10⁷，
+        占比百万分之十五，完全可以忽略。
+      </p>
+    </div>
+
+    <div class="card">
+      <h3 id="s7-7" style="margin-top:0">法则二　乘法法则：忽略常数系数</h3>
+      <p>
+        对任意正常数 c，有 <b>O(c · f(n)) = O(f(n))</b>。
+      </p>
+      <p style="margin-bottom:0">
+        因为 c 只是个放大倍数，不改变增长趋势：<code>3n²</code>、<code>n²/2</code>、<code>100n²</code>
+        全是 O(n²)。这条法则还告诉我们<b>嵌套循环的复杂度是各层相乘</b>：
+        外层 O(f)、内层 O(g)，总复杂度 O(f·g)。例如外层 n 次、内层 log n 次，结果就是 O(n log n)。
+      </p>
+    </div>
+
+    <div class="card">
+      <h3 id="s7-8" style="margin-top:0">法则三　常数一律记为 O(1)</h3>
+      <p>
+        无论一个操作要执行 1 次还是 1000 次，只要这个次数<b>与 n 无关</b>，就是 <b>O(1)</b>，称为常量级。
+      </p>
+      <p style="margin-bottom:0">
+        请特别注意：<b>O(1) 不是「只执行一次」</b>。两条语句是 O(1)，
+        一万条不含循环的语句也是 O(1)；哈希表的一次查找平均也是 O(1)。
+        同理，<b>O(n) 里的 n 不一定是数组长度</b>——在图算法里它经常是顶点数 V 或边数 E，
+        在串算法里是串长 m、n。写复杂度时必须说清 n 指的是什么。
+      </p>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">速算流程（考试直接用）</span>
+      <b>第一步</b>：找出代码里与 n 有关的循环 / 递归，写出频度表达式；
+      <b>第二步</b>：把所有系数、低阶项、常数项删掉，只留最高阶项；
+      <b>第三步</b>：检查有没有嵌套相乘、有没有对数因子（循环变量倍增 / 折半）。
+      三步走完，答案自然落地。接下来我们就用 8 道例题把这套流程练到条件反射。
+    </div>
+
+    <h2 id="s8">1.8 八道例题：手把手推导大 O</h2>
+
+    <p>
+      下面 8 道例题由浅入深，覆盖了考试和面试中 95% 的复杂度分析场景。每道题的格式都是固定的：
+      <b>代码 → 逐行计数表 → 频度求和 → 化简得阶</b>。请务必自己先遮住答案推一遍，
+      推不出来再看我的过程——只看不推，等于没学。
+    </p>
+    <div class="note">
+      <span class="note-title">本题组的分析口径（三句话约定）</span>
+      ① 只统计与规模 n 有关的语句；<b>for 的条件判断执行次数 = 循环执行次数 + 1</b>（最后一次判假）；
+      ② 变量初始化、单条赋值、比较、四则运算都视为 O(1) 的基本操作；
+      ③ 得到精确频度表达式后，<b>删系数、删低阶、只留最高阶</b>，得到大 O。
+    </div>
+
+    <h3 id="ex1">例 1　单层 for 循环 —— O(n)</h3>
+    <pre data-lang="cpp" data-file="ex1_single_loop.cpp">// ex1_single_loop.cpp —— 单层循环：频度与 n 成正比
+#include &lt;iostream&gt;
+
+long long sumTo(int n) {
+    long long sum = 0;                    // ① 执行 1 次
+    for (int i = 1; i &lt;= n; ++i) {        // ② 条件判断执行 n + 1 次；++i 执行 n 次
+        sum += i;                         // ③ 执行 n 次
+    }
+    return sum;                           // ④ 执行 1 次
+}
+
+int main() {
+    std::cout &lt;&lt; sumTo(100) &lt;&lt; '\n';       // 5050
+    return 0;
+}
+</pre>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>语句</th><th>频度</th><th>化简后</th></tr></thead>
+        <tbody>
+          <tr><td>① <code>sum = 0</code></td><td>1</td><td>1</td></tr>
+          <tr><td>② 条件判断 <code>i &lt;= n</code></td><td>n + 1</td><td>n</td></tr>
+          <tr><td>② <code>++i</code></td><td>n</td><td>n</td></tr>
+          <tr><td>③ <code>sum += i</code></td><td>n</td><td>n</td></tr>
+          <tr><td>④ <code>return sum</code></td><td>1</td><td>1</td></tr>
+          <tr><td colspan="2"><b>T(n) = 3n + 4</b></td><td class="c-ok"><b>O(n)</b>，线性阶</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>变体思考</b>：如果写成 <code>for (int i = 1; i &lt;= n; i += 2)</code>，循环次数变成约 n/2，
+      T(n) = 1.5n + 4，仍然是 <b>O(n)</b>——因为常数系数 0.5 被法则二吃掉了。
+      这也是「O(1) 里的一万条语句仍是 O(1)」的同一个道理。
+    </p>
+
+    <h3 id="ex2">例 2　双层嵌套 —— O(n²)</h3>
+    <pre data-lang="cpp" data-file="ex2_double_loop.cpp">// ex2_double_loop.cpp —— 双层嵌套：总次数 = 外层 × 内层
+#include &lt;iostream&gt;
+
+long long countPairs(int n) {
+    long long cnt = 0;                       // 1
+    for (int i = 1; i &lt;= n; ++i) {           // 条件判断 n + 1 次
+        for (int j = 1; j &lt;= n; ++j) {       // 条件判断 n * (n + 1) 次
+            ++cnt;                           // n * n 次
+        }
+    }
+    return cnt;
+}
+
+// 变体：内层依赖外层（三角形循环），次数减半但阶不变
+long long countTriples(int n) {
+    long long cnt = 0;
+    for (int i = 1; i &lt;= n; ++i)
+        for (int j = 1; j &lt;= i; ++j)         // 内层次数 = i
+            ++cnt;                           // 总次数 = 1 + 2 + ... + n = n(n+1)/2
+    return cnt;
+}
+
+int main() {
+    std::cout &lt;&lt; countPairs(100) &lt;&lt; '\n';    // 10000
+    std::cout &lt;&lt; countTriples(100) &lt;&lt; '\n';  // 5050
+    return 0;
+}
+</pre>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>语句</th><th>频度</th><th>化简后</th></tr></thead>
+        <tbody>
+          <tr><td><code>cnt = 0</code></td><td>1</td><td>1</td></tr>
+          <tr><td>外层条件判断 <code>i &lt;= n</code></td><td>n + 1</td><td>n</td></tr>
+          <tr><td>内层条件判断 <code>j &lt;= n</code></td><td>n × (n + 1) = n² + n</td><td>n²</td></tr>
+          <tr><td><code>++cnt</code></td><td>n × n = n²</td><td>n²</td></tr>
+          <tr><td colspan="2"><b>T(n) = 2n² + 2n + 2</b></td><td class="c-ok"><b>O(n²)</b>，平方阶</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>变体思考</b>：<code>countTriples</code> 的总次数是 n(n+1)/2 = 0.5n² + 0.5n，
+      比 n² 少了一半，但阶仍然是 <b>O(n²)</b>。<b>系数减半不改变阶</b>——
+      这是初学者最容易犯的错：看到「内层从 j ≤ i 变成 j ≤ n/2」就以为复杂度降级了，
+      其实还是同一量级。只有当「n 出现在指数或对数位置」时，改动才可能改变阶。
+    </p>
+
+    <h3 id="ex3">例 3　三层嵌套（三角形）—— O(n³)</h3>
+    <pre data-lang="cpp" data-file="ex3_triple_loop.cpp">// ex3_triple_loop.cpp —— 三层三角形嵌套：组合数 C(n+2, 3)
+#include &lt;iostream&gt;
+
+long long countTriples(int n) {
+    long long cnt = 0;
+    for (int i = 1; i &lt;= n; ++i)
+        for (int j = 1; j &lt;= i; ++j)
+            for (int k = 1; k &lt;= j; ++k)
+                ++cnt;                        // 执行次数 = 满足 1 &lt;= k &lt;= j &lt;= i &lt;= n 的三元组个数
+    return cnt;
+}
+
+int main() {
+    std::cout &lt;&lt; countTriples(10) &lt;&lt; '\n';     // 220 = C(12,3)
+    std::cout &lt;&lt; countTriples(100) &lt;&lt; '\n';    // 171700
+    return 0;
+}
+</pre>
+    <p>最内层语句的执行次数是一个三重求和，逐层求和即可：</p>
+    <div class="formula">
+      T(n) = Σ<sub>i=1..n</sub> Σ<sub>j=1..i</sub> j
+      = Σ<sub>i=1..n</sub> i(i+1)/2
+      = ½ ( Σ i² + Σ i )
+      = ½ ( n(n+1)(2n+1)/6 + n(n+1)/2 )
+      = n(n+1)(n+2) / 6
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>求和步骤</th><th>结果</th><th>化简</th></tr></thead>
+        <tbody>
+          <tr><td>最内层 <code>k</code> 循环</td><td>j 次</td><td>j</td></tr>
+          <tr><td>对 j 求和 <code>Σ_{j≤i} j</code></td><td>i(i+1)/2</td><td>0.5i² + 0.5i</td></tr>
+          <tr><td>对 i 求和（用 Σi² 与 Σi 公式）</td><td>n(n+1)(n+2)/6</td><td>n³/6 + n²/2 + n/3</td></tr>
+          <tr><td colspan="2"><b>T(n) = n³/6 + n²/2 + n/3</b></td><td class="c-ok"><b>O(n³)</b>，立方阶</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>结论</b>：三角形嵌套比满嵌套少了 6 倍，但阶完全一样。这也解释了为什么
+      「三重循环」几乎总意味着 O(n³)：n = 1000 时是 10⁹ 量级，普通电脑要跑好几秒；
+      n = 10⁴ 时是 10¹² 量级，必须换算法。
+    </p>
+
+    <h3 id="ex4">例 4　循环变量倍增 —— O(log n)</h3>
+    <pre data-lang="cpp" data-file="ex4_double_step.cpp">// ex4_double_step.cpp —— 倍增型循环：循环次数是对数级的
+#include &lt;iostream&gt;
+
+int steps(int n) {
+    int cnt = 0;
+    for (int i = 1; i &lt; n; i *= 2) ++cnt;    // i 依次为 1, 2, 4, 8, ..., 2^k
+    return cnt;
+}
+
+int stepsDiv(int n) {
+    int cnt = 0;
+    for (int i = n; i &gt; 1; i /= 2) ++cnt;    // i 依次为 n, n/2, n/4, ...
+    return cnt;
+}
+
+int main() {
+    std::cout &lt;&lt; steps(1000) &lt;&lt; '\n';         // 10：因为 2^10 = 1024 &gt; 1000
+    std::cout &lt;&lt; stepsDiv(1000) &lt;&lt; '\n';      // 9
+    return 0;
+}
+</pre>
+    <p>关键是找出循环变量 i 的通项，再让它满足退出条件：</p>
+    <div class="formula">
+      第 k 次迭代时 i = 2<sup>k</sup>（k 从 0 开始）→ 退出条件 2<sup>k</sup> ≥ n
+      → k ≥ log<sub>2</sub>n → 循环次数 ≈ log<sub>2</sub>n + 1
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>迭代次数 k</th><th>i 的值</th><th>是否继续</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>1</td><td>1 &lt; n，继续</td></tr>
+          <tr><td>1</td><td>2</td><td>继续</td></tr>
+          <tr><td>2</td><td>4</td><td>继续</td></tr>
+          <tr><td>…</td><td>…</td><td>…</td></tr>
+          <tr><td>k</td><td>2<sup>k</sup></td><td>当 2<sup>k</sup> ≥ n 时退出</td></tr>
+          <tr><td colspan="2"><b>T(n) = ⌊log₂n⌋ + 1</b></td><td class="c-ok"><b>O(log n)</b>，对数阶</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>变体思考</b>：把 <code>i *= 2</code> 换成 <code>i *= 3</code>，次数变为 log₃n。
+      由换底公式 log₃n = log₂n / log₂3，只差一个常数因子，所以<b>大 O 记号里对数的底数可以省略</b>，
+      一律写成 O(log n)。这是面试常问的一个细节。另外，<code>i /= 2</code> 的写法次数为
+      ⌊log₂n⌋（n = 1000 时为 9），与倍增写法一致，同为 O(log n)。
+    </p>
+
+    <h3 id="ex5">例 5　循环变量自乘（开方型）—— O(log log n)</h3>
+    <pre data-lang="cpp" data-file="ex5_sqrt.cpp">// ex5_sqrt.cpp —— 循环变量以自身为倍数增长 / 自身开方：双对数级
+#include &lt;iostream&gt;
+#include &lt;cmath&gt;
+
+int stepsSquare(int n) {
+    int cnt = 0;
+    for (int i = 2; i &lt; n; i = i * i) ++cnt;   // i: 2, 4, 16, 256, 65536, ...
+    return cnt;
+}
+
+int stepsSqrt(int n) {
+    int cnt = 0;
+    for (int i = n; i &gt; 1; i = (int)std::sqrt((double)i)) ++cnt;  // i: n, √n, n^(1/4), ...
+    return cnt;
+}
+
+int main() {
+    std::cout &lt;&lt; stepsSquare(1000000) &lt;&lt; '\n';   // 4：2 → 4 → 16 → 256 → 65536
+    std::cout &lt;&lt; stepsSqrt(1000000) &lt;&lt; '\n';     // 4：10^6 → 10^3 → 31 → 5 → 2
+    return 0;
+}
+</pre>
+    <p>
+      这类循环的规律是「<b>每次把指数翻倍</b>」，通项里会出现 2 的 2 的幂：
+    </p>
+    <div class="formula">
+      i 的取值：2<sup>1</sup>, 2<sup>2</sup>, 2<sup>4</sup>, 2<sup>8</sup>, … 即第 k 次迭代时 i = 2<sup>2<sup>k</sup></sup><br>
+      退出条件 2<sup>2<sup>k</sup></sup> ≥ n ⟺ 2<sup>k</sup> ≥ log<sub>2</sub>n ⟺ k ≥ log<sub>2</sub>log<sub>2</sub>n
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>迭代次数 k</th><th>i 的值</th><th>与 n 的关系</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>2</td><td>—</td></tr>
+          <tr><td>1</td><td>4 = 2²</td><td>—</td></tr>
+          <tr><td>2</td><td>16 = 2⁴</td><td>—</td></tr>
+          <tr><td>3</td><td>256 = 2⁸</td><td>—</td></tr>
+          <tr><td>4</td><td>65536 = 2¹⁶</td><td>已超过 10⁶，退出</td></tr>
+          <tr><td>k</td><td>2<sup>2<sup>k</sup></sup></td><td>当 2<sup>2<sup>k</sup></sup> ≥ n 时退出</td></tr>
+          <tr><td colspan="2"><b>T(n) = ⌊log₂log₂n⌋ + 1</b></td><td class="c-ok"><b>O(log log n)</b>，双对数阶</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>为什么它值得单独记一档？</b>因为 O(log log n) 增长慢得惊人：n = 10⁶ 时才 4 次，
+      n = 10⁹ 时才 5 次，n 取到宇宙原子总数（约 10⁸⁰）也不过 8 次。
+      埃拉托斯特尼筛法（埃氏筛）求 n 以内全部素数的复杂度是 O(n log log n)，
+      其中那个 log log n 正来自这种「标记倍数」的循环结构——第 13 讲会再见到它。
+    </p>
+
+    <h3 id="ex6">例 6　递归式 T(n) = T(n−1) + O(1) —— O(n)</h3>
+    <pre data-lang="cpp" data-file="ex6_recursive_linear.cpp">// ex6_recursive_linear.cpp —— 线性递归：每次只把规模减 1
+#include &lt;iostream&gt;
+
+// 求 1 + 2 + ... + n
+long long sumRec(int n) {
+    if (n &lt;= 0) return 0;                 // 递归基：O(1)，只执行最后一次
+    return n + sumRec(n - 1);             // 本层 O(1) 加法 + 规模 n-1 的子问题
+}
+
+// 对照：同样功能的迭代版，时间同为 O(n)，但空间只需 O(1)
+long long sumIter(int n) {
+    long long s = 0;
+    for (int i = 1; i &lt;= n; ++i) s += i;
+    return s;
+}
+
+int main() {
+    std::cout &lt;&lt; sumRec(100) &lt;&lt; '\n';        // 5050
+    std::cout &lt;&lt; sumIter(100) &lt;&lt; '\n';       // 5050
+    return 0;
+}
+</pre>
+    <p>递推式用「展开法」求解：把 T(n−1) 反复代入，直到触底：</p>
+    <div class="formula">
+      T(n) = T(n−1) + c<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= T(n−2) + 2c<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= T(n−3) + 3c<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= … = T(0) + n·c = O(n)
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>递归层次 k</th><th>当前规模</th><th>本层代价</th><th>累计代价</th><th>栈帧数</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>n</td><td>c</td><td>c</td><td>1</td></tr>
+          <tr><td>1</td><td>n−1</td><td>c</td><td>2c</td><td>2</td></tr>
+          <tr><td>2</td><td>n−2</td><td>c</td><td>3c</td><td>3</td></tr>
+          <tr><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+          <tr><td>n</td><td>0（触底）</td><td>c</td><td>(n+1)c</td><td>n+1</td></tr>
+          <tr><td colspan="3"><b>T(n) = (n+1)c</b></td><td colspan="2" class="c-ok"><b>时间 O(n)，空间 O(n)</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note danger">
+      <span class="note-title">递归的时间与空间要分开看</span>
+      这道题的<b>时间</b>是 O(n)，但<b>空间</b>不是 O(1)——每深入一层就要压一个栈帧，
+      最大深度 n，所以空间复杂度是 <b>O(n)</b>。同样功能的迭代版 <code>sumIter</code>
+      时间 O(n)、空间 O(1)。这就是 1.11 节要讲的「递归栈空间必须计入 S(n)」。
+      另外，n 很大时递归会爆栈（一般 n 超过 10⁵ 就要警惕），这也是工程上优先写迭代的原因。
+    </div>
+
+    <h3 id="ex7">例 7　递归式 T(n) = 2T(n/2) + O(n) —— O(n log n)</h3>
+    <p>
+      这是<b>分治法</b>的典型形态：把问题一分为二（2 个规模 n/2 的子问题），
+      再花线性时间把两半结果合起来。归并排序、快速排序的平均情况都是这个式子。
+    </p>
+    <pre data-lang="cpp" data-file="ex7_merge_sort.cpp">// ex7_merge_sort.cpp —— 归并排序：T(n) = 2T(n/2) + Θ(n) = O(n log n)
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+
+void mergeSort(std::vector&lt;int&gt;&amp; a, int l, int r, std::vector&lt;int&gt;&amp; buf) {
+    if (r - l &lt;= 1) return;                       // 递归基：规模 &lt;= 1 已有序，O(1)
+    int m = l + (r - l) / 2;                      // 分：O(1)
+    mergeSort(a, l, m, buf);                      // 治：T(n/2)
+    mergeSort(a, m, r, buf);                      // 治：T(n/2)
+    int i = l, j = m, k = l;                      // 合：Θ(n)
+    while (i &lt; m &amp;&amp; j &lt; r) buf[k++] = (a[i] &lt;= a[j]) ? a[i++] : a[j++];
+    while (i &lt; m) buf[k++] = a[i++];
+    while (j &lt; r) buf[k++] = a[j++];
+    for (int t = l; t &lt; r; ++t) a[t] = buf[t];
+}
+
+int main() {
+    std::vector&lt;int&gt; a = {5, 2, 9, 1, 7, 3, 8, 4, 6, 0};
+    std::vector&lt;int&gt; buf(a.size());
+    mergeSort(a, 0, (int)a.size(), buf);
+    for (int v : a) std::cout &lt;&lt; v &lt;&lt; ' ';
+    std::cout &lt;&lt; '\n';                              // 0 1 2 3 4 5 6 7 8 9
+    return 0;
+}
+</pre>
+    <p>用<b>递归树</b>展开最直观：每一层的合并总代价都是 n，层数是对数级。</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>层次 k</th><th>子问题个数</th><th>每个子问题规模</th><th>本层总代价</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>1</td><td>n</td><td>n</td></tr>
+          <tr><td>1</td><td>2</td><td>n/2</td><td>2 × n/2 = n</td></tr>
+          <tr><td>2</td><td>4</td><td>n/4</td><td>4 × n/4 = n</td></tr>
+          <tr><td>k</td><td>2<sup>k</sup></td><td>n/2<sup>k</sup></td><td>2<sup>k</sup> × n/2<sup>k</sup> = n</td></tr>
+          <tr><td>log₂n（触底）</td><td>n</td><td>1</td><td>n</td></tr>
+          <tr><td colspan="3"><b>T(n) = n × (log₂n + 1)</b></td><td class="c-ok"><b>O(n log n)</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="formula">
+      T(n) = 2T(n/2) + cn = 4T(n/4) + 2cn = … = 2<sup>k</sup>T(n/2<sup>k</sup>) + k·cn，
+      令 n/2<sup>k</sup> = 1 得 k = log₂n，故 T(n) = n·T(1) + cn·log₂n = O(n log n)
+    </div>
+    <p>
+      <b>为什么它比 O(n²) 强这么多？</b>因为每层只做 n 次合并，而层数只有 log₂n。
+      n = 10⁶ 时，n log n ≈ 2×10⁷，n² = 10¹²，相差 5 万倍。
+      第 12 讲会讲<b>主定理（Master Theorem）</b>，用它可以一眼写出这类递推式的解，
+      不必每次画树。
+    </p>
+
+    <h3 id="ex8">例 8　递归式 T(n) = T(n/2) + O(1) —— O(log n)</h3>
+    <p>
+      这是「每次砍掉一半」的形态，二分查找是它的标准代表。
+      它比例 7 更妙的地方在于：<b>每层只需常数时间</b>，所以只剩层数一个因子。
+    </p>
+    <pre data-lang="cpp" data-file="ex8_binary_search.cpp">// ex8_binary_search.cpp —— 二分查找：T(n) = T(n/2) + O(1) = O(log n)
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+
+// 递归版：递推式 T(n) = T(n/2) + O(1)
+int bsearchRec(const std::vector&lt;int&gt;&amp; a, int l, int r, int key) {
+    if (l &gt; r) return -1;                              // 递归基：O(1)
+    int m = l + (r - l) / 2;                           // O(1)，写成这样可防 l+r 溢出
+    if (a[m] == key) return m;                         // O(1)
+    if (a[m] &lt; key) return bsearchRec(a, m + 1, r, key);   // 只走一边：T(n/2)
+    return bsearchRec(a, l, m - 1, key);                   // 只走一边：T(n/2)
+}
+
+// 迭代版：循环次数 = 把 n 折半到 1 需要几步 = log2(n)
+int bsearchIter(const std::vector&lt;int&gt;&amp; a, int key) {
+    int l = 0, r = (int)a.size() - 1;
+    while (l &lt;= r) {
+        int m = l + (r - l) / 2;
+        if (a[m] == key) return m;
+        if (a[m] &lt; key) l = m + 1;
+        else            r = m - 1;
+    }
+    return -1;
+}
+
+int main() {
+    std::vector&lt;int&gt; a = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19};
+    std::cout &lt;&lt; bsearchRec(a, 0, (int)a.size() - 1, 7) &lt;&lt; '\n';   // 3
+    std::cout &lt;&lt; bsearchIter(a, 19) &lt;&lt; '\n';                     // 9
+    std::cout &lt;&lt; bsearchIter(a, 8) &lt;&lt; '\n';                      // -1（不存在）
+    return 0;
+}
+</pre>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>递归层次 k</th><th>剩余规模</th><th>本层代价</th><th>累计代价</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>n</td><td>c</td><td>c</td></tr>
+          <tr><td>1</td><td>n/2</td><td>c</td><td>2c</td></tr>
+          <tr><td>2</td><td>n/4</td><td>c</td><td>3c</td></tr>
+          <tr><td>k</td><td>n/2<sup>k</sup></td><td>c</td><td>(k+1)c</td></tr>
+          <tr><td>log₂n（触底）</td><td>1</td><td>c</td><td>(log₂n + 1)c</td></tr>
+          <tr><td colspan="3"><b>T(n) = c·(log₂n + 1)</b></td><td class="c-ok"><b>O(log n)</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>注意一个前提</b>：二分查找要求数据<b>有序且支持随机访问</b>。所以在链表上做二分查找是没有意义的
+      ——找到中点本身就要 O(n)，总复杂度反而退化成 O(n log n)。
+      这又是一个「存储结构决定算法能否成立」的例子。
+    </p>
+
+    <h3 id="ex-sum">1.8.1 八道例题速查表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>代码形态</th><th>频度 / 递推式</th><th>推导关键</th><th>结果</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>单层 for</td><td>T(n) = 3n + 4</td><td>循环体执行 n 次</td><td class="c-ok">O(n)</td></tr>
+          <tr><td>2</td><td>双层嵌套</td><td>T(n) = 2n² + 2n + 2</td><td>外层 n × 内层 n</td><td class="c-ok">O(n²)</td></tr>
+          <tr><td>3</td><td>三层三角形嵌套</td><td>T(n) = n(n+1)(n+2)/6</td><td>三重求和 + Σi² 公式</td><td class="c-ok">O(n³)</td></tr>
+          <tr><td>4</td><td><code>i *= 2</code> / <code>i /= 2</code></td><td>k ≈ log₂n + 1</td><td>通项 i = 2<sup>k</sup></td><td class="c-ok">O(log n)</td></tr>
+          <tr><td>5</td><td><code>i = i * i</code> / <code>i = √i</code></td><td>k ≈ log₂log₂n + 1</td><td>通项 i = 2<sup>2<sup>k</sup></sup></td><td class="c-ok">O(log log n)</td></tr>
+          <tr><td>6</td><td>线性递归 T(n) = T(n−1) + c</td><td>T(n) = (n+1)c</td><td>展开法，触底 T(0)</td><td class="c-ok">O(n)，空间 O(n)</td></tr>
+          <tr><td>7</td><td>归并排序 T(n) = 2T(n/2) + cn</td><td>T(n) = n(log₂n + 1)</td><td>递归树每层代价都是 n</td><td class="c-ok">O(n log n)</td></tr>
+          <tr><td>8</td><td>二分查找 T(n) = T(n/2) + c</td><td>T(n) = c(log₂n + 1)</td><td>每层常数代价 × log 层</td><td class="c-ok">O(log n)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note tip">
+      <span class="note-title">把它们连成一句话</span>
+      看到循环就问「<b>循环体执行多少次</b>」：与 n 成正比 → O(n)；是嵌套的乘积 → 相乘；
+      变量倍增或折半 → 出现 log；变量自乘或开方 → 出现 log log。
+      看到递归就问「<b>分几个子问题、每个规模多大、合并要多久</b>」：
+      一个子问题规模减 1 → O(n)；一个子问题规模减半 → O(log n)；
+      两个子问题各减半 + 线性合并 → O(n log n)。
+    </div>
+
+    <h2 id="s9">1.9 最好、最坏与平均时间复杂度</h2>
+
+    <h3 id="s9-1">1.9.1 为什么同一个算法会有三个复杂度</h3>
+    <p>
+      算法运行时间不仅与<b>问题规模 n</b> 有关，还与<b>输入数据的具体形态</b>有关。
+      同样是顺序查找，要找的元素恰好在第一个位置，与恰好在最后一个位置，比较次数差了 n 倍。
+      如果只给一个笼统的「复杂度」，这个信息就丢失了。于是我们分三种口径：
+    </p>
+    <ul>
+      <li><b>最好情况（best case）</b>：在所有规模为 n 的输入中，使算法执行<b>最少</b>基本操作的输入所对应的复杂度。
+          它给出的是乐观下界，实用价值有限，但可以用来判断「最理想能到多快」。</li>
+      <li><b>最坏情况（worst case）</b>：使算法执行<b>最多</b>基本操作的输入所对应的复杂度。
+          它给出的是<b>保证</b>——「无论输入多恶劣，都不会比这个更慢」。
+          实时系统、竞赛做题、工程 SLA 都以最坏情况为准。</li>
+      <li><b>平均情况（average case）</b>：在所有可能的输入上，按出现概率对操作次数做<b>加权平均</b>。
+          它最贴近真实体验，但需要假设输入的概率分布，数学上也最难算。</li>
+    </ul>
+    <p>
+      在没有特别说明时，我们平常说的「这个算法是 O(?) 的」，默认指<b>最坏情况</b>。
+      因为最坏情况最容易分析（构造一个最差输入即可），而且是唯一能给用户承诺的指标。
+    </p>
+
+    <h3 id="s9-2">1.9.2 顺序查找：把平均情况算到底</h3>
+    <p>
+      顺序查找（sequential search）从表头开始逐个比较，找到就返回下标。
+      设表长为 n，数组下标 1 ～ n，要找的元素为 key。分析前先做两条假设：
+    </p>
+    <ol>
+      <li>表中元素互不相同；</li>
+      <li><b>每个元素被查找的概率相等</b>，即 p<sub>i</sub> = 1/n（等概率假设）。</li>
+    </ol>
+    <p>查找第 i 个元素时，需要比较 i 次。于是成功查找的平均查找长度为：</p>
+    <div class="formula center">
+      ASL<sub>成功</sub> = Σ<sub>i=1..n</sub> p<sub>i</sub> · c<sub>i</sub>
+      = Σ<sub>i=1..n</sub> (1/n) · i
+      = (1/n) · n(n+1)/2
+      = (n+1)/2
+    </div>
+    <p>
+      当 n 很大时，(n+1)/2 与 n 同阶，所以<b>平均时间复杂度是 O(n)</b>。
+      注意这里必须区分「平均比较次数」与「渐进复杂度」：
+      平均比较次数是 (n+1)/2（n = 8 时约 4.5 次），而渐近阶是 O(n)，两者并不矛盾。
+    </p>
+    <p>三种情况放在一起看：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>情况</th><th>触发输入</th><th>比较次数</th><th>渐进复杂度</th></tr></thead>
+        <tbody>
+          <tr><td class="c-ok">最好</td><td>要找的元素恰在第 1 个位置</td><td>1</td><td>O(1)</td></tr>
+          <tr><td class="c-warn">平均</td><td>等概率分布，期望值</td><td>(n+1)/2</td><td>O(n)</td></tr>
+          <tr><td class="c-bad">最坏</td><td>要找的元素在第 n 个位置，或根本不存在</td><td>n（失败时 n 次）</td><td>O(n)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>如果概率不相等呢？</b>那就老老实实按 p<sub>i</sub> 加权。例如已知
+      「查第 1 个元素的概率是 1/2，其余 n−1 个各为 1/(2(n−1))」，则
+      ASL = 1×(1/2) + Σ<sub>i=2..n</sub> i/(2(n−1)) ≈ n/4，比等概率时快一倍。
+      这提示我们一个工程技巧：<b>把最常查的元素放在表头</b>，平均查找长度会显著下降
+      （「自适应线性表」就是这个思想，在第 10 讲会展开）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 720 330" width="720" height="330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="顺序查找各位置的比较次数与平均值">
+        <line x1="70" y1="260" x2="700" y2="260" class="fg-axis"/>
+        <line x1="70" y1="260" x2="70" y2="40" class="fg-axis"/>
+        <line x1="70" y1="212" x2="700" y2="212" class="fg-grid"/>
+        <line x1="70" y1="164" x2="700" y2="164" class="fg-grid"/>
+        <line x1="70" y1="116" x2="700" y2="116" class="fg-grid"/>
+        <line x1="70" y1="68"  x2="700" y2="68"  class="fg-grid"/>
+        <text x="62" y="264" class="fg-l" text-anchor="end">0</text>
+        <text x="62" y="216" class="fg-l" text-anchor="end">2</text>
+        <text x="62" y="168" class="fg-l" text-anchor="end">4</text>
+        <text x="62" y="120" class="fg-l" text-anchor="end">6</text>
+        <text x="62" y="72"  class="fg-l" text-anchor="end">8</text>
+        <text x="24" y="150" class="fg-l" text-anchor="middle" transform="rotate(-90 24 150)">比较次数</text>
+
+        <rect x="92"  y="236" width="54" height="24"  class="fg-gs"/>
+        <rect x="168" y="212" width="54" height="48"  class="fg-bs"/>
+        <rect x="244" y="188" width="54" height="72"  class="fg-bs"/>
+        <rect x="320" y="164" width="54" height="96"  class="fg-bs"/>
+        <rect x="396" y="140" width="54" height="120" class="fg-bs"/>
+        <rect x="472" y="116" width="54" height="144" class="fg-bs"/>
+        <rect x="548" y="92"  width="54" height="168" class="fg-bs"/>
+        <rect x="624" y="68"  width="54" height="192" class="fg-rs"/>
+
+        <text x="119" y="278" class="fg-lm">1</text>
+        <text x="195" y="278" class="fg-lm">2</text>
+        <text x="271" y="278" class="fg-lm">3</text>
+        <text x="347" y="278" class="fg-lm">4</text>
+        <text x="423" y="278" class="fg-lm">5</text>
+        <text x="499" y="278" class="fg-lm">6</text>
+        <text x="575" y="278" class="fg-lm">7</text>
+        <text x="651" y="278" class="fg-lm">8</text>
+        <text x="386" y="302" class="fg-bm">元素在表中的位置 i</text>
+
+        <line x1="80" y1="152" x2="700" y2="152" class="fg-eo" stroke-dasharray="6 5"/>
+        <text x="82" y="146" class="fg-l">ASL = (n+1)/2 = 4.5（n = 8 时）</text>
+
+        <rect x="470" y="18" width="14" height="14" rx="3" class="fg-gs"/><text x="492" y="30" class="fg-b">最好：1 次</text>
+        <rect x="580" y="18" width="14" height="14" rx="3" class="fg-rs"/><text x="602" y="30" class="fg-b">最坏：8 次</text>
+        <text x="92" y="30" class="fg-b">查找第 i 个元素需比较 i 次</text>
+      </svg>
+      <figcaption>图 1-12　顺序查找：位置 i 需要 i 次比较，等概率下的平均值正好是 (n+1)/2</figcaption>
+    </div>
+
+    <h3 id="s9-3">1.9.3 快速排序：三种情况天差地别</h3>
+    <p>
+      快速排序每轮选一个基准（pivot），把序列划分成「小于基准」和「大于基准」两段，再递归处理。
+      设一趟划分的代价为 O(n)，则总复杂度取决于<b>划分是否均衡</b>：
+    </p>
+    <ul>
+      <li>
+        <b>最好情况</b>：每次划分都把序列<b>对半分</b>，递推式 T(n) = 2T(n/2) + O(n)，
+        由例 7 得 <b>O(n log n)</b>；
+      </li>
+      <li>
+        <b>最坏情况</b>：每次划分都<b>极不均衡</b>（例如对已排好序的序列取首元素为基准，
+        每次只能分出 1 个元素），递推式退化为 T(n) = T(n−1) + O(n)，
+        累加得 <b>O(n²)</b>；
+      </li>
+      <li>
+        <b>平均情况</b>：随机输入下，平均划分比例虽然有波动，但期望深度仍是 O(log n)，
+        数学上可以证明平均复杂度为 <b>O(n log n)</b>，且常数因子是所有内排序中最小的之一。</li>
+    </ul>
+    <p>
+      这就是为什么工程实现要花力气「避免最坏情况」：<b>随机选基准</b>（随机化快排）、
+      <b>三数取中</b>、<b>小区间改用插入排序</b>（内省排序）都是为了让最坏情况几乎不出现。
+      第 12 讲会给出完整实现与对抗测试。
+    </p>
+
+    <h3 id="s9-4">1.9.4 冒泡排序：可以提前结束的排序</h3>
+    <p>
+      冒泡排序每轮把当前最大值「冒」到末尾，共进行 n−1 轮，每轮比较 n−i 次。
+      总比较次数为 Σ<sub>i=1..n−1</sub>(n−i) = n(n−1)/2，所以最坏与平均都是 <b>O(n²)</b>。
+      但加上「本轮无交换则提前退出」的优化后，最好情况出现了：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>情况</th><th>输入特征</th><th>比较次数</th><th>交换次数</th><th>渐进复杂度</th></tr></thead>
+        <tbody>
+          <tr><td class="c-ok">最好</td><td>已经有序（如 1,2,3,…,n）</td><td>n−1</td><td>0</td><td class="c-ok">O(n)</td></tr>
+          <tr><td class="c-warn">平均</td><td>随机排列</td><td>≈ n(n−1)/4</td><td>≈ n(n−1)/4</td><td class="c-warn">O(n²)</td></tr>
+          <tr><td class="c-bad">最坏</td><td>完全逆序（如 n,…,2,1）</td><td>n(n−1)/2</td><td>n(n−1)/2</td><td class="c-bad">O(n²)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      冒泡排序还有一个隐藏优点：<b>稳定</b>（相同关键字的相对次序不变），因为相邻比较时用的是严格
+      <code>&gt;</code> 而不是 <code>≥</code>。这也是「同一量级的算法之间还要比稳定性」的典型场景。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点　三种复杂度在考试中的常见陷阱</span>
+      <ul style="margin-bottom:0">
+        <li>题目说「时间复杂度为 O(n²) 的排序算法」——如果只写最坏情况，冒泡、插入、选择、快排都符合；
+            但若问「最好情况能达到 O(n)」，只有<b>冒泡（带优化）与直接插入</b>可以，简单选择排序不行（它总是 n(n−1)/2 次比较）。</li>
+        <li>「平均情况」必须说明概率假设。不说明假设就谈平均，是伪命题。</li>
+        <li>最好情况的复杂度<b>不能</b>用来评价算法优劣——快排最好情况 O(n log n) 与归并排序相同，
+            但快排的最坏是 O(n²)，归并的最坏仍是 O(n log n)，这才是两者的分水岭。</li>
+      </ul>
+    </div>
+
+    <h2 id="s10">1.10 常见复杂度增长对比</h2>
+
+    <p>
+      把常见的八种复杂度放在同一张表里，代入 n = 10、100、1000、10⁶ 四个规模，
+      能直观感受到「阶」这个概念的威力。下面的估算按「普通计算机每秒执行约 10⁸ 次基本操作」换算，
+      换算结果只是为了建立量级感，不必当成精确结论。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>复杂度</th><th>n = 10</th><th>n = 100</th><th>n = 1000</th><th>n = 10⁶</th><th>n = 10⁶ 时的直观感受</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>O(1)</b></td><td>1</td><td>1</td><td>1</td><td>1</td><td class="c-ok">瞬间完成，与规模完全无关</td></tr>
+          <tr><td><b>O(log n)</b></td><td>3</td><td>7</td><td>10</td><td>20</td><td class="c-ok">瞬间完成，n 翻倍只多 1 次</td></tr>
+          <tr><td><b>O(n)</b></td><td>10</td><td>100</td><td>10³</td><td>10⁶</td><td class="c-ok">约 0.01 秒，轻松通过</td></tr>
+          <tr><td><b>O(n log n)</b></td><td>33</td><td>664</td><td>9966</td><td>2×10⁷</td><td class="c-ok">约 0.2 秒，排序算法的目标线</td></tr>
+          <tr><td><b>O(n²)</b></td><td>100</td><td>10⁴</td><td>10⁶</td><td>10¹²</td><td class="c-bad">约 2.8 小时，不可接受</td></tr>
+          <tr><td><b>O(n³)</b></td><td>10³</td><td>10⁶</td><td>10⁹</td><td>10¹⁸</td><td class="c-bad">约 317 年，必须换算法</td></tr>
+          <tr><td><b>O(2ⁿ)</b></td><td>1024</td><td>1.3×10³⁰</td><td>10³⁰¹</td><td>天文数字</td><td class="c-bad">n = 100 就已经算不完了</td></tr>
+          <tr><td><b>O(n!)</b></td><td>3.6×10⁶</td><td>9.3×10¹⁵⁷</td><td>巨大</td><td>巨大</td><td class="c-bad">只能处理 n ≤ 10 左右的规模</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      请特别记住三条「红线」，它们决定了竞赛与工程中的算法选型：
+    </p>
+    <ul>
+      <li><b>n ≤ 10⁸ 时，O(n) 与 O(n log n) 都可以放心用</b>；</li>
+      <li><b>n &gt; 10⁴ 时，O(n²) 基本告别</b>，必须换成 O(n log n) 或 O(n)；</li>
+      <li><b>n &gt; 20 时，O(2ⁿ) 就只能靠剪枝、记忆化或彻底换思路</b>（这正对应第 13 讲的动态规划）。</li>
+    </ul>
+
+    <div class="figure">
+      <svg viewBox="0 0 920 470" width="920" height="470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="常见复杂度增长曲线对比（纵轴为对数刻度）">
+        <line x1="70" y1="400" x2="790" y2="400" class="fg-axis"/>
+        <line x1="70" y1="400" x2="70" y2="30" class="fg-axis"/>
+        <line x1="70" y1="40"  x2="775" y2="40"  class="fg-grid"/>
+        <line x1="70" y1="100" x2="775" y2="100" class="fg-grid"/>
+        <line x1="70" y1="160" x2="775" y2="160" class="fg-grid"/>
+        <line x1="70" y1="220" x2="775" y2="220" class="fg-grid"/>
+        <line x1="70" y1="280" x2="775" y2="280" class="fg-grid"/>
+        <line x1="70" y1="340" x2="775" y2="340" class="fg-grid"/>
+        <line x1="116" y1="400" x2="116" y2="34" class="fg-grid"/>
+        <line x1="163" y1="400" x2="163" y2="34" class="fg-grid"/>
+        <line x1="210" y1="400" x2="210" y2="34" class="fg-grid"/>
+        <line x1="256" y1="400" x2="256" y2="34" class="fg-grid"/>
+        <line x1="303" y1="400" x2="303" y2="34" class="fg-grid"/>
+        <line x1="350" y1="400" x2="350" y2="34" class="fg-grid"/>
+        <line x1="396" y1="400" x2="396" y2="34" class="fg-grid"/>
+        <line x1="443" y1="400" x2="443" y2="34" class="fg-grid"/>
+        <line x1="490" y1="400" x2="490" y2="34" class="fg-grid"/>
+        <line x1="536" y1="400" x2="536" y2="34" class="fg-grid"/>
+        <line x1="583" y1="400" x2="583" y2="34" class="fg-grid"/>
+        <line x1="630" y1="400" x2="630" y2="34" class="fg-grid"/>
+        <line x1="676" y1="400" x2="676" y2="34" class="fg-grid"/>
+        <line x1="723" y1="400" x2="723" y2="34" class="fg-grid"/>
+        <line x1="770" y1="400" x2="770" y2="34" class="fg-grid"/>
+
+        <text x="62" y="404" class="fg-l" text-anchor="end">1</text>
+        <text x="62" y="344" class="fg-l" text-anchor="end">10</text>
+        <text x="62" y="284" class="fg-l" text-anchor="end">100</text>
+        <text x="62" y="224" class="fg-l" text-anchor="end">10³</text>
+        <text x="62" y="164" class="fg-l" text-anchor="end">10⁴</text>
+        <text x="62" y="104" class="fg-l" text-anchor="end">10⁵</text>
+        <text x="62" y="44"  class="fg-l" text-anchor="end">10⁶</text>
+        <text x="26" y="215" class="fg-l" text-anchor="middle" transform="rotate(-90 26 215)">运算次数（对数刻度）</text>
+
+        <text x="70"  y="418" class="fg-lm">1</text>
+        <text x="210" y="418" class="fg-lm">4</text>
+        <text x="350" y="418" class="fg-lm">7</text>
+        <text x="490" y="418" class="fg-lm">10</text>
+        <text x="630" y="418" class="fg-lm">13</text>
+        <text x="770" y="418" class="fg-lm">16</text>
+        <text x="430" y="440" class="fg-bm">数据规模 n（对数刻度纵轴，便于在同一张图里比较 1 与 10⁶）</text>
+
+        <polyline class="fg-c1" points="70,399 116,399 163,399 210,399 256,399 303,399 350,399 396,399 443,399 490,399 536,399 583,399 630,399 676,399 723,399 770,399"/>
+        <polyline class="fg-c2" points="116,400 163,388 210,382 256,378 303,375 350,373 396,371 443,370 490,369 536,368 583,367 630,366 676,365 723,365 770,364"/>
+        <polyline class="fg-c3" points="70,400 116,382 163,371 210,364 256,358 303,353 350,349 396,346 443,343 490,340 536,338 583,335 630,333 676,332 723,330 770,328"/>
+        <polyline class="fg-c4" points="70,400 116,382 163,359 210,346 256,336 303,329 350,322 396,317 443,313 490,309 536,305 583,302 630,299 676,296 723,294 770,292"/>
+        <polyline class="fg-c5" points="70,400 116,364 163,343 210,328 256,316 303,307 350,299 396,292 443,286 490,280 536,275 583,271 630,267 676,263 723,260 770,256"/>
+        <polyline class="fg-c6" points="70,382 116,364 163,346 210,328 256,310 303,292 350,274 396,256 443,237 490,219 536,201 583,183 630,165 676,147 723,129 770,111"/>
+
+        <line x1="800" y1="64" x2="826" y2="64" class="fg-c1"/><text x="834" y="68" class="fg-l">O(1)</text>
+        <line x1="800" y1="114" x2="826" y2="114" class="fg-c2"/><text x="834" y="118" class="fg-l">O(log n)</text>
+        <line x1="800" y1="164" x2="826" y2="164" class="fg-c3"/><text x="834" y="168" class="fg-l">O(n)</text>
+        <line x1="800" y1="214" x2="826" y2="214" class="fg-c4"/><text x="834" y="218" class="fg-l">O(n log n)</text>
+        <line x1="800" y1="264" x2="826" y2="264" class="fg-c5"/><text x="834" y="268" class="fg-l">O(n²)</text>
+        <line x1="800" y1="314" x2="826" y2="314" class="fg-c6"/><text x="834" y="318" class="fg-l">O(2ⁿ)</text>
+
+        <text x="800" y="352" class="fg-b">图例</text>
+        <text x="800" y="374" class="fg-l">纵轴取对数后，</text>
+        <text x="800" y="390" class="fg-l">曲线越陡 = 增长</text>
+        <text x="800" y="406" class="fg-l">越快。2ⁿ 呈直线</text>
+        <text x="800" y="422" class="fg-l">上升，说明它是</text>
+        <text x="800" y="438" class="fg-l">指数级爆炸。</text>
+      </svg>
+      <figcaption>图 1-13　六种常见复杂度的增长曲线对比（纵轴为对数刻度）：n = 16 时 2ⁿ 已达 65536，而 log₂n 只有 4</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">怎么看这张图</span>
+      纵轴是对数刻度，所以「看起来差不多高」其实差别巨大：
+      在 n = 16 处，O(1) 是 1 次、O(log n) 是 4 次、O(n) 是 16 次、O(n log n) 是 64 次、
+      O(n²) 是 256 次、O(2ⁿ) 是 65536 次。把横轴拉到 n = 10⁶，
+      O(n²) 与 O(n log n) 的差距会扩大到 5 万倍——这就是为什么「降一个阶」比「优化常数」重要得多。
+    </div>
+
+    <pre data-lang="cpp" data-file="growth_timing.cpp">// growth_timing.cpp —— 亲手实测三种复杂度的增长（-O2 编译，观察列之间的倍数关系）
+#include &lt;iostream&gt;
+#include &lt;chrono&gt;
+
+int main() {
+    std::cout &lt;&lt; "n\t\tO(n)\t\tO(n log n)\tO(n^2)\n";
+    for (int n = 1000; n &lt;= 16000; n *= 2) {
+        volatile long long sink = 0;                 // volatile：阻止编译器优化掉整个循环
+
+        auto t0 = std::chrono::steady_clock::now();
+        long long s1 = 0;
+        for (int i = 0; i &lt; n; ++i) s1 += i;         // O(n)
+
+        auto t1 = std::chrono::steady_clock::now();
+        long long s2 = 0;
+        for (int i = 0; i &lt; n; ++i)                  // O(n log n)：外层 n，内层 log n
+            for (int j = 1; j &lt; n; j *= 2) s2 += j;
+
+        auto t2 = std::chrono::steady_clock::now();
+        long long s3 = 0;
+        for (int i = 0; i &lt; n; ++i)                  // O(n^2)
+            for (int j = 0; j &lt; n; ++j) s3 += i * j;
+
+        auto t3 = std::chrono::steady_clock::now();
+        sink = s1 + s2 + s3;
+        (void)sink;
+
+        auto ms = [](auto a, auto b) {               // C++14 泛型 lambda
+            return std::chrono::duration&lt;double, std::milli&gt;(b - a).count();
+        };
+        std::cout &lt;&lt; n &lt;&lt; "\t\t" &lt;&lt; ms(t0, t1) &lt;&lt; "\t"
+                  &lt;&lt; ms(t1, t2) &lt;&lt; "\t\t" &lt;&lt; ms(t2, t3) &lt;&lt; '\n';
+    }
+    return 0;
+}
+// 典型输出（不同机器数值不同，但规律一致）：
+// n        O(n)      O(n log n)   O(n^2)
+// 1000     0.002     0.003        0.9
+// 2000     0.003     0.007        3.6      ← O(n^2) 列大约 ×4，因为它随 n^2 增长
+// 4000     0.006     0.015        14.3
+// 8000     0.012     0.031        57.2
+// 16000    0.024     0.066        228.9
+</pre>
+
+    <h2 id="s11">1.11 空间复杂度</h2>
+
+    <h3 id="s11-1">1.11.1 定义：只算「额外」的那部分</h3>
+    <p>
+      <b>空间复杂度（space complexity）</b>记作 S(n)，是对一个算法在运行过程中
+      <b>临时占用存储空间大小</b>的量度，同样用大 O 记号表示。
+      一个算法在内存里占的地方可以分成三块，我们必须分清哪块算、哪块不算：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>组成部分</th><th>内容</th><th>是否计入 S(n)</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>程序代码本身</td><td>编译后的指令、常量</td><td class="c-bad">不计入</td><td>与问题规模 n 无关，是个固定开销</td></tr>
+          <tr><td>输入数据</td><td>待处理的数组、矩阵、字符串</td><td class="c-bad">不计入</td><td>否则任何算法都至少是 O(n)，无法比较优劣</td></tr>
+          <tr><td>辅助空间</td><td>临时变量、递归栈帧、缓冲区、辅助数组</td><td class="c-ok">计入</td><td>这才是「算法自己额外花的钱」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      所以严格来说，S(n) 指的是<b>辅助空间</b>（auxiliary space）。
+      例如「把数组原地反转」：输入数组 n 个元素不算，只用了一个临时变量 <code>t</code>，
+      于是 S(n) = O(1)；而「归并排序」需要一个与原数组等长的缓冲区 <code>buf</code>，
+      所以 S(n) = O(n)。
+    </p>
+
+    <h3 id="s11-2">1.11.2 原地算法（in-place algorithm）</h3>
+    <p>
+      如果算法所需的辅助空间与问题规模 n 无关，即 <b>S(n) = O(1)</b>，
+      就称它为<b>原地算法</b>。这在实际工程中价值极高：处理 10⁸ 个整数时，
+      原地算法可以直接在用户给的内存上操作，而非原地算法可能要再申请几百 MB。
+    </p>
+    <ul>
+      <li><b>原地的排序</b>：冒泡排序、直接插入排序、简单选择排序、希尔排序、堆排序；</li>
+      <li><b>非原地的排序</b>：归并排序（O(n) 缓冲）、计数 / 基数排序（O(n + k) 桶）；</li>
+      <li><b>快速排序是个特例</b>：划分过程本身是原地的（只用几个下标变量），
+          但递归调用需要栈空间 O(log n)（平均）～ O(n)（最坏），所以严格来说它<b>不是</b>严格的原地算法，
+          准确说法是「原地划分 + O(log n) 栈空间」。</li>
+    </ul>
+    <div class="note warn">
+      <span class="note-title">易错：数组反转到底是 O(1) 还是 O(n)？</span>
+      用<code>swap(a[i], a[n-1-i])</code> 的双指针法反转数组，辅助空间是 <b>O(1)</b>，
+      尽管它改了 n 个元素、执行了 n/2 次交换——<b>时间与空间是两码事</b>。
+      用「另开一个数组倒着存」的办法则是 O(n) 空间。
+      考试喜欢在这里设陷阱：问「时间 O(n)、空间 O(1) 的反转算法」，答案就是双指针法。
+    </div>
+
+    <h3 id="s11-3">1.11.3 递归的栈空间必须计入</h3>
+    <p>
+      这是空间复杂度里最容易漏掉的一项。每次函数调用，系统都要在运行时栈上压入一个
+      <b>栈帧（stack frame）</b>，里面保存参数、局部变量和返回地址。函数返回时栈帧才弹出。
+      所以递归算法的空间复杂度<b>至少等于最大递归深度</b>。
+    </p>
+    <div class="formula center">
+      S<sub>递归</sub>(n) = O(最大递归深度) + O(每层额外申请的堆空间)
+    </div>
+    <p>
+      以递归求阶乘为例：<code>fact(4)</code> 会依次调用 <code>fact(3)</code>、<code>fact(2)</code>、<code>fact(1)</code>，
+      <b>四个栈帧同时存在</b>，直到最内层返回才开始逐个弹出。因此最大深度为 n，S(n) = O(n)。
+    </p>
+
+    <pre data-lang="cpp" data-file="factorial_space.cpp">// factorial_space.cpp —— 同样是 O(n) 时间，空间却可能差一个量级
+#include &lt;iostream&gt;
+
+// 递归版：时间 O(n)，空间 S(n) = O(n) —— n 个栈帧同时存在
+long long factRec(int n) {
+    if (n &lt;= 1) return 1;              // 递归基
+    return n * factRec(n - 1);         // 本层必须等下层返回，栈帧一直压着
+}
+
+// 迭代版：时间 O(n)，空间 S(n) = O(1) —— 只用了 r、i 两个变量
+long long factIter(int n) {
+    long long r = 1;
+    for (int i = 2; i &lt;= n; ++i) r *= i;
+    return r;
+}
+
+int main() {
+    std::cout &lt;&lt; factRec(10) &lt;&lt; '\n';    // 3628800
+    std::cout &lt;&lt; factIter(20) &lt;&lt; '\n';   // 2432902008176640000
+    // factRec(1000000);                 // 栈溢出 Stack Overflow：O(n) 栈空间也会爆
+    return 0;
+}
+</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 740 336" width="740" height="336" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="递归求阶乘时的调用栈空间">
+        <text x="50" y="30" class="fg-b">运行时栈（每进入一层递归就压入一个栈帧）</text>
+        <text x="400" y="30" class="fg-b">递归返回时自底向上逐层弹栈</text>
+
+        <rect x="50" y="44" width="290" height="266" rx="8" class="fg-soft"/>
+        <rect x="62" y="56"  width="266" height="56" rx="6" class="fg-bs"/>
+        <text x="76" y="80" class="fg-t">fact(4)  n = 4</text>
+        <text x="76" y="100" class="fg-l">保存返回地址 → main</text>
+        <rect x="62" y="118" width="266" height="56" rx="6" class="fg-bs"/>
+        <text x="76" y="142" class="fg-t">fact(3)  n = 3</text>
+        <text x="76" y="162" class="fg-l">保存返回地址 → fact(4)</text>
+        <rect x="62" y="180" width="266" height="56" rx="6" class="fg-bs"/>
+        <text x="76" y="204" class="fg-t">fact(2)  n = 2</text>
+        <text x="76" y="224" class="fg-l">保存返回地址 → fact(3)</text>
+        <rect x="62" y="242" width="266" height="56" rx="6" class="fg-gs"/>
+        <text x="76" y="266" class="fg-t">fact(1)  n = 1</text>
+        <text x="76" y="286" class="fg-l">命中递归基，开始返回</text>
+
+        <line x1="34" y1="60" x2="34" y2="290" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="20" y="175" class="fg-l" text-anchor="middle" transform="rotate(-90 20 175)">调用深度增加</text>
+        <text x="348" y="66" class="fg-l">← 栈底（先压入）</text>
+        <text x="348" y="292" class="fg-l">← 栈顶（后压入）</text>
+
+        <rect x="440" y="56" width="280" height="44" rx="6" class="fg-box"/>
+        <text x="454" y="83" class="fg-t">① fact(1) 触底 → 返回 1</text>
+        <rect x="440" y="108" width="280" height="44" rx="6" class="fg-box"/>
+        <text x="454" y="135" class="fg-t">② fact(2) = 2 × 1 = 2</text>
+        <rect x="440" y="160" width="280" height="44" rx="6" class="fg-box"/>
+        <text x="454" y="187" class="fg-t">③ fact(3) = 3 × 2 = 6</text>
+        <rect x="440" y="212" width="280" height="44" rx="6" class="fg-box"/>
+        <text x="454" y="239" class="fg-t">④ fact(4) = 4 × 6 = 24</text>
+        <rect x="440" y="266" width="280" height="44" rx="6" class="fg-rs"/>
+        <text x="454" y="293" class="fg-t">最大栈深度 = n ⟹ S(n) = O(n)</text>
+      </svg>
+      <figcaption>图 1-14　递归求 n! 时的调用栈：任一时刻栈里有 n 个栈帧，所以 S(n) = O(n)</figcaption>
+    </div>
+
+    <p>
+      再看斐波那契数列，它是「时间与空间反差」的最佳教材。朴素递归写法
+      <code>fib(n) = fib(n−1) + fib(n−2)</code> 会展开成一棵指数级的递归树，
+      时间 <b>O(2ⁿ)</b>；但注意：<b>它同一时刻只保留一条从根到叶的路径</b>，
+      算完左子树再去算右子树时，左子树的栈帧早已弹出。所以它的空间只有 <b>O(n)</b>。
+    </p>
+    <p>
+      这个「时间指数、空间线性」的反差非常反直觉，也是理解递归调用机制的试金石。
+      记住判断栈空间的方法：<b>不是在递归树上有多少个结点，而是任意时刻同时存活多少层</b>。
+    </p>
+
+    <pre data-lang="cpp" data-file="fib_space.cpp">// fib_space.cpp —— 斐波那契：朴素递归时间 O(2^n)、空间 O(n)；记忆化后时间 O(n)
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+
+// 朴素递归：子问题重复计算，时间 O(2^n)；但递归树任意时刻只走一条路径，空间 O(n)
+long long fibNaive(int n) {
+    if (n &lt; 2) return n;                        // fib(0)=0, fib(1)=1
+    return fibNaive(n - 1) + fibNaive(n - 2);
+}
+
+// 记忆化搜索：用 O(n) 的表换掉重复计算，时间降到 O(n)，空间 O(n)（表 O(n) + 栈 O(n)）
+long long fibMemo(int n, std::vector&lt;long long&gt;&amp; memo) {
+    if (n &lt; 2) return n;
+    if (memo[n] != -1) return memo[n];          // 命中缓存，直接返回，不再往下递归
+    return memo[n] = fibMemo(n - 1, memo) + fibMemo(n - 2, memo);
+}
+
+// 递推写法（滚动变量）：时间 O(n)，空间 O(1) —— 空间优化的极致
+long long fibIter(int n) {
+    long long a = 0, b = 1;                     // 只保留最近两项
+    for (int i = 0; i &lt; n; ++i) { long long t = a + b; a = b; b = t; }
+    return a;
+}
+
+int main() {
+    std::cout &lt;&lt; fibNaive(30) &lt;&lt; '\n';          // 832040：n 再大就明显变慢
+    std::vector&lt;long long&gt; memo(91, -1);
+    std::cout &lt;&lt; fibMemo(90, memo) &lt;&lt; '\n';     // 2880067194370816120
+    std::cout &lt;&lt; fibIter(90) &lt;&lt; '\n';          // 同上
+    return 0;
+}
+</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 336" width="900" height="336" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="斐波那契朴素递归的调用树">
+        <line x1="330" y1="56" x2="190" y2="136" class="fg-e"/>
+        <line x1="330" y1="56" x2="470" y2="136" class="fg-e"/>
+        <line x1="190" y1="136" x2="110" y2="216" class="fg-e"/>
+        <line x1="190" y1="136" x2="270" y2="216" class="fg-e"/>
+        <line x1="470" y1="136" x2="390" y2="216" class="fg-e"/>
+        <line x1="470" y1="136" x2="550" y2="216" class="fg-e"/>
+        <line x1="110" y1="216" x2="60" y2="296" class="fg-e"/>
+        <line x1="110" y1="216" x2="160" y2="296" class="fg-e"/>
+        <line x1="270" y1="216" x2="228" y2="296" class="fg-e" stroke-dasharray="4 4"/>
+        <line x1="390" y1="216" x2="348" y2="296" class="fg-e" stroke-dasharray="4 4"/>
+        <line x1="550" y1="216" x2="508" y2="296" class="fg-e" stroke-dasharray="4 4"/>
+
+        <circle cx="330" cy="56" r="26" class="fg-bs"/><text x="330" y="61" class="fg-tm">f(5)</text>
+        <circle cx="190" cy="136" r="26" class="fg-box"/><text x="190" y="141" class="fg-tm">f(4)</text>
+        <circle cx="470" cy="136" r="26" class="fg-box"/><text x="470" y="141" class="fg-tm">f(3)</text>
+        <circle cx="110" cy="216" r="26" class="fg-box"/><text x="110" y="221" class="fg-tm">f(3)</text>
+        <circle cx="270" cy="216" r="26" class="fg-box"/><text x="270" y="221" class="fg-tm">f(2)</text>
+        <circle cx="390" cy="216" r="26" class="fg-box"/><text x="390" y="221" class="fg-tm">f(2)</text>
+        <circle cx="550" cy="216" r="26" class="fg-gs"/><text x="550" y="221" class="fg-tm">f(1)</text>
+        <circle cx="60"  cy="296" r="24" class="fg-gs"/><text x="60" y="301" class="fg-tm">f(1)</text>
+        <circle cx="160" cy="296" r="24" class="fg-gs"/><text x="160" y="301" class="fg-tm">f(0)</text>
+        <text x="228" y="302" class="fg-lm">…</text>
+        <text x="348" y="302" class="fg-lm">…</text>
+        <text x="508" y="302" class="fg-lm">叶子</text>
+
+        <rect x="596" y="24" width="290" height="88" rx="8" class="fg-rs"/>
+        <text x="610" y="48" class="fg-b">时间：每层子问题翻倍</text>
+        <text x="610" y="68" class="fg-b">总结点数 ≈ 2ⁿ，重复计算极多</text>
+        <text x="610" y="90" class="fg-t">⟹ T(n) = O(2ⁿ)</text>
+
+        <rect x="596" y="122" width="290" height="88" rx="8" class="fg-gs"/>
+        <text x="610" y="146" class="fg-b">空间：同一时刻只保留</text>
+        <text x="610" y="166" class="fg-b">一条根到叶的路径</text>
+        <text x="610" y="188" class="fg-t">⟹ S(n) = O(n)</text>
+
+        <rect x="596" y="220" width="290" height="88" rx="8" class="fg-bs"/>
+        <text x="610" y="244" class="fg-b">优化：f(3) 被算了 2 次，</text>
+        <text x="610" y="264" class="fg-b">f(2) 被算了 3 次 —— 记忆化</text>
+        <text x="610" y="284" class="fg-b">或递推可把时间降到 O(n)</text>
+        <text x="610" y="303" class="fg-l">（第 13 讲动态规划的主角）</text>
+      </svg>
+      <figcaption>图 1-15　斐波那契朴素递归的调用树：结点数指数级（时间），但深度只有 n（空间）</figcaption>
+    </div>
+
+    <h3 id="s11-4">1.11.4 S(n) 的常见形态</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>量级</th><th>典型来源</th><th>具体例子</th><th>能否优化</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>O(1)</b></td><td>只用几个临时变量</td><td>冒泡 / 插入 / 选择 / 堆排序、双指针反转数组、迭代求阶乘</td><td class="c-ok">已最优</td></tr>
+          <tr><td><b>O(log n)</b></td><td>递归深度为对数级</td><td>二分查找递归版、快速排序的期望栈深、递归求快速幂</td><td class="c-ok">可改写为迭代降到 O(1)</td></tr>
+          <tr><td><b>O(n)</b></td><td>与原数据等长的辅助结构</td><td>归并排序缓冲、BFS 队列、阶乘 / 斐波那契递归栈、哈希表、一维 DP 数组</td><td class="c-warn">部分可原地化或滚动数组</td></tr>
+          <tr><td><b>O(n + k)</b></td><td>与值域有关的桶</td><td>计数排序、基数排序、桶排序</td><td class="c-warn">取决于值域 k</td></tr>
+          <tr><td><b>O(n²)</b></td><td>二维表 / 稠密图存储</td><td>邻接矩阵、二维 DP 表、Floyd 算法距离矩阵</td><td class="c-bad">稀疏图改用邻接表 O(V+E)</td></tr>
+          <tr><td><b>O(2ⁿ)</b></td><td>枚举所有子集</td><td>状压 DP 的状态数组、子集枚举</td><td class="c-bad">只能改变算法思路</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      最后强调一个实用的判断顺序：分析一个算法时，<b>先看时间，再看空间</b>。
+      因为绝大多数场合时间是瓶颈；只有当内存成为硬约束（嵌入式、超大矩阵、流式数据）时，
+      空间才上升为第一指标。而「时间换空间」与「空间换时间」的取舍，
+      贯穿了本课程几乎每一章的算法设计——哈希表（空间换时间）、滚动数组（时间换空间）、
+      记忆化搜索（空间换时间）都是这个思想的产物。
+    </p>
+
+    <h2 id="s12">1.12 专业术语体系：43 条中英对照</h2>
+
+    <p>
+      数据结构是一门「术语密度」很高的课：同一件事在不同教材里可能叫「物理结构」也叫「存储结构」，
+      同一类结点在链表里叫 node、在树里叫 vertex。下面这张表把全课程最常用的 43 个术语一次性打好底，
+      后面 14 讲遇到时可以直接回来查。建议打印出来贴在书桌前，每学一章划掉几个。
+    </p>
+
+    <dl class="def wide">
+      <dt>数据<br><span class="en">data</span></dt>
+      <dd>信息的载体，是能输入到计算机中并被程序识别和处理的符号集合。可以是数值、字符、图像、声音。</dd>
+
+      <dt>数据元素<br><span class="en">data element</span></dt>
+      <dd>数据的基本单位，在程序中作为一个整体处理；在链表 / 树 / 图中也称作<b>结点（node）</b>，在数据库中称作<b>记录（record）</b>。</dd>
+
+      <dt>数据项<br><span class="en">data item</span></dt>
+      <dd>构成数据元素的、不可再分割的最小单位，也叫<b>字段（field）</b>。一个数据元素由若干数据项组成。</dd>
+
+      <dt>数据对象<br><span class="en">data object</span></dt>
+      <dd>性质相同的数据元素的集合，是数据的一个子集。强调「有哪些成员」，不强调成员间的关系。</dd>
+
+      <dt>数据结构<br><span class="en">data structure</span></dt>
+      <dd>相互之间存在一种或多种特定关系的数据元素的集合。= 逻辑结构 + 存储结构 + 数据的运算。</dd>
+
+      <dt>逻辑结构<br><span class="en">logical structure</span></dt>
+      <dd>数据元素之间抽象的关系，分集合、线性、树形、图形四类。与计算机、语言、内存无关。</dd>
+
+      <dt>存储结构 / 物理结构<br><span class="en">storage / physical structure</span></dt>
+      <dd>逻辑结构在计算机存储器中的表示，包括元素本身的表示与元素之间关系的表示。</dd>
+
+      <dt>顺序存储<br><span class="en">sequential storage</span></dt>
+      <dd>用物理位置相邻表示逻辑相邻，关系不占额外空间，支持随机访问 O(1)，插入删除需搬移元素。</dd>
+
+      <dt>链式存储<br><span class="en">linked storage</span></dt>
+      <dd>用指针显式指出后继（或前驱）的地址，物理位置任意，按位查找 O(n)，已知位置时插删 O(1)。</dd>
+
+      <dt>索引存储<br><span class="en">indexed storage</span></dt>
+      <dd>在数据表之外另建一张「关键字 → 地址」的索引表，先查索引再取记录，以空间和维护开销换检索速度。</dd>
+
+      <dt>散列存储<br><span class="en">hash storage</span></dt>
+      <dd>由散列函数 h(key) 直接算出存储地址，平均查找 O(1)，但失去顺序性、需处理冲突。</dd>
+
+      <dt>抽象数据类型<br><span class="en">ADT, Abstract Data Type</span></dt>
+      <dd>一个数学模型以及定义在该模型上的一组操作，只规定「做什么」不规定「怎么做」，由数据对象、数据关系、基本操作三部分组成。</dd>
+
+      <dt>封装<br><span class="en">encapsulation</span></dt>
+      <dd>把数据表示与操作实现隐藏在模块内部，只暴露接口。ADT 在 C++ 中通过 class 的 public / private 实现。</dd>
+
+      <dt>算法<br><span class="en">algorithm</span></dt>
+      <dd>对特定问题求解步骤的描述，是指令的有限序列；具备有穷性、确定性、可行性、输入、输出五大特性。</dd>
+
+      <dt>有穷性<br><span class="en">finiteness</span></dt>
+      <dd>算法必须在执行有穷步后终止，且每一步都在有穷时间内完成。这是算法区别于程序的关键。</dd>
+
+      <dt>确定性<br><span class="en">definiteness</span></dt>
+      <dd>每条指令含义确切、无二义性；相同输入在任何时刻都产生相同的输出。</dd>
+
+      <dt>可行性<br><span class="en">effectiveness</span></dt>
+      <dd>算法中的每一步都能机械地执行，并且能在有限时间内完成（微观层面的「做得到」）。</dd>
+
+      <dt>输入 / 输出<br><span class="en">input / output</span></dt>
+      <dd>算法有 0 个或多个输入，但必须有 1 个或多个输出；没有输出的算法没有意义。</dd>
+
+      <dt>语句频度<br><span class="en">statement frequency</span></dt>
+      <dd>一条语句在算法中被重复执行的次数。所有语句频度之和记作 T(n)，是问题规模 n 的函数。</dd>
+
+      <dt>问题规模<br><span class="en">problem size</span></dt>
+      <dd>刻画输入量大小的量，通常记作 n。数组是元素个数，图是顶点数 V 与边数 E，串是串长。</dd>
+
+      <dt>时间复杂度<br><span class="en">time complexity</span></dt>
+      <dd>算法执行时间随问题规模增长的趋势，用 T(n) 的渐近阶表示，是事前分析估算的核心指标。</dd>
+
+      <dt>空间复杂度<br><span class="en">space complexity</span></dt>
+      <dd>算法运行过程中临时占用的辅助空间随规模增长的趋势，记作 S(n)，不含输入数据本身。</dd>
+
+      <dt>渐进记号<br><span class="en">asymptotic notation</span></dt>
+      <dd>描述函数在 n → ∞ 时增长量级的记号体系，包括 O（上界）、Ω（下界）、Θ（紧确界）、o、ω。</dd>
+
+      <dt>大 O 记号<br><span class="en">big-O notation</span></dt>
+      <dd>存在正常数 c 与 n₀，使 n ≥ n₀ 时 0 ≤ f(n) ≤ c·g(n)，记 f(n) = O(g(n))。表示<b>渐进上界</b>，等号应读作「属于」。</dd>
+
+      <dt>上界 / 下界 / 紧确界<br><span class="en">upper / lower / tight bound</span></dt>
+      <dd>O 给天花板，Ω 给地板，Θ 把两者夹住（Θ = O ∩ Ω）。上界可以很松，工程上习惯用最紧的那个。</dd>
+
+      <dt>最好 / 最坏 / 平均情况<br><span class="en">best / worst / average case</span></dt>
+      <dd>同一算法在不同输入形态下的复杂度。默认讨论的是最坏情况，平均情况必须先声明概率假设。</dd>
+
+      <dt>平均查找长度<br><span class="en">ASL, Average Search Length</span></dt>
+      <dd>查找过程中关键字比较次数的期望值，ASL = Σ pᵢ·cᵢ。顺序查找等概率下为 (n+1)/2。</dd>
+
+      <dt>均摊分析<br><span class="en">amortized analysis</span></dt>
+      <dd>把偶尔出现的高代价操作平摊到一连串操作上。动态数组扩容的单次代价是 O(n)，但均摊到每次插入是 O(1)。</dd>
+
+      <dt>原地算法<br><span class="en">in-place algorithm</span></dt>
+      <dd>只用 O(1) 辅助空间的算法。注意递归版即使只改几个变量，也可能因栈深而失去 O(1) 空间。</dd>
+
+      <dt>辅助空间<br><span class="en">auxiliary space</span></dt>
+      <dd>除输入数据与程序代码之外，算法额外占用的存储空间，才是空间复杂度真正统计的对象。</dd>
+
+      <dt>递归 / 递归基 / 递归深度<br><span class="en">recursion / base case / depth</span></dt>
+      <dd>函数直接或间接调用自身；递归基是终止条件；递归深度决定栈空间大小。</dd>
+
+      <dt>栈帧<br><span class="en">stack frame</span></dt>
+      <dd>每次函数调用在运行时栈上压入的记录，保存参数、局部变量与返回地址。递归的空间代价主要来自它。</dd>
+
+      <dt>递归树<br><span class="en">recursion tree</span></dt>
+      <dd>把递归展开成树形结构来求递推式解的方法：每层代价相加，层数决定因子（如归并排序每层 n、共 log n 层）。</dd>
+
+      <dt>分治法<br><span class="en">divide and conquer</span></dt>
+      <dd>把问题分成若干规模更小的同类子问题，分别求解后合并。归并排序、二分查找、快速排序都是它的实例。</dd>
+
+      <dt>主定理<br><span class="en">master theorem</span></dt>
+      <dd>直接求解 T(n) = aT(n/b) + f(n) 这类递推式的公式，第 13 讲会给出三种情况的判定方法。</dd>
+
+      <dt>时空权衡<br><span class="en">time-space tradeoff</span></dt>
+      <dd>用更多内存换更快速度（哈希表、记忆化搜索），或用更多计算省内存（滚动数组、重新计算）。</dd>
+
+      <dt>随机访问 / 顺序访问<br><span class="en">random / sequential access</span></dt>
+      <dd>随机访问指任意位置的存取代价相同（数组，O(1)）；顺序访问必须从头逐个走（链表，O(n)）。</dd>
+
+      <dt>存储密度<br><span class="en">storage density</span></dt>
+      <dd>数据本身占用的空间 / 结点占用的总空间。顺序存储密度为 1，链式存储因指针而小于 1。</dd>
+
+      <dt>前驱 / 后继<br><span class="en">predecessor / successor</span></dt>
+      <dd>线性结构中某元素的前一个 / 后一个元素。树中对应「父结点 / 孩子结点」，图中对应「邻接点」。</dd>
+
+      <dt>头结点 / 头指针 / 哨兵<br><span class="en">head node / head pointer / sentinel</span></dt>
+      <dd>头指针指向链表的第一个结点；头结点是带头结点链表中附加在首元素之前的虚结点，可统一空表与非空表的操作；哨兵是嵌在边界、免去越界判断的特殊值。</dd>
+
+      <dt>稳定性<br><span class="en">stability</span></dt>
+      <dd>排序后关键字相同的元素相对次序是否保持不变。稳定：冒泡、插入、归并、基数；不稳定：快排、选择、堆、希尔。</dd>
+
+      <dt>稠密图 / 稀疏图<br><span class="en">dense / sparse graph</span></dt>
+      <dd>边数接近 V² 称稠密图（用邻接矩阵），边数远小于 V² 称稀疏图（用邻接表，空间 O(V+E)）。</dd>
+
+      <dt>指针 / 游标<br><span class="en">pointer / cursor</span></dt>
+      <dd>指针存放地址；游标是用数组下标模拟指针的技术，用于静态链表等不能使用指针的场合。</dd>
+    </dl>
+
+    <h2 id="s13">1.13 学习建议</h2>
+
+    <h3 id="s13-1">1.13.1 结构决定算法：先选结构，再谈算法</h3>
+    <p>
+      初学者常见的路径是「拿到题目直接想算法」，结果写完才发现：数据量 10⁵，而自己的做法是 O(n²)。
+      高手的路径恰好相反：<b>先看数据的规模与操作的类型，据此确定数据结构；结构定了，算法几乎是自然长出来的</b>。
+    </p>
+    <p>
+      举个例子：题目要求「维护一个集合，支持插入、删除、查询最小值」。
+      如果你用无序数组：查询最小值 O(n)；用有序数组：插入 O(n)；
+      用二叉堆：三种操作全是 O(log n)；用哈希表：查询最小值退化成 O(n)（因为哈希表不维护顺序）。
+      <b>算法没变，变的是结构；结构一变，复杂度就变了。</b>
+      再比如「频繁查询区间和」用前缀和（O(1) 查询）、「频繁区间修改 + 区间查询」用树状数组或线段树，
+      也都是结构决定算法的典型。
+    </p>
+    <p>
+      所以每学一个新结构，请固定问自己三个问题：
+      <b>① 它支持哪些操作？② 每个操作的复杂度是多少？③ 什么样的场景该用它、什么样的场景千万别用？</b>
+      能答出这三问，这个结构才算真的学会了。
+    </p>
+
+    <h3 id="s13-2">1.13.2 画图胜过背书</h3>
+    <p>
+      数据结构是「看得见」的学科。指针怎么指、树怎么长、栈怎么压、图的边怎么连，
+      全都可以画出来。我强烈建议你准备一个方格本，每学一个结构就画三张图：
+    </p>
+    <ol>
+      <li><b>结构图</b>：元素在内存里长什么样，指针指向谁，地址是怎么排的；</li>
+      <li><b>操作图</b>：执行一次插入 / 删除 / 旋转时，哪几条指针被改动，改动前后各是什么样（画两遍）；</li>
+      <li><b>边界图</b>：空结构、只有一个元素、在头部操作、在尾部操作时，图会变成什么样。
+          这一张最容易被忽略，也最容易在考场上丢分。</li>
+    </ol>
+    <p>
+      背定义只能应付名词解释，画图才能应付代码题。当你闭着眼睛能在脑海里「看见」指针的移动时，
+      写代码就只是把脑海里的图翻译成 C++ 而已。
+    </p>
+
+    <h3 id="s13-3">1.13.3 动手实现比看代码重要十倍</h3>
+    <p>
+      看别人写的链表代码，你会觉得「不过如此」；等自己动手写，才会发现：
+      头指针什么时候要改、删除时怎么保证不断链、释放内存的顺序为什么不能颠倒——
+      这些细节只有踩过坑才会记住。建议的学习闭环是：
+    </p>
+    <ul>
+      <li><b>第一遍</b>：合上讲义，凭记忆把结构定义与基本操作写出来，能编译通过；</li>
+      <li><b>第二遍</b>：自己写测试用例，特别是空表、单元素、首尾位置这几个边界，并打印中间状态检查；</li>
+      <li><b>第三遍</b>：对照讲义的标准实现，找出差异，问自己「我的写法错在哪 / 会不会更差」；</li>
+      <li><b>第四遍</b>：用 <code>-Wall -Wextra</code> 编译，用 <code>valgrind</code> 或
+          <code>-fsanitize=address</code> 检查内存问题（指针错误是数据结构作业的头号杀手）。</li>
+    </ul>
+    <p>
+      另外请养成<b>先写测试再写实现</b>的习惯。数据结构的代码往往不长，但指针操作极易出错；
+      有测试兜底，你才敢放心重构。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 442" width="900" height="442" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本章与后续十四讲的衔接关系">
+        <rect x="340" y="14" width="220" height="46" rx="10" fill="var(--brand)"/>
+        <text x="450" y="43" class="fg-tbm fg-onb">第 01 讲　绪论（本章）</text>
+        <text x="576" y="34" class="fg-l">概念 · 结构 · 复杂度</text>
+        <text x="576" y="52" class="fg-l">是全课程共同的语言</text>
+
+        <line x1="450" y1="60" x2="450" y2="82" class="fg-e" marker-end="url(#mk-ar)"/>
+        <text x="35" y="80" class="fg-tb">① 线性结构家族（第 02 ～ 06 讲）：把「一对一」的关系玩到极致</text>
+        <rect x="35"  y="90" width="150" height="52" rx="8" class="fg-bs"/><text x="110" y="111" class="fg-tbm">第 02 讲</text><text x="110" y="131" class="fg-bm">线性表</text>
+        <rect x="205" y="90" width="150" height="52" rx="8" class="fg-bs"/><text x="280" y="111" class="fg-tbm">第 03 讲</text><text x="280" y="131" class="fg-bm">栈</text>
+        <rect x="375" y="90" width="150" height="52" rx="8" class="fg-bs"/><text x="450" y="111" class="fg-tbm">第 04 讲</text><text x="450" y="131" class="fg-bm">队列</text>
+        <rect x="545" y="90" width="150" height="52" rx="8" class="fg-bs"/><text x="620" y="111" class="fg-tbm">第 05 讲</text><text x="620" y="131" class="fg-bm">串 KMP · BM</text>
+        <rect x="715" y="90" width="150" height="52" rx="8" class="fg-bs"/><text x="790" y="111" class="fg-tbm">第 06 讲</text><text x="790" y="131" class="fg-bm">数组与矩阵</text>
+
+        <line x1="450" y1="146" x2="450" y2="168" class="fg-e" marker-end="url(#mk-ar)"/>
+        <text x="35" y="166" class="fg-tb">② 非线性结构（第 07 ～ 09 讲）：一对多与多对多的世界</text>
+        <rect x="50"  y="176" width="250" height="54" rx="8" class="fg-gs"/><text x="175" y="198" class="fg-tbm">第 07 讲</text><text x="175" y="219" class="fg-bm">树与二叉树 · 赫夫曼 · 并查集</text>
+        <rect x="325" y="176" width="250" height="54" rx="8" class="fg-gs"/><text x="450" y="198" class="fg-tbm">第 08 讲</text><text x="450" y="219" class="fg-bm">图：术语与存储结构</text>
+        <rect x="600" y="176" width="250" height="54" rx="8" class="fg-gs"/><text x="725" y="198" class="fg-tbm">第 09 讲</text><text x="725" y="219" class="fg-bm">生成树与最短路径</text>
+
+        <line x1="450" y1="234" x2="450" y2="256" class="fg-e" marker-end="url(#mk-ar)"/>
+        <text x="35" y="254" class="fg-tb">③ 查找与排序（第 10 ～ 12 讲）：复杂度分析的主战场</text>
+        <rect x="50"  y="264" width="250" height="54" rx="8" class="fg-os"/><text x="175" y="286" class="fg-tbm">第 10 讲</text><text x="175" y="307" class="fg-bm">查找与哈希表（ASL 计算）</text>
+        <rect x="325" y="264" width="250" height="54" rx="8" class="fg-os"/><text x="450" y="286" class="fg-tbm">第 11 讲</text><text x="450" y="307" class="fg-bm">八大排序算法图解</text>
+        <rect x="600" y="264" width="250" height="54" rx="8" class="fg-os"/><text x="725" y="286" class="fg-tbm">第 12 讲</text><text x="725" y="307" class="fg-bm">排序体系与下界 Ω(n log n)</text>
+
+        <line x1="450" y1="322" x2="450" y2="344" class="fg-e" marker-end="url(#mk-ar)"/>
+        <text x="35" y="342" class="fg-tb">④ 算法范式与实战（第 13 ～ 15 讲）：把结构与算法组装成方案</text>
+        <rect x="50"  y="352" width="250" height="54" rx="8" class="fg-ps"/><text x="175" y="374" class="fg-tbm">第 13 讲</text><text x="175" y="395" class="fg-bm">分治 · 贪心 · 回溯 · 动态规划</text>
+        <rect x="325" y="352" width="250" height="54" rx="8" class="fg-ps"/><text x="450" y="374" class="fg-tbm">第 14 讲</text><text x="450" y="395" class="fg-bm">洛谷题单：例题与作业</text>
+        <rect x="600" y="352" width="250" height="54" rx="8" class="fg-ps"/><text x="725" y="374" class="fg-tbm">第 14 讲</text><text x="725" y="395" class="fg-bm">综合自测与速查手册</text>
+
+        <text x="35" y="428" class="fg-b">本章打底的逻辑结构、存储结构与复杂度分析，会在后面每一讲反复出现——它是全课程的地基。</text>
+      </svg>
+      <figcaption>图 1-16　本章与后续 14 讲的衔接关系：一条从「关系分类」到「算法范式」的主线</figcaption>
+    </div>
+
+    <h2 id="s14">1.14 本章小结</h2>
+
+    <div class="card">
+      <h3 id="s14-1" style="margin-top:0">一、概念层</h3>
+      <ul style="margin-bottom:0">
+        <li>数据 ⊇ 数据对象 ⊇ 数据元素 ⊇ 数据项，层级关系不能颠倒；</li>
+        <li>数据结构 = 相互之间存在一种或多种特定关系的数据元素的集合 = 逻辑结构 + 存储结构 + 数据的运算；</li>
+        <li>逻辑结构四类：集合（无关系）、线性（一对一）、树形（一对多）、图形（多对多）；
+            再粗分为线性结构与非线性结构；</li>
+        <li>存储结构四种：顺序（关系免费）、链式（关系用指针）、索引（加索引表）、散列（算地址，丢顺序）。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 id="s14-2" style="margin-top:0">二、抽象层</h3>
+      <ul style="margin-bottom:0">
+        <li>抽象数据类型 ADT = 数据对象 + 数据关系 + 基本操作，只规定「做什么」；</li>
+        <li>ADT 使逻辑结构与存储结构解耦：换实现不改调用方代码；</li>
+        <li>同一个 <code>at(i)</code>，顺序表是 O(1)、链表是 O(n)——语义相同，代价不同。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 id="s14-3" style="margin-top:0">三、度量层</h3>
+      <ul style="margin-bottom:0">
+        <li>用事前分析估算代替事后统计；以语句频度 T(n) 度量时间；</li>
+        <li>大 O 是渐进<b>上界</b>：存在 c、n₀ 使 n ≥ n₀ 时 0 ≤ f(n) ≤ c·g(n)；Ω 是下界，Θ 是紧确界；</li>
+        <li>三条法则：只留最高阶项、忽略常数系数、常数记 O(1)；嵌套循环相乘；</li>
+        <li>八道例题的结论：单层 O(n)、双层 O(n²)、三层 O(n³)、倍增 O(log n)、
+            自乘 / 开方 O(log log n)、T(n−1)+c 是 O(n)、2T(n/2)+cn 是 O(n log n)、T(n/2)+c 是 O(log n)；</li>
+        <li>最好 / 最坏 / 平均要分清，默认说最坏；顺序查找等概率 ASL = (n+1)/2；</li>
+        <li>空间复杂度只算辅助空间；递归栈深度必须计入，S(n) 常见 O(1) / O(log n) / O(n) / O(n²)。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 id="s14-4" style="margin-top:0">四、方法层</h3>
+      <ul style="margin-bottom:0">
+        <li>结构决定算法：先看数据规模与操作类型，再选结构，最后写算法；</li>
+        <li>画图胜过背书：结构图、操作图、边界图三张图缺一不可；</li>
+        <li>动手实现比看代码重要：写完还要测边界、查内存、对照标准实现。</li>
+      </ul>
+    </div>
+
+    <h2 id="s15">1.15 易错点与考点</h2>
+
+    <div class="note warn">
+      <span class="note-title">易错点 1　把逻辑结构与存储结构混为一谈</span>
+      错：「链表是一种逻辑结构」。对：<b>线性表是逻辑结构，链表是它的一种存储实现</b>。
+      逻辑结构只有四类（集合、线性、树、图），而「链表」「顺序表」「邻接表」「邻接矩阵」都是存储层面的概念。
+      考试常出「下列属于逻辑结构的是……」的选择题，选项里混入「顺序表」「散列表」来迷惑你。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错点 2　以为 O(1) 就是「只执行一次」</span>
+      一千条不含循环的语句仍是 O(1)；哈希表的一次查找平均也是 O(1)。
+      O(1) 的真正含义是<b>执行次数与问题规模 n 无关</b>。
+      同理，「O(n) 的 n」到底是什么，必须结合上下文说清（元素个数？顶点数？串长？）。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错点 3　用「系数变小」冒充「复杂度降低」</span>
+      三角形双层循环 n(n+1)/2 与满嵌套 n² 是同一个阶，都写 O(n²)；
+      把 <code>i *= 2</code> 改成 <code>i *= 3</code> 仍写 O(log n)。
+      <b>只有改变了「与 n 的函数关系」（如从 n² 变成 n log n）才算降阶</b>。
+      反过来，如果面试官说「优化一下」，你把 O(n²) 的常数从 5 降到 2，那只是常数级优化，
+      规模一大依然无济于事。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4　忘记递归的栈空间</span>
+      递归求阶乘的时间是 O(n)，空间也是 <b>O(n)</b>，不是 O(1)。
+      判断递归空间的口诀是「<b>看同时存活多少层，而不是看总共调用多少次</b>」：
+      斐波那契朴素递归调用次数是 2ⁿ 级，但同时只有一条路径，所以空间仍是 O(n)。
+      反过来，若递归里再申请长度为 n 的数组，那空间就是两者相加。
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 1　大 O 的定义与证明</span>
+      考试常见问法：「证明 3n² + 2n + 1 = O(n²)」。
+      标准答法：取 c = 6、n₀ = 1，当 n ≥ 1 时
+      3n² + 2n + 1 ≤ 3n² + 2n² + n² = 6n²，故由定义得证。
+      要点是<b>必须显式给出 c 和 n₀</b>，只写「显然」是不给分的。
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 2　循环与递归的复杂度速判</span>
+      <ul style="margin-bottom:0">
+        <li>循环变量按等差变化 → 次数与 n 成正比 → O(n)；</li>
+        <li>循环变量倍增 / 折半 → 出现 log → O(log n) 或 O(n log n)（嵌套时）；</li>
+        <li>循环变量自乘 / 开方 → 出现 log log → O(log log n)；</li>
+        <li>嵌套循环看「内层次数是否依赖外层」，依赖就要求和解三角形，但阶通常不变；</li>
+        <li>递归看三件事：<b>分几个子问题、规模缩到多少、合并要多久</b>。</li>
+      </ul>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 3　顺序存储 vs 链式存储的对比表（必背）</span>
+      按位查找：O(1) vs O(n)；已知位置插入删除：O(n) vs O(1)；
+      存储密度：1 vs &lt;1；空间分配：预分配连续 vs 动态申请任意；
+      是否支持随机访问：是 vs 否。这六条几乎每年都考。
+    </div>
+
+    <h2 id="s16">1.16 概念自测（8 题）</h2>
+
+    <p>先自己在本子上写答案，再展开对照。答案里有推导过程的，请重点看推导思路而不是结论。</p>
+
+    <ol class="qlist">
+      <li>
+        <b>数据元素与数据项有什么区别？请各举一例。</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p>
+            <b>数据元素</b>是数据的基本单位，在程序中作为一个整体被处理；
+            <b>数据项</b>是构成数据元素的、不可再分割的最小单位。
+            关系是「数据元素由若干数据项组成」。
+          </p>
+          <p>
+            例：在学生成绩表中，<b>「张三、学号 1001、计科 1 班、高数 92」这一整条记录是一个数据元素</b>；
+            其中的「学号 1001」「姓名张三」「高数 92」分别是<b>数据项</b>。
+            注意：当数据元素只含一个数据项时（如一个整数数组元素 a[3] = 7），两者在形态上重合，但层级关系不变。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>数据结构的三要素是什么？为什么说「逻辑结构独立于存储结构」？</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p>
+            三要素：<b>逻辑结构 + 存储结构（物理结构） + 数据的运算</b>。
+          </p>
+          <p>
+            「独立」的理由：逻辑结构描述的是元素之间<b>抽象的数学关系</b>（一对一、一对多、多对多），
+            定义里根本不涉及「地址」「字节」「内存」这些概念，因此它与计算机、编程语言、机器字长都无关。
+            同一个线性表，既可以用顺序存储，也可以用链式存储、静态链表甚至散列存储来实现，
+            逻辑语义完全一样。
+          </p>
+          <p>
+            这个独立性的直接价值有两个：一是让我们能脱离具体机器分析算法（这正是大 O 记号成立的前提）；
+            二是让「换实现不改接口」成为可能（ADT 的价值）。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>判断并说明理由：顺序存储一定比链式存储快。</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p><b>错误。</b>两者各有优势，取决于具体的运算：</p>
+          <ul>
+            <li>按位查找第 i 个元素：顺序表 O(1)（地址可算），链表 O(n)（必须顺着走）——顺序表快；</li>
+            <li>已知位置插入 / 删除：链表 O(1)（只改指针），顺序表 O(n)（要搬移后继元素）——链表快；</li>
+            <li>空间：顺序表存储密度为 1 但需预分配连续空间、可能扩容搬移；链表密度小于 1 但按需分配。
+                当元素很大而表很稀疏时，链表反而更省内存。</li>
+          </ul>
+          <p>
+            正确说法是：<b>读多写少的场景选顺序表，频繁在中间插删且已持有位置信息的场景选链表</b>。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>求下列代码的时间复杂度：<code>for (int i = 1; i &lt;= n; i *= 3) for (int j = 1; j &lt;= i; j += 2) ++cnt;</code></b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p>
+            外层循环：i 取值为 1, 3, 9, 27, …，即 3<sup>k</sup>，退出条件是 3<sup>k</sup> &gt; n，
+            所以外层执行次数为 <b>⌊log₃n⌋ + 1</b>。
+          </p>
+          <p>
+            内层循环：当外层为 i 时，j 从 1 开始每次加 2，执行约 i/2 次。
+          </p>
+          <p>
+            总次数 = Σ<sub>k=0..log₃n</sub> (3<sup>k</sup>/2) = (1/2)·(3<sup>log₃n+1</sup> − 1)/2
+            = (1/2)·(3n − 1)/2 ≈ 0.75n = <b>O(n)</b>。
+          </p>
+          <p>
+            <b>结论：O(n)。</b>这是一个很有迷惑性的题——外层看着像对数，但内层次数与 i 成正比，
+            而 i 是指数增长的，指数求和的结果由最后一项主导，最终是 O(n)。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>顺序查找中，若每个元素被查找的概率相等，平均查找长度 ASL 是多少？请写出推导。</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p>设表长为 n，查找第 i 个元素需要比较 i 次；等概率时 p<sub>i</sub> = 1/n。则</p>
+          <div class="formula center">ASL = Σ<sub>i=1..n</sub> p<sub>i</sub>·c<sub>i</sub> = (1/n)·Σ<sub>i=1..n</sub> i = (1/n)·n(n+1)/2 = (n+1)/2</div>
+          <p>
+            所以平均比较次数约为 n/2，<b>平均时间复杂度为 O(n)</b>。
+            注意区分：最好情况是 1 次（O(1)），最坏情况是 n 次（O(n)，查找失败时也是 n 次）。
+          </p>
+          <p>
+            延伸：若各元素被查概率不等，则 ASL = Σ p<sub>i</sub>·c<sub>i</sub> 需按实际分布计算。
+            工程上的优化手段就是把高频元素前移（自适应线性表）。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>递归式 T(n) = 2T(n/2) + O(n) 的解是什么？为什么归并排序的递归树每层代价都是 n？</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p><b>T(n) = O(n log n)。</b></p>
+          <p>
+            递归树第 k 层有 2<sup>k</sup> 个子问题，每个规模为 n/2<sup>k</sup>，
+            而每个子问题的合并代价与它的规模成正比，所以第 k 层的总代价 = 2<sup>k</sup> × c·(n/2<sup>k</sup>) = c·n，
+            <b>与层数无关，恒为 n</b>。这说明「分得越细，问题越多，但每个问题越小，总量恰好抵消」。
+          </p>
+          <p>
+            树高：n/2<sup>k</sup> = 1 时触底，得 k = log₂n，共 log₂n + 1 层。
+            因此 T(n) = n × (log₂n + 1) = O(n log n)。
+          </p>
+          <p>
+            对照记忆：如果合并代价降为 O(1)（如二分查找只走一边），就退化成 T(n) = T(n/2) + O(1) = O(log n)。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>递归求阶乘 <code>fact(n) = n * fact(n-1)</code> 的空间复杂度是多少？为什么不是 O(1)？</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p><b>S(n) = O(n)。</b></p>
+          <p>
+            每进入一层递归，系统就在运行时栈上压入一个栈帧（保存参数 n、局部变量与返回地址）。
+            在 <code>fact(1)</code> 触底之前，<b>n 个栈帧同时存在</b>，直到开始逐层返回才依次弹出。
+            因此最大栈深度为 n，辅助空间为 O(n)。
+          </p>
+          <p>
+            对比：同样功能的迭代版本只用 <code>r</code>、<code>i</code> 两个变量，S(n) = O(1)。
+            这也解释了为什么 n 很大时递归会栈溢出（Stack Overflow）——工程代码在深度不可控时优先写迭代。
+          </p>
+        </div></details>
+      </li>
+
+      <li>
+        <b>大 O 是上界还是下界？3n² + 2n + 1 = O(n³) 成立吗？既然成立，为什么我们通常写 O(n²)？</b>
+        <details class="fold"><summary>查看参考答案</summary><div class="fold-body">
+          <p>
+            大 O 表示<b>渐进上界</b>：存在正常数 c 与 n₀，使 n ≥ n₀ 时 0 ≤ f(n) ≤ c·g(n)。
+          </p>
+          <p>
+            <b>O(n³) 成立</b>。取 c = 1、n₀ = 6：当 n ≥ 6 时有 3n² + 2n + 1 ≤ n³。
+            所以定义上没有问题——上界可以很松。
+          </p>
+          <p>
+            之所以通常写 O(n²)，是因为我们要的是<b>最紧的上界</b>：它携带的信息量最大。
+            写成 O(n³) 虽然不错，但会误导读者以为算法在 n = 10⁶ 时要跑 10¹⁸ 次。
+            另外注意，大 O 里的等号不是等价关系而是「属于」（f ∈ O(g)），
+            否则 3n²+2n+1 = O(n³) 与 n³ ≠ 3n²+2n+1 会构成矛盾。
+          </p>
+        </div></details>
+      </li>
+    </ol>
+
+    <div class="note tip">
+      <span class="note-title">下一讲预告</span>
+      第 02 讲我们正式进入第一个数据结构——<b>线性表</b>。
+      你会看到顺序表的插入删除如何搬移元素、链表如何用指针把散落的内存串成一串、
+      头结点与哨兵如何让边界代码变干净，以及单链表反转、快慢指针判环这两个经典面试题的完整推导。
+      本章的「顺序 O(1) vs 链式 O(n)」会在那里被彻底演算一遍。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="index.html">
+        <span class="dir">← 上一讲</span>
+        <span class="ttl">课程总览</span>
+      </a>
+      <a class="next" href="ch02-linear-list.html">
+        <span class="dir">下一讲 →</span>
+        <span class="ttl">02 线性表：顺序表与链表</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

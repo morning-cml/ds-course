@@ -1,0 +1,3910 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 树与二叉树 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch07', title: '树与二叉树' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch07-viz.js" defer></script>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 07 讲</div>
+      <h1>树与二叉树</h1>
+      <p class="lede">
+        前面六讲我们一直在跟「线性结构」打交道：线性表、栈、队列、串、数组，它们的共同点是每个元素最多有一个前驱和一个后继，
+        元素之间排成一条线。可现实世界里大量关系根本不是一条线——文件系统的目录、公司的组织架构、算术表达式的运算次序、
+        HTML 的标签嵌套，都是<b>一对多</b>的层次关系。要描述这种关系，就必须换一种结构：<b>树（tree）</b>。
+        本章先把树的术语体系立起来，再聚焦到最重要的一种树——<b>二叉树（binary tree）</b>：
+        它的五大性质几乎是每张卷子的必考内容，四种遍历是后面所有树形算法（包括平衡树、堆、线段树、字典树）的地基，
+        最后用<b>赫夫曼树</b>与<b>并查集</b>收尾，前者解决最优前缀编码，后者为下一讲的图论算法铺路。
+      </p>
+      <div class="meta">
+        <span>预计 180 分钟</span>
+        <span>前置：第 02 讲线性表、第 04 讲队列、第 01 讲大 O</span>
+        <span>关键词：递归定义 · 五大性质 · 四种遍历 · 线索 · 赫夫曼编码 · 并查集</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:0">
+        <li><b>7.1</b> 树的定义与术语体系 —— 术语多且易混（深度 vs 高度、堂兄弟 vs 兄弟），配一张标注齐全的图一次记住。</li>
+        <li><b>7.2</b> 树的三种存储结构 —— 双亲、孩子、孩子兄弟。记住一句话：<b>孩子兄弟表示法把任意树变成了二叉树</b>。</li>
+        <li><b>7.3</b> 二叉树基础 —— 五种形态、斜树 / 满二叉树 / 完全二叉树、顺序存储与链式存储。</li>
+        <li><b>7.4</b> 二叉树的五大性质（<b>本章最常考</b>）—— 每条性质都给完整证明 + 一道应用例题。</li>
+        <li><b>7.5</b> 四种遍历（<b>本章最基本</b>）—— 前 / 中 / 后 / 层序，递归与非递归都要会写，还要会由序列还原二叉树。</li>
+        <li><b>7.6</b> 线索二叉树 —— 把空指针域变废为宝，让遍历不需要栈。</li>
+        <li><b>7.7</b> 树、森林与二叉树的转换 —— 三条互逆规则 + 两条必背遍历对应结论。</li>
+        <li><b>7.8</b> 赫夫曼树与最优前缀编码（<b>本章重点</b>）—— WPL、贪心构造、编码表、规范赫夫曼编码。</li>
+        <li><b>7.9</b> 并查集 —— 双亲表示法 + 路径压缩 + 按秩合并，为第 09 讲的图论算法做准备。</li>
+        <li><b>7.10 ~ 7.12</b> C++ 实战细节、易错点与考点自测。</li>
+      </ul>
+    </div>
+
+    <h2 id="tree-def">7.1 树的定义与术语体系</h2>
+
+    <h3 id="tree-recursive-def">7.1.1 树的递归定义：为什么必须递归地定义</h3>
+    <p>
+      线性表可以一句话说清：<i>n 个元素的有限序列</i>。树不行，因为树里边套着树。
+      我们只能这样定义它：
+    </p>
+
+    <div class="formula">
+      <b>树的递归定义：</b>树（tree）是 n（n ≥ 0）个<b>结点（node）</b>的有限集合 T。当 n = 0 时，
+      称为<b>空树（empty tree）</b>；当 n &gt; 0 时，它满足两个条件：<br>
+      ① 有且仅有一个特定的结点，称为<b>根（root）</b>；<br>
+      ② 其余 n − 1 个结点可以分成 m（m ≥ 0）个<b>互不相交</b>的有限集合 T<sub>1</sub>, T<sub>2</sub>, …, T<sub>m</sub>，
+      其中每一个集合本身又是一棵树，称为根的<b>子树（subtree）</b>。
+    </div>
+
+    <p>
+      这个定义里有三个词是「锁死」的，考试经常在这里挖坑，我们逐个拆开看：
+    </p>
+    <ul>
+      <li><b>「有且仅有一个根」</b>：这排除了「一个集合里有两个独立的部分」的情况，也排除了环形结构。
+        一个结点集如果能分成两块彼此没有边相连的部分，那它就不是一棵树，而是<b>森林（forest）</b>。</li>
+      <li><b>「互不相交」</b>：这是最关键的一句。它保证了<b>树中任意两个结点之间有且仅有一条路径</b>，
+        也就是说树里<b>绝不会有环</b>。反过来说，只要一张连通图里出现了环，它就不是树。</li>
+      <li><b>「每个子集又是一棵树」</b>：这叫<b>递归定义</b>，它直接决定了树上的算法几乎全部写成<b>递归函数</b>。
+        你后面会看到，求深度、求结点数、四种遍历，代码骨架都是「处理根 + 递归处理子树」。</li>
+    </ul>
+
+    <p>
+      换个角度看，树其实是一个满足下面三条的<b>有向图</b>：有且仅有一个入度为 0 的结点（根）、
+      其余结点入度全部为 1、从根出发能到达所有结点。这三条等价于「n 个结点、n − 1 条边、连通、无环」，
+      这是第 09 讲判断生成树时会反复用到的结论。所以树的边数是固定的：<b>n 个结点的树恰好有 n − 1 条边</b>，
+      不多不少。这个「n − 1」在证明性质 3 时会成为主角。
+    </p>
+
+    <div class="note tip">
+      <span class="note-title">树 vs 线性结构：一对一到一对多</span>
+      线性结构中，除首尾元素外每个元素有<b>唯一</b>前驱和<b>唯一</b>后继（一对一）；
+      树结构中，除根以外的每个结点有<b>唯一</b>前驱（双亲），但可以有<b>任意多个</b>后继（孩子）（一对多）。
+      再往上还有多对多的<b>图（graph）</b>——这正是第 08 讲的内容。整门课的逻辑结构主线就是：一对一 → 一对多 → 多对多。
+    </div>
+
+    <h3 id="tree-terms">7.1.2 术语体系：一张图看懂全部概念</h3>
+    <p>
+      树的术语是整章最「碎」的部分，硬背很容易串。下面这张图把 16 个术语全部标在了同一棵树上，
+      建议先看图记位置，再看后面的定义表补精确定义。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 440" width="900" height="440" xmlns="http://www.w3.org/2000/svg">
+        <!-- 层次标尺 -->
+        <line x1="40" y1="24" x2="40" y2="380" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="5 5"/>
+        <text x="34" y="42" text-anchor="end" fill="var(--text-faint)" font-size="12">第 1 层</text>
+        <text x="34" y="122" text-anchor="end" fill="var(--text-faint)" font-size="12">第 2 层</text>
+        <text x="34" y="202" text-anchor="end" fill="var(--text-faint)" font-size="12">第 3 层</text>
+        <text x="34" y="282" text-anchor="end" fill="var(--text-faint)" font-size="12">第 4 层</text>
+        <line x1="52" y1="34" x2="880" y2="34" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 6"/>
+        <line x1="52" y1="114" x2="880" y2="114" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 6"/>
+        <line x1="52" y1="194" x2="880" y2="194" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 6"/>
+        <line x1="52" y1="274" x2="880" y2="274" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 6"/>
+        <text x="700" y="30" fill="var(--text-faint)" font-size="12">树的深度（高度）= 最大层次 = 4</text>
+
+        <!-- 边 -->
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="320" y1="56" x2="200" y2="136"/>
+          <line x1="320" y1="56" x2="440" y2="136"/>
+          <line x1="320" y1="56" x2="640" y2="136"/>
+          <line x1="200" y1="136" x2="130" y2="216"/>
+          <line x1="200" y1="136" x2="270" y2="216"/>
+          <line x1="440" y1="136" x2="440" y2="216"/>
+          <line x1="640" y1="136" x2="590" y2="216"/>
+          <line x1="640" y1="136" x2="700" y2="216"/>
+          <line x1="270" y1="216" x2="270" y2="296"/>
+        </g>
+
+        <!-- 结点 -->
+        <circle cx="320" cy="56" r="22" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.6"/>
+        <text x="320" y="62" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Consolas,monospace">A</text>
+        <circle cx="200" cy="136" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="200" y="142" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">B</text>
+        <circle cx="440" cy="136" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="440" y="142" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">C</text>
+        <circle cx="640" cy="136" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="640" y="142" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">D</text>
+        <circle cx="130" cy="216" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="130" y="222" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">E</text>
+        <circle cx="270" cy="216" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="270" y="222" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">F</text>
+        <circle cx="440" cy="216" r="22" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="440" y="222" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">G</text>
+        <circle cx="590" cy="216" r="22" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="590" y="222" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">H</text>
+        <circle cx="700" cy="216" r="22" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="700" y="222" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">I</text>
+        <circle cx="270" cy="296" r="22" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="270" y="302" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas,monospace">J</text>
+
+        <!-- 术语标注 -->
+        <text x="320" y="18" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-weight="700">根结点（无双亲）</text>
+        <text x="760" y="60" fill="var(--text-soft)" font-size="12.5">A 是 B、C、D 的<b>双亲</b>（parent）</text>
+        <text x="760" y="80" fill="var(--text-soft)" font-size="12.5">B、C、D 是 A 的<b>孩子</b>（child）</text>
+        <text x="760" y="100" fill="var(--text-soft)" font-size="12.5">B、C、D 互为<b>兄弟</b>（sibling）</text>
+        <text x="760" y="150" fill="var(--text-soft)" font-size="12.5">E 与 F 是兄弟，E 与 G 是</text>
+        <text x="760" y="170" fill="var(--text-soft)" font-size="12.5"><b>堂兄弟</b>（双亲同层但不同）</text>
+        <text x="760" y="230" fill="var(--text-soft)" font-size="12.5">A、B、F 是 J 的<b>祖先</b>（ancestor）</text>
+        <text x="760" y="250" fill="var(--text-soft)" font-size="12.5">J 是 A、B、F 的<b>子孙</b>（descendant）</text>
+        <text x="760" y="290" fill="var(--ok)" font-size="12.5" font-weight="700">绿色结点 = 叶子（度为 0）</text>
+        <text x="700" y="336" fill="var(--text-soft)" font-size="12.5">D 的度 = 2，C 的度 = 1</text>
+        <text x="560" y="356" fill="var(--text-soft)" font-size="12.5">G、H、I、J 的度 = 0 → 叶子</text>
+        <text x="560" y="376" fill="var(--brand)" font-size="12.5" font-weight="700">A→B→F→J 的路径长度 = 3</text>
+        <text x="60" y="330" fill="var(--text-soft)" font-size="12.5">B、C、D 是 A 的子树之根</text>
+        <text x="60" y="352" fill="var(--text-soft)" font-size="12.5">A 的度 = 3，B 的度 = 2</text>
+        <text x="60" y="374" fill="var(--text-soft)" font-size="12.5">B 的层次 = 2，深度 = 2</text>
+        <text x="60" y="396" fill="var(--text-faint)" font-size="12.5">F 的层次 = 3，高度 = 2</text>
+        <text x="60" y="418" fill="var(--text-faint)" font-size="12.5">（高度按「到最远叶子的边数」算）</text>
+
+        <!-- 子树框 -->
+        <rect x="92" y="180" width="200" height="146" rx="10" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <text x="100" y="200" fill="var(--accent)" font-size="12" font-weight="700">B 为根的子树</text>
+      </svg>
+      <figcaption>图 7-1　树的术语总览：一棵 4 层 10 结点的树，所有基本术语都标在图上</figcaption>
+    </div>
+
+    <dl class="def">
+      <dt>结点</dt><dd>树中的基本单位，包含<b>数据元素</b>和指向其子树的分支信息。图 7-1 中共有 10 个结点。</dd>
+      <dt>结点的度</dt><dd>结点拥有的<b>子树个数</b>，也就是它孩子的个数。A 的度是 3，C 的度是 1，G、H、I、J 的度是 0。</dd>
+      <dt>树的度</dt><dd>树中所有结点度的<b>最大值</b>。图 7-1 中 max{3,2,2,1,2,0,…} = 3，所以这棵树的度是 3，它是一棵「3 次树」。<b>m 次树</b>就是度为 m 的树。</dd>
+      <dt>叶子（终端结点）</dt><dd>度为 0 的结点，它没有孩子。图 7-1 中 G、H、I、J 是叶子。</dd>
+      <dt>分支结点（非终端结点）</dt><dd>度不为 0 的结点。A、B、C、D、E、F 都是分支结点。其中度 ≥ 1 但 &lt; 树度的分支结点（如 C）有时叫「内部结点」。</dd>
+      <dt>孩子</dt><dd>结点子树的根称为该结点的孩子。B、C、D 都是 A 的孩子。</dd>
+      <dt>双亲（父结点）</dt><dd>与孩子相对。<b>除根以外每个结点有且仅有一个双亲</b>——这是树与图最本质的区别之一。</dd>
+      <dt>兄弟</dt><dd>同一个双亲的孩子之间互称兄弟。B、C、D 互为兄弟；E、F 互为兄弟。</dd>
+      <dt>堂兄弟</dt><dd>双亲在同一层、但<b>不是同一个结点</b>的结点互为堂兄弟。E（双亲 B，第 2 层）与 G（双亲 C，第 2 层）是堂兄弟。<b>注意：堂兄弟的双亲同层不同点，兄弟的双亲是同一个点。</b></dd>
+      <dt>祖先</dt><dd>从根到该结点所经分支上的<b>所有</b>结点。J 的祖先是 A、B、F（以及 J 自己按某些教材的约定也计入，考试一般只问「除自己外」的祖先）。</dd>
+      <dt>子孙</dt><dd>以某结点为根的子树中的<b>任一</b>结点。B 的子孙是 E、F、J。</dd>
+      <dt>层次</dt><dd>根为第 1 层，根的孩子为第 2 层，依此类推。<b>有的教材从第 0 层开始编号</b>，做题时先看清约定，两者只差一个常数。</dd>
+      <dt>深度（高度）</dt><dd>结点的<b>深度</b>是从根到该结点所经过的<b>边数 + 1</b>（= 该结点的层次）；树的深度是树中结点的最大层次。结点的<b>高度</b>是从该结点到最远叶子的<b>最长路径边数</b>。两者对整棵树来说数值相等（都等于层数），但对单个结点通常不等：F 的深度是 3，高度是 2。<b>考试里若只说「深度」，通常指树的深度 = 层数。</b></dd>
+      <dt>有序树</dt><dd>结点的各子树<b>从左到右有次序</b>、不能互换。交换后就是另一棵树。二叉树、语法树都是有序树。</dd>
+      <dt>无序树</dt><dd>结点的子树之间没有顺序关系，交换任意两棵子树仍是同一棵树。一般的「家族关系树」是无序树。</dd>
+      <dt>森林</dt><dd>m（m ≥ 0）棵<b>互不相交</b>的树的集合。一棵树砍掉根，剩下的子树集合就是一个森林。<b>树和森林是可以互相转化的</b>，见 7.7 节。</dd>
+      <dt>路径与路径长度</dt><dd>从结点 X 到结点 Y 的路径是一个结点序列，其中相邻结点之间都有边相连（树中这条路径唯一）。<b>路径长度 = 路径上边的条数</b>。A 到 J 的路径是 A→B→F→J，长度为 3。</dd>
+    </dl>
+
+    <div class="note warn">
+      <span class="note-title">易错：深度、高度、层次、路径长度，四个数容易全搞混</span>
+      <ul style="margin:6px 0 0">
+        <li><b>层次（level）</b>从 1 开始数：根是第 1 层。有些书写「根在第 0 层」，那就整体减 1。</li>
+        <li><b>结点的深度</b> = 从根走到它的<b>边数 + 1</b> = 它的层次。</li>
+        <li><b>结点的高度</b> = 从它走到最远叶子的<b>边数</b>（叶子高度为 0）。所以「结点的深度 + 高度」不一定等于树的深度。</li>
+        <li><b>路径长度</b>数的是<b>边</b>不是结点。A 到 J 经过 4 个结点，但路径长度是 3。</li>
+      </ul>
+      记住一句话：<b>深度从上往下数（1 基），高度从下往上数（0 基），路径长度只数边。</b>
+    </div>
+
+    <h3 id="tree-props-basic">7.1.3 由定义直接推出的两条常用结论</h3>
+    <p>树的定义非常强，强到可以直接推出两条后面反复要用的结论：</p>
+    <div class="grid c2">
+      <div class="card">
+        <h4 style="margin-top:0">结论一：边数 = 结点数 − 1</h4>
+        <p style="margin-bottom:0">
+          每个非根结点<b>恰好有一条边连向它的双亲</b>（双亲存在且唯一），根没有这样的边。
+          于是把每条边都记在「它的下端结点」账上，正好一一对应：<br>
+          <code>边数 = n − 1</code>。
+        </p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">结论二：度数之和 = 边数</h4>
+        <p style="margin-bottom:0">
+          结点的度就是它发出的边的条数（一条边连向一个孩子）。把所有结点的度加起来，
+          每条边恰好在「上端结点」的度里被数了一次：<br>
+          <code>Σ 度(i) = 边数 = n − 1</code>。
+        </p>
+      </div>
+    </div>
+    <p>
+      把这两条拼起来，就得到一条万能的恒等式：<b>树的结点数 = 所有结点的度数之和 + 1</b>。
+      别看它简单，二叉树性质 3（<code>n0 = n2 + 1</code>）就是它的直接系。</p>
+
+    <h2 id="tree-storage">7.2 树的存储结构</h2>
+
+    <p>
+      树是「一对多」的逻辑结构，但计算机的内存是「一格一格、一条一条」的线性空间。
+      所谓设计存储结构，本质就是回答一个问题：<b>怎么用线性内存把这个一对多关系记下来？</b>
+      下面三种表示法只是侧重点不同——分别把「找双亲」「找孩子」「把树变成二叉树」这三件事做成了 O(1) 或接近 O(1)。
+    </p>
+
+    <h3 id="tree-parent-rep">7.2.1 双亲表示法：一组数组就够</h3>
+    <p>
+      思路最朴素：把结点按某种顺序（通常是层序）塞进一维数组，每个结点再存一个整数，
+      记下它<b>双亲在数组中的下标</b>。根的双亲记成 −1。
+    </p>
+
+    <pre data-lang="cpp" data-file="tree_parent.cpp">#include &lt;iostream&gt;
+using namespace std;
+
+/* ============================================================
+   1) 双亲表示法（parent representation）
+   结点只存"数据 + 双亲下标"，用一整块连续数组保存，根的双亲记 -1。
+   ============================================================ */
+const int MAXN = 100;
+
+struct PTNode {          // 一个结点
+    char data;           // 数据域
+    int  parent;         // 双亲在数组中的下标，根为 -1
+};
+
+struct PTree {
+    PTNode nodes[MAXN];  // 结点数组
+    int    n;            // 当前结点个数
+};
+
+/* 求双亲：O(1)，这就是双亲表示法存在的唯一理由 */
+int parentOf(const PTree&amp; t, int i) { return t.nodes[i].parent; }
+
+/* 求某结点的所有孩子：要扫全表，O(n)。
+   想快就得再挂一张"孩子表"，那就变成孩子表示法了。 */
+void printChildren(const PTree&amp; t, int i) {
+    cout &lt;&lt; t.nodes[i].data &lt;&lt; " 的孩子: ";
+    for (int k = 0; k &lt; t.n; ++k)
+        if (t.nodes[k].parent == i) cout &lt;&lt; t.nodes[k].data &lt;&lt; ' ';
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    /* 手动构造图 7-2 那棵树：下标 0..9 对应 A..J */
+    PTree t;
+    t.n = 10;
+    const char* d = "ABCDEFGHIJ";
+    int par[10] = { -1, 0, 0, 0, 1, 1, 2, 3, 3, 5 };   // 每个结点的双亲下标
+    for (int i = 0; i &lt; 10; ++i) { t.nodes[i].data = d[i]; t.nodes[i].parent = par[i]; }
+
+    cout &lt;&lt; "F 的双亲是 " &lt;&lt; t.nodes[parentOf(t, 5)].data &lt;&lt; "\n";   // B
+    printChildren(t, 0);                                          // B C D
+    printChildren(t, 1);                                          // E F
+    return 0;
+}</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">双亲表示法：一个结构体数组，每个结点多存一个 parent 下标</text>
+        <!-- 数组表头 -->
+        <g font-family="Consolas,monospace" font-size="13">
+          <rect x="30" y="40" width="52" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="56" y="60" text-anchor="middle" fill="var(--text-soft)">下标</text>
+          <rect x="82" y="40" width="700" height="30" rx="0" fill="none" stroke="none"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <!-- 下标行 -->
+          <g fill="var(--text-faint)" font-size="12">
+            <text x="108" y="60" text-anchor="middle">0</text><text x="178" y="60" text-anchor="middle">1</text>
+            <text x="248" y="60" text-anchor="middle">2</text><text x="318" y="60" text-anchor="middle">3</text>
+            <text x="388" y="60" text-anchor="middle">4</text><text x="458" y="60" text-anchor="middle">5</text>
+            <text x="528" y="60" text-anchor="middle">6</text><text x="598" y="60" text-anchor="middle">7</text>
+            <text x="668" y="60" text-anchor="middle">8</text><text x="738" y="60" text-anchor="middle">9</text>
+          </g>
+          <!-- data 行 -->
+          <text x="30" y="98" fill="var(--text-soft)" font-size="12">data</text>
+          <g>
+            <rect x="82" y="78" width="70" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="117" y="99" text-anchor="middle" fill="var(--text)">A</text>
+            <rect x="152" y="78" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="187" y="99" text-anchor="middle" fill="var(--text)">B</text>
+            <rect x="222" y="78" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="257" y="99" text-anchor="middle" fill="var(--text)">C</text>
+            <rect x="292" y="78" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="327" y="99" text-anchor="middle" fill="var(--text)">D</text>
+            <rect x="362" y="78" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="397" y="99" text-anchor="middle" fill="var(--text)">E</text>
+            <rect x="432" y="78" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="467" y="99" text-anchor="middle" fill="var(--text)">F</text>
+            <rect x="502" y="78" width="70" height="30" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="537" y="99" text-anchor="middle" fill="var(--text)">G</text>
+            <rect x="572" y="78" width="70" height="30" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="607" y="99" text-anchor="middle" fill="var(--text)">H</text>
+            <rect x="642" y="78" width="70" height="30" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="677" y="99" text-anchor="middle" fill="var(--text)">I</text>
+            <rect x="712" y="78" width="70" height="30" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="747" y="99" text-anchor="middle" fill="var(--text)">J</text>
+          </g>
+          <!-- parent 行 -->
+          <text x="30" y="140" fill="var(--text-soft)" font-size="12">parent</text>
+          <g font-size="14">
+            <rect x="82" y="120" width="70" height="30" rx="4" fill="var(--danger-soft)" stroke="var(--danger)"/><text x="117" y="141" text-anchor="middle" fill="var(--danger)">-1</text>
+            <rect x="152" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="187" y="141" text-anchor="middle" fill="var(--text)">0</text>
+            <rect x="222" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="257" y="141" text-anchor="middle" fill="var(--text)">0</text>
+            <rect x="292" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="327" y="141" text-anchor="middle" fill="var(--text)">0</text>
+            <rect x="362" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="397" y="141" text-anchor="middle" fill="var(--text)">1</text>
+            <rect x="432" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="467" y="141" text-anchor="middle" fill="var(--text)">1</text>
+            <rect x="502" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="537" y="141" text-anchor="middle" fill="var(--text)">2</text>
+            <rect x="572" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="607" y="141" text-anchor="middle" fill="var(--text)">3</text>
+            <rect x="642" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="677" y="141" text-anchor="middle" fill="var(--text)">3</text>
+            <rect x="712" y="120" width="70" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="747" y="141" text-anchor="middle" fill="var(--text)">5</text>
+          </g>
+        </g>
+        <!-- 指针示意 -->
+        <path d="M467,150 L467,196 L187,196 L187,152" fill="none" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#par1)"/>
+        <defs><marker id="par1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/></marker></defs>
+        <text x="480" y="216" fill="var(--brand)" font-size="12.5" font-family="Consolas,monospace">nodes[5].parent = 1 → F 的双亲是 nodes[1] = B</text>
+
+        <text x="30" y="252" fill="var(--ok)" font-size="12.5">✓ 找双亲、找根 O(1)　✓ 存孩子个数（度）方便　✓ 省空间</text>
+        <text x="30" y="274" fill="var(--danger)" font-size="12.5">✗ 找孩子要遍历整个数组 O(n)　✗ 求某结点的所有子孙很麻烦</text>
+        <text x="30" y="294" fill="var(--text-faint)" font-size="12">注意：数组下标之间的父子关系是"隐式"的（靠 parent 值连接），结点在数组里可以任意排列，不要求层序。</text>
+      </svg>
+      <figcaption>图 7-2　双亲表示法：用 parent 下标把「找双亲」变成 O(1)</figcaption>
+    </div>
+
+    <p>
+      双亲表示法最大的价值在于：<b>它能 O(1) 地向上走</b>。凡是算法里频繁需要「找父亲 / 找根」的场景，
+      都会采用这种表示法——最典型的就是 7.9 节的<b>并查集</b>。
+    </p>
+
+    <h3 id="tree-child-rep">7.2.2 孩子表示法：把每个结点的孩子串成链表</h3>
+    <p>
+      既然双亲表示法找孩子慢，那就反着来：给每个结点挂一条链表，链表里存它<b>所有孩子的下标</b>。
+      这就是<b>孩子表示法（child representation）</b>，也叫「孩子链表」。
+    </p>
+    <p>
+      C++ 里最简单的写法是「数组 + <code>vector</code>」：
+      <code>vector&lt;int&gt; ch[n]</code>，<code>ch[i]</code> 里按从左到右的顺序存着结点 i 的所有孩子下标。
+      如果要手写链表（考试常见），则用「结点数组 + 孩子链表结点」两张表。
+    </p>
+
+    <pre data-lang="cpp" data-file="tree_child.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   2) 孩子表示法（child representation）—— 每个结点挂一条孩子链表
+   这里用 vector 代替手写链表，语义完全一致，还免去了内存管理。
+   ============================================================ */
+struct CTree {
+    vector&lt;char&gt;              data;   // 结点数据
+    vector&lt;vector&lt;int&gt;&gt; child;  // child[i] = 结点 i 的所有孩子下标（从左到右有序）
+    int root;                          // 根的下标
+
+    explicit CTree(int n) : data(n), child(n), root(0) {}
+
+    /* 找孩子：直接返回引用，O(度) 而不是 O(n)，这就是孩子表示法的意义 */
+    const vector&lt;int&gt;&amp; childrenOf(int i) const { return child[i]; }
+};
+
+/* 求双亲：孩子表示法的软肋，只能扫所有链表，最坏 O(n + 边数) */
+int parentOf(const CTree&amp; t, int x) {
+    for (int i = 0; i &lt; (int)t.child.size(); ++i)
+        for (int c : t.child[i])
+            if (c == x) return i;
+    return -1;
+}
+
+/* 求根：入度为 0 的那个结点。用一个标记数组，O(n + 边数) */
+int findRoot(const CTree&amp; t) {
+    vector&lt;bool&gt; isChild(t.data.size(), false);
+    for (int i = 0; i &lt; (int)t.child.size(); ++i)
+        for (int c : t.child[i]) isChild[c] = true;
+    for (int i = 0; i &lt; (int)t.data.size(); ++i)
+        if (!isChild[i]) return i;
+    return -1;
+}
+
+int main() {
+    /* 构造图 7-2 的树：0=A 1=B 2=C 3=D 4=E 5=F 6=G 7=H 8=I 9=J */
+    CTree t(10);
+    const char* d = "ABCDEFGHIJ";
+    for (int i = 0; i &lt; 10; ++i) t.data[i] = d[i];
+    t.child[0] = { 1, 2, 3 };   // A -&gt; B C D
+    t.child[1] = { 4, 5 };      // B -&gt; E F
+    t.child[2] = { 6 };         // C -&gt; G
+    t.child[3] = { 7, 8 };      // D -&gt; H I
+    t.child[5] = { 9 };         // F -&gt; J
+    t.root = findRoot(t);
+
+    cout &lt;&lt; "根是 " &lt;&lt; t.data[t.root] &lt;&lt; "\n";                 // A
+    cout &lt;&lt; "F 的双亲是 " &lt;&lt; t.data[parentOf(t, 5)] &lt;&lt; "\n";   // B
+    for (int c : t.childrenOf(0)) cout &lt;&lt; t.data[c] &lt;&lt; ' ';     // B C D
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 320" width="880" height="320" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">孩子表示法：结点数组（左）+ 每个结点的孩子链表（右）</text>
+        <!-- 左边结点数组 -->
+        <g font-family="Consolas,monospace" font-size="13.5">
+          <rect x="30" y="42" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="62" text-anchor="middle" fill="var(--text-soft)" font-size="12">0 A</text>
+          <rect x="30" y="76" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="96" text-anchor="middle" fill="var(--text-soft)" font-size="12">1 B</text>
+          <rect x="30" y="110" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="130" text-anchor="middle" fill="var(--text-soft)" font-size="12">2 C</text>
+          <rect x="30" y="144" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="164" text-anchor="middle" fill="var(--text-soft)" font-size="12">3 D</text>
+          <rect x="30" y="178" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="198" text-anchor="middle" fill="var(--text-soft)" font-size="12">4 E</text>
+          <rect x="30" y="212" width="60" height="30" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/>
+          <text x="60" y="232" text-anchor="middle" fill="var(--text-soft)" font-size="12">5 F</text>
+          <text x="30" y="266" fill="var(--text-faint)" font-size="12">（数组下标即结点编号）</text>
+        </g>
+
+        <!-- 孩子链表 -->
+        <g font-family="Consolas,monospace" font-size="13.5">
+          <!-- A 的孩子链表 -->
+          <path d="M90,57 L124,57" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="126" y="42" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="149" y="62" text-anchor="middle" fill="var(--text)">1</text>
+          <path d="M172,57 L196,57" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="198" y="42" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="221" y="62" text-anchor="middle" fill="var(--text)">2</text>
+          <path d="M244,57 L268,57" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="270" y="42" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="293" y="62" text-anchor="middle" fill="var(--text)">3</text>
+          <path d="M316,57 L340,57" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <text x="352" y="62" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="392" y="62" fill="var(--text-soft)" font-size="12.5">A 的孩子：B、C、D（从左到右有序）</text>
+
+          <!-- B 的孩子链表 -->
+          <path d="M90,91 L124,91" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="126" y="76" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="149" y="96" text-anchor="middle" fill="var(--text)">4</text>
+          <path d="M172,91 L196,91" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="198" y="76" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="221" y="96" text-anchor="middle" fill="var(--text)">5</text>
+          <path d="M244,91 L268,91" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <text x="280" y="96" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="320" y="96" fill="var(--text-soft)" font-size="12.5">B 的孩子：E、F</text>
+
+          <!-- 其余 -->
+          <path d="M90,125 L124,125" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="126" y="110" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="149" y="130" text-anchor="middle" fill="var(--text)">6</text>
+          <path d="M172,125 L196,125" stroke="var(--border-strong)" stroke-width="1.8"/><text x="208" y="130" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="248" y="130" fill="var(--text-soft)" font-size="12.5">C 的孩子：G</text>
+
+          <path d="M90,159 L124,159" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="126" y="144" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="149" y="164" text-anchor="middle" fill="var(--text)">7</text>
+          <path d="M172,159 L196,159" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="198" y="144" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="221" y="164" text-anchor="middle" fill="var(--text)">8</text>
+          <path d="M244,159 L268,159" stroke="var(--border-strong)" stroke-width="1.8"/><text x="280" y="164" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="320" y="164" fill="var(--text-soft)" font-size="12.5">D 的孩子：H、I</text>
+
+          <path d="M90,193 L124,193" stroke="var(--border-strong)" stroke-width="1.8"/><text x="136" y="198" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="176" y="198" fill="var(--text-soft)" font-size="12.5">E 是叶子，孩子链表为空</text>
+
+          <path d="M90,227 L124,227" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#ch1)"/>
+          <rect x="126" y="212" width="46" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="149" y="232" text-anchor="middle" fill="var(--text)">9</text>
+          <path d="M172,227 L196,227" stroke="var(--border-strong)" stroke-width="1.8"/><text x="208" y="232" fill="var(--text-faint)" font-size="15">∧</text>
+          <text x="248" y="232" fill="var(--text-soft)" font-size="12.5">F 的孩子：J</text>
+        </g>
+        <defs><marker id="ch1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/></marker></defs>
+
+        <text x="30" y="292" fill="var(--ok)" font-size="12.5">✓ 找孩子 O(度)，且天然保持「从左到右」的顺序　✓ 求结点的度 O(1)（数链表长度）</text>
+        <text x="30" y="312" fill="var(--danger)" font-size="12.5">✗ 找双亲要扫全表 O(n)　✗ 指针/容器开销比双亲表示法大</text>
+      </svg>
+      <figcaption>图 7-3　孩子表示法：结点数组 + 孩子链表，把「找孩子」变成 O(度)</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">工程变体：双亲孩子表示法</span>
+      两种表示法各有软肋，于是有了折中方案：<b>在结点数组里同时存 parent 下标和孩子链表头指针</b>。
+      这样找双亲 O(1)、找孩子 O(度)，代价只是每个结点多一个整数的空间。
+      实际工程（例如编译器里的语法树、文件系统的 inode 表）往往就是这么干的。
+    </div>
+
+    <h3 id="tree-child-sibling">7.2.3 孩子兄弟表示法：把树变成二叉树</h3>
+    <p>
+      第三种表示法是全章最重要的一个转折点。它的观察非常巧妙：
+      <b>与其直接记录「谁是孩子」，不如记录两条关系——「我的第一个孩子是谁」和「我的下一个兄弟是谁」。</b>
+    </p>
+    <p>
+      因为「第一个孩子」唯一，「下一个兄弟」也唯一，所以每个结点只要两个指针就够了，
+      而且结点的结构变成了<strong>和二叉树链表结点一模一样</strong>的两指针结构：
+    </p>
+
+    <pre data-lang="cpp" data-file="tree_child_sibling.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   3) 孩子兄弟表示法（左孩子右兄弟）—— 也叫"二叉链表表示法"
+   每个结点只有两个指针：
+       firstChild ：指向第一个孩子（最左边的孩子）
+       nextSibling：指向右边紧邻的下一个兄弟
+   结点结构与二叉树结点完全相同，因此"树"被存成了"二叉树"。
+   ============================================================ */
+struct CSNode {
+    char     data;
+    CSNode*  firstChild;    // 左指针：第一个孩子
+    CSNode*  nextSibling;   // 右指针：下一个兄弟
+    CSNode(char d) : data(d), firstChild(nullptr), nextSibling(nullptr) {}
+};
+
+/* ---------- 求某结点的度：沿 firstChild 的同级链数一遍 ---------- */
+int degreeOf(CSNode* p) {
+    int d = 0;
+    for (CSNode* c = p-&gt;firstChild; c; c = c-&gt;nextSibling) ++d;
+    return d;
+}
+
+/* ---------- 求双亲：只能从根开始找，O(n) ---------- */
+CSNode* parentOf(CSNode* root, CSNode* target) {
+    if (!root) return nullptr;
+    for (CSNode* c = root-&gt;firstChild; c; c = c-&gt;nextSibling) {
+        if (c == target) return root;
+        if (CSNode* r = parentOf(c, target)) return r;   // 递归到子树里找
+    }
+    return nullptr;
+}
+
+/* ---------- 用"树的层序序列 + 每结点的度"直接建树（不用指针操作） ----------
+   输入：层序的结点值 vals，以及对应的度 deg（孩子个数），按层序依次给出。
+   做法：用一个队列保存"已经建好、但孩子还没接完"的结点，依次分配孩子。 */
+CSNode* buildByLevel(const vector&lt;char&gt;&amp; vals, const vector&lt;int&gt;&amp; deg) {
+    if (vals.empty()) return nullptr;
+    vector&lt;CSNode*&gt; node(vals.size());
+    for (size_t i = 0; i &lt; vals.size(); ++i) node[i] = new CSNode(vals[i]);
+
+    int child = 1;                       // 下一个待分配的结点下标（根是 0）
+    for (size_t i = 0; i &lt; vals.size(); ++i) {
+        CSNode* prev = nullptr;
+        for (int k = 0; k &lt; deg[i]; ++k) {
+            if (child &gt;= (int)vals.size()) break;
+            if (k == 0) node[i]-&gt;firstChild = node[child];   // 第一个孩子挂在左指针
+            else        prev-&gt;nextSibling = node[child];     // 其余孩子串在兄弟链上
+            prev = node[child];
+            ++child;
+        }
+    }
+    return node[0];
+}
+
+int main() {
+    /* 图 7-2 的树，按层序给出：A(3) B(2) C(1) D(2) E(0) F(1) G(0) H(0) I(0) J(0) */
+    vector&lt;char&gt; v = { 'A','B','C','D','E','F','G','H','I','J' };
+    vector&lt;int&gt;  d = {  3,  2,  1,  2,  0,  1,  0,  0,  0,  0 };
+    CSNode* root = buildByLevel(v, d);
+
+    cout &lt;&lt; "A 的度 = " &lt;&lt; degreeOf(root) &lt;&lt; "\n";                 // 3
+    cout &lt;&lt; "B 的度 = " &lt;&lt; degreeOf(root-&gt;firstChild) &lt;&lt; "\n";     // 2
+    cout &lt;&lt; "J 的双亲 = " &lt;&lt; parentOf(root, root-&gt;firstChild-&gt;firstChild-&gt;nextSibling
+                                        -&gt;firstChild)-&gt;data &lt;&lt; "\n";  // F
+    return 0;
+}</pre>
+
+    <p>
+      对照图 7-4 仔细看：左指针画出的是<b>竖着的「父子边」</b>，右指针画出的是<b>横着的「兄弟边」</b>。
+      把兄弟边「旋转 45°压平」来看，整棵树就变成了一棵标准二叉树。
+      这正是教材上说的：<b>孩子兄弟表示法把一棵普通树变成了一棵二叉树</b>，
+      而它对应的二叉树恰好就是 7.7 节要讲的「树转二叉树」的结果——两者其实是同一个东西的两种说法。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 340" width="880" height="340" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">孩子兄弟表示法：左指针 = 第一个孩子（实线竖边），右指针 = 下一个兄弟（虚线横边）</text>
+        <g stroke-linecap="round">
+          <!-- 竖边 = firstChild（左指针） -->
+          <g stroke="var(--brand)" stroke-width="2.2">
+            <line x1="120" y1="86" x2="120" y2="146"/>
+            <line x1="120" y1="146" x2="120" y2="266"/>
+            <line x1="220" y1="146" x2="220" y2="266"/>
+            <line x1="320" y1="106" x2="320" y2="166"/>
+            <line x1="420" y1="106" x2="420" y2="166"/>
+            <line x1="520" y1="106" x2="520" y2="166"/>
+            <line x1="320" y1="166" x2="320" y2="266"/>
+          </g>
+          <!-- 横边 = nextSibling（右指针） -->
+          <g stroke="var(--accent)" stroke-width="2.2" stroke-dasharray="7 5">
+            <line x1="162" y1="56" x2="198" y2="56"/>
+            <line x1="262" y1="56" x2="298" y2="56"/>
+            <line x1="362" y1="56" x2="398" y2="56"/>
+            <line x1="162" y1="146" x2="198" y2="146"/>
+            <line x1="362" y1="146" x2="398" y2="146"/>
+            <line x1="462" y1="146" x2="498" y2="146"/>
+          </g>
+        </g>
+        <!-- 结点 -->
+        <g font-family="Consolas,monospace" font-size="15">
+          <circle cx="120" cy="56" r="22" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/><text x="120" y="62" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+          <circle cx="240" cy="56" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="240" y="62" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="320" cy="56" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="320" y="62" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="420" cy="56" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="420" y="62" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="120" cy="166" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="120" y="172" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="220" cy="166" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="220" y="172" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="320" cy="166" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="320" y="172" text-anchor="middle" fill="var(--text)">G</text>
+          <circle cx="420" cy="166" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="420" y="172" text-anchor="middle" fill="var(--text)">H</text>
+          <circle cx="520" cy="166" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="520" y="172" text-anchor="middle" fill="var(--text)">I</text>
+          <circle cx="320" cy="286" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="320" y="292" text-anchor="middle" fill="var(--text)">J</text>
+        </g>
+
+        <text x="580" y="52" fill="var(--brand)" font-size="12.5">实线 = firstChild（左指针）</text>
+        <text x="580" y="74" fill="var(--accent)" font-size="12.5">虚线 = nextSibling（右指针）</text>
+        <text x="580" y="112" fill="var(--text-soft)" font-size="12.5">A.firstChild = B，A 没有兄弟 → 右指针为空</text>
+        <text x="580" y="134" fill="var(--text-soft)" font-size="12.5">B.nextSibling = C，C.nextSibling = D</text>
+        <text x="580" y="156" fill="var(--text-soft)" font-size="12.5">D.nextSibling = ∧（D 是最右的兄弟）</text>
+        <text x="580" y="178" fill="var(--text-soft)" font-size="12.5">E.nextSibling = F</text>
+        <text x="580" y="200" fill="var(--text-soft)" font-size="12.5">H.nextSibling = I</text>
+        <text x="16" y="322" fill="var(--text-faint)" font-size="12">读法：从 A 出发，先沿 firstChild 往下（真正进入子树），再沿 nextSibling 往右（在同一层里横着走）。</text>
+      </svg>
+      <figcaption>图 7-4　孩子兄弟表示法：两种指针分别记录「第一个孩子」和「下一个兄弟」</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>表示法</th><th>每结点存什么</th><th>求双亲</th><th>求孩子</th><th>求度</th><th>典型用途</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>双亲表示法</b></td><td>数据 + parent 下标</td>
+            <td class="c-ok">O(1)</td><td class="c-bad">O(n)</td><td class="c-warn">O(n)</td>
+            <td>并查集、需要频繁向上走（找根 / 找祖先）的场景</td>
+          </tr>
+          <tr>
+            <td><b>孩子表示法</b></td><td>数据 + 孩子链表</td>
+            <td class="c-bad">O(n)</td><td class="c-ok">O(度)</td><td class="c-ok">O(度)</td>
+            <td>需要频繁枚举孩子的场景（如树的动态规划）</td>
+          </tr>
+          <tr>
+            <td><b>双亲孩子表示法</b></td><td>数据 + parent + 孩子链表</td>
+            <td class="c-ok">O(1)</td><td class="c-ok">O(度)</td><td class="c-ok">O(度)</td>
+            <td>空间换时间，工程中最常见</td>
+          </tr>
+          <tr>
+            <td><b>孩子兄弟表示法</b></td><td>数据 + 左孩子 + 右兄弟（两个指针）</td>
+            <td class="c-bad">O(n)</td><td class="c-ok">O(1) 取第一个<br>O(度) 取全部</td><td class="c-ok">O(度)</td>
+            <td><b>把树 / 森林统一成二叉树</b>，从而复用二叉树的全部算法</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：为什么要研究孩子兄弟表示法</span>
+      这句话每年都在考：<b>孩子兄弟表示法用二叉链表存储了普通树，使树和二叉树之间建立起一一对应的关系。</b>
+      由此带来的两个直接后果是：<br>
+      ① 所有针对二叉树的算法（遍历、求深度、求结点数、线索化）都能不加修改地用在普通树上；<br>
+      ② 树 / 森林与二叉树的相互转换有了统一的机械规则（7.7 节）。
+      另外要记住一个数字：孩子兄弟表示法下，<b>每个结点只有 2 个指针域，n 个结点共有 2n 个指针域，
+      其中真正被使用的恰好是 n − 1 个（每条树边一个），因此空指针域有 n + 1 个</b>——
+      这个「n + 1」就是 7.6 节线索二叉树要利用的宝藏。
+    </div>
+
+    <h2 id="bt-basic">7.3 二叉树：定义、形态与存储</h2>
+
+    <h3 id="bt-def">7.3.1 二叉树的定义与五种基本形态</h3>
+    <div class="formula">
+      <b>二叉树（binary tree）</b>是 n（n ≥ 0）个结点的有限集合，它或者为空集（n = 0），
+      或者由一个根结点和两棵<b>互不相交</b>的、分别称为根的<b>左子树</b>和<b>右子树</b>的二叉树组成。
+    </div>
+    <p>
+      把这句话和树的定义对照着读，你会发现二叉树的定义多限制了两点：<b>每个结点至多两棵子树</b>，
+      而且这两棵子树<b>有左右之分，次序不能颠倒</b>。这两点决定了二叉树的一切特殊性质。
+      由定义直接可以枚举出二叉树只有五种基本形态：
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 210" width="900" height="210" xmlns="http://www.w3.org/2000/svg">
+        <g font-family="Consolas,monospace" font-size="14">
+          <!-- ① 空 -->
+          <rect x="30" y="40" width="140" height="110" rx="10" fill="none" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="6 5"/>
+          <text x="100" y="102" text-anchor="middle" fill="var(--text-faint)" font-size="13">∅（空树）</text>
+          <text x="100" y="176" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">① 空二叉树</text>
+
+          <!-- ② 只有根 -->
+          <rect x="200" y="40" width="140" height="110" rx="10" fill="none" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="6 5"/>
+          <circle cx="270" cy="95" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="270" y="101" text-anchor="middle" fill="var(--text)">A</text>
+          <text x="270" y="176" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">② 只有根结点</text>
+
+          <!-- ③ 只有左子树 -->
+          <rect x="370" y="40" width="150" height="110" rx="10" fill="none" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="6 5"/>
+          <line x1="420" y1="72" x2="398" y2="106" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <circle cx="430" cy="62" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="430" y="68" text-anchor="middle" fill="var(--text)">A</text>
+          <circle cx="390" cy="122" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="390" y="128" text-anchor="middle" fill="var(--text)">B</text>
+          <text x="490" y="126" fill="var(--text-faint)" font-size="11">无右子树</text>
+          <text x="445" y="176" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">③ 只有左子树</text>
+
+          <!-- ④ 只有右子树 -->
+          <rect x="550" y="40" width="150" height="110" rx="10" fill="none" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="6 5"/>
+          <line x1="620" y1="72" x2="648" y2="106" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <circle cx="620" cy="62" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="620" y="68" text-anchor="middle" fill="var(--text)">A</text>
+          <circle cx="658" cy="122" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="658" y="128" text-anchor="middle" fill="var(--text)">B</text>
+          <text x="562" y="126" fill="var(--text-faint)" font-size="11">无左子树</text>
+          <text x="625" y="176" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">④ 只有右子树</text>
+
+          <!-- ⑤ 左右都有 -->
+          <rect x="730" y="40" width="150" height="110" rx="10" fill="none" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="6 5"/>
+          <line x1="800" y1="72" x2="770" y2="106" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <line x1="806" y1="72" x2="838" y2="106" stroke="var(--border-strong)" stroke-width="1.8"/>
+          <circle cx="803" cy="62" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="803" y="68" text-anchor="middle" fill="var(--text)">A</text>
+          <circle cx="762" cy="122" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="762" y="128" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="846" cy="122" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="846" y="128" text-anchor="middle" fill="var(--text)">C</text>
+          <text x="805" y="176" text-anchor="middle" fill="var(--text-soft)" font-size="12.5">⑤ 左右子树都有</text>
+        </g>
+        <text x="30" y="200" fill="var(--text-faint)" font-size="12">记忆口诀：空 / 独根 / 只左 / 只右 / 双全。③ 与 ④ 是两棵<b>不同</b>的二叉树，因为左右有序。</text>
+      </svg>
+      <figcaption>图 7-5　二叉树的五种基本形态</figcaption>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">最大的概念坑：二叉树 ≠ 度为 2 的有序树</span>
+      很多同学把这两个概念当成一回事，考试专挑这里出判断题。它们的差别只有一条，但很致命：<br>
+      <b>二叉树可以是空树，而且允许结点只有一棵子树；度为 2 的有序树要求每个结点要么没有孩子，要么恰好有 2 个孩子，
+      不存在「只有一个孩子」的结点，而且它不是空树。</b><br>
+      换句话说：一棵二叉树只要有一个「独生子」结点，它作为树来看度就是 1，树的度就不是 2。
+      所以「二叉树」是按<b>每个结点的孩子数上限为 2 且左右有序</b>定义的，
+      而「度为 2 的树」是按<b>所有结点度的最大值恰好等于 2</b>定义的。两者只有在「所有分支结点都恰好有 2 个孩子」时才重合，
+      这种二叉树恰好就是下一小节的<b>满二叉树</b>。
+    </div>
+
+    <h3 id="bt-special">7.3.2 斜树、满二叉树与完全二叉树</h3>
+    <dl class="def">
+      <dt>斜树</dt><dd>所有结点都<b>只有左孩子</b>（左斜树）或<b>都只有右孩子</b>（右斜树）的二叉树。
+        斜树每一层只有 1 个结点，因此 <b>n 个结点的斜树深度为 n</b>，是同一结点数下深度最大的二叉树，
+        退化成了一条「链表」。它也是顺序存储的噩梦（见 7.3.4）。</dd>
+      <dt>满二叉树</dt><dd>深度为 k 且<b>含有 2<sup>k</sup> − 1 个结点</b>的二叉树。
+        等价说法：每一层的结点数都达到了最大值，即第 i 层恰有 2<sup>i−1</sup> 个结点；
+        也等价于「<b>所有分支结点都有左右两个孩子，且所有叶子都在最下一层</b>」。
+        n 个结点的满二叉树，叶子数 = (n+1)/2，分支结点数 = (n−1)/2。</dd>
+      <dt>完全二叉树</dt><dd>深度为 k、有 n 个结点的二叉树，<b>当且仅当它的每一个结点都与深度为 k 的满二叉树中编号 1 ~ n 的结点一一对应</b>时，
+        称为完全二叉树。通俗判断法：把结点按层序（从上到下、从左到右）编号后，<b>编号序列不留空</b>——
+        即「只有最下面两层结点的度可以小于 2，且最下面一层的结点都集中在最左边」。</dd>
+    </dl>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 260" width="900" height="260" xmlns="http://www.w3.org/2000/svg">
+        <g font-family="Consolas,monospace" font-size="14">
+          <!-- 满二叉树 -->
+          <text x="30" y="26" fill="var(--ok)" font-size="13" font-weight="700">满二叉树（k=3，7 个结点，每层都满）</text>
+          <g stroke="var(--border-strong)" stroke-width="1.8">
+            <line x1="150" y1="66" x2="100" y2="126"/><line x1="150" y1="66" x2="200" y2="126"/>
+            <line x1="100" y1="126" x2="66" y2="186"/><line x1="100" y1="126" x2="134" y2="186"/>
+            <line x1="200" y1="126" x2="166" y2="186"/><line x1="200" y1="126" x2="234" y2="186"/>
+          </g>
+          <circle cx="150" cy="46" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="150" y="52" text-anchor="middle" fill="var(--text)">1</text>
+          <circle cx="100" cy="146" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="100" y="152" text-anchor="middle" fill="var(--text)">2</text>
+          <circle cx="200" cy="146" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="200" y="152" text-anchor="middle" fill="var(--text)">3</text>
+          <circle cx="66" cy="206" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="66" y="212" text-anchor="middle" fill="var(--text)">4</text>
+          <circle cx="134" cy="206" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="134" y="212" text-anchor="middle" fill="var(--text)">5</text>
+          <circle cx="166" cy="206" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="166" y="212" text-anchor="middle" fill="var(--text)">6</text>
+          <circle cx="234" cy="206" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="234" y="212" text-anchor="middle" fill="var(--text)">7</text>
+          <text x="30" y="248" fill="var(--text-soft)" font-size="12">编号 1~7 连续无空缺，同时也是完全二叉树</text>
+
+          <!-- 完全二叉树 -->
+          <text x="330" y="26" fill="var(--brand)" font-size="13" font-weight="700">完全二叉树（k=3，6 个结点，末层靠左）</text>
+          <g stroke="var(--border-strong)" stroke-width="1.8">
+            <line x1="450" y1="66" x2="400" y2="126"/><line x1="450" y1="66" x2="500" y2="126"/>
+            <line x1="400" y1="126" x2="366" y2="186"/><line x1="400" y1="126" x2="434" y2="186"/>
+            <line x1="500" y1="126" x2="466" y2="186"/>
+          </g>
+          <circle cx="450" cy="46" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="450" y="52" text-anchor="middle" fill="var(--text)">1</text>
+          <circle cx="400" cy="146" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="400" y="152" text-anchor="middle" fill="var(--text)">2</text>
+          <circle cx="500" cy="146" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="500" y="152" text-anchor="middle" fill="var(--text)">3</text>
+          <circle cx="366" cy="206" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="366" y="212" text-anchor="middle" fill="var(--text)">4</text>
+          <circle cx="434" cy="206" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="434" y="212" text-anchor="middle" fill="var(--text)">5</text>
+          <circle cx="466" cy="206" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="466" y="212" text-anchor="middle" fill="var(--text)">6</text>
+          <circle cx="534" cy="206" r="20" fill="none" stroke="var(--danger)" stroke-width="1.6" stroke-dasharray="4 4"/>
+          <text x="534" y="212" text-anchor="middle" fill="var(--danger)">7</text>
+          <text x="560" y="212" fill="var(--danger)" font-size="12">← 空缺（编号不连续）</text>
+          <text x="330" y="248" fill="var(--text-soft)" font-size="12">有 6 个结点，深度仍是 ⌊log2 6⌋+1 = 3；不存在「只有右孩子」的结点</text>
+
+          <!-- 非完全二叉树 -->
+          <text x="640" y="26" fill="var(--danger)" font-size="13" font-weight="700">非完全二叉树</text>
+          <g stroke="var(--border-strong)" stroke-width="1.8">
+            <line x1="740" y1="66" x2="700" y2="126"/><line x1="740" y1="66" x2="800" y2="126"/>
+            <line x1="800" y1="126" x2="836" y2="186"/>
+          </g>
+          <circle cx="740" cy="46" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="740" y="52" text-anchor="middle" fill="var(--text)">1</text>
+          <circle cx="700" cy="146" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="700" y="152" text-anchor="middle" fill="var(--text)">2</text>
+          <circle cx="800" cy="146" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="800" y="152" text-anchor="middle" fill="var(--text)">3</text>
+          <circle cx="836" cy="206" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="836" y="212" text-anchor="middle" fill="var(--text)">4</text>
+          <text x="648" y="240" fill="var(--danger)" font-size="12">结点 2 只有左孩子，却出现了右孩子结点 4</text>
+          <text x="648" y="256" fill="var(--danger)" font-size="12">→ 层序编号断档，不是完全二叉树</text>
+        </g>
+      </svg>
+      <figcaption>图 7-6　满二叉树、完全二叉树与非完全二叉树的对照（编号即层序序号）</figcaption>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：完全二叉树的四条判定口径</span>
+      <ol style="margin:6px 0 0">
+        <li><b>编号法（定义）</b>：按层序给结点编号 1..n，与同深度满二叉树的编号完全一致，不出现空缺。</li>
+        <li><b>度法</b>：<b>至多只有一个度为 1 的结点</b>（因为编号断档只可能断在「最后的那个父结点只分到一个左孩子」处），
+          且该结点的孩子一定是<b>左孩子</b>。</li>
+        <li><b>叶子法</b>：叶子只可能出现在<b>最后两层</b>，且最下一层的叶子一定<b>连续地排在左边</b>。</li>
+        <li><b>程序法</b>：层序遍历，遇到第一个「孩子不全」的结点后，后面所有结点都必须是叶子；一旦发现后面还有结点带
+          孩子（尤其是只有右孩子），就不是完全二叉树。见 7.5.7 的代码。</li>
+      </ol>
+      还要记住一条推论：<b>完全二叉树中若某个结点没有左孩子，它一定是叶子</b>；
+      <b>若某个结点有右孩子，它一定有左孩子</b>；<b>按层序编号后，编号 &gt; ⌊n/2⌋ 的结点全是叶子</b>。
+    </div>
+
+    <h3 id="bt-seq-storage">7.3.3 顺序存储：完全二叉树的天然表示法</h3>
+    <p>
+      二叉树是「一对二」的结构，用数组存再合适不过：把结点按<b>层序</b>依次放进数组，
+      那么父子关系可以直接用<b>下标算术</b>算出来，连指针都不用。
+      这正是第 10 讲的<b>堆（heap）</b>和线段树都用数组存树的原因。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 320" width="900" height="320" xmlns="http://www.w3.org/2000/svg">
+        <g font-family="Consolas,monospace" font-size="14">
+          <!-- 树 -->
+          <g stroke="var(--border-strong)" stroke-width="1.8">
+            <line x1="200" y1="60" x2="120" y2="120"/><line x1="200" y1="60" x2="280" y2="120"/>
+            <line x1="120" y1="120" x2="80" y2="180"/><line x1="120" y1="120" x2="160" y2="180"/>
+            <line x1="280" y1="120" x2="240" y2="180"/>
+          </g>
+          <circle cx="200" cy="40" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="200" y="46" text-anchor="middle" fill="var(--text)">A</text>
+          <circle cx="120" cy="140" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="120" y="146" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="280" cy="140" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="280" y="146" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="80" cy="200" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="80" y="206" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="160" cy="200" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="160" y="206" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="240" cy="200" r="20" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="240" y="206" text-anchor="middle" fill="var(--text)">F</text>
+          <text x="40" y="252" fill="var(--text-soft)" font-size="12.5">一棵完全二叉树（6 个结点）</text>
+          <text x="40" y="272" fill="var(--text-faint)" font-size="12">① 0 基编号：A=0 B=1 C=2 D=3 E=4 F=5</text>
+          <text x="40" y="292" fill="var(--text-faint)" font-size="12">② 1 基编号：A=1 B=2 C=3 D=4 E=5 F=6</text>
+
+          <!-- 0 基数组 -->
+          <text x="420" y="30" fill="var(--brand)" font-size="13" font-weight="700">0 基顺序存储（C++ 下标）</text>
+          <text x="380" y="66" fill="var(--text-soft)" font-size="12" text-anchor="end">下标 i</text>
+          <text x="380" y="102" fill="var(--text-soft)" font-size="12" text-anchor="end">tree[i]</text>
+          <g>
+            <rect x="390" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="420" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">0</text>
+            <rect x="450" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="480" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">1</text>
+            <rect x="510" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="540" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">2</text>
+            <rect x="570" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="600" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">3</text>
+            <rect x="630" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="660" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">4</text>
+            <rect x="690" y="48" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="720" y="67" text-anchor="middle" fill="var(--text-faint)" font-size="12">5</text>
+            <rect x="390" y="84" width="60" height="30" rx="4" fill="var(--brand-soft)" stroke="var(--brand)"/><text x="420" y="104" text-anchor="middle" fill="var(--text)">A</text>
+            <rect x="450" y="84" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="480" y="104" text-anchor="middle" fill="var(--text)">B</text>
+            <rect x="510" y="84" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="540" y="104" text-anchor="middle" fill="var(--text)">C</text>
+            <rect x="570" y="84" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="600" y="104" text-anchor="middle" fill="var(--text)">D</text>
+            <rect x="630" y="84" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="660" y="104" text-anchor="middle" fill="var(--text)">E</text>
+            <rect x="690" y="84" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="720" y="104" text-anchor="middle" fill="var(--text)">F</text>
+          </g>
+          <text x="420" y="146" fill="var(--accent)" font-size="12.5">左孩子 2i+1　右孩子 2i+2　双亲 ⌊(i−1)/2⌋</text>
+          <text x="420" y="168" fill="var(--text-faint)" font-size="12">例：i=2（C）→ 左孩子 5（F），右孩子 6（越界，说明 C 只有左孩子）</text>
+
+          <!-- 1 基数组 -->
+          <text x="420" y="206" fill="var(--ok)" font-size="13" font-weight="700">1 基顺序存储（教材 / 考研常用）</text>
+          <text x="380" y="242" fill="var(--text-soft)" font-size="12" text-anchor="end">下标 i</text>
+          <text x="380" y="278" fill="var(--text-soft)" font-size="12" text-anchor="end">tree[i]</text>
+          <g>
+            <rect x="390" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="420" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">1</text>
+            <rect x="450" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="480" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">2</text>
+            <rect x="510" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="540" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">3</text>
+            <rect x="570" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="600" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">4</text>
+            <rect x="630" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="660" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">5</text>
+            <rect x="690" y="224" width="60" height="26" rx="4" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="720" y="243" text-anchor="middle" fill="var(--text-faint)" font-size="12">6</text>
+            <rect x="390" y="260" width="60" height="30" rx="4" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="420" y="280" text-anchor="middle" fill="var(--text)">A</text>
+            <rect x="450" y="260" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="480" y="280" text-anchor="middle" fill="var(--text)">B</text>
+            <rect x="510" y="260" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="540" y="280" text-anchor="middle" fill="var(--text)">C</text>
+            <rect x="570" y="260" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="600" y="280" text-anchor="middle" fill="var(--text)">D</text>
+            <rect x="630" y="260" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="660" y="280" text-anchor="middle" fill="var(--text)">E</text>
+            <rect x="690" y="260" width="60" height="30" rx="4" fill="var(--panel)" stroke="var(--border-strong)"/><text x="720" y="280" text-anchor="middle" fill="var(--text)">F</text>
+          </g>
+          <text x="420" y="312" fill="var(--accent)" font-size="12.5">左孩子 2i　右孩子 2i+1　双亲 ⌊i/2⌋　（tree[0] 空着不用，作为哨兵）</text>
+        </g>
+      </svg>
+      <figcaption>图 7-7　完全二叉树的顺序存储：0 基与 1 基两套下标公式对照</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>关系</th><th>0 基下标（C/C++ 数组）</th><th>1 基下标（教材 / 考研）</th><th>边界条件</th></tr></thead>
+        <tbody>
+          <tr><td>结点 i 的左孩子</td><td><code>2i + 1</code></td><td><code>2i</code></td><td>0 基：<code>2i+1 &lt; n</code>；1 基：<code>2i ≤ n</code></td></tr>
+          <tr><td>结点 i 的右孩子</td><td><code>2i + 2</code></td><td><code>2i + 1</code></td><td>0 基：<code>2i+2 &lt; n</code>；1 基：<code>2i+1 ≤ n</code></td></tr>
+          <tr><td>结点 i 的双亲</td><td><code>(i − 1) / 2</code>（整数除法）</td><td><code>⌊i / 2⌋</code></td><td>根：0 基时 <code>i = 0</code>；1 基时 <code>i = 1</code></td></tr>
+          <tr><td>是否为叶子（1 基）</td><td>—</td><td><code>i &gt; ⌊n/2⌋</code></td><td>只有完全二叉树能用这条！</td></tr>
+          <tr><td>结点 i 所在层次（1 基）</td><td colspan="2"><code>⌊log<sub>2</sub> i⌋ + 1</code></td><td>对完全二叉树严格成立</td></tr>
+          <tr><td>是否只有左孩子（1 基）</td><td colspan="2"><code>2i = n</code></td><td>n 为偶数时，结点 n/2 只有左孩子</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="bt-seq-waste">7.3.4 普通二叉树用顺序存储有多浪费</h3>
+    <p>
+      顺序存储的公式之所以成立，全靠「层序编号不留空」这条约束。一旦换成普通二叉树，
+      为了让下标公式仍然有效，就只能<b>把空缺的位置也留出来</b>（通常填一个特殊标记，如 <code>'#'</code> 或 0）。
+      可空缺有多少呢？看最坏情况：
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">最坏情况分析：深度为 k 的右斜树</span>
+      一棵深度为 k 的<b>右斜树</b>只有 k 个结点，但它占用的层序编号却是
+      1, 3, 7, 15, …, 2<sup>k</sup> − 1——因为每一层都只剩最右边那个位置。
+      于是数组长度必须开到 <b>2<sup>k</sup> − 1</b>，而真正存了数据的只有 <b>k</b> 个位置。<br><br>
+      <b>空间浪费率</b> = (2<sup>k</sup> − 1 − k) / (2<sup>k</sup> − 1)。取 k = 10：
+      (1023 − 10)/1023 ≈ <b>99.02%</b>；取 k = 20：浪费率高达 <b>99.998%</b>，几乎把整块内存都用来放空隙了。<br><br>
+      结论：<b>顺序存储只适合完全二叉树（以及接近满的二叉树、堆）</b>。
+      一般的二叉树必须用链式存储，否则空间复杂度会从 O(n) 恶化到 O(2<sup>k</sup>) = O(2<sup>n</sup>)。
+      一句话记忆：<b>顺序存储的空间代价取决于「树的形状」，而不是「结点的个数」。</b>
+    </div>
+
+    <h3 id="bt-link-storage">7.3.5 链式存储：二叉链表与三叉链表</h3>
+    <p>
+      链式存储才是二叉树的通用表示法。<b>二叉链表</b>的结点里放数据加左右孩子指针，
+      它是本章所有算法的默认存储结构：
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 280" width="900" height="280" xmlns="http://www.w3.org/2000/svg">
+        <g font-family="Consolas,monospace" font-size="14">
+          <!-- 二叉链表结点 -->
+          <text x="30" y="26" fill="var(--brand)" font-size="13" font-weight="700">① 二叉链表结点（2 个指针域）</text>
+          <rect x="30" y="48" width="70" height="46" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="65" y="76" text-anchor="middle" fill="var(--text)">lchild</text>
+          <rect x="100" y="48" width="70" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="135" y="76" text-anchor="middle" fill="var(--text)">data</text>
+          <rect x="170" y="48" width="70" height="46" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+          <text x="205" y="76" text-anchor="middle" fill="var(--text)">rchild</text>
+          <text x="252" y="66" fill="var(--text-soft)" font-size="12">← 指向左孩子</text>
+          <text x="252" y="86" fill="var(--text-soft)" font-size="12">→ 指向右孩子；没有则为 nullptr</text>
+          <text x="30" y="118" fill="var(--text-faint)" font-size="12">n 个结点共 2n 个指针域，其中 n−1 个指向孩子（每条边一个），剩余 n+1 个是空指针 → 7.6 节线索化。</text>
+
+          <!-- 三叉链表结点 -->
+          <text x="30" y="166" fill="var(--ok)" font-size="13" font-weight="700">② 三叉链表结点（多一个 parent 指针）</text>
+          <rect x="30" y="188" width="70" height="46" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="65" y="216" text-anchor="middle" fill="var(--text)">lchild</text>
+          <rect x="100" y="188" width="70" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="135" y="216" text-anchor="middle" fill="var(--text)">data</text>
+          <rect x="170" y="188" width="70" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="205" y="216" text-anchor="middle" fill="var(--text)">parent</text>
+          <rect x="240" y="188" width="70" height="46" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <text x="275" y="216" text-anchor="middle" fill="var(--text)">rchild</text>
+          <text x="322" y="206" fill="var(--text-soft)" font-size="12">← 多一个指向双亲的指针，向上走变成 O(1)，</text>
+          <text x="322" y="226" fill="var(--text-soft)" font-size="12">代价是每个结点多花一个指针的空间，且建树/改树时要同步维护它</text>
+
+          <!-- 对比表 -->
+          <text x="580" y="46" fill="var(--text)" font-size="13" font-weight="700">两种链表对比</text>
+          <rect x="580" y="58" width="290" height="176" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+          <text x="596" y="82" fill="var(--text-soft)" font-size="12">二叉链表：省空间、实现简单</text>
+          <text x="596" y="102" fill="var(--text-soft)" font-size="12">　　　　　找双亲需从根搜索 O(n)</text>
+          <text x="596" y="122" fill="var(--text-soft)" font-size="12">　　　　　空指针 n+1 个</text>
+          <text x="596" y="152" fill="var(--text-soft)" font-size="12">三叉链表：找双亲 O(1)</text>
+          <text x="596" y="172" fill="var(--text-soft)" font-size="12">　　　　　空指针 2n+2 个（parent 也可能为空）</text>
+          <text x="596" y="192" fill="var(--text-soft)" font-size="12">　　　　　常用于需要「回溯到父结点」的算法</text>
+          <text x="596" y="220" fill="var(--accent)" font-size="12">考场建议：默认写二叉链表；只有题目</text>
+          <text x="596" y="236" fill="var(--accent)" font-size="12">明确要求「求双亲」时才用三叉链表。</text>
+        </g>
+      </svg>
+      <figcaption>图 7-8　二叉链表与三叉链表的结点结构对比</figcaption>
+    </div>
+
+    <h3 id="bt-build">7.3.6 建树工具箱：从数组、先序序列、层序序列建树</h3>
+    <p>
+      考试里「给你序列，让你建树」的题非常多。下面这段代码一口气给出三个建树工具：
+      用数组建<b>完全二叉树</b>、用带 <code>#</code> 的<b>先序序列</b>建任意二叉树、用层序序列建树。
+      这三个函数是后面所有算法实验的入口，建议直接背下来。
+    </p>
+
+    <pre data-lang="cpp" data-file="bt_build.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+/* ============================================================
+   二叉树结点（二叉链表）
+   ============================================================ */
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ---------- 工具 1：从数组建"完全二叉树" ----------
+   arr 按层序存放，arr[i] 的左孩子是 arr[2i+1]，右孩子是 arr[2i+2]（0 基）
+   值为 '#' 表示该位置为空（用于稀疏的完全二叉树） */
+TreeNode* buildComplete(const vector&lt;char&gt;&amp; arr) {
+    int n = arr.size();
+    if (n == 0 || arr[0] == '#') return nullptr;
+    vector&lt;TreeNode*&gt; node(n, nullptr);
+    for (int i = 0; i &lt; n; ++i)
+        if (arr[i] != '#') node[i] = new TreeNode(arr[i]);
+    for (int i = 0; i &lt; n; ++i) {
+        if (!node[i]) continue;
+        int l = 2 * i + 1, r = 2 * i + 2;
+        if (l &lt; n) node[i]-&gt;left  = node[l];
+        if (r &lt; n) node[i]-&gt;right = node[r];
+    }
+    return node[0];
+}
+
+/* ---------- 工具 2：从"带 # 的先序序列"建树 ----------
+   例如 "ABD##E##C#F##" 表示：A 的左子树是 B，B 的左右孩子是 D、E，
+   D、E 都是叶子；A 的右子树是 C，C 没有左孩子，右孩子是 F。
+   '#' 表示空子树，因此序列长度一定是 2n+1。 */
+TreeNode* buildByPreorder(const string&amp; s, int&amp; pos) {
+    if (pos &gt;= (int)s.size()) return nullptr;
+    char c = s[pos++];
+    if (c == '#') return nullptr;              // 空子树
+    TreeNode* root = new TreeNode(c);
+    root-&gt;left  = buildByPreorder(s, pos);      // 先建左子树
+    root-&gt;right = buildByPreorder(s, pos);      // 再建右子树
+    return root;
+}
+
+/* ---------- 工具 3：从"层序序列"建树 ----------
+   vals[i] 为 '#' 表示空结点；用队列保存"孩子还没接完"的结点。
+   注意：这里必须为每个位置都给出取值（哪怕孩子为空也要占一个 '#'
+   或直接跳过），否则无法确定父子对应关系。 */
+TreeNode* buildByLevelOrder(const vector&lt;char&gt;&amp; vals) {
+    if (vals.empty() || vals[0] == '#') return nullptr;
+    TreeNode* root = new TreeNode(vals[0]);
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    size_t i = 1;
+    while (!q.empty() &amp;&amp; i &lt; vals.size()) {
+        TreeNode* cur = q.front(); q.pop();
+        if (i &lt; vals.size()) {                       // 左孩子
+            if (vals[i] != '#') { cur-&gt;left = new TreeNode(vals[i]); q.push(cur-&gt;left); }
+            ++i;
+        }
+        if (i &lt; vals.size()) {                       // 右孩子
+            if (vals[i] != '#') { cur-&gt;right = new TreeNode(vals[i]); q.push(cur-&gt;right); }
+            ++i;
+        }
+    }
+    return root;
+}
+
+/* 中序遍历，用来验证三种建树结果是否一致 */
+void inorder(TreeNode* r, string&amp; out) {
+    if (!r) return;
+    inorder(r-&gt;left, out);
+    out += r-&gt;val;
+    inorder(r-&gt;right, out);
+}
+
+/* 释放整棵树：必须用后序，否则会访问已释放结点的孩子指针 */
+void destroy(TreeNode* r) {
+    if (!r) return;
+    destroy(r-&gt;left);
+    destroy(r-&gt;right);
+    delete r;
+}
+
+int main() {
+    /* 工具 1：数组 {A,B,C,D,E,#,F} 建出的树，中序应为 D B E A C F */
+    vector&lt;char&gt; arr = { 'A','B','C','D','E','#','F' };
+    TreeNode* t1 = buildComplete(arr);
+    string s1; inorder(t1, s1);
+    cout &lt;&lt; "由数组建树      中序 = " &lt;&lt; s1 &lt;&lt; "\n";      // DBEACF
+
+    /* 工具 2：先序序列建树，同一棵树 */
+    int pos = 0;
+    TreeNode* t2 = buildByPreorder("ABD##E##C#F##", pos);
+    string s2; inorder(t2, s2);
+    cout &lt;&lt; "由先序序列建树  中序 = " &lt;&lt; s2 &lt;&lt; "\n";      // DBEACF
+
+    /* 工具 3：层序序列建树，同一棵树 */
+    vector&lt;char&gt; lv = { 'A', 'B', 'C', 'D', 'E', '#', 'F' };
+    TreeNode* t3 = buildByLevelOrder(lv);
+    string s3; inorder(t3, s3);
+    cout &lt;&lt; "由层序序列建树  中序 = " &lt;&lt; s3 &lt;&lt; "\n";      // DBEACF
+
+    destroy(t1); destroy(t2); destroy(t3);
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">为什么先序序列建树要带 # ，而层序不用？</span>
+      先序建树是<b>纯递归</b>的：读一个字符就知道当前子树是空还是有一个根，然后递归读左、递归读右。
+      为了让递归知道「这里没有子树」，必须用 <code>#</code> 显式占位。
+      层序建树是<b>用队列推</b>的：队列里每个结点依次认领两个位置（先左后右），
+      空的位置用 <code>#</code> 跳过即可，不需要递归，所以序列的形态更自由。
+      两者的共同点是：<b>序列里都必须体现出「空」的信息，否则树的形状无法唯一确定。</b>
+    </div>
+
+    <h2 id="bt-props">7.4 二叉树的五大性质（重点，每条都要会证）</h2>
+
+    <p>
+      二叉树的性质之所以能成为「必考」，是因为它们是纯粹的推理题：不写代码、不看图，
+      只给几个数就能算出答案。下面五条性质我们逐条证明，每条后面跟一道典型例题。
+      <b>考试要求：不仅要背结论，还要能写出证明过程</b>——尤其是性质 3，几乎年年考证明。
+    </p>
+
+    <h3 id="prop1">7.4.1 性质 1：第 i 层至多有 2<sup>i−1</sup> 个结点</h3>
+    <div class="formula">
+      <b>性质 1：</b>在二叉树的第 i 层上至多有 2<sup>i−1</sup> 个结点（i ≥ 1）。
+    </div>
+    <p><b>证明（数学归纳法）</b></p>
+    <ol>
+      <li><b>基础</b>：i = 1 时，第 1 层只有根结点，共 1 个，而 2<sup>1−1</sup> = 2<sup>0</sup> = 1，成立。</li>
+      <li><b>归纳假设</b>：设第 i − 1 层上至多有 2<sup>i−2</sup> 个结点。</li>
+      <li><b>归纳步骤</b>：第 i 层的结点全是第 i − 1 层结点的孩子。二叉树的每个结点<b>至多有两个孩子</b>，
+        所以第 i 层的结点数至多是第 i − 1 层的 2 倍，即 ≤ 2 × 2<sup>i−2</sup> = 2<sup>i−1</sup>。</li>
+      <li>由归纳原理，对一切 i ≥ 1 成立。∎</li>
+    </ol>
+    <p>
+      注意证明里用的关键条件是「每个结点至多两个孩子」。这就是为什么性质 1 对二叉树成立，
+      而对一般的 m 次树要改成 m<sup>i−1</sup>（第 i 层最多 m<sup>i−1</sup> 个结点）。
+    </p>
+    <div class="note exam">
+      <span class="note-title">例题 1</span>
+      一棵二叉树的第 5 层最多有多少个结点？若要求第 5 层「恰好」达到这个最大值，需要什么条件？<br>
+      <b>解</b>：由性质 1，第 5 层最多 2<sup>5−1</sup> = 2<sup>4</sup> = <b>16</b> 个结点。
+      要达到这个值，第 4 层的 8 个结点必须<b>全都有两个孩子</b>（即前 4 层构成满二叉树）。
+      换句话说，「某一层达到最大值」需要它<b>上一层是满的</b>。
+    </div>
+
+    <h3 id="prop2">7.4.2 性质 2：深度为 k 的二叉树至多有 2<sup>k</sup> − 1 个结点</h3>
+    <div class="formula">
+      <b>性质 2：</b>深度为 k 的二叉树至多有 2<sup>k</sup> − 1 个结点（k ≥ 1），
+      且<b>结点数恰好达到 2<sup>k</sup> − 1 的二叉树就是满二叉树</b>。
+    </div>
+    <p><b>证明</b>：把每一层的最大结点数加起来（等比数列求和）：</p>
+    <div class="formula center" data-math="总数 <= 2^0 + 2^1 + 2^2 + ... + 2^(k-1) = 2^k - 1"></div>
+    <p>
+      每一项的上界来自性质 1，求和用等比数列公式 <code>(2<sup>k</sup> − 1)/(2 − 1) = 2<sup>k</sup> − 1</code>。∎
+    </p>
+    <p>
+      <b>推论（考试超高频）</b>：n 个结点的满二叉树，叶子数 = (n + 1)/2，分支结点数 = (n − 1)/2。
+      推导：满二叉树有 n<sub>0</sub> = 2<sup>k−1</sup> 个叶子、n<sub>2</sub> = 2<sup>k−1</sup> − 1 个度为 2 的结点
+      （可由性质 3 得出），两者之和正好是 2<sup>k</sup> − 1 = n。
+    </p>
+    <div class="note exam">
+      <span class="note-title">例题 2</span>
+      一棵深度为 6 的满二叉树有多少个结点？多少个叶子？<br>
+      <b>解</b>：结点数 2<sup>6</sup> − 1 = <b>63</b>；叶子在第 6 层，共 2<sup>6−1</sup> = <b>32</b> 个。
+      也可以用推论：叶子 = (63 + 1)/2 = 32，分支结点 = (63 − 1)/2 = 31，两者之和正好 63。
+    </div>
+
+    <h3 id="prop3">7.4.3 性质 3：n<sub>0</sub> = n<sub>2</sub> + 1（最重要的一个证明）</h3>
+    <div class="formula">
+      <b>性质 3：</b>对任何一棵<b>非空</b>二叉树，若叶子数为 n<sub>0</sub>、度为 1 的结点数为 n<sub>1</sub>、
+      度为 2 的结点数为 n<sub>2</sub>，则 <b>n<sub>0</sub> = n<sub>2</sub> + 1</b>。
+    </div>
+    <p>
+      这条结论惊人地干净：<b>叶子数永远比双分支结点数多 1，与 n<sub>1</sub> 无关、与树的形状无关</b>。
+      证明的核心只有一个工具——<b>「结点数 = 度数之和 + 1」</b>，也就是 7.1.3 节推出的恒等式。
+    </p>
+    <p><b>证明（数边法，考试标准写法）</b></p>
+    <ol>
+      <li>设二叉树共有 n 个结点，则 n = n<sub>0</sub> + n<sub>1</sub> + n<sub>2</sub>。（按度数分类，不重不漏）</li>
+      <li>二叉树是一棵树，所以<b>边数（分支数）= n − 1</b>。</li>
+      <li>另一方面，从「结点发出多少条边」来看，度数为 1 的结点发出 1 条边，度数为 2 的结点发出 2 条边，
+        叶子不发出边，所以<b>总边数 = n<sub>1</sub> + 2n<sub>2</sub></b>。</li>
+      <li>两条式子都等于边数，于是 <code>n − 1 = n<sub>1</sub> + 2n<sub>2</sub></code>。</li>
+      <li>把第 1 步代入：<code>n<sub>0</sub> + n<sub>1</sub> + n<sub>2</sub> − 1 = n<sub>1</sub> + 2n<sub>2</sub></code>，
+        两边消去 n<sub>1</sub> 得 <code>n<sub>0</sub> − 1 = n<sub>2</sub></code>，即 <b>n<sub>0</sub> = n<sub>2</sub> + 1</b>。∎</li>
+    </ol>
+    <div class="note tip">
+      <span class="note-title">一句话记住证明思路</span>
+      <b>「总边数」算两遍</b>：一遍从结点数算（n − 1），一遍从出度算（n<sub>1</sub> + 2n<sub>2</sub>），
+      两个结果相等就出来了。这个套路还能推广到 m 次树：
+      <code>n<sub>0</sub> = 1 + n<sub>2</sub> + 2n<sub>3</sub> + 3n<sub>4</sub> + … + (m−1)n<sub>m</sub></code>，
+      即「叶子数 = 1 + Σ(度 − 1) × 该度结点数」。很多竞赛题直接用这条推广式。
+    </div>
+    <div class="note exam">
+      <span class="note-title">例题 3（经典送分题）</span>
+      一棵二叉树有 20 个叶子结点，求度为 2 的结点数。<br>
+      <b>解</b>：由性质 3，n<sub>2</sub> = n<sub>0</sub> − 1 = 20 − 1 = <b>19</b>。<br>
+      <b>变形</b>：若该二叉树共有 50 个结点，求度为 1 的结点数。<br>
+      n<sub>1</sub> = n − n<sub>0</sub> − n<sub>2</sub> = 50 − 20 − 19 = <b>11</b>。
+      注意 n<sub>1</sub> 必须是<b>非负整数</b>——如果算出来是负数，说明题目数据自相矛盾（这种「判断是否存在」的题也很常见）。
+    </div>
+
+    <h3 id="prop4">7.4.4 性质 4：n 个结点的完全二叉树深度为 ⌊log<sub>2</sub> n⌋ + 1</h3>
+    <div class="formula">
+      <b>性质 4：</b>具有 n 个结点的完全二叉树的深度为 <b>⌊log<sub>2</sub> n⌋ + 1</b>。
+      等价的三种写法：⌈log<sub>2</sub>(n+1)⌉ = ⌊log<sub>2</sub>(n+1)⌋（当 n+1 是 2 的幂时）= ⌊log<sub>2</sub> n⌋ + 1。
+    </div>
+    <p><b>证明（夹逼法，看清「恰好」是怎么来的）</b></p>
+    <ol>
+      <li>设完全二叉树的深度为 k。由性质 2，深度为 k 的二叉树最多有 2<sup>k</sup> − 1 个结点，所以
+        <code>n ≤ 2<sup>k</sup> − 1</code>，即 <code>n + 1 ≤ 2<sup>k</sup></code>。</li>
+      <li><b>关键的一步</b>：完全二叉树的结点是「从上到下、从左到右」连续编号的，
+        所以只要深度是 k，前 k − 1 层的<b>全部位置</b>必然都有结点——如果前 k − 1 层缺了任何一个位置，
+        编号就会断档，那它就不是完全二叉树了。既然前 k − 1 层是满的，结点数就<b>严格大于</b>
+        2<sup>k−1</sup> − 1：<code>n &gt; 2<sup>k−1</sup> − 1</code>，即 <code>n + 1 &gt; 2<sup>k−1</sup></code>。</li>
+      <li>把两式合起来：<code>2<sup>k−1</sup> &lt; n + 1 ≤ 2<sup>k</sup></code>。</li>
+      <li>两边取以 2 为底的对数：<code>k − 1 &lt; log<sub>2</sub>(n+1) ≤ k</code>，
+        说明 <b>k 就是「不小于 log<sub>2</sub>(n+1) 的最小整数」</b>，即 k = ⌈log<sub>2</sub>(n+1)⌉。</li>
+      <li>对整数 n，⌈log<sub>2</sub>(n+1)⌉ 与 ⌊log<sub>2</sub> n⌋ + 1 恒等（可分别验证 n = 2<sup>k</sup> − 1 与
+        n = 2<sup>k−1</sup> 这两个边界），故深度 = ⌊log<sub>2</sub> n⌋ + 1。∎</li>
+    </ol>
+    <p>
+      <b>为什么普通二叉树没有这个公式？</b>因为第 2 步「前 k−1 层全满」对普通二叉树不成立：
+      一棵 10 个结点的右斜树深度是 10，而 ⌊log<sub>2</sub> 10⌋ + 1 = 4。
+      所以 <b>性质 4 是「完全二叉树」四个字换来的特权</b>，做题时一定要先确认题目说的是完全二叉树。
+    </p>
+    <div class="note exam">
+      <span class="note-title">例题 4</span>
+      一棵完全二叉树有 1000 个结点，求它的深度、叶子数、度为 1 的结点数。<br>
+      <b>解</b>：深度 = ⌊log<sub>2</sub> 1000⌋ + 1 = 9 + 1 = <b>10</b>（因为 2<sup>9</sup> = 512 ≤ 1000 &lt; 1024 = 2<sup>10</sup>）。<br>
+      度为 1 的结点：完全二叉树中至多一个，且当且仅当 n 为<b>偶数</b>时存在（此时结点 n/2 只有左孩子）。
+      1000 是偶数 → <b>n<sub>1</sub> = 1</b>。<br>
+      叶子数：由 n = n<sub>0</sub> + n<sub>1</sub> + n<sub>2</sub> 与 n<sub>0</sub> = n<sub>2</sub> + 1 得
+      n = 2n<sub>2</sub> + 2 → n<sub>2</sub> = 499，n<sub>0</sub> = <b>500</b>。
+      （验算：500 + 1 + 499 = 1000 ✓）
+    </div>
+
+    <h3 id="prop5">7.4.5 性质 5：完全二叉树的下标性质</h3>
+    <div class="formula">
+      <b>性质 5：</b>对具有 n 个结点的完全二叉树，按层序从 1 开始编号，则对任意结点 i（1 ≤ i ≤ n）：<br>
+      ① 若 i = 1，则 i 是根，无双亲；若 i &gt; 1，则 i 的双亲是 <b>⌊i/2⌋</b>；<br>
+      ② 若 2i &gt; n，则 i 无左孩子（i 为叶子）；否则 i 的左孩子是 <b>2i</b>；<br>
+      ③ 若 2i + 1 &gt; n，则 i 无右孩子；否则 i 的右孩子是 <b>2i + 1</b>。
+    </div>
+    <p><b>证明（归纳法，直观版）</b></p>
+    <ol>
+      <li><b>先证 ②</b>：对层序编号做归纳。根编号 1，它的左孩子是编号 2 = 2 × 1 ✓。
+        假设结点 i 的左孩子编号是 2i，那么结点 i + 1 的左孩子应该是多少？
+        按层序编号的规则，结点按「父结点编号从小到大」的顺序依次认领孩子，
+        <b>结点 i 的两个孩子占据了编号 2i 与 2i + 1</b>，于是结点 i + 1 的孩子紧接着排在后面，
+        即 2i + 2 = 2(i + 1) ✓。归纳完成。</li>
+      <li><b>再证 ③</b>：由 ② 立刻得到——两个孩子是连续编号的，右孩子自然是 2i + 1。</li>
+      <li><b>最后证 ①</b>：既然左孩子是 2i、右孩子是 2i + 1，那么「谁是结点 j 的双亲」就是解方程
+        2i = j 或 2i + 1 = j，即 i = ⌊j/2⌋。∎</li>
+    </ol>
+    <p>
+      <b>0 基版本（写代码时用）</b>：把 <code>tree[1..n]</code> 改成 <code>tree[0..n−1]</code>，
+      只需把所有编号整体减 1 再化简：左孩子 <code>2i + 1</code>、右孩子 <code>2i + 2</code>、双亲 <code>(i − 1) / 2</code>。
+      建议自己动手推一遍这个换算；考试时若记混了两套公式，就用 i = 0（根）的特殊情况检验：
+      根没有双亲，(0 − 1)/2 在整数除法下等于 0，正好落在根自己身上。
+    </p>
+    <div class="note exam">
+      <span class="note-title">例题 5</span>
+      一棵完全二叉树按层序编号，结点 12 与结点 25 是什么关系？结点 30 的双亲是谁？<br>
+      <b>解</b>：⌊12/2⌋ = 6，⌊25/2⌋ = 12，所以结点 25 的双亲是 12，即 <b>12 是 25 的双亲</b>。
+      又因为 2 × 12 + 1 = 25，所以 25 是 12 的<b>右孩子</b>（若编号是 24 则是左孩子）。<br>
+      结点 30 的双亲是 ⌊30/2⌋ = <b>15</b>；又因为 2 × 15 = 30，所以 30 是 15 的左孩子。
+      <b>口诀：双亲编号就是孩子编号整除 2；孩子编号是偶数则为左孩子，奇数则为右孩子。</b>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>性质</th><th>结论</th><th>证明工具</th><th>常见考法</th></tr></thead>
+        <tbody>
+          <tr><td>性质 1</td><td>第 i 层至多 2<sup>i−1</sup> 个结点</td><td>数学归纳法</td><td>问某一层最多几个结点；m 次树的推广</td></tr>
+          <tr><td>性质 2</td><td>深度 k 至多 2<sup>k</sup> − 1 个结点</td><td>等比数列求和 + 性质 1</td><td>给深度求结点数；判断是否为满二叉树</td></tr>
+          <tr><td>性质 3</td><td><b>n<sub>0</sub> = n<sub>2</sub> + 1</b></td><td>结点数 = 度数之和 + 1</td><td><b>给叶子数求 n<sub>2</sub>；判断数据是否合理；证明题</b></td></tr>
+          <tr><td>性质 4</td><td>深度 = ⌊log<sub>2</sub> n⌋ + 1</td><td>夹逼 + 归纳（完全二叉树专用）</td><td>给 n 求深度；给深度求 n 的范围</td></tr>
+          <tr><td>性质 5</td><td>双亲 ⌊i/2⌋，左 2i，右 2i+1</td><td>层序编号归纳</td><td>给编号问关系；判断是否为完全二叉树；堆的实现</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="bt-traverse">7.5 二叉树的四种遍历（重点）</h2>
+
+    <h3 id="trav-def">7.5.1 遍历的本质：把非线性结构线性化</h3>
+    <p>
+      树是非线性结构：一个结点有两条「往下的路」，程序没法像数组那样「顺着下标走一遍」。
+      要想系统地访问到每个结点、且每个结点<b>恰好访问一次</b>，就必须人为规定一个次序。
+      这个次序就是<b>遍历（traversal）</b>。
+    </p>
+    <div class="formula center">
+      遍历的本质 = 把非线性的树结构<b>线性化</b>成一个序列，<br>
+      从而把一个「二维」的问题化归成我们已经会处理的「一维」问题。
+    </div>
+    <p>
+      这句话不是空话，它直接解释了三件事：<br>
+      ① 为什么树能存进一维数组——先序 / 层序序列配上空标记就能唯一确定树形；<br>
+      ② 为什么树的很多算法都长一个样——都是「递归处理根和左右子树」，只是「访问根」的位置不同；<br>
+      ③ 为什么「已知两种遍历序列就能还原二叉树」——序列携带了完整的结构信息。
+    </p>
+    <p>
+      既然二叉树只有「根 D、左子树 L、右子树 R」三部分，那么按「先访问谁」排列，
+      就有 3! = 6 种次序。其中规定<b>必须先左后右</b>（左子树永远先于右子树）后，只剩三种：
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>名称</th><th>次序</th><th>记忆口诀</th><th>根的位置</th></tr></thead>
+        <tbody>
+          <tr><td><b>先序遍历</b>（preorder, DLR）</td><td>根 → 左子树 → 右子树</td><td>根左右</td><td>根在最<b>前</b></td></tr>
+          <tr><td><b>中序遍历</b>（inorder, LDR）</td><td>左子树 → 根 → 右子树</td><td>左根右</td><td>根在<b>中间</b></td></tr>
+          <tr><td><b>后序遍历</b>（postorder, LRD）</td><td>左子树 → 右子树 → 根</td><td>左右根</td><td>根在最<b>后</b></td></tr>
+          <tr><td><b>层序遍历</b>（level order, BFS）</td><td>第 1 层 → 第 2 层 → … 每层从左到右</td><td>从上到下、从左到右</td><td>—（借助<b>队列</b>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn">
+      <span class="note-title">「先 / 中 / 后」到底先的是什么？</span>
+      「先序 / 中序 / 后序」里的「序」指的是<b>根被访问的时机</b>，不是左子树或右子树的时机——
+      左右子树的相对次序<b>永远是先左后右</b>。所以先序 = 先访问根，中序 = 根在中间访问，后序 = 最后访问根。
+      很多同学写成「右左根」这种，那就不是标准遍历了。
+    </div>
+
+    <h3 id="trav-manual">7.5.2 手工遍历练习：一棵树写出四种序列</h3>
+    <p>
+      下面这棵树是本章的「主角」，后面的序列还原、遍历应用、线索化都用它。
+      请先自己在纸上写出四种序列，再展开答案核对。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 320" width="900" height="320" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="450" y1="60" x2="270" y2="130"/>
+          <line x1="450" y1="60" x2="630" y2="130"/>
+          <line x1="270" y1="130" x2="180" y2="200"/>
+          <line x1="270" y1="130" x2="360" y2="200"/>
+          <line x1="630" y1="130" x2="630" y2="200"/>
+          <line x1="360" y1="200" x2="360" y2="266"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="16">
+          <circle cx="450" cy="40" r="22" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/><text x="450" y="47" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+          <circle cx="270" cy="150" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="270" y="157" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="630" cy="150" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="630" y="157" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="180" cy="220" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="180" y="227" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="360" cy="220" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="360" y="227" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="630" cy="220" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="630" y="227" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="360" cy="286" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="360" y="293" text-anchor="middle" fill="var(--text)">G</text>
+        </g>
+        <text x="700" y="150" fill="var(--text-soft)" font-size="12.5">C 只有右孩子 F</text>
+        <text x="700" y="172" fill="var(--text-soft)" font-size="12.5">E 只有左孩子 G，F 是叶子</text>
+        <text x="60" y="276" fill="var(--danger)" font-size="12.5">注意：F 是 C 的<b>右</b>孩子，</text>
+        <text x="60" y="296" fill="var(--danger)" font-size="12.5">中序里 F 排在 C 后面。</text>
+        <text x="60" y="40" fill="var(--text-faint)" font-size="12">根 A</text>
+      </svg>
+      <figcaption>图 7-9　本章主角树：先序 ABDECFG，中序 DBEAFCG，后序 DEBGFCA，层序 ABCDEFG</figcaption>
+    </div>
+
+    <details class="fold">
+      <summary>点击查看四种遍历的手推过程（务必先自己写一遍）</summary>
+      <div class="fold-body">
+        <p><b>先序遍历（根左右）</b>：先访问 A；递归左子树（以 B 为根）：访问 B，
+          递归 B 的左子树（以 D 为根）：访问 D（叶子，无子树）；回到 B 递归 B 的右子树（以 E 为根）：
+          访问 E，递归 E 的左子树（G）：访问 G；E 无右子树；回到 A 递归右子树（以 C 为根）：
+          访问 C，C 无左子树，递归右子树（F）：访问 F。<br>
+          得 <b>ABDECFG</b>。观察：<b>先序序列的第一个字符一定是根</b>。</p>
+
+        <p><b>中序遍历（左根右）</b>：A 先递归左子树（B）：B 先递归左子树（D）：访问 D；
+          再访问 B；再递归 B 的右子树（E）：E 先递归左子树（G）：访问 G；再访问 E；
+          回到 A：访问 A；再递归右子树（C）：C 无左子树，直接访问 C；再递归 C 的右子树（F）：访问 F。<br>
+          得 <b>DBEAFCG</b>。观察：<b>中序序列里根把它分成左右两段</b>——左边是左子树的全部结点，右边是右子树的全部结点。</p>
+
+        <p><b>后序遍历（左右根）</b>：处理 A 的左子树（B）：D、G、E、B；处理 A 的右子树（C）：F、C；最后 A。<br>
+          逐步展开：D（B 的左孩子，是叶子）→ G（E 的左孩子，是叶子）→ E → B →
+          F（C 无左子树，右孩子是叶子）→ C → A。<br>
+          得 <b>DEBGFCA</b>。观察：<b>后序序列的最后一个字符一定是根</b>。</p>
+
+        <p><b>层序遍历（队列）</b>：A 出队并访问 → 把 B、C 入队 → B 出队访问 → 把 D、E 入队 →
+          C 出队访问 → C 的左孩子为空，把 F 入队 → D 出队访问（无孩子）→ E 出队访问 → 把 G 入队 →
+          F 出队访问 → G 出队访问。<br>
+          得 <b>ABCDEFG</b>（恰好与字母顺序一致，所以做题时别只看答案，要能说清过程）。</p>
+      </div>
+    </details>
+
+    <h3 id="trav-viz">7.5.3 四种遍历的动画演示</h3>
+    <p>
+      先看动画，再回来看代码。<b>四个动画分别对应四种遍历</b>，都会高亮「当前正在访问的结点」，
+      把「已经输出到序列里的结点」标成绿色，并在下方实时显示访问序列，
+      右侧还会显示递归栈 / 队列的内容。建议对照上面的手推结果逐帧核对。
+    </p>
+    <p><b>① 先序遍历（根左右）</b>：先把根处理掉，再一路向左，最后回到右边。注意「入栈即访问」的节奏。</p>
+    <div id="viz-preorder"></div>
+    <p><b>② 中序遍历（左根右）</b>：先钻进最左边，再出来访问根。注意根总是在「左子树全部走完之后」才出现。</p>
+    <div id="viz-inorder"></div>
+    <p><b>③ 后序遍历（左右根）</b>：根最后才被访问，所以每个结点都要等它的两棵子树都处理完——注意观察「结点被重复经过但不输出」的现象。</p>
+    <div id="viz-postorder"></div>
+    <p><b>④ 层序遍历（队列）</b>：没有递归，全靠一个队列。右侧会显示队列中当前的结点，请仔细观察「出队一个、入队它的孩子」这个节奏。</p>
+    <div id="viz-levelorder"></div>
+
+    <div class="note tip">
+      <span class="note-title">观察结论：前中后序的「走法」其实是同一条路线</span>
+      把前三个动画的「当前结点」轨迹连起来看，你会发现它们<b>走过的路线完全相同</b>
+      （都是「沿左孩子一路向下，到底后回退，再进入右孩子」的那条曲线），
+      区别只在于<b>「什么时候动手访问」</b>——第一次经过时访问就是先序，第二次经过时访问就是中序，
+      第三次经过时访问就是后序。<br>
+      这个「每个结点被经过 3 次」的观点，正是理解 7.6 节线索二叉树的关键：
+      线索就是把遍历时用到的前驱 / 后继关系直接写进那些空指针域里。
+    </div>
+
+    <h3 id="trav-recursive">7.5.4 递归实现：三种遍历只差一行代码的位置</h3>
+    <p>
+      递归实现几乎是「照抄定义」，因为二叉树本身就是递归定义的。请特别注意三行代码的相对位置——
+      它们的顺序一变，遍历方式就变了。
+    </p>
+
+    <pre data-lang="cpp" data-file="bt_traverse_recursive.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ============================================================
+   三种递归遍历：只有"访问根"这一行的位置不同
+   ============================================================ */
+
+void preorder(TreeNode* root, vector&lt;char&gt;&amp; out) {
+    if (!root) return;                       // 递归出口：空子树
+    out.push_back(root-&gt;val);                // ★ 位置 1：先访问根  → 根左右
+    preorder(root-&gt;left, out);               // 再递归左子树
+    preorder(root-&gt;right, out);              // 最后递归右子树
+}
+
+void inorder(TreeNode* root, vector&lt;char&gt;&amp; out) {
+    if (!root) return;
+    inorder(root-&gt;left, out);                // 先递归左子树
+    out.push_back(root-&gt;val);                // ★ 位置 2：中间访问根  → 左根右
+    inorder(root-&gt;right, out);
+}
+
+void postorder(TreeNode* root, vector&lt;char&gt;&amp; out) {
+    if (!root) return;
+    postorder(root-&gt;left, out);
+    postorder(root-&gt;right, out);
+    out.push_back(root-&gt;val);                // ★ 位置 3：最后访问根  → 左右根
+}
+
+/* ---------- 调试用：从"带 # 的先序序列"建树 ---------- */
+TreeNode* build(const string&amp; s, int&amp; pos) {
+    char c = s[pos++];
+    if (c == '#') return nullptr;
+    TreeNode* r = new TreeNode(c);
+    r-&gt;left  = build(s, pos);
+    r-&gt;right = build(s, pos);
+    return r;
+}
+
+void printVec(const vector&lt;char&gt;&amp; v) {
+    for (char c : v) cout &lt;&lt; c;
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    /* 图 7-9 的主角树，先序带 # 的完整形态 */
+    string s = "ABD##EG###C#F##";
+    int pos = 0;
+    TreeNode* root = build(s, pos);
+
+    vector&lt;char&gt; a, b, c;
+    preorder(root, a);  cout &lt;&lt; "先序: "; printVec(a);   // ABDECFG
+    inorder(root, b);   cout &lt;&lt; "中序: "; printVec(b);   // DBEAFCG
+    postorder(root, c); cout &lt;&lt; "后序: "; printVec(c);   // DEBGFCA
+    return 0;
+}</pre>
+
+    <p>
+      <b>复杂度</b>：每个结点恰好被访问一次，每次访问做 O(1) 的工作，所以时间 <code>O(n)</code>；
+      空间是递归栈的深度，最好 <code>O(log n)</code>（完全二叉树），最坏 <code>O(n)</code>（斜树）。
+      这一点很关键——<b>递归遍历的空间复杂度取决于树的高度，而不是结点总数</b>。
+    </p>
+
+    <h3 id="trav-iterative">7.5.5 非递归实现：用栈模拟递归</h3>
+    <p>
+      递归虽好，但有两个现实问题：① 树很深时（斜树）会撑爆系统栈，直接段错误；
+      ② 有些场合（内存受限的嵌入式环境）不允许递归。所以必须会写非递归版。
+    </p>
+    <p>
+      <b>本质</b>：递归靠「函数调用栈」记住「回来之后该干什么」。
+      非递归就是<b>自己开一个栈，把这个「待办事项」显式存起来</b>。
+    </p>
+    <ul>
+      <li><b>先序非递归</b>：最简单。访问根 → 右孩子入栈 → 左孩子入栈（<b>注意先压右再压左</b>，
+        这样出栈顺序才是先左后右）。</li>
+      <li><b>中序非递归</b>：一路向左并把沿途结点压栈，直到空；然后弹栈访问，
+        再转向被弹出结点的右孩子，重复。这正好模拟了中序「左到底 → 根 → 右」的节奏。</li>
+      <li><b>后序非递归</b>：最麻烦，因为根要最后访问，而根在栈里会「提前暴露」。
+        两种常用写法：<b>双栈法</b>（先序的变体：把压栈顺序改成先左后右，
+        得到「根右左」，再整体反转就是「左右根」）；或<b>单栈 + last 指针</b>
+        （记录上一次访问的结点，用来判断右子树是否已经处理完）。</li>
+    </ul>
+
+    <pre data-lang="cpp" data-file="bt_traverse_iterative.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;stack&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ---------- 先序非递归：栈。压栈顺序 = 先右后左 ---------- */
+vector&lt;char&gt; preorderIter(TreeNode* root) {
+    vector&lt;char&gt; out;
+    if (!root) return out;
+    stack&lt;TreeNode*&gt; st;
+    st.push(root);
+    while (!st.empty()) {
+        TreeNode* p = st.top(); st.pop();
+        out.push_back(p-&gt;val);                       // 出栈即访问
+        if (p-&gt;right) st.push(p-&gt;right);              // 右孩子先入栈
+        if (p-&gt;left)  st.push(p-&gt;left);               // 左孩子后入栈 → 先出栈
+    }
+    return out;
+}
+
+/* ---------- 中序非递归：一路向左压栈，弹栈访问后转向右子树 ---------- */
+vector&lt;char&gt; inorderIter(TreeNode* root) {
+    vector&lt;char&gt; out;
+    stack&lt;TreeNode*&gt; st;
+    TreeNode* p = root;
+    while (p || !st.empty()) {
+        while (p) { st.push(p); p = p-&gt;left; }       // 阶段 1：左到底，沿途全部入栈
+        p = st.top(); st.pop();                      // 阶段 2：弹出栈顶
+        out.push_back(p-&gt;val);                       //         访问它
+        p = p-&gt;right;                                // 阶段 3：转向右子树，重复
+    }
+    return out;
+}
+
+/* ---------- 后序非递归（写法 A）：双栈法 ----------
+   思路：模仿先序，但压栈顺序改成"先左后右"，得到的是"根右左"，
+   把它整个反转就是"左右根" = 后序。 */
+vector&lt;char&gt; postorderIter2Stack(TreeNode* root) {
+    vector&lt;char&gt; out;
+    if (!root) return out;
+    stack&lt;TreeNode*&gt; st;
+    st.push(root);
+    while (!st.empty()) {
+        TreeNode* p = st.top(); st.pop();
+        out.push_back(p-&gt;val);                       // 此时得到的是"根右左"
+        if (p-&gt;left)  st.push(p-&gt;left);               // 注意：与先序相反
+        if (p-&gt;right) st.push(p-&gt;right);
+    }
+    reverse(out.begin(), out.end());                 // 反转 → 左右根
+    return out;
+}
+
+/* ---------- 后序非递归（写法 B）：单栈 + last 指针 ----------
+   last 记录"上一个被访问的结点"。弹栈前判断：
+   若右子树存在且右子树不是刚访问完的那个，说明右子树还没走，先转过去。 */
+vector&lt;char&gt; postorderIter1Stack(TreeNode* root) {
+    vector&lt;char&gt; out;
+    stack&lt;TreeNode*&gt; st;
+    TreeNode* p = root;
+    TreeNode* last = nullptr;
+    while (p || !st.empty()) {
+        while (p) { st.push(p); p = p-&gt;left; }        // 左到底
+        TreeNode* top = st.top();
+        if (top-&gt;right &amp;&amp; top-&gt;right != last) {
+            p = top-&gt;right;                           // 右子树还没走，先去走
+        } else {
+            out.push_back(top-&gt;val);                  // 左右都走完了，可以访问根
+            last = top;
+            st.pop();
+        }
+    }
+    return out;
+}
+
+TreeNode* build(const string&amp; s, int&amp; pos) {
+    char c = s[pos++];
+    if (c == '#') return nullptr;
+    TreeNode* r = new TreeNode(c);
+    r-&gt;left = build(s, pos);
+    r-&gt;right = build(s, pos);
+    return r;
+}
+
+void printVec(const vector&lt;char&gt;&amp; v) {
+    for (char c : v) cout &lt;&lt; c;
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    string s = "ABD##EG###C#F##";
+    int pos = 0;
+    TreeNode* root = build(s, pos);
+
+    printVec(preorderIter(root));            // ABDECFG
+    printVec(inorderIter(root));             // DBEAFCG
+    printVec(postorderIter2Stack(root));     // DEBGFCA
+    printVec(postorderIter1Stack(root));     // DEBGFCA（两种写法结果必须一致）
+    return 0;
+}</pre>
+
+    <p>
+      层序遍历必须借助<b>队列</b>（先进先出，保证「同一层的结点按从左到右的顺序排队」）。
+      它的代码短得出奇，但用途极广：求树宽、按层输出、判断完全二叉树都要用它。
+    </p>
+
+    <pre data-lang="cpp" data-file="bt_level_order.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;queue&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ---------- 层序遍历（BFS）：队列，出队一个就把它的孩子入队 ---------- */
+vector&lt;char&gt; levelOrder(TreeNode* root) {
+    vector&lt;char&gt; out;
+    if (!root) return out;                      // ★ 一定要判空！
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    while (!q.empty()) {
+        TreeNode* p = q.front(); q.pop();
+        out.push_back(p-&gt;val);                   // 访问
+        if (p-&gt;left)  q.push(p-&gt;left);           // 左孩子入队（保证同层从左到右）
+        if (p-&gt;right) q.push(p-&gt;right);          // 右孩子入队
+    }
+    return out;
+}
+
+/* ---------- 分层输出：每层单独收集成一个 vector ---------- */
+vector&lt;vector&lt;char&gt;&gt; levelOrderByLevel(TreeNode* root) {
+    vector&lt;vector&lt;char&gt;&gt; res;
+    if (!root) return res;
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    while (!q.empty()) {
+        int sz = q.size();                       // ★ 关键：先固定住"这一层有多少个"
+        vector&lt;char&gt; cur;
+        for (int i = 0; i &lt; sz; ++i) {           // 只处理这一层的 sz 个
+            TreeNode* p = q.front(); q.pop();
+            cur.push_back(p-&gt;val);
+            if (p-&gt;left)  q.push(p-&gt;left);
+            if (p-&gt;right) q.push(p-&gt;right);
+        }
+        res.push_back(cur);
+    }
+    return res;
+}
+
+/* ---------- 求树的最大宽度（结点数最多的那一层的结点数） ---------- */
+int maxWidth(TreeNode* root) {
+    if (!root) return 0;
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    int best = 0;
+    while (!q.empty()) {
+        int sz = q.size();
+        best = max(best, sz);
+        for (int i = 0; i &lt; sz; ++i) {
+            TreeNode* p = q.front(); q.pop();
+            if (p-&gt;left)  q.push(p-&gt;left);
+            if (p-&gt;right) q.push(p-&gt;right);
+        }
+    }
+    return best;
+}
+
+TreeNode* build(const string&amp; s, int&amp; pos) {
+    char c = s[pos++];
+    if (c == '#') return nullptr;
+    TreeNode* r = new TreeNode(c);
+    r-&gt;left = build(s, pos);
+    r-&gt;right = build(s, pos);
+    return r;
+}
+
+int main() {
+    string s = "ABD##EG###C#F##";
+    int pos = 0;
+    TreeNode* root = build(s, pos);
+
+    for (char c : levelOrder(root)) cout &lt;&lt; c;           // ABCDEFG
+    cout &lt;&lt; "\n";
+    for (auto&amp; lv : levelOrderByLevel(root)) {
+        for (char c : lv) cout &lt;&lt; c;
+        cout &lt;&lt; " | ";
+    }
+    cout &lt;&lt; "\n";                                        // A | BC | DEF | G |
+    cout &lt;&lt; "最大宽度 = " &lt;&lt; maxWidth(root) &lt;&lt; "\n";      // 3
+    return 0;
+}</pre>
+
+    <h3 id="trav-rebuild">7.5.6 已知遍历序列还原二叉树</h3>
+    <p>
+      这是遍历部分<b>最爱考</b>的题型。先记住三条结论，再学怎么做：
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>已知序列组合</th><th>能否唯一确定二叉树</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td><b>先序 + 中序</b></td><td class="c-ok"><b>能</b></td>
+            <td>先序的第一个是根；拿这个根去中序里一劈两半，就知道左右子树各有哪些结点；再对每半递归。</td></tr>
+          <tr><td><b>后序 + 中序</b></td><td class="c-ok"><b>能</b></td>
+            <td>后序的<b>最后</b>一个是根；其余同上（根在中序里劈开左右子树）。</td></tr>
+          <tr><td><b>层序 + 中序</b></td><td class="c-ok"><b>能</b></td>
+            <td>层序的第一个是根，同样去中序里劈开；剩下的层序序列按左右子树分流即可。</td></tr>
+          <tr><td><b>先序 + 后序</b></td><td class="c-bad"><b>不能</b></td>
+            <td>两者都只能定位「根」，无法区分「只有左孩子」和「只有右孩子」的情形。</td></tr>
+          <tr><td><b>先序 + 层序 / 后序 + 层序</b></td><td class="c-warn">一般能，但没有中序那么直接</td>
+            <td>需要额外推导，考得少；实战中不建议硬记。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">为什么「先序 + 后序」无法唯一确定？一个反例说清</span>
+      考虑两棵不同的二叉树，它们都有 2 个结点 A、B，先序序列都是 <code>AB</code>、后序序列都是 <code>BA</code>：<br>
+      ① <b>A 的左孩子是 B</b>：先序 A B ✓，后序 B A ✓；<br>
+      ② <b>A 的右孩子是 B</b>：先序 A B ✓，后序 B A ✓。<br>
+      两棵树结构不同，但先序、后序完全相同！<b>根因</b>：先序与后序都只表达了「根在哪、子树边界在哪」，
+      而「子树是左还是右」这个信息只有<b>中序</b>才有（中序里根左边的结点必然在左子树，右边的必然在右子树）。<br>
+      <b>考试结论</b>：先序 + 后序只能确定<b>结点的祖先 / 后代关系</b>，能确定的树形数量等于
+      「每个只有一个孩子的结点都有 2 种选择」，即若这样的结点有 m 个，则有 2<sup>m</sup> 种可能的二叉树。
+    </div>
+
+    <p>
+      下面用主角树（先序 <code>ABDECFG</code>，中序 <code>DBEAFCG</code>）演示还原过程的每一步。
+      动画会把「当前处理的先序区间、中序区间」以及「哪一段是左子树、哪一段是右子树」全部标出来。
+    </p>
+    <div id="viz-tree-rebuild"></div>
+
+    <p>
+      分治思路可以概括成三句话，代码就照着这三句话写：
+    </p>
+    <ol>
+      <li><b>定位根</b>：先序区间的第一个元素 <code>pre[pl]</code> 就是当前子树的根。</li>
+      <li><b>划分区间</b>：在中序序列里找到这个根的位置 <code>k</code>，则中序区间被分成
+        <code>[il, k-1]</code>（左子树）与 <code>[k+1, ir]</code>（右子树）；左子树的结点数是 <code>k - il</code>，
+        据此把先序区间也切成 <code>[pl+1, pl+k-il]</code>（左）与 <code>[pl+k-il+1, pr]</code>（右）。</li>
+      <li><b>递归</b>：对两个子区间分别递归，返回值接到根的左右指针上。</li>
+    </ol>
+
+    <pre data-lang="cpp" data-file="bt_rebuild.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;unordered_map&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ============================================================
+   由"先序 + 中序"序列重建二叉树
+   思路：先序定根，中序分左右；用哈希表把"在中序里找根"从 O(n) 降到 O(1)
+   时间复杂度 O(n)，空间 O(n)
+   ============================================================ */
+class Rebuilder {
+public:
+    TreeNode* build(const vector&lt;char&gt;&amp; pre, const vector&lt;char&gt;&amp; in) {
+        for (int i = 0; i &lt; (int)in.size(); ++i) pos_[in[i]] = i;   // 预处理：值 → 中序下标
+        return dfs(pre, 0, (int)pre.size() - 1, 0, (int)in.size() - 1);
+    }
+private:
+    unordered_map&lt;char, int&gt; pos_;
+
+    /* pre[pl..pr] 是当前子树的先序区间，in[il..ir] 是对应的中序区间 */
+    TreeNode* dfs(const vector&lt;char&gt;&amp; pre, int pl, int pr, int il, int ir) {
+        if (pl &gt; pr || il &gt; ir) return nullptr;         // 空子树
+        char rootVal = pre[pl];                          // ① 先序区间的第一个就是根
+        TreeNode* root = new TreeNode(rootVal);
+        int k = pos_[rootVal];                           // ② 根在中序中的位置
+        int leftLen = k - il;                            //    左子树结点个数
+        root-&gt;left  = dfs(pre, pl + 1, pl + leftLen, il, k - 1);          // ③ 递归左子树
+        root-&gt;right = dfs(pre, pl + leftLen + 1, pr, k + 1, ir);          //    递归右子树
+        return root;
+    }
+};
+
+/* ============================================================
+   由"后序 + 中序"序列重建：只需把"先序取第一个"换成"后序取最后一个"
+   ============================================================ */
+TreeNode* buildFromPostIn(const vector&lt;char&gt;&amp; post, int pl, int pr,
+                          const vector&lt;char&gt;&amp; in, int il, int ir,
+                          const unordered_map&lt;char, int&gt;&amp; pos) {
+    if (pl &gt; pr || il &gt; ir) return nullptr;
+    char rootVal = post[pr];                             // ★ 后序的最后一个才是根
+    TreeNode* root = new TreeNode(rootVal);
+    int k = pos.at(rootVal);
+    int leftLen = k - il;
+    root-&gt;left  = buildFromPostIn(post, pl, pl + leftLen - 1, in, il, k - 1, pos);
+    root-&gt;right = buildFromPostIn(post, pl + leftLen, pr - 1, in, k + 1, ir, pos);
+    return root;
+}
+
+/* ---------- 校验：对重建出来的树做一次层序遍历 ---------- */
+void levelOrder(TreeNode* root, vector&lt;char&gt;&amp; out) {
+    if (!root) return;
+    vector&lt;TreeNode*&gt; q{ root };
+    for (size_t i = 0; i &lt; q.size(); ++i) {              // 用 vector 当队列，简洁
+        out.push_back(q[i]-&gt;val);
+        if (q[i]-&gt;left)  q.push_back(q[i]-&gt;left);
+        if (q[i]-&gt;right) q.push_back(q[i]-&gt;right);
+    }
+}
+
+int main() {
+    vector&lt;char&gt; pre  = { 'A','B','D','E','C','F','G' };
+    vector&lt;char&gt; in   = { 'D','B','E','A','F','C','G' };
+    vector&lt;char&gt; post = { 'D','E','B','F','G','C','A' };
+
+    Rebuilder rb;
+    TreeNode* t1 = rb.build(pre, in);
+    vector&lt;char&gt; lv1; levelOrder(t1, lv1);
+    for (char c : lv1) cout &lt;&lt; c;                       // ABCDEFG
+    cout &lt;&lt; "\n";
+
+    unordered_map&lt;char, int&gt; pos;
+    for (int i = 0; i &lt; (int)in.size(); ++i) pos[in[i]] = i;
+    TreeNode* t2 = buildFromPostIn(post, 0, post.size() - 1, in, 0, in.size() - 1, pos);
+    vector&lt;char&gt; lv2; levelOrder(t2, lv2);
+    for (char c : lv2) cout &lt;&lt; c;                       // ABCDEFG（两种方式得到同一棵树）
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点：还原题的三个高频陷阱</span>
+      <ol style="margin:6px 0 0">
+        <li><b>先序 + 中序的根在中序里可能重复出现吗？</b>不会——二叉树里通常约定<b>结点值互不相同</b>。
+          如果题目里出现了相同值，还原结果就不唯一，此时要按「最左匹配」或题目指定规则处理。</li>
+        <li><b>先序 + 后序给的序列是不是根？</b>先序的第一个、后序的最后一个一定是根，两者必须相同，
+          否则序列非法。同理，先序与中序的<b>元素集合必须完全一致</b>，长度也必须相同。</li>
+        <li><b>只给中序 + 后序，问你能不能建树？</b>能。方法一模一样，只是「取根」的位置从最前换到最后，
+          并且<b>递归顺序要改成先建右子树再建左子树</b>（因为后序从后往前是「根 → 右子树 → 左子树」）。</li>
+      </ol>
+    </div>
+
+    <h3 id="trav-app">7.5.7 遍历的七大应用（每个都要会默写）</h3>
+    <p>
+      学遍历不是为了背序列，而是为了<b>用遍历的框架去解决一切树上的问题</b>。
+      下面这七个函数几乎是所有二叉树习题的「零件库」，请把它们的代码骨架刻进肌肉记忆。
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>问题</th><th>用哪种遍历最顺手</th><th>核心思路</th></tr></thead>
+        <tbody>
+          <tr><td>求结点个数</td><td>任意（后序最自然）</td><td><code>1 + 左子树个数 + 右子树个数</code></td></tr>
+          <tr><td>求树的深度</td><td>后序</td><td><code>1 + max(左深度, 右深度)</code>（空树深度为 0）</td></tr>
+          <tr><td>求叶子个数</td><td>后序</td><td>左右都空则算 1，否则递归求和</td></tr>
+          <tr><td>交换左右子树</td><td>后序（或先序）</td><td>递归交换每个结点的两个指针</td></tr>
+          <tr><td>判断两棵树是否相同</td><td>先序 / 后序</td><td>同空 → 真；一空一非空 → 假；值不等 → 假；否则递归比较左右</td></tr>
+          <tr><td>求第 k 层的结点数</td><td>先序（带层号参数）</td><td>到第 k 层就计数；也可以用层序遍历直接数第 k 层</td></tr>
+          <tr><td>判断是否为完全二叉树</td><td><b>层序 + 标记法</b></td><td>一旦遇到「孩子不全」的结点，后面必须全是叶子</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre data-lang="cpp" data-file="bt_applications.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;queue&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ---------- 1. 统计结点总数：后序，O(n) ---------- */
+int countNodes(TreeNode* r) {
+    if (!r) return 0;
+    return 1 + countNodes(r-&gt;left) + countNodes(r-&gt;right);
+}
+
+/* ---------- 2. 求树的深度：后序，O(n) ----------
+   注意空树深度为 0，叶子深度为 1。 */
+int depth(TreeNode* r) {
+    if (!r) return 0;
+    return 1 + max(depth(r-&gt;left), depth(r-&gt;right));
+}
+
+/* ---------- 3. 统计叶子结点个数 ---------- */
+int countLeaves(TreeNode* r) {
+    if (!r) return 0;
+    if (!r-&gt;left &amp;&amp; !r-&gt;right) return 1;               // 左右都空 → 是叶子
+    return countLeaves(r-&gt;left) + countLeaves(r-&gt;right);
+}
+
+/* ---------- 4. 交换所有结点的左右子树 ---------- */
+void swapChildren(TreeNode* r) {
+    if (!r) return;
+    swap(r-&gt;left, r-&gt;right);                          // 交换本结点
+    swapChildren(r-&gt;left);                            // 继续处理（已经换过位置的）左右子树
+    swapChildren(r-&gt;right);
+}
+
+/* ---------- 5. 判断两棵二叉树是否完全相同 ---------- */
+bool isSame(TreeNode* a, TreeNode* b) {
+    if (!a &amp;&amp; !b) return true;                        // 都空 → 相同
+    if (!a || !b) return false;                       // 一个空一个不空 → 不同
+    if (a-&gt;val != b-&gt;val) return false;                // 根的值不同 → 不同
+    return isSame(a-&gt;left, b-&gt;left) &amp;&amp; isSame(a-&gt;right, b-&gt;right);
+}
+
+/* ---------- 6. 求第 k 层的结点个数（根算第 1 层） ---------- */
+int countLevelK(TreeNode* r, int k) {
+    if (!r || k &lt; 1) return 0;
+    if (k == 1) return 1;                             // 到达目标层
+    return countLevelK(r-&gt;left, k - 1) + countLevelK(r-&gt;right, k - 1);
+}
+
+/* ---------- 7. 判断是否为完全二叉树：层序 + 标记法 ----------
+   思路：层序遍历，一旦遇到"孩子不全"的结点（缺左或缺右），
+   就把 seenIncomplete 置为 true；之后遇到的任何结点都必须是叶子，
+   否则编号就断档了，不是完全二叉树。
+   还要特别注意：只有右孩子没有左孩子，直接判定失败。 */
+bool isComplete(TreeNode* root) {
+    if (!root) return true;                           // 空树约定为完全二叉树
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    bool seenIncomplete = false;                      // 是否已经遇到过"孩子不全"的结点
+    while (!q.empty()) {
+        TreeNode* p = q.front(); q.pop();
+        if (p-&gt;left) {
+            if (seenIncomplete) return false;         // 断档之后又出现了孩子 → 失败
+            q.push(p-&gt;left);
+        } else {
+            seenIncomplete = true;                    // 没有左孩子 → 从这里开始断档
+        }
+        if (p-&gt;right) {
+            if (seenIncomplete) return false;         // 包含了"只有右孩子"的非法情形
+            q.push(p-&gt;right);
+        } else {
+            seenIncomplete = true;
+        }
+    }
+    return true;
+}
+
+/* ---------- 附加：销毁整棵树（必须后序） ---------- */
+void destroy(TreeNode* r) {
+    if (!r) return;
+    destroy(r-&gt;left);
+    destroy(r-&gt;right);
+    delete r;
+}
+
+TreeNode* build(const string&amp; s, int&amp; pos) {
+    char c = s[pos++];
+    if (c == '#') return nullptr;
+    TreeNode* r = new TreeNode(c);
+    r-&gt;left = build(s, pos);
+    r-&gt;right = build(s, pos);
+    return r;
+}
+
+int main() {
+    int pos = 0;
+    TreeNode* root = build("ABD##EG###C#F##", pos);   // 图 7-9 的主角树
+
+    cout &lt;&lt; "结点数   = " &lt;&lt; countNodes(root) &lt;&lt; "\n";   // 7
+    cout &lt;&lt; "深度     = " &lt;&lt; depth(root) &lt;&lt; "\n";        // 4
+    cout &lt;&lt; "叶子数   = " &lt;&lt; countLeaves(root) &lt;&lt; "\n";  // 3（D、G、F）
+    cout &lt;&lt; "第 3 层   = " &lt;&lt; countLevelK(root, 3) &lt;&lt; "\n"; // 3（D、E、F）
+    cout &lt;&lt; "是完全二叉树? " &lt;&lt; (isComplete(root) ? "是" : "否") &lt;&lt; "\n";  // 否
+
+    int pos2 = 0;
+    TreeNode* same = build("ABD##EG###C#F##", pos2);
+    cout &lt;&lt; "两棵树相同? " &lt;&lt; (isSame(root, same) ? "是" : "否") &lt;&lt; "\n"; // 是
+
+    swapChildren(root);                                // 交换后层序应为 ACBFGED
+    vector&lt;char&gt; lv;
+    {   /* 内联层序遍历，避免与其它文件重名 */
+        queue&lt;TreeNode*&gt; q; q.push(root);
+        while (!q.empty()) {
+            TreeNode* p = q.front(); q.pop();
+            lv.push_back(p-&gt;val);
+            if (p-&gt;left) q.push(p-&gt;left);
+            if (p-&gt;right) q.push(p-&gt;right);
+        }
+    }
+    cout &lt;&lt; "交换左右子树后层序: ";
+    for (char c : lv) cout &lt;&lt; c;
+    cout &lt;&lt; "\n";
+
+    destroy(root); destroy(same);
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">「递归三问」：写任何树的递归函数前先问自己</span>
+      <ol style="margin:6px 0 0">
+        <li><b>出口是什么？</b>通常是「结点为空」时返回什么（返回 0？false？还是什么都不做？）。
+          这一条决定函数在空树上是否正确，考试扣分大多扣在这里。</li>
+        <li><b>要什么信息？</b>把「以 root 为根的子树」需要向父结点汇报的信息列出来（个数、深度、是否平衡……），
+          这就是递归函数的返回值语义。</li>
+        <li><b>怎么合并？</b>左右子树的结果怎么加上根本身的信息得到当前结果。
+          如果发现需要汇报的信息不止一个（例如「是否平衡」还要「高度」），有两种解法：
+          返回结构体 / pair，或者用引用参数「带出」额外信息。</li>
+      </ol>
+    </div>
+
+    <h2 id="threaded-tree">7.6 线索二叉树</h2>
+
+    <h3 id="thread-why">7.6.1 为什么需要线索：n + 1 个空指针的浪费</h3>
+    <p>
+      先算一笔账。二叉链表有 n 个结点，每个结点 2 个指针域，共 <b>2n</b> 个指针域。
+      其中真正被用上的只有「连向孩子」的那些，恰好每条树边对应一个，即 <b>n − 1</b> 个。
+      于是空指针域有：
+    </p>
+    <div class="formula center" data-math="2n - (n - 1) = n + 1"></div>
+    <p>
+      也就是说，<b>整整一半以上的指针是空的</b>（当 n 较大时，空指针占比接近 1/2）。
+      与此同时，我们在遍历时还得额外开一个栈（或者递归栈）来记住「从哪来、该回哪去」——
+      而这些信息其实<b>恰好就是「前驱 / 后继」关系</b>。两边一对照，想法自然就出来了：
+    </p>
+    <div class="formula center">
+      线索化的本质：把遍历时得到的<b>前驱 / 后继</b>信息，<br>
+      写进那些本来空着的指针域，让「找前驱 / 找后继」变成 O(1)，遍历不再需要栈。
+    </div>
+    <p>
+      具体做法是：给每个结点加两个标志位 <code>ltag</code> 与 <code>rtag</code>：
+    </p>
+    <dl class="def">
+      <dt>ltag</dt><dd><code>ltag = 0</code>：<code>left</code> 指向<b>左孩子</b>（原本的含义）；
+        <code>ltag = 1</code>：<code>left</code> 指向该结点在遍历序列中的<b>前驱</b>（我们称这根指针为「<b>前驱线索</b>」）。</dd>
+      <dt>rtag</dt><dd><code>rtag = 0</code>：<code>right</code> 指向<b>右孩子</b>；
+        <code>rtag = 1</code>：<code>right</code> 指向该结点在遍历序列中的<b>后继</b>（称为「<b>后继线索</b>」）。</dd>
+      <dt>线索链表</dt><dd>加上线索的二叉链表。相应地，树就叫<b>线索二叉树（threaded binary tree）</b>；
+        按线索化的次序不同，分为<b>先序线索二叉树</b>、<b>中序线索二叉树</b>、<b>后序线索二叉树</b>。</dd>
+      <dt>线索化</dt><dd>把二叉树变成线索二叉树的过程。做法就是一次遍历，在「访问结点」时顺手把空指针改成线索。</dd>
+    </dl>
+    <p>
+      下图是主角树的中序线索化结果。对照中序序列 <code>DBEAFCG</code> 看：
+      D 的后继是 B、G 的前驱是 E、G 的后继是 F……每一条线索都对应序列里相邻的一对结点。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 340" width="900" height="340" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">中序线索二叉树：实线 = 孩子指针（tag=0），虚线 = 线索（tag=1）</text>
+        <!-- 孩子边 -->
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="450" y1="120" x2="270" y2="190"/>
+          <line x1="450" y1="120" x2="630" y2="190"/>
+          <line x1="270" y1="190" x2="180" y2="260"/>
+          <line x1="270" y1="190" x2="360" y2="260"/>
+          <line x1="630" y1="190" x2="630" y2="260"/>
+          <line x1="360" y1="260" x2="360" y2="318"/>
+        </g>
+        <!-- 线索 -->
+        <g stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="6 4">
+          <path d="M168,246 C120,200 150,150 258,178" fill="none" marker-end="url(#th1)"/>
+          <path d="M372,246 C420,200 300,150 282,178" fill="none" marker-end="url(#th1)"/>
+          <path d="M348,300 C280,330 250,250 262,204" fill="none" marker-end="url(#th1)"/>
+          <path d="M372,300 C440,330 560,250 618,204" fill="none" marker-end="url(#th1)"/>
+        </g>
+        <defs><marker id="th1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+        <!-- 结点 -->
+        <g font-family="Consolas,monospace" font-size="15">
+          <circle cx="450" cy="100" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="450" y="107" text-anchor="middle" fill="var(--text)">A</text>
+          <circle cx="270" cy="200" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="270" y="207" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="630" cy="200" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="630" y="207" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="180" cy="270" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="180" y="277" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="360" cy="270" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="360" y="277" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="630" cy="270" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="630" y="277" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="360" cy="328" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="360" y="335" text-anchor="middle" fill="var(--text)">G</text>
+        </g>
+        <text x="700" y="112" fill="var(--text-soft)" font-size="12.5">中序序列：D B E A F C G</text>
+        <text x="700" y="140" fill="var(--accent)" font-size="12.5">D.right → B（后继）</text>
+        <text x="700" y="160" fill="var(--accent)" font-size="12.5">G.right → F（后继）</text>
+        <text x="700" y="180" fill="var(--accent)" font-size="12.5">G.left → E（前驱）</text>
+        <text x="700" y="200" fill="var(--accent)" font-size="12.5">E.left → B（前驱）</text>
+        <text x="700" y="228" fill="var(--text-soft)" font-size="12.5">F.left → C（前驱）</text>
+        <text x="700" y="248" fill="var(--text-soft)" font-size="12.5">F.right → C（后继）</text>
+        <text x="16" y="82" fill="var(--text-soft)" font-size="12.5">这棵树共有 7 个结点 → 空指针 8 个，</text>
+        <text x="16" y="102" fill="var(--text-soft)" font-size="12.5">其中首结点的 left、末结点的 right</text>
+        <text x="16" y="122" fill="var(--text-soft)" font-size="12.5">无处可指，通常置空或指向头结点。</text>
+      </svg>
+      <figcaption>图 7-10　中序线索二叉树：虚线即线索，指向中序序列中的前驱与后继</figcaption>
+    </div>
+
+    <h3 id="thread-rules">7.6.2 三种线索化的规则</h3>
+    <p>
+      线索化的规则可以用一句话统一概括：<b>按某种次序遍历二叉树，遍历过程中把「上一个访问的结点」记成 pre，
+      遇到当前结点 p 有空指针域时，就用 pre 和 p 互相连线。</b>具体来说：
+    </p>
+    <ul>
+      <li>若 <code>p-&gt;left</code> 为空 → 令 <code>p-&gt;left = pre</code>（<code>ltag = 1</code>），即 p 的<b>前驱线索</b>；</li>
+      <li>若 <code>pre</code> 非空且 <code>pre-&gt;right</code> 为空 → 令 <code>pre-&gt;right = p</code>（<code>rtag = 1</code>），
+        即 pre 的<b>后继线索</b>。</li>
+    </ul>
+    <p>
+      「按什么次序遍历」决定了得到哪种线索二叉树，三种次序的差别如下表。
+      <b>中序线索二叉树是考得最多、也是唯一能完美 O(1) 双向找前驱后继的一种</b>（后序线索找后继通常还需要知道双亲）。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>种类</th><th>线索的含义</th><th>找前驱</th><th>找后继</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>中序线索</b></td>
+            <td>指向中序序列中的前驱 / 后继</td>
+            <td class="c-ok">O(1)（沿左子树的「最右下」找）</td>
+            <td class="c-ok">O(1)（沿右子树的「最左下」找）</td>
+            <td><b>最实用</b>：中序遍历可以完全不用栈，也不需要递归</td>
+          </tr>
+          <tr>
+            <td>先序线索</td>
+            <td>指向前序序列中的前驱 / 后继</td>
+            <td class="c-bad">不易（需双亲）</td>
+            <td class="c-ok">O(1)（有左孩子则左孩子就是后继）</td>
+            <td>「前驱」要区分结点是否为双亲的左孩子，需借助三叉链表</td>
+          </tr>
+          <tr>
+            <td>后序线索</td>
+            <td>指向后序序列中的前驱 / 后继</td>
+            <td class="c-ok">O(1)（有右孩子则右孩子就是前驱）</td>
+            <td class="c-bad">不易（需双亲）</td>
+            <td>与先序对称：找后继需要知道双亲</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：中序线索树中找前驱 / 后继的三句话</span>
+      设 p 是<b>中序线索二叉树</b>中的任意结点：<br>
+      <b>找后继：</b>① 若 <code>rtag == 1</code>，则 <code>p-&gt;right</code> 直接就是后继；
+      ② 若 <code>rtag == 0</code>（有右子树），则后继是<b>右子树中最左下的结点</b>（一路向左走到头）。<br>
+      <b>找前驱：</b>① 若 <code>ltag == 1</code>，则 <code>p-&gt;left</code> 直接就是前驱；
+      ② 若 <code>ltag == 0</code>（有左子树），则前驱是<b>左子树中最右下的结点</b>（一路向右走到头）。<br>
+      记忆口诀：<b>有线索直接用；无线索时「后继找右下、前驱找左下」——等等，是「后继找右子树的最左下，前驱找左子树的最右下」。</b>
+      这两句话对称得容易记混，建议用一个具体例子（图 7-10 的 A）验证：A 的右子树是 C，C 的最左下结点是 F，
+      而中序序列 DBEAFCG 里 A 的后继确实是 F ✓。
+    </div>
+
+    <h3 id="thread-code">7.6.3 中序线索化的 C++ 实现</h3>
+    <p>
+      代码只有二十来行，但有一个细节<b>必须小心</b>：递归线索化左子树时，
+      原来的 <code>p-&gt;left</code> 可能已经被改成了前驱线索，所以要先判断 <code>ltag == 0</code> 再递归，
+      否则会顺着线索跑到别的子树上去，造成死循环或错误。
+    </p>
+
+    <pre data-lang="cpp" data-file="threaded_inorder.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* ============================================================
+   中序线索二叉树
+   ltag / rtag = 0 表示指针指向孩子；= 1 表示指针是线索
+   ============================================================ */
+struct ThreadNode {
+    char        val;
+    ThreadNode* left;
+    ThreadNode* right;
+    int         ltag;      // 0: left 是左孩子   1: left 是前驱线索
+    int         rtag;      // 0: right 是右孩子  1: right 是后继线索
+    explicit ThreadNode(char v)
+        : val(v), left(nullptr), right(nullptr), ltag(0), rtag(0) {}
+};
+
+/* ---------- 建树工具（普通二叉树） ---------- */
+ThreadNode* build(const string&amp; s, int&amp; pos) {
+    char c = s[pos++];
+    if (c == '#') return nullptr;
+    ThreadNode* r = new ThreadNode(c);
+    r-&gt;left  = build(s, pos);
+    r-&gt;right = build(s, pos);
+    return r;
+}
+
+/* ============================================================
+   中序线索化核心：一次中序遍历，pre 始终指向"刚访问过的那个结点"
+   ============================================================ */
+void inorderThread(ThreadNode* p, ThreadNode*&amp; pre) {
+    if (!p) return;
+
+    inorderThread(p-&gt;left, pre);          // ① 递归左子树（此时 p->left 一定还是孩子指针）
+
+    /* ② 处理当前结点的左空指针 → 前驱线索 */
+    if (!p-&gt;left) { p-&gt;left = pre; p-&gt;ltag = 1; }
+
+    /* ③ 处理前驱结点的右空指针 → 后继线索（此时 pre 就是 p 的前驱） */
+    if (pre &amp;&amp; !pre-&gt;right) { pre-&gt;right = p; pre-&gt;rtag = 1; }
+
+    pre = p;                              // ④ p 成为下一个结点的前驱
+
+    /* ⑤ 递归右子树。注意：此处必须用 rtag 判断！
+       因为如果 p 没有右孩子，上面的步骤已经把 p->right 改成了后继线索，
+       直接递归会顺着线索跑到别的子树里，造成死循环。 */
+    if (p-&gt;rtag == 0) inorderThread(p-&gt;right, pre);
+}
+
+/* ---------- 封装的线索化入口：带一个"头结点" ----------
+   头结点是常用的工程技巧：它的 left 指向根，right 指向中序最后一个结点，
+   于是"第一个结点的前驱"和"最后一个结点的后继"都有地方指了。 */
+ThreadNode* createInorderThread(ThreadNode* root) {
+    ThreadNode* head = new ThreadNode('\0');    // 头结点，值无意义
+    head-&gt;ltag = 0; head-&gt;rtag = 1;
+    if (!root) { head-&gt;left = head; head-&gt;right = head; return head; }
+    head-&gt;left = root;
+    ThreadNode* pre = head;                     // pre 从头结点开始，天然处理"第一个结点无前驱"
+    inorderThread(root, pre);
+    pre-&gt;right = head; pre-&gt;rtag = 1;           // 最后一个结点的后继指向头结点
+    head-&gt;right = pre;                          // 头结点的右指针指向中序最后一个结点
+    return head;
+}
+
+/* ============================================================
+   在中序线索树上找后继：不用栈、不用递归，O(1)
+   ============================================================ */
+ThreadNode* inorderNext(ThreadNode* p) {
+    if (p-&gt;rtag == 1) return p-&gt;right;          // 有后继线索，直接用
+    ThreadNode* q = p-&gt;right;                   // 否则后继 = 右子树"最左下"的结点
+    while (q-&gt;ltag == 0 &amp;&amp; q-&gt;left) q = q-&gt;left;
+    return q;
+}
+
+/* ---------- 在中序线索树上找前驱（对称） ---------- */
+ThreadNode* inorderPrev(ThreadNode* p) {
+    if (p-&gt;ltag == 1) return p-&gt;left;
+    ThreadNode* q = p-&gt;left;                    // 前驱 = 左子树"最右下"的结点
+    while (q-&gt;rtag == 0 &amp;&amp; q-&gt;right) q = q-&gt;right;
+    return q;
+}
+
+/* ---------- 利用线索做中序遍历：空间 O(1)，没有栈也没有递归 ---------- */
+vector&lt;char&gt; inorderByThread(ThreadNode* head) {
+    vector&lt;char&gt; out;
+    ThreadNode* p = head-&gt;left;                 // 从头结点出发到根
+    while (p &amp;&amp; p-&gt;ltag == 0 &amp;&amp; p-&gt;left) p = p-&gt;left;   // 走到中序第一个结点（最左下）
+    while (p &amp;&amp; p != head) {
+        out.push_back(p-&gt;val);
+        p = inorderNext(p);                     // 顺着后继线索一路走
+    }
+    return out;
+}
+
+int main() {
+    int pos = 0;
+    ThreadNode* root = build("ABD##EG###C#F##", pos);   // 图 7-9 的主角树
+    ThreadNode* head = createInorderThread(root);
+
+    cout &lt;&lt; "中序遍历（靠线索，无栈无递归）: ";
+    for (char c : inorderByThread(head)) cout &lt;&lt; c;      // DBEAFCG
+    cout &lt;&lt; "\n";
+
+    /* 验证"找前驱/后继"：找出中序第一个结点 D，然后一路顺着后继走 */
+    ThreadNode* first = head-&gt;left;
+    while (first-&gt;ltag == 0 &amp;&amp; first-&gt;left) first = first-&gt;left;
+    cout &lt;&lt; "第一个结点是 " &lt;&lt; first-&gt;val &lt;&lt; "\n";         // D
+    cout &lt;&lt; "D 的后继是 " &lt;&lt; inorderNext(first)-&gt;val &lt;&lt; "\n";  // B
+    ThreadNode* last = head-&gt;right;                      // 头结点右指针 = 中序最后一个结点
+    cout &lt;&lt; "最后一个结点是 " &lt;&lt; last-&gt;val &lt;&lt; "\n";         // G
+    cout &lt;&lt; "G 的前驱是 " &lt;&lt; inorderPrev(last)-&gt;val &lt;&lt; "\n";   // E
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">线索化的两个经典 bug</span>
+      <ol style="margin:6px 0 0">
+        <li><b>递归右子树时忘了判断 <code>rtag</code></b>：如果结点没有右孩子，它的 <code>right</code> 已经被改成了后继线索，
+          此时直接 <code>inorderThread(p-&gt;right, pre)</code> 就会顺着线索跑进别的子树，结果是<b>无限递归</b>或序列错乱。
+          正确写法是 <code>if (p-&gt;rtag == 0) inorderThread(p-&gt;right, pre);</code>。</li>
+        <li><b>没处理「首结点无前驱、末结点无后继」</b>：中序第一个结点的前驱是空的，最后一个结点的后继也是空的。
+          如果直接写 <code>pre-&gt;right = p</code>（pre 为空时）就会崩。两个标准做法：
+          ① 加一个<b>头结点</b>（上面的代码采用这种，工程里最常见）；
+          ② 让 pre 初值为 <code>nullptr</code>，每次使用前判空。</li>
+      </ol>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错：线索二叉树里「left/right」是双重身份</span>
+      在普通二叉链表里，<code>left == nullptr</code> 就表示「没有左孩子」；
+      但在线索二叉树里，<code>left != nullptr</code> 也<b>可能</b>只是前驱线索而不是孩子。
+      所以写代码时<b>永远不能再写 <code>if (p-&gt;left)</code> 来判断有没有左孩子</b>，
+      必须写成 <code>if (p-&gt;ltag == 0)</code>。这是考卷上最爱设的陷阱，也是实际编码最容易踩的坑。
+    </div>
+
+    <h2 id="tree-forest-convert">7.7 树、森林与二叉树的转换</h2>
+
+    <h3 id="convert-rules">7.7.1 三条互逆的转换规则</h3>
+    <p>
+      7.2.3 节已经埋下伏笔：孩子兄弟表示法用两个指针就存下了一棵普通树。
+      既然存储结构已经和二叉树一模一样，那么「树」与「二叉树」之间就必然存在一一对应关系。
+      转换规则其实只有一句话：<b>把「第一个孩子」当作左孩子，把「下一个兄弟」当作右孩子</b>。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 400" width="900" height="400" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">树 → 二叉树：左孩子右兄弟（加线 → 抹线 → 旋转）</text>
+
+        <!-- 左边：原树 -->
+        <text x="30" y="52" fill="var(--brand)" font-size="12.5">① 原树</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="150" y1="86" x2="80" y2="146"/>
+          <line x1="150" y1="86" x2="150" y2="146"/>
+          <line x1="150" y1="86" x2="220" y2="146"/>
+          <line x1="80" y1="146" x2="50" y2="206"/>
+          <line x1="80" y1="146" x2="110" y2="206"/>
+          <line x1="220" y1="146" x2="220" y2="206"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <circle cx="150" cy="66" r="20" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/><text x="150" y="72" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+          <circle cx="80" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="80" y="172" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="150" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="150" y="172" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="220" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="220" y="172" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="50" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="50" y="232" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="110" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="110" y="232" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="220" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="220" y="232" text-anchor="middle" fill="var(--text)">G</text>
+        </g>
+        <text x="30" y="276" fill="var(--text-soft)" font-size="12">B、C、D 是 A 的三个孩子，E、F 是 B 的两个孩子</text>
+
+        <!-- 中间：加线抹线 -->
+        <text x="320" y="52" fill="var(--accent)" font-size="12.5">② 在兄弟之间加虚线，再把「非第一个孩子」连向双亲的线抹掉</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="440" y1="86" x2="370" y2="146"/>
+          <line x1="370" y1="146" x2="340" y2="206"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="6 4">
+          <line x1="392" y1="166" x2="428" y2="166"/>
+          <line x1="462" y1="166" x2="498" y2="166"/>
+          <line x1="362" y1="226" x2="398" y2="226"/>
+          <line x1="440" y1="86" x2="510" y2="146"/>
+        </g>
+        <g stroke="var(--danger)" stroke-width="2" stroke-dasharray="3 3">
+          <line x1="440" y1="86" x2="510" y2="146" opacity="0.35"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <circle cx="440" cy="66" r="20" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/><text x="440" y="72" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+          <circle cx="370" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="370" y="172" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="440" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="440" y="172" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="510" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="510" y="172" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="340" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="340" y="232" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="410" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="410" y="232" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="510" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="510" y="232" text-anchor="middle" fill="var(--text)">G</text>
+        </g>
+        <text x="320" y="276" fill="var(--accent)" font-size="12">加线：同一双亲的相邻兄弟连起来（B—C、C—D、E—F）</text>
+        <text x="320" y="294" fill="var(--danger)" font-size="12">抹线：每个结点只保留「与第一个孩子的连线」，其余与双亲的连线全抹掉</text>
+
+        <!-- 右边：二叉树 -->
+        <text x="620" y="52" fill="var(--ok)" font-size="12.5">③ 结果：一棵二叉树（左 = 孩子，右 = 兄弟）</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="700" y1="86" x2="660" y2="146"/>
+          <line x1="700" y1="86" x2="740" y2="146"/>
+          <line x1="740" y1="146" x2="780" y2="206"/>
+          <line x1="660" y1="146" x2="620" y2="206"/>
+          <line x1="620" y1="206" x2="580" y2="266"/>
+          <line x1="780" y1="206" x2="820" y2="266"/>
+        </g>
+        <g stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="6 4">
+          <line x1="684" y1="166" x2="716" y2="166"/>
+          <line x1="764" y1="226" x2="796" y2="226"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <circle cx="700" cy="66" r="20" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/><text x="700" y="72" text-anchor="middle" fill="#fff" font-weight="700">A</text>
+          <circle cx="660" cy="166" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="660" y="172" text-anchor="middle" fill="var(--text)">B</text>
+          <circle cx="740" cy="166" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="740" y="172" text-anchor="middle" fill="var(--text)">C</text>
+          <circle cx="620" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="620" y="232" text-anchor="middle" fill="var(--text)">E</text>
+          <circle cx="780" cy="226" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="780" y="232" text-anchor="middle" fill="var(--text)">D</text>
+          <circle cx="580" cy="286" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="580" y="292" text-anchor="middle" fill="var(--text)">F</text>
+          <circle cx="820" cy="286" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="820" y="292" text-anchor="middle" fill="var(--text)">G</text>
+        </g>
+        <text x="620" y="330" fill="var(--text-soft)" font-size="12">A 的左孩子 B（第一个孩子），B 的右孩子 C（下一个兄弟）</text>
+        <text x="620" y="348" fill="var(--text-soft)" font-size="12">C 的右孩子 D；B 的左孩子 E，E 的右孩子 F</text>
+        <text x="620" y="366" fill="var(--text-soft)" font-size="12">D 的左孩子 G（D 的第一个孩子）</text>
+        <text x="16" y="386" fill="var(--text-faint)" font-size="12">要点：转换后，<b>原树中每个结点的「孩子链」变成了二叉树里的一条「右指针链」</b>；
+          二叉树中「某结点一直沿右走到底」得到的就是它在原树里的所有兄弟（含自己）。</text>
+      </svg>
+      <figcaption>图 7-11　树转二叉树的「加线 — 抹线 — 旋转」三步法</figcaption>
+    </div>
+
+    <p>把上图的做法推广到森林，规则同样机械：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>转换方向</th><th>操作规则</th><th>一次性记住的说法</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>树 → 二叉树</b></td>
+            <td>① 在树中所有<b>相邻兄弟</b>之间加一条连线；<br>
+                ② 对每个结点，只保留它与<b>第一个孩子</b>的连线，抹掉它与其它孩子的连线；<br>
+                ③ 以根为轴心把整棵树顺时针旋转约 45°，让层次关系变成二叉树的左右关系。</td>
+            <td><b>左孩子右兄弟</b></td>
+          </tr>
+          <tr>
+            <td><b>森林 → 二叉树</b></td>
+            <td>① 先把森林中每一棵树各自转成二叉树；<br>
+                ② 从第一棵树的根开始，把后一棵树的根作为前一棵树根的<b>右孩子</b>串起来。</td>
+            <td><b>各树转二叉树，根与根用右链相连</b></td>
+          </tr>
+          <tr>
+            <td><b>二叉树 → 树</b></td>
+            <td>若结点 x 是其双亲的<b>左孩子</b>，就把 x 的<b>右孩子、右孩子的右孩子……</b>
+                全部与 x 的双亲连起来，最后抹掉所有结点与其右孩子的连线。</td>
+            <td><b>右链拆开挂到双亲上</b></td>
+          </tr>
+          <tr>
+            <td><b>二叉树 → 森林</b></td>
+            <td>反复断开根结点与其<b>右孩子</b>的连线，每断开一次就得到一棵树；直到没有右孩子为止。</td>
+            <td><b>沿根的右链一路劈开</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      下面是「树 → 二叉树」的动画演示。左侧是原树，右侧是逐步长出来的二叉树，
+      动画会依次完成「加兄弟线」「抹掉非长子的连线」「旋转定型」三个阶段。
+    </p>
+    <div id="viz-tree-to-binary"></div>
+
+    <h3 id="convert-traverse">7.7.2 必背结论：树与森林的遍历对应关系</h3>
+    <p>
+      转换规则本身不难记，难的是考试里那句「<b>树的后序遍历 = 对应二叉树的中序遍历</b>」——
+      很多人第一次看到都会怀疑是不是印错了。我们用一个可以直接验证的方法说明它。
+    </p>
+    <div class="note exam">
+      <span class="note-title">考点：两条对应结论（每年必考）</span>
+      <div class="table-wrap" style="margin:8px 0">
+        <table class="compact">
+          <thead><tr><th>树 / 森林的遍历</th><th>等价的二叉树遍历</th><th>为什么</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>树的前序遍历</b>（先访问根，再依次前序遍历每棵子树）</td>
+              <td><b>二叉树的前序遍历</b></td>
+              <td>都是「先根，再从左往右进入各子树」，访问顺序完全一致。</td>
+            </tr>
+            <tr>
+              <td><b>树的后序遍历</b>（先依次后序遍历每棵子树，最后访问根）</td>
+              <td><b>二叉树的中序遍历</b></td>
+              <td>树的后序是「先走完所有孩子，再访问根」；在二叉树里，所有孩子挂在<b>左子树的右链</b>上，
+                中序恰好是「走完整个左子树（= 所有孩子），再访问根」，两者一致。</td>
+            </tr>
+            <tr>
+              <td><b>森林的前序遍历</b></td>
+              <td><b>二叉树的前序遍历</b></td>
+              <td>森林各树之间是用右链连的，前序会先走完一棵树再走右链进入下一棵，与森林的「逐棵前序」一致。</td>
+            </tr>
+            <tr>
+              <td><b>森林的后序遍历</b></td>
+              <td><b>二叉树的中序遍历</b></td>
+              <td>同理。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      注意这里的不对称：<b>「前序对前序」，「后序对中序」</b>。
+      绝对不要记成「后序对后序」——二叉树的右链承载的是「兄弟」信息，
+      所以在二叉树里走右链等价于在树里「换个兄弟继续」，
+      而这恰好落在中序「访问完根之后」的位置上。
+    </div>
+    <p>
+      另外还要知道<b>树的层序遍历</b>：它和二叉树的层序遍历<b>没有</b>上述对应关系，
+      因为转换会改变结点的层次（兄弟被压到了下一层）。树的层序遍历要自己用队列做：
+      根入队，出队时把它的<b>所有孩子</b>（而不是两个孩子）依次入队。
+    </p>
+
+    <pre data-lang="cpp" data-file="tree_forest_convert.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+/* ============================================================
+   树 &lt;-&gt; 二叉树 的相互转换
+   统一用"左孩子右兄弟"的结点结构，从而两种形态共用一份数据
+   ============================================================ */
+struct Node {
+    char  val;
+    Node* child;      // 树：第一个孩子      二叉树：左孩子
+    Node* sibling;    // 树：下一个兄弟      二叉树：右孩子
+    explicit Node(char v) : val(v), child(nullptr), sibling(nullptr) {}
+};
+
+/* ---------- 树的前序遍历 = 二叉树的前序遍历 ---------- */
+void treePre(Node* r, vector&lt;char&gt;&amp; out) {         // 对树：根 → 各子树
+    if (!r) return;
+    out.push_back(r-&gt;val);
+    for (Node* c = r-&gt;child; c; c = c-&gt;sibling) treePre(c, out);
+}
+void btPre(Node* r, vector&lt;char&gt;&amp; out) {           // 对二叉树：根 → 左 → 右
+    if (!r) return;
+    out.push_back(r-&gt;val);
+    btPre(r-&gt;child, out);
+    btPre(r-&gt;sibling, out);
+}
+
+/* ---------- 树的后序遍历 = 二叉树的中序遍历 ---------- */
+void treePost(Node* r, vector&lt;char&gt;&amp; out) {        // 对树：各子树 → 根
+    if (!r) return;
+    for (Node* c = r-&gt;child; c; c = c-&gt;sibling) treePost(c, out);
+    out.push_back(r-&gt;val);
+}
+void btIn(Node* r, vector&lt;char&gt;&amp; out) {            // 对二叉树：左 → 根 → 右
+    if (!r) return;
+    btIn(r-&gt;child, out);
+    out.push_back(r-&gt;val);
+    btIn(r-&gt;sibling, out);
+}
+
+/* ---------- 树的层次遍历：出队一个，把它的"所有孩子"入队 ---------- */
+vector&lt;char&gt; treeLevel(Node* root) {
+    vector&lt;char&gt; out;
+    if (!root) return out;
+    queue&lt;Node*&gt; q; q.push(root);
+    while (!q.empty()) {
+        Node* p = q.front(); q.pop();
+        out.push_back(p-&gt;val);
+        for (Node* c = p-&gt;child; c; c = c-&gt;sibling) q.push(c);   // 注意是所有孩子
+    }
+    return out;
+}
+
+/* ---------- 森林 → 二叉树：把各棵树的根用右链串起来 ---------- */
+Node* forestToBinary(const vector&lt;Node*&gt;&amp; roots) {
+    if (roots.empty()) return nullptr;
+    for (size_t i = 0; i + 1 &lt; roots.size(); ++i)
+        roots[i]-&gt;sibling = roots[i + 1];        // 前一棵树的根 → 右孩子 = 后一棵树的根
+    return roots[0];
+}
+
+/* ---------- 二叉树 → 森林：沿根的右链依次劈开 ---------- */
+vector&lt;Node*&gt; binaryToForest(Node* root) {
+    vector&lt;Node*&gt; res;
+    Node* p = root;
+    while (p) {
+        Node* nxt = p-&gt;sibling;                  // 先存下一条右链
+        p-&gt;sibling = nullptr;                    // 断开
+        res.push_back(p);
+        p = nxt;
+    }
+    return res;
+}
+
+void print(const char* tag, const vector&lt;char&gt;&amp; v) {
+    cout &lt;&lt; tag;
+    for (char c : v) cout &lt;&lt; c;
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    /* 构造图 7-11 的树：A(B(E,F), C, D(G)) */
+    Node* A = new Node('A'); Node* B = new Node('B'); Node* C = new Node('C');
+    Node* D = new Node('D'); Node* E = new Node('E'); Node* F = new Node('F');
+    Node* G = new Node('G');
+    A-&gt;child = B;  B-&gt;sibling = C;  C-&gt;sibling = D;      // A 的孩子链：B → C → D
+    B-&gt;child = E;  E-&gt;sibling = F;                        // B 的孩子链：E → F
+    D-&gt;child = G;                                        // D 的孩子链：G
+
+    vector&lt;char&gt; a, b;
+    treePre(A, a);  print("树的前序   : ", a);            // ABEFCDG
+    btPre(A, b);    print("二叉树的前序: ", b);           // ABEFCDG（相同！）
+
+    vector&lt;char&gt; c, d;
+    treePost(A, c); print("树的后序   : ", c);            // EFBCGDA
+    btIn(A, d);     print("二叉树的中序: ", d);           // EFBCGDA（相同！）
+
+    print("树的层序   : ", treeLevel(A));                 // ABCDEFG
+
+    /* 森林 → 二叉树 → 森林 */
+    Node* X = new Node('X'); Node* Y = new Node('Y');
+    X-&gt;child = Y;
+    vector&lt;Node*&gt; fo = { A, X };                          // 森林：两棵树
+    Node* bin = forestToBinary(fo);
+    cout &lt;&lt; "森林转二叉树后，根的右链长度 = " &lt;&lt; binaryToForest(bin).size() &lt;&lt; "\n";  // 2
+    return 0;
+}</pre>
+
+    <h2 id="huffman">7.8 赫夫曼树与最优前缀编码（重点）</h2>
+
+    <h3 id="huff-wpl">7.8.1 路径长度与带权路径长度 WPL</h3>
+    <p>
+      前面讲的是「树长什么样」，现在换个角度：给叶子结点赋上<b>权值</b>，然后问
+      「怎么把树造成让所有叶子的『代价之和』最小」。这就是赫夫曼树要解决的问题。
+      先精确定义两个量：
+    </p>
+    <dl class="def">
+      <dt>路径长度</dt><dd>从树中一个结点到另一个结点所经过的<b>边数</b>。</dd>
+      <dt>结点的带权路径长度</dt><dd>从<b>根</b>到该结点的路径长度 × 该结点的权值，即 <code>depth(v) × weight(v)</code>（根深度记 0）。</dd>
+      <dt>树的带权路径长度（WPL</dt><dd><b>Weighted Path Length</b>：树中<b>所有叶子结点</b>的带权路径长度之和。
+        <div class="formula center" data-math="WPL = Σ (i=1..n) w_i * l_i"></div>
+        其中 n 是叶子个数，w<sub>i</sub> 是第 i 个叶子的权值，l<sub>i</sub> 是该叶子到根的路径长度（层数 − 1）。
+        <b>只有叶子参与计算</b>——这是最容易出错的地方。</dd>
+      <dt>赫夫曼树（最优二叉树）</dt><dd>在给定 n 个权值作为 n 个叶子结点的所有二叉树中，
+        <b>WPL 最小</b>的那棵（可能不唯一），称为赫夫曼树（Huffman tree），也叫最优二叉树。</dd>
+    </dl>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 260" width="900" height="260" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="22" fill="var(--text)" font-size="13" font-weight="700">同一组权值 {2, 3, 4}，两种不同形状的二叉树，WPL 差别巨大</text>
+        <!-- 左边 -->
+        <text x="60" y="52" fill="var(--danger)" font-size="12.5">① 权值大的放深层 → WPL 大</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="150" y1="86" x2="100" y2="146"/>
+          <line x1="100" y1="146" x2="60" y2="206"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <circle cx="150" cy="66" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="150" y="72" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="100" cy="166" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="100" y="172" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="60" cy="226" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="60" y="232" text-anchor="middle" fill="var(--text)">2</text>
+        </g>
+        <circle cx="196" cy="166" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/>
+        <line x1="150" y1="86" x2="196" y2="146" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="196" y="172" text-anchor="middle" fill="var(--text)" font-family="Consolas,monospace" font-size="14">3</text>
+        <circle cx="240" cy="226" r="20" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/>
+        <line x1="196" y1="166" x2="240" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="240" y="232" text-anchor="middle" fill="var(--text)" font-family="Consolas,monospace" font-size="14">4</text>
+        <text x="60" y="252" fill="var(--danger)" font-size="12.5">WPL = 2×2 + 3×1 + 4×2 = 15</text>
+
+        <!-- 右边 -->
+        <text x="430" y="52" fill="var(--ok)" font-size="12.5">② 权值大的放浅层 → WPL 小（赫夫曼树）</text>
+        <g stroke="var(--border-strong)" stroke-width="1.8">
+          <line x1="560" y1="86" x2="500" y2="166"/>
+          <line x1="560" y1="86" x2="620" y2="166"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="14">
+          <circle cx="560" cy="66" r="20" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="560" y="72" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="500" cy="186" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="500" y="192" text-anchor="middle" fill="var(--text)">4</text>
+          <circle cx="620" cy="186" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/><text x="620" y="192" text-anchor="middle" fill="var(--text)">3</text>
+        </g>
+        <line x1="560" y1="86" x2="560" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <circle cx="560" cy="226" r="20" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="560" y="232" text-anchor="middle" fill="var(--text)" font-family="Consolas,monospace" font-size="14">2</text>
+        <text x="430" y="252" fill="var(--ok)" font-size="12.5">WPL = 4×1 + 3×1 + 2×2 = 11（更小）</text>
+        <text x="700" y="120" fill="var(--text-soft)" font-size="12.5">规律：</text>
+        <text x="700" y="142" fill="var(--text-soft)" font-size="12.5">权越大的叶子离根越近，</text>
+        <text x="700" y="164" fill="var(--text-soft)" font-size="12.5">WPL 就越小。</text>
+        <text x="700" y="196" fill="var(--text-soft)" font-size="12.5">赫夫曼算法就是</text>
+        <text x="700" y="218" fill="var(--text-soft)" font-size="12.5">按这个规律贪心构造。</text>
+      </svg>
+      <figcaption>图 7-12　WPL 的含义：权值大的叶子应尽量靠近根</figcaption>
+    </div>
+
+    <h3 id="huff-algo">7.8.2 赫夫曼算法：每次合并两个最小的</h3>
+    <p><b>一句话本质</b>：把所有叶子当作一堆独立的树，<b>反复取出权值最小的两棵合并成一棵新树</b>，
+      新树的权是两者之和，直到只剩一棵树。</p>
+    <p><b>算法步骤</b>（n 个叶子，共需 n − 1 次合并）：</p>
+    <ol>
+      <li>把 n 个权值 <code>w<sub>1</sub>, w<sub>2</sub>, …, w<sub>n</sub></code> 看成 n 棵只有一个根结点的树，组成森林 F。</li>
+      <li>从 F 中选出根结点权值<b>最小</b>的两棵树，作为左、右子树构造一棵新树，新树的根权值为两者之和。</li>
+      <li>从 F 中<b>删除</b>这两棵树，把新树<b>加入</b> F。</li>
+      <li>重复 2、3，直到 F 中只剩一棵树。这棵树就是赫夫曼树。</li>
+    </ol>
+
+    <p>
+      下面用权值集合 <code>{2, 3, 4, 7, 8, 9}</code>（总和 33）完整手推一遍。
+      请务必自己先算一遍再看表，这个例子在考卷上出现的频率极高。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>步骤</th><th>当前森林中的树根权值（已排序）</th><th>取出的两个最小</th><th>合并得到</th><th>本步增加的 WPL</th><th>累计 WPL</th></tr></thead>
+        <tbody>
+          <tr><td>初始</td><td>2, 3, 4, 7, 8, 9</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+          <tr><td>①</td><td>4, 7, 8, 9</td><td><b>2, 3</b></td><td>5</td><td>+5</td><td>5</td></tr>
+          <tr><td>②</td><td>7, 8, 9</td><td><b>4, 5</b></td><td>9</td><td>+9</td><td>14</td></tr>
+          <tr><td>③</td><td>9, 9</td><td><b>7, 8</b></td><td>15</td><td>+15</td><td>29</td></tr>
+          <tr><td>④</td><td>15</td><td><b>9, 9</b></td><td>18</td><td>+18</td><td>47</td></tr>
+          <tr><td>⑤</td><td>（只剩一棵）</td><td><b>15, 18</b></td><td><b>33</b></td><td>+33</td><td><b>80</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">两个必须掌握的验算技巧</span>
+      <b>技巧一：WPL = 所有「合并出来的新结点」权值之和。</b>
+      上表最后一列 5 + 9 + 15 + 18 + 33 = <b>80</b>，就是最终的 WPL。
+      为什么？因为每个叶子每被合并一次，它就离根更远一层，
+      合并时的「和」恰好等于「这一层所有相关叶子的权值之和」，累加起来正好是 Σw<sub>i</sub>l<sub>i</sub>。
+      <b>这个技巧能让你在考场上 30 秒算出 WPL，不必画完整棵树。</b><br>
+      <b>技巧二：交叉验算。</b>把最终树画出来，逐个叶子数深度：
+      a(2) 深度 4、b(3) 深度 4、c(4) 深度 3、d(7) 深度 2、e(8) 深度 3、f(9) 深度 3，于是
+      WPL = 2×4 + 3×4 + 4×3 + 7×2 + 8×3 + 9×3 = 8 + 12 + 12 + 14 + 24 + 27 = <b>80</b> ✓
+      两种算法结果一致，说明构造过程没有出错。
+    </div>
+
+    <p>下面动画逐帧演示这五步合并，并实时累加 WPL。注意观察「每次合并后森林中权值的排序变化」。</p>
+    <div id="viz-huffman-build"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：赫夫曼树的三个「不」与一个「唯一」</span>
+      <ul style="margin:6px 0 0">
+        <li><b>赫夫曼树不唯一</b>：当有两个权值相同的结点时，谁在左谁在右都可以，得到的是不同的树。
+          例如把 2 放在左边还是右边，是两棵不同的赫夫曼树。</li>
+        <li><b>WPL 唯一</b>：无论怎么选（只要每次都取最小的两个），最终 WPL 都相同，都是最小值。
+          这就是「赫夫曼树不唯一，但 WPL 唯一」的含义。</li>
+        <li><b>没有度为 1 的结点</b>：由构造过程可知，每次合并都是两个结点合成一个父结点，
+          所以赫夫曼树中<b>不存在度为 1 的结点</b>（n<sub>1</sub> = 0）。
+          于是对它用性质 3 就得到：<b>n 个叶子的赫夫曼树共有 2n − 1 个结点</b>
+          （因为 n<sub>2</sub> = n − 1，加上 n 个叶子 = 2n − 1）。这个结论必背。</li>
+        <li><b>权值都在叶子上</b>：赫夫曼树的非叶结点的权只是「合并出来的和」，
+          在编码问题里它们不承载字符，所以算 WPL 时<b>不参与</b>。</li>
+      </ul>
+    </div>
+
+    <h3 id="huff-optimal">7.8.3 为什么赫夫曼树是最优的</h3>
+    <p>
+      严格的证明要用「贪心选择性质 + 最优子结构」的交换论证，这里给出直观而不失严谨的说明。
+      先看两条关于最优树的显然性质：
+    </p>
+    <ol>
+      <li><b>权值越大的叶子离根越近。</b>
+        反证：如果存在两个叶子 x、y 满足 w<sub>x</sub> &gt; w<sub>y</sub> 但 depth(x) &gt; depth(y)，
+        把两个叶子的位置对调，WPL 的变化量是
+        <code>w<sub>x</sub>·depth(y) + w<sub>y</sub>·depth(x) − w<sub>x</sub>·depth(x) − w<sub>y</sub>·depth(y)
+        = (w<sub>x</sub> − w<sub>y</sub>)(depth(y) − depth(x)) &lt; 0</code>，
+        即 WPL 变小了，与最优性矛盾。</li>
+      <li><b>最优树一定是一棵「满」的树，没有度为 1 的结点。</b>
+        反证：若存在度为 1 的结点，把它的唯一孩子直接接到它的位置上，所有后代深度减 1，WPL 严格变小。</li>
+    </ol>
+    <p>
+      <b>贪心选择性质</b>：设 w<sub>1</sub>、w<sub>2</sub> 是最小的两个权值，则存在一棵最优树，
+      其中 w<sub>1</sub> 与 w<sub>2</sub> 是<b>兄弟</b>，且深度最大。<br>
+      <b>论证</b>：由性质 1 与 2 可知，深度最大的叶子必然成对出现（否则会有度为 1 的结点），
+      取其中两个叶子 a、b，深度都是 L。<b>交换论证</b>：把 w<sub>1</sub> 换到 a 的位置、w<sub>2</sub> 换到 b 的位置，
+      WPL 的变化量是
+      <code>(w<sub>1</sub> − w<sub>a</sub>)L + (w<sub>2</sub> − w<sub>b</sub>)L = L[(w<sub>1</sub> + w<sub>2</sub>) − (w<sub>a</sub> + w<sub>b</sub>)] ≤ 0</code>，
+      因为 w<sub>1</sub>、w<sub>2</sub> 是最小的两个，所以 w<sub>1</sub> + w<sub>2</sub> ≤ w<sub>a</sub> + w<sub>b</sub>。
+      也就是说，把最小的两个放到最深处不会让结果变差，于是可以放心地<b>先把它们合并</b>。
+    </p>
+    <p>
+      <b>最优子结构</b>：合并 w<sub>1</sub>、w<sub>2</sub> 得到新权值 w' = w<sub>1</sub> + w<sub>2</sub> 之后，
+      原问题变成了「用 {w', w<sub>3</sub>, …, w<sub>n</sub>} 这 n − 1 个权值构造最优树」的<b>同型子问题</b>：
+      <code>WPL(原) = WPL(子问题) + w<sub>1</sub> + w<sub>2</sub></code>。
+      因为 w<sub>1</sub> + w<sub>2</sub> 是固定开销，最小化原 WPL 等价于最小化子问题的 WPL。
+      于是对子问题继续贪心即可，这正是一个标准的<b>贪心 + 归纳</b>结构。
+    </p>
+    <div class="note tip">
+      <span class="note-title">直观理解：为什么「每次取最小两个」是对的</span>
+      把合并想象成「给叶子买鞋」：每合并一次，被合并的那些叶子就<b>集体往下走一层</b>，
+      代价是「它们的总权值」。既然往下走是不可避免的，那就<b>让权值最小的那些先下去、多下去</b>，
+      权值大的尽量少走。最小的两个一定走到最深，这个直觉与交换论证的结论完全一致。
+    </div>
+
+    <h3 id="huff-code">7.8.4 赫夫曼编码：让常用字符用短码</h3>
+    <p>
+      赫夫曼树最著名的应用是<b>数据压缩</b>。想法非常自然：一篇文章里不同字符出现的频率差别极大
+      （英文里 e 出现得最多，z 最少），如果所有字符都用同样长度的编码（如 ASCII 的 8 位），
+      那就是对高频字符的浪费。要让总长度最短，就该<b>让高频字符用短编码、低频字符用长编码</b>——
+      这恰好就是「构造一棵 WPL 最小的二叉树」！
+    </p>
+    <dl class="def">
+      <dt>前缀编码</dt><dd>一组编码中，<b>任何一个编码都不是另一个编码的前缀</b>。
+        例如 <code>{0, 10, 110, 111}</code> 是前缀编码；而 <code>{0, 01, 011}</code> 不是（0 是 01 的前缀）。</dd>
+      <dt>为什么前缀编码能唯一译码</dt><dd>译码时从左往右逐位读：一旦读到的位串等于某个字符的编码，就立刻确定这个字符，
+        然后从头开始读下一段。<b>因为没有任何编码是别人的前缀，所以中途绝不会出现「读到的这一段既可能是 A 也可能是 B 的前半截」的歧义</b>，
+        译码路径唯一。</dd>
+      <dt>赫夫曼编码</dt><dd>以字符出现频率为权值构造赫夫曼树，令<b>左分支为 0、右分支为 1</b>，
+        则从根到每个叶子路径上的 0/1 序列就是该字符的编码。它<b>一定是前缀编码</b>——
+        因为字符只放在叶子上，任何一条从根到叶的路径都不会是另一条路径的前缀。</dd>
+      <dt>平均码长</dt><dd>编码一个字符的平均位数 = <code>WPL / Σw<sub>i</sub></code>（总权值）。
+        对赫夫曼编码，这个平均值是<b>所有前缀编码中最小的</b>。</dd>
+    </dl>
+
+    <p>
+      回到刚才的例子：字符 a~f 的频率分别是 <code>2, 3, 4, 7, 8, 9</code>，总频率 33。
+      把 7.8.2 节构造出的赫夫曼树每个左分支标 0、右分支标 1，从根走到叶子，就得到编码表。
+      下表把两种编码的总位数放在一起对比（<b>等长编码需要 ⌈log<sub>2</sub> 6⌉ = 3 位</b>）。
+      请注意：<b>这里约定「权值相同时，先被合并出来的那棵树作左孩子」</b>，
+      这样左右不再随意，编码表就是唯一确定的（这也是 7.8.5 节要讲的「唯一化」问题）。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>字符</th><th>频率 w</th><th>赫夫曼编码</th><th>码长 l</th><th>贡献 w × l</th><th>等长编码（3 位）</th><th>等长贡献 3w</th></tr></thead>
+        <tbody>
+          <tr><td>a</td><td>2</td><td><code>1110</code></td><td class="c-bad">4</td><td>8</td><td><code>000</code></td><td>6</td></tr>
+          <tr><td>b</td><td>3</td><td><code>1111</code></td><td class="c-bad">4</td><td>12</td><td><code>001</code></td><td>9</td></tr>
+          <tr><td>c</td><td>4</td><td><code>110</code></td><td>3</td><td>12</td><td><code>010</code></td><td>12</td></tr>
+          <tr><td>d</td><td>7</td><td><code>00</code></td><td class="c-ok">2</td><td>14</td><td><code>011</code></td><td>21</td></tr>
+          <tr><td>e</td><td>8</td><td><code>01</code></td><td class="c-ok">2</td><td>16</td><td><code>100</code></td><td>24</td></tr>
+          <tr><td>f</td><td>9</td><td><code>10</code></td><td class="c-ok">2</td><td>18</td><td><code>101</code></td><td>27</td></tr>
+          <tr><td colspan="4"><b>合计（= WPL）</b></td><td class="c-ok"><b>80</b></td><td><b>合计</b></td><td class="c-bad"><b>99</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="formula">
+      WPL = 8 + 12 + 12 + 14 + 16 + 18 = <b>80</b>，与「内部结点权值之和」
+      <code>5 + 9 + 15 + 18 + 33 = 80</code> 完全一致 ✓<br>
+      平均码长 = 80 / 33 ≈ <b>2.42</b> 位/字符；
+      等长编码总长 = 33 × 3 = <b>99</b> 位；
+      <b>赫夫曼编码只需 80 位，节省 19 位 ≈ 19.2%。</b>
+    </div>
+
+    <p>
+      这里有一个必须专门讲清楚的细节：<b>为什么频率最低的 a、b 拿到了 4 位码，而频率居中的 d、e、f 只有 2 位？</b>
+      因为这棵树的形状是「一边深、一边浅」：合并过程
+      <code>2+3=5 → 4+5=9 → 7+8=15 → 9+9=18 → 15+18=33</code> 中，
+      a、b 最早被合并，所以在树里被「压」到了最深处（第 5 层，码长 4）；
+      而 7、8、9 这三棵子树直到最后才被合并，离根最近（第 3 层，码长 2）。
+      这正是 7.8.1 节那条规律的体现：<b>权越大的叶子离根越近</b>。
+      但请注意一个反直觉的现象：<b>d(7)、e(8)、f(9) 的权值互不相同，码长却都是 2</b>——
+      码长只由树形决定，并不严格随频率单调，<b>千万不要用「按频率排序」去猜码长</b>。
+    </p>
+
+    <p>
+      把这个编码表用起来看看效果。假设原文一共 33 个字符（a 出现 2 次、b 3 次、c 4 次、d 7 次、e 8 次、f 9 次）：
+    </p>
+    <ul>
+      <li>用 <b>3 位等长编码</b>存储：需要 <code>33 × 3 = 99</code> 位。</li>
+      <li>用 <b>赫夫曼编码</b>存储：需要 <code>80</code> 位。</li>
+      <li>压缩后是原来的 <b>80/99 ≈ 80.8%</b>，节省约 <b>19.2%</b>。
+        真实文本的字符频率分布比这个例子更悬殊（英文里 e 约占 12.7%，z 只占 0.07%），
+        所以实际压缩率通常更好。</li>
+      <li>顺便验证前缀性质：编码集合是 <code>{1110, 1111, 110, 00, 01, 10}</code>。
+        可以发现 <code>11</code> 本身不是任何字符的编码，因此以 <code>11</code> 开头的
+        <code>1110</code>、<code>1111</code> 不会与别人冲突；<code>0</code>、<code>1</code> 也都不是编码。
+        <b>任意两个编码之间都不存在前缀关系</b>，所以译码时从左往右读、读到一个完整编码就立刻切分，绝不会产生歧义。</li>
+    </ul>
+
+    <div class="note danger">
+      <span class="note-title">赫夫曼编码题的三个「必查项」</span>
+      ① <b>绝不能凭感觉给码长</b>。必须把树画出来、从根往下逐叶数深度。
+      码长只由树形决定：权值最小的两个叶子一定在最深层附近，权值最大的叶子一定在最浅层附近，
+      但<b>码长并不严格随频率单调</b>——本节的 d(7)、e(8)、f(9) 码长完全相同就是例子。<br>
+      ② <b>用两种方法交叉验算 WPL</b>：<code>Σ w<sub>i</sub> l<sub>i</sub></code>（按叶子）
+      与 <code>Σ 内部结点权值</code>（按合并结果）必须一致。
+      本节 <code>8+12+12+14+16+18 = 80</code> ✓ 与 <code>5+9+15+18+33 = 80</code> ✓ 完全吻合。<br>
+      ③ <b>检查前缀性质</b>：把所有编码两两比较，任何一个都不能是另一个的前缀。
+      更好的检查方法是「<b>把这组编码还原成一棵树</b>」：
+      如果某个编码是另一个的前缀，就说明有字符被放在了内部结点上，那一定不是合法的前缀编码，
+      更不可能是赫夫曼编码。
+    </div>
+
+    <p>
+      下面动画演示赫夫曼编码的生成过程：先构造树，再沿树从根到叶读出每个字符的 0/1 编码，
+      最后把赫夫曼编码总位数与等长编码总位数放在一起比较。
+    </p>
+    <div id="viz-huffman-code"></div>
+
+    <h3 id="huff-canonical">7.8.5 规范赫夫曼编码与「按字典序的赫夫曼编码」</h3>
+    <p>
+      赫夫曼编码有一个工程上的小麻烦：<b>它不唯一</b>。左右孩子可以互换，导致编码不同；
+      解码方如果没有拿到编码表，就无法解码。解决办法是约定一套<b>标准规则</b>，
+      让双方各算各的也能算出<b>完全一样</b>的编码。这就是<b>规范赫夫曼编码（canonical Huffman code）</b>。
+    </p>
+    <p><b>规范编码的两条规则</b>（工程与竞赛中通用的约定）：</p>
+    <ol>
+      <li><b>码长分配规则</b>：先算出每个字符的<b>码长</b>（这一步用赫夫曼算法，只保留长度信息，不关心左右）。</li>
+      <li><b>字典序赋值规则</b>：按 <code>(码长, 字符)</code> 排序——
+        先按<b>码长从小到大</b>排，码长相同的按<b>字符的字典序</b>排；
+        然后依次赋码：
+        <ul style="margin:6px 0 0">
+          <li>第一个（最短码长中的最小编号字符）赋 <b>全 0</b>；</li>
+          <li>设当前码长为 L、当前编码为 c，则下一个字符的编码是
+            <b>把 c 加 1（作为 L 位二进制数），再在末尾补 0 直到长度等于它的码长</b>；</li>
+          <li>若下一个字符的码长与当前相同，就<b>只加 1 不补 0</b>。</li>
+        </ul>
+      </li>
+    </ol>
+    <p>
+      用我们的例子演示：字符 a~f 的频率是 <code>2, 3, 4, 7, 8, 9</code>，
+      由赫夫曼算法得到的码长是 <b>a=4, b=4, c=3, d=2, e=2, f=2</b>
+      （<b>注意 e、f 的码长是 2 而不是 3</b>——这就是为什么必须先老老实实跑一遍赫夫曼算法，
+      不能用「频率排序」去猜码长）。按 <code>(码长, 字符)</code> 排序后依次赋码：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>字符</th><th>码长 L</th><th>操作</th><th>得到的规范编码</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>d</td><td>2</td><td>第一个（最短码长中最小的字符）→ 赋全 0</td><td><code>00</code></td></tr>
+          <tr><td>2</td><td>e</td><td>2</td><td>码长相同 → 只加 1：<code>00</code> + 1</td><td><code>01</code></td></tr>
+          <tr><td>3</td><td>f</td><td>2</td><td>码长相同 → 只加 1：<code>01</code> + 1</td><td><code>10</code></td></tr>
+          <tr><td>4</td><td>c</td><td>3</td><td>码长变大 → <code>10</code> + 1 = <code>11</code>，末尾补 0 到 3 位</td><td><code>110</code></td></tr>
+          <tr><td>5</td><td>a</td><td>4</td><td>码长变大 → <code>110</code> + 1 = <code>111</code>，末尾补 0 到 4 位</td><td><code>1110</code></td></tr>
+          <tr><td>6</td><td>b</td><td>4</td><td>码长相同 → 只加 1：<code>1110</code> + 1</td><td><code>1111</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="formula">
+      规范赫夫曼编码：d=<code>00</code>, e=<code>01</code>, f=<code>10</code>, c=<code>110</code>, a=<code>1110</code>, b=<code>1111</code><br>
+      WPL = 7×2 + 8×2 + 9×2 + 4×3 + 2×4 + 3×4 = 14 + 16 + 18 + 12 + 8 + 12 = <b>80</b> ✓ 与赫夫曼编码完全一致
+    </div>
+    <p>
+      有意思的是，这一组规范编码与 7.8.4 节表格里的赫夫曼编码<b>一模一样</b>。这不是巧合：
+      7.8.4 节约定的「权值相同时先合并出来的作左孩子、左 0 右 1」，
+      恰好使字典序小的字符拿到了字典序小的编码。但如果把左右子树<b>互换</b>，
+      得到的编码就变成 a=<code>0001</code>, b=<code>0000</code>, c=<code>001</code>, d=<code>11</code>, e=<code>10</code>, f=<code>01</code>——
+      <b>WPL 仍然是 80（最优），但编码已经乱序了</b>。规范编码的价值就在这里：
+      <b>它不依赖「谁在左谁在右」，只要双方用同一份码长表，就一定算出同一份编码。</b>
+      这正是 DEFLATE（zip / gzip / PNG 用的压缩格式）等真实压缩格式的做法：
+      传输时只传「每个字符的码长」，编码本身由规范规则在两端各自算出来。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点：什么时候需要「唯一」的编码？</span>
+      考试与竞赛里常见的三问：<br>
+      ① <b>「求赫夫曼编码」</b>：如果题目没有额外规定，只需给出<b>任意一种</b>合法结果，或直接给码长 + WPL。
+      因为赫夫曼树不唯一，编码也不唯一，<b>但 WPL / 平均码长唯一</b>。<br>
+      ② <b>「求字典序最小的赫夫曼编码」</b>：这是国内教材与 OJ 的常见约定。做法有两条常见口径，务必看清题目：
+        <ul style="margin:6px 0 0">
+          <li>口径 A（最常见）：构造时若有权值相同的树，<b>优先合并权值相同中「最小字符」较小的那两棵</b>；
+            并且约定<b>权值小的作为左孩子</b>。这样得到的树本身是唯一的，编码也唯一。</li>
+          <li>口径 B：先不管左右算出码长，再用上面的<b>规范赫夫曼编码</b>规则按 (码长, 字符) 字典序赋值。</li>
+        </ul>
+        两种口径得到的编码可能不同，但<b>码长分布与 WPL 一定相同</b>——这也是所有这类题目的「保底分数点」：
+        就算左右放反了，只要码长对，WPL 就对。<br>
+      ③ <b>「已知各字符编码，判断是否为赫夫曼编码」</b>：判断方法是
+        「把编码当成叶子建立前缀树，看这棵树是否满足：所有内部结点的权值等于其孩子权值之和，
+        且不存在度为 1 的结点，且每个内部结点的权值都 ≤ 同层其它候选」——更简单的判法是
+        <b>直接由编码反推构造过程，看每一步能否取到最小的两个</b>。实践中常用 Kraft 不等式
+        <code>Σ 2<sup>−l<sub>i</sub></sup> ≤ 1</code> 先做必要条件过滤。
+    </div>
+
+    <h3 id="huff-impl">7.8.6 构造赫夫曼树 + 生成编码的完整实现</h3>
+    <p>
+      实现要点有三条：① 用<b>小根堆（<code>priority_queue</code> 配 <code>greater</code>）</b>每次取最小的两个，
+      复杂度 O(n log n)；② 编码用<b>从叶子往上回溯</b>的方式生成（避免从根递归传字符串）；
+      ③ 因为要判断「左 0 右 1」，回溯时要记录当前结点是双亲的左孩子还是右孩子，所以结点里存一个 <code>parent</code> 指针，
+      或者用一个 <code>code</code> 数组在构建时就记录。
+    </p>
+
+    <pre data-lang="cpp" data-file="huffman_full.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   赫夫曼树：用静态数组 + 小根堆实现，便于从叶子回溯出编码
+   ============================================================ */
+struct HuffNode {
+    int   weight;          // 权值
+    int   parent;          // 双亲下标（-1 表示没有）
+    int   left;            // 左孩子下标（-1 表示没有）
+    int   right;           // 右孩子下标
+    char  ch;              // 对应字符（只有叶子有意义）
+    HuffNode() : weight(0), parent(-1), left(-1), right(-1), ch(0) {}
+};
+
+class Huffman {
+public:
+    vector&lt;HuffNode&gt; t;    // 所有结点：前 n 个是叶子，后 n-1 个是合并出的内部结点
+
+    /* chars/weights 长度相同；总权值 sumW 会被算出来供求平均码长用 */
+    void build(const vector&lt;char&gt;&amp; chars, const vector&lt;int&gt;&amp; weights) {
+        int n = chars.size();
+        t.assign(2 * n - 1, HuffNode());
+        for (int i = 0; i &lt; n; ++i) { t[i].ch = chars[i]; t[i].weight = weights[i]; }
+
+        /* 小根堆：按权值排序；权值相同时按下标排序，保证结果可复现 */
+        struct Cmp {
+            const vector&lt;HuffNode&gt;* t;
+            bool operator()(int a, int b) const {
+                if ((*t)[a].weight != (*t)[b].weight) return (*t)[a].weight &gt; (*t)[b].weight;
+                return a &gt; b;                        // 权值相同则优先取下标小的（更稳定）
+            }
+        };
+        priority_queue&lt;int, vector&lt;int&gt;, Cmp&gt; pq{ Cmp{ &amp;t } };
+        for (int i = 0; i &lt; n; ++i) pq.push(i);
+
+        /* 每次取出两个最小的，合并成新结点 */
+        for (int i = n; i &lt; 2 * n - 1; ++i) {
+            int a = pq.top(); pq.pop();
+            int b = pq.top(); pq.pop();
+            t[i].left  = a;                          // 约定：先取出的（较小的）做左孩子
+            t[i].right = b;
+            t[i].weight = t[a].weight + t[b].weight;
+            t[a].parent = t[b].parent = i;
+            pq.push(i);
+        }
+    }
+
+    /* 从每个叶子往上回溯到根，左 0 右 1；返回编码表 */
+    vector&lt;string&gt; codes(int n) const {
+        vector&lt;string&gt; res(n);
+        for (int i = 0; i &lt; n; ++i) {
+            string code;
+            int cur = i;
+            while (t[cur].parent != -1) {
+                int p = t[cur].parent;
+                code += (t[p].left == cur) ? '0' : '1';
+                cur = p;
+            }
+            reverse(code.begin(), code.end());       // 回溯得到的是"从下往上"，要反转
+            res[i] = code;
+        }
+        return res;
+    }
+
+    /* WPL：两种算法都要能写出来 */
+    int wplByLeaves(int n) const {                   // 法一：Σ 权值 × 深度
+        int sum = 0;
+        for (int i = 0; i &lt; n; ++i) {
+            int d = 0, cur = i;
+            while (t[cur].parent != -1) { ++d; cur = t[cur].parent; }
+            sum += d * t[i].weight;
+        }
+        return sum;
+    }
+    int wplByInternal(int n) const {                 // 法二：所有内部结点权值之和
+        int sum = 0;
+        for (int i = n; i &lt; (int)t.size(); ++i) sum += t[i].weight;
+        return sum;
+    }
+};
+
+int main() {
+    vector&lt;char&gt; ch = { 'a', 'b', 'c', 'd', 'e', 'f' };
+    vector&lt;int&gt;  w  = {  2,   3,   4,   7,   8,   9 };
+
+    Huffman h;
+    h.build(ch, w);
+    vector&lt;string&gt; code = h.codes(ch.size());
+
+    int totalW = 0; for (int x : w) totalW += x;
+    int totalBits = 0;
+    for (size_t i = 0; i &lt; ch.size(); ++i) {
+        int bits = (int)code[i].size() * w[i];
+        totalBits += bits;
+        cout &lt;&lt; ch[i] &lt;&lt; "  频率 " &lt;&lt; w[i] &lt;&lt; "  编码 " &lt;&lt; code[i]
+             &lt;&lt; "  码长 " &lt;&lt; code[i].size() &lt;&lt; "  贡献 " &lt;&lt; bits &lt;&lt; "\n";
+    }
+
+    int equalLen = 3;                                 // ⌈log2 6⌉ = 3 位等长编码
+    cout &lt;&lt; "赫夫曼总位数 = " &lt;&lt; totalBits &lt;&lt; "\n";
+    cout &lt;&lt; "等长编码总位数 = " &lt;&lt; totalW * equalLen &lt;&lt; "\n";
+    cout &lt;&lt; "WPL(按叶子) = " &lt;&lt; h.wplByLeaves(ch.size())
+         &lt;&lt; "   WPL(按内部结点) = " &lt;&lt; h.wplByInternal(ch.size()) &lt;&lt; "\n";   // 都是 80
+    cout &lt;&lt; "平均码长 = " &lt;&lt; (double)totalBits / totalW &lt;&lt; "\n";           // 80/33 ≈ 2.4242
+    return 0;
+}</pre>
+
+    <p>
+      如果题目只要求<b>码长</b>而不要求具体编码，还有个经典的 <b>O(n log n) 双数组优化写法</b>：
+      先把权值排序，然后用两个队列——一个存原始叶子（已排序），一个存合并出的新结点（天然有序）——
+      每次从两个队列的队头里挑出较小的两个。这样就把堆的 log 因子变成了纯线性扫描。
+    </p>
+
+    <pre data-lang="cpp" data-file="huffman_twostack.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   赫夫曼 WPL 的 O(n log n) 写法：排序 + 两个队列
+   关键观察：合并产生的新结点权值是"单调不减"的，
+   所以不需要堆，用两个队列的队头比较就能每次拿到最小值。
+   （q1 存原始叶子，已排序；q2 存合并出的新结点，天然有序）
+   ============================================================ */
+long long huffmanWPL(vector&lt;int&gt; w) {
+    sort(w.begin(), w.end());                        // 唯一的 O(n log n) 来自排序
+    queue&lt;long long&gt; q1, q2;
+    for (int x : w) q1.push(x);
+
+    auto pickMin = [&amp;]() -&gt; long long {              // 从两个队头里取最小的
+        long long v;
+        if (q1.empty()) { v = q2.front(); q2.pop(); return v; }
+        if (q2.empty()) { v = q1.front(); q1.pop(); return v; }
+        if (q1.front() &lt;= q2.front()) { v = q1.front(); q1.pop(); }
+        else                          { v = q2.front(); q2.pop(); }
+        return v;
+    };
+
+    long long wpl = 0;
+    int n = w.size();
+    for (int i = 0; i &lt; n - 1; ++i) {                // 共合并 n-1 次
+        long long a = pickMin();
+        long long b = pickMin();
+        wpl += a + b;                                // 技巧 1：WPL = 所有合并结果之和
+        q2.push(a + b);
+    }
+    return wpl;
+}
+
+int main() {
+    vector&lt;int&gt; w = { 2, 3, 4, 7, 8, 9 };
+    cout &lt;&lt; "WPL = " &lt;&lt; huffmanWPL(w) &lt;&lt; "\n";       // 80
+    vector&lt;int&gt; w2 = { 5, 7, 2, 3, 11 };
+    cout &lt;&lt; "WPL = " &lt;&lt; huffmanWPL(w2) &lt;&lt; "\n";      // 见 7.12 节自测题第 4 题
+    return 0;
+}</pre>
+
+    <h2 id="dsu">7.9 并查集：用双亲表示法的森林管理集合</h2>
+
+    <h3 id="dsu-idea">7.9.1 为什么树还能用来「分组」</h3>
+    <p>
+      并查集（<b>disjoint set union</b>, DSU）解决的是这样一类问题：
+      有 n 个元素，需要支持两种操作——
+      <b>合并两个集合</b>（union）和<b>查询两个元素是否属于同一集合</b>（find）。
+      典型场景：判断无向图中的连通性、Kruskal 最小生成树（第 09 讲）、
+      亲戚关系、网络连通、等式约束的传递闭包。
+    </p>
+    <p>
+      表示方法非常巧妙：<b>每个集合用一棵树表示，整片森林就是一个并查集</b>；
+      树的<b>根</b>就是该集合的代表元，树中每个结点只存<b>双亲的下标</b>——
+      这正好就是 7.2.1 节的<b>双亲表示法</b>！于是：
+    </p>
+    <ul>
+      <li><code>find(x)</code>：沿着 <code>parent</code> 一路往上走，直到根（<code>parent[x] == x</code>），返回根的下标。
+        根相同 ⇔ 属于同一集合。</li>
+      <li><code>union(x, y)</code>：先 <code>find</code> 到两个根，把其中一个根的双亲改成另一个根，两棵树就合成一棵。</li>
+    </ul>
+    <p>
+      下面动画演示并查集的两个关键优化。<b>路径压缩</b>让 <code>find</code> 顺路把经过的结点直接挂到根上，
+      <b>按秩合并</b>让矮树挂到高树上，两者合起来把单次操作的均摊复杂度压到 <b>O(α(n))</b>——
+      α 是反阿克曼函数，对任何现实中的 n（哪怕 n 是 10<sup>80</sup>）都不超过 5，<b>可以认为是常数</b>。
+    </p>
+    <div id="viz-dsu"></div>
+
+    <h3 id="dsu-code">7.9.2 完整实现：路径压缩 + 按秩合并</h3>
+    <pre data-lang="cpp" data-file="dsu.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;numeric&gt;
+using namespace std;
+
+/* ============================================================
+   并查集（Disjoint Set Union）
+   用双亲表示法的森林：parent[i] = i 表示 i 是根（集合代表元）
+   ============================================================ */
+class DSU {
+public:
+    vector&lt;int&gt; parent;   // 双亲下标
+    vector&lt;int&gt; rnk;      // 秩：近似"树高"，用于按秩合并
+    int         sets;     // 当前集合个数
+
+    explicit DSU(int n) : parent(n), rnk(n, 0), sets(n) {
+        iota(parent.begin(), parent.end(), 0);      // parent[i] = i，各自成集合
+    }
+
+    /* ---------- 查：带路径压缩（递归版，写法最简洁） ----------
+       把查找路径上所有结点的双亲直接改成根，树被"压扁"，后续查找几乎 O(1) */
+    int find(int x) {
+        if (parent[x] == x) return x;
+        return parent[x] = find(parent[x]);         // ★ 递归赋值 = 路径压缩
+    }
+
+    /* ---------- 查：带路径压缩（迭代版，避免深树递归爆栈） ---------- */
+    int findIter(int x) {
+        int root = x;
+        while (parent[root] != root) root = parent[root];   // 第一趟：找根
+        while (parent[x] != root) {                          // 第二趟：把路径上所有点挂到根
+            int nxt = parent[x];
+            parent[x] = root;
+            x = nxt;
+        }
+        return root;
+    }
+
+    /* ---------- 并：按秩合并 ----------
+       把"矮"的树挂到"高"的树下，避免树退化成链。
+       秩的定义可以是"树高的上界"，也可以是"集合大小"（按大小合并同样正确）。 */
+    bool unite(int x, int y) {
+        int rx = find(x), ry = find(y);
+        if (rx == ry) return false;                 // 已经同集合，无需合并
+        if (rnk[rx] &lt; rnk[ry]) swap(rx, ry);        // 保证 rx 的秩不小于 ry
+        parent[ry] = rx;                            // ry 挂到 rx 下
+        if (rnk[rx] == rnk[ry]) ++rnk[rx];          // 秩相同时合并后高度 +1
+        --sets;
+        return true;
+    }
+
+    bool same(int x, int y) { return find(x) == find(y); }
+};
+
+int main() {
+    DSU d(8);                                       // 8 个元素 0..7
+    d.unite(0, 1);
+    d.unite(2, 3);
+    d.unite(1, 3);                                  // {0,1,2,3} 合成一个集合
+    d.unite(4, 5);
+    d.unite(6, 7);
+
+    cout &lt;&lt; "0 和 3 同集合? " &lt;&lt; (d.same(0, 3) ? "是" : "否") &lt;&lt; "\n";   // 是
+    cout &lt;&lt; "0 和 4 同集合? " &lt;&lt; (d.same(0, 4) ? "是" : "否") &lt;&lt; "\n";   // 否
+    cout &lt;&lt; "当前集合个数 = " &lt;&lt; d.sets &lt;&lt; "\n";                     // 3
+
+    cout &lt;&lt; "各元素的双亲: ";
+    for (int i = 0; i &lt; 8; ++i) cout &lt;&lt; d.parent[i] &lt;&lt; ' ';
+    cout &lt;&lt; "\n";                                  // 观察哪些结点被路径压缩成了直接挂根
+
+    for (int i = 0; i &lt; 8; ++i) d.find(i);          // 对全部元素做一次 find
+    cout &lt;&lt; "再次压缩后: ";
+    for (int i = 0; i &lt; 8; ++i) cout &lt;&lt; d.parent[i] &lt;&lt; ' ';
+    cout &lt;&lt; "\n";                                  // 大部分元素的双亲都变成了根
+    return 0;
+}</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>实现方式</th><th>单次 find 最坏</th><th>n 次操作总计</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>朴素（直接挂）</td><td class="c-bad">O(n)（退化成链）</td><td class="c-bad">O(n²)</td>
+            <td>union 时永远把 y 挂到 x 下，遇到「1 并 2、2 并 3、3 并 4…」就成了一条链</td></tr>
+          <tr><td>只加按秩合并</td><td class="c-warn">O(log n)</td><td class="c-warn">O(n log n)</td>
+            <td>树高被限制在 log n，因为每次只有秩相同时高度才增加</td></tr>
+          <tr><td>只加路径压缩</td><td class="c-warn">均摊 O(log n)</td><td class="c-warn">O(n log n)</td>
+            <td>单次可能 O(n)，但均摊下来很好</td></tr>
+          <tr><td><b>两者都用</b></td><td class="c-ok"><b>均摊 O(α(n))</b></td><td class="c-ok"><b>O(n α(n)) ≈ O(n)</b></td>
+            <td>α 是反阿克曼函数，n &lt; 10<sup>80</sup> 时 α(n) ≤ 4，实际就是常数</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错：并查集的三个细节</span>
+      <ol style="margin:6px 0 0">
+        <li><b>路径压缩会破坏「树的父子关系」语义。</b>压缩之后 <code>parent[x]</code> 不再是 x 在原来那棵树里的双亲，
+          而只是「指向根的跳板」。所以并查集<b>只能回答「是否同集合」</b>，
+          不能用来求「原树中的深度 / 父亲是谁 / 两点距离」。</li>
+        <li><b>路径压缩与「按秩合并」的秩会失真。</b>压缩后树高变小，但 rnk 数组不会同步更新——
+          这没关系，rnk 从此只作为「合并时的一个启发式上界」，不影响正确性。</li>
+        <li><b>递归版 find 在极端情况下会爆栈。</b>虽然路径压缩让树很浅，但如果<b>从不做路径压缩、
+          只做 union</b>，或者一开始构造了长链，第一次 find 仍可能递归很深。
+          保险起见可以写迭代版（上面的 <code>findIter</code>），或者手动加大栈。</li>
+      </ol>
+    </div>
+
+    <h3 id="dsu-kruskal">7.9.3 它为什么在这里出现：为 Kruskal 铺路</h3>
+    <p>
+      并查集在本课程里最重要的用途，是第 09 讲的 <b>Kruskal 最小生成树算法</b>。
+      Kruskal 的做法是「把所有边按权值从小到大排序，依次尝试加入，
+      <b>若这条边的两个端点已经在同一个连通块里，就跳过（否则会成环）</b>，
+      否则加入」。这里「两个端点是否已在同一个连通块」正是 <code>same(u, v)</code>，
+      「加入这条边」正是 <code>unite(u, v)</code>。
+    </p>
+    <p>
+      用一个具体的片段感受一下它有多简洁（完整版在第 09 讲给出）：
+    </p>
+    <pre data-lang="cpp" data-file="dsu_kruskal_sketch.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+#include &lt;numeric&gt;
+using namespace std;
+
+/* 并查集（双亲表示法 + 路径压缩 + 按秩合并），与 7.9.2 节同一份实现 */
+struct DSU {
+    vector&lt;int&gt; parent, rnk;
+    explicit DSU(int n) : parent(n), rnk(n, 0) { iota(parent.begin(), parent.end(), 0); }
+    int find(int x) { return parent[x] == x ? x : (parent[x] = find(parent[x])); }
+    bool unite(int x, int y) {
+        int rx = find(x), ry = find(y);
+        if (rx == ry) return false;
+        if (rnk[rx] &lt; rnk[ry]) swap(rx, ry);
+        parent[ry] = rx;
+        if (rnk[rx] == rnk[ry]) ++rnk[rx];
+        return true;
+    }
+};
+
+struct Edge { int u, v, w; };
+
+/* Kruskal 的骨架：排序 + 并查集判环，O(E log E) */
+long long kruskal(int n, vector&lt;Edge&gt; edges, int&amp; usedEdges) {
+    sort(edges.begin(), edges.end(), [](const Edge&amp; a, const Edge&amp; b) { return a.w &lt; b.w; });
+    DSU d(n);
+    long long mst = 0;
+    usedEdges = 0;
+    for (const Edge&amp; e : edges) {
+        if (d.unite(e.u, e.v)) {        // 不在同一集合 → 这条边安全，加入生成树
+            mst += e.w;
+            ++usedEdges;
+            if (usedEdges == n - 1) break;   // n 个点的生成树恰好 n-1 条边
+        }
+    }
+    return mst;
+}
+
+int main() {
+    /* 4 个点、5 条边的最小生成树：答案 6（边 0-1 w=1、1-2 w=2、2-3 w=3） */
+    vector&lt;Edge&gt; es = { {0,1,1}, {1,2,2}, {2,3,3}, {0,3,10}, {1,3,7} };
+    int used = 0;
+    cout &lt;&lt; "最小生成树权值 = " &lt;&lt; kruskal(4, es, used)
+         &lt;&lt; "，用了 " &lt;&lt; used &lt;&lt; " 条边\n";
+    return 0;
+}</pre>
+    <div class="note exam">
+      <span class="note-title">考点：并查集 + 树的两个身份</span>
+      请注意并查集在概念上的「两层身份」：<br>
+      <b>逻辑上</b>，它是一个「集合的集合」（等价类划分）；<br>
+      <b>实现上</b>，它是一片用<b>双亲表示法</b>存储的<b>森林</b>——每个集合是一棵树，根是代表元。<br>
+      所以本章的两大主线在这里汇合：<b>7.2.1 的存储结构</b>解决了「怎么表示」，
+      <b>7.1 的树的基本概念</b>提供了「根 / 双亲 / 路径」这套术语，
+      而<b>路径压缩</b>这个技巧则同时用到了「路径」和「双亲指针可以随意改写」这两个性质。
+      这也是「为什么树这一章要放在图论之前」的直接答案。
+    </div>
+
+    <h2 id="cpp-pitfalls">7.10 C++ 实战：坑与写法</h2>
+
+    <p>
+      树这一章的代码写起来不难，但「能过编译」和「能跑对」之间隔着一堆坑。
+      下面这些是本讲配套实验里出现频率最高的错误，请逐条对照自己的代码检查。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">坑 1：递归深度过大导致栈溢出（Stack Overflow）</span>
+      二叉树的递归遍历空间复杂度是 <b>O(树高)</b>。对完全二叉树，树高是 log n，毫无压力；
+      但如果输入是一棵<b>斜树</b>（例如单调递增的序列依次插入），树高就是 n。
+      此时 <code>n = 100000</code> 的递归遍历会直接段错误——Windows 下默认栈只有 1 MB 左右，
+      每层递归栈帧按 48~64 字节算，大约 1.5 万层就崩。<br>
+      <b>对策</b>：① 数据规模大且树可能退化时，<b>改用非递归遍历</b>（显式栈在堆上，容量大得多）；
+      ② 或者在算法层面保证平衡（第 10 讲的 AVL / 红黑树）；
+      ③ 竞赛里可以手动开大栈（Linux 下 <code>ulimit -s</code>，或把递归改成迭代）。<br>
+      <b>注意：<code>std::stack</code> 也在堆上，所以「深度 100 万的斜树」用显式栈是安全的，用递归是不安全的。</b>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 2：new 与 delete 不配对，内存泄漏</span>
+      树的结点都是 <code>new</code> 出来的，每个 <code>new</code> 都要有对应的 <code>delete</code>。
+      释放整棵树必须用<b>后序遍历</b>：
+<pre data-lang="cpp" data-file="destroy_wrong_right.cpp">#include &lt;iostream&gt;
+using namespace std;
+
+/* 为了让这段示例可以独立编译，先给出结点定义。
+   实际工程里它来自公共头文件。 */
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ✗ 错误：先删了根，就再也找不到它的孩子了 → 后序之外的顺序都会漏删 */
+void destroyWrong(TreeNode* r) {
+    if (!r) return;
+    delete r;                  // 灾难：子树指针随 r 一起没了，内存泄漏
+}
+
+/* ✓ 正确：后序 —— 先删左右子树，最后删自己 */
+void destroy(TreeNode* r) {
+    if (!r) return;
+    destroy(r-&gt;left);
+    destroy(r-&gt;right);
+    delete r;
+}
+
+int main() {
+    /* 手工搭一棵 A(B, C) 的小树，然后正确地释放它 */
+    TreeNode* r = new TreeNode('A');
+    r-&gt;left = new TreeNode('B');
+    r-&gt;right = new TreeNode('C');
+
+    destroy(r);                // ✓ 用后序释放，不会有任何泄漏
+    // destroyWrong(r);        // ✗ 千万别这么写：B、C 两块内存会永远丢失
+    cout &lt;&lt; "released\n";
+    return 0;
+}</pre>
+      现代 C++ 里更推荐用<b>智能指针</b>（<code>std::unique_ptr&lt;TreeNode&gt;</code>），
+      或者干脆用 <code>vector</code> 静态数组存结点（竞赛与 OJ 的标准做法，见 7.8.6 的赫夫曼实现）。
+      后者还有一个额外好处：<b>数组下标可以当结点 ID 用，彻底告别悬空指针</b>。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 3：指针悬空（dangling pointer）</span>
+      三种典型场景：<br>
+      ① <code>delete p</code> 之后没有把 <code>p</code> 置空，后面又 <code>if (p)</code> 判断并通过（
+      <code>delete</code> 不会把指针变成 <code>nullptr</code>），接着访问 <code>p-&gt;val</code> 就是未定义行为。
+      <b>习惯：<code>delete p; p = nullptr;</code> 永远成对写。</b><br>
+      ② 函数返回了<b>局部变量的地址</b>（如返回 <code>TreeNode node;</code> 的 <code>&amp;node</code>）。<br>
+      ③ 「浅拷贝」问题：默认拷贝构造只是复制指针，两个对象析构时对同一块内存 <code>delete</code> 两次，
+      直接崩溃。<b>对策</b>：需要拷贝的树请自己写深拷贝（递归复制每个结点），或者禁用拷贝构造。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 4：层序遍历忘记判空</span>
+      最常见的崩法：
+<pre data-lang="cpp" data-file="level_order_bug.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+struct TreeNode {
+    char      val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+/* ✗ 错误：root 为空时还会执行一次 p-&gt;val，空指针解引用 → 崩溃 */
+vector&lt;char&gt; bad(TreeNode* root) {
+    vector&lt;char&gt; out;
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);                     // 把 nullptr 也塞进去了
+    while (!q.empty()) {
+        TreeNode* p = q.front(); q.pop();
+        out.push_back(p-&gt;val);        // ← 空指针解引用！
+        if (p-&gt;left)  q.push(p-&gt;left);
+        if (p-&gt;right) q.push(p-&gt;right);
+    }
+    return out;
+}
+
+/* ✓ 正确：进函数先判空；也不要把 nullptr 压进队列 */
+vector&lt;char&gt; good(TreeNode* root) {
+    vector&lt;char&gt; out;
+    if (!root) return out;            // ★ 第一行就判空
+    queue&lt;TreeNode*&gt; q; q.push(root);
+    while (!q.empty()) {
+        TreeNode* p = q.front(); q.pop();
+        out.push_back(p-&gt;val);
+        if (p-&gt;left)  q.push(p-&gt;left);
+        if (p-&gt;right) q.push(p-&gt;right);
+    }
+    return out;
+}
+
+int main() {
+    cout &lt;&lt; good(nullptr).size() &lt;&lt; "\n";   // 0：空树安全返回
+    // bad(nullptr);                        // ✗ 一旦对空树调用就会崩溃
+    TreeNode* r = new TreeNode('A');
+    r-&gt;left = new TreeNode('B');
+    r-&gt;right = new TreeNode('C');
+    for (char c : good(r)) cout &lt;&lt; c;       // ABC
+    cout &lt;&lt; "\n";
+    return 0;
+}</pre>
+      注意「把 <code>nullptr</code> 也压进队列」是个更隐蔽的变体：不会立刻崩，
+      但会让后续逻辑（比如判断完全二叉树时的计数）全部错乱。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 5：完全二叉树下标 0 基与 1 基混用</span>
+      这是本章最「杀人于无形」的坑，因为它不会崩，只是算错：
+<pre data-lang="cpp" data-file="index_bug.cpp">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+/* 1 基公式用在 0 基数组上 —— 编译能过，结果全错 */
+int leftChild1Based(int i)  { return 2 * i; }        // 只对 tree[1..n] 成立
+int parent1Based(int i)     { return i / 2; }        // 只对 tree[1..n] 成立
+
+/* 0 基版本 */
+int leftChild0Based(int i)  { return 2 * i + 1; }
+int rightChild0Based(int i) { return 2 * i + 2; }
+int parent0Based(int i)     { return (i - 1) / 2; }  // i=0 时得 0（根自己）
+
+/* ★ 最稳的写法：干脆空出 tree[0]，从 1 开始存，与教材公式完全一致。
+   此时双亲 = i/2，左孩子 = 2i，右孩子 = 2i+1，绝不会记混。 */
+vector&lt;int&gt; heap(1);          // heap[0] 空着不用
+
+int main() {
+    /* 用 0 基数组存 {A,B,C,D,E,F,G} 这棵完全二叉树 */
+    vector&lt;char&gt; tree = { 'A','B','C','D','E','F','G' };
+    int n = tree.size();
+
+    /* 用 0 基公式找 D(下标 3) 的双亲和孩子 */
+    int i = 3;
+    cout &lt;&lt; "D 的双亲 = " &lt;&lt; tree[parent0Based(i)] &lt;&lt; "\n";        // B
+    if (leftChild0Based(i) &lt; n)  cout &lt;&lt; "左孩子 " &lt;&lt; tree[leftChild0Based(i)] &lt;&lt; "\n";
+    if (rightChild0Based(i) &lt; n) cout &lt;&lt; "右孩子 " &lt;&lt; tree[rightChild0Based(i)] &lt;&lt; "\n";
+
+    /* 反例：把 1 基公式用在同一个 0 基数组上，结果就错了 */
+    cout &lt;&lt; "误用 1 基公式得到 D 的双亲 = " &lt;&lt; tree[parent1Based(i)] &lt;&lt; "\n";   // 错！得到 C
+
+    /* 想要 1 基语义，就老老实实空出 heap[0] */
+    heap = { 0, 'A','B','C','D','E','F','G' };       // heap[1..7] 才是数据
+    cout &lt;&lt; "1 基写法下 heap[3] = " &lt;&lt; (char)heap[3]
+         &lt;&lt; "，其双亲 heap[3/2] = " &lt;&lt; (char)heap[3 / 2] &lt;&lt; "\n";       // B
+    return 0;
+}</pre>
+      <b>建议</b>：如果一个程序里既要写堆（1 基）又要写遍历（0 基），
+      就在变量名里带上 <code>idx0</code> / <code>idx1</code>，
+      并在每个用到处写一行注释标明基准，别指望自己记得住。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 6：线索化时顺着线索递归（会导致死循环）</span>
+      7.6.3 节已经详细讲过，这里再强调一次：线索化后 <code>left</code> / <code>right</code>
+      可能已经不是孩子指针，<b>判断「有没有孩子」必须用 <code>ltag</code> / <code>rtag</code>，不能用指针是否为空</b>。
+      同理，在线索树上求深度、求结点数时，如果按普通二叉树那样递归，就会顺着线索绕圈，
+      最终 <b>栈溢出或死循环</b>。线索树上的算法要专门写。
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">坑 7：赫夫曼树里把内部结点也算进 WPL</span>
+      WPL 的定义是「所有<b>叶子</b>的带权路径长度之和」。
+      赫夫曼树的内部结点权值是合并出来的和，它们<b>不是叶子，不参与</b> WPL 计算。
+      有人看到「所有结点权值之和」刚好等于一个好看的数就当成 WPL，
+      那就错了。正确的两种算法是：<b>Σ(叶子权 × 叶子深度)</b> 或
+      <b>Σ(所有内部结点的权值)</b>——注意后者的求和范围是内部结点，不是全部结点。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">坑 8：把「结点的深度」和「树的高度」当成一回事</span>
+      写递归求深度时，空树的深度必须返回 0（不是 −1，也不是 1），叶子返回 1。
+      用 <code>1 + max(depth(left), depth(right))</code> 时，如果空树返回 −1，
+      叶子就变成 0 了，整棵树的高度会少算 1。<b>先定义清楚再写代码：
+      本课程约定「空树深度 0、只有根的树深度 1」。</b>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>易错点</th><th>错误写法 / 错误理解</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>递归深度</td><td>对可能退化成斜树的输入用递归遍历</td>
+            <td>改用显式栈的非递归遍历，或保证树平衡；显式栈在堆上，容量远大于系统栈</td></tr>
+          <tr><td>内存释放</td><td>先 <code>delete</code> 根再找孩子</td>
+            <td>用<b>后序</b>释放：先递归删左右子树，最后删自己</td></tr>
+          <tr><td>悬空指针</td><td><code>delete p;</code> 后继续用 <code>p</code></td>
+            <td><code>delete p; p = nullptr;</code> 成对写；需要拷贝就写深拷贝</td></tr>
+          <tr><td>层序遍历</td><td>不判空就把 <code>root</code> 压进队列</td>
+            <td>函数第一行 <code>if (!root) return {};</code>，且不要往队列里压 <code>nullptr</code></td></tr>
+          <tr><td>下标基准</td><td>0 基数组上套用 1 基公式 <code>2i</code> / <code>i/2</code></td>
+            <td>0 基用 <code>2i+1 / 2i+2 / (i−1)/2</code>；或干脆空出 <code>tree[0]</code> 用 1 基</td></tr>
+          <tr><td>线索化递归</td><td>用 <code>if (p-&gt;right)</code> 判断有无右孩子</td>
+            <td>必须用 <code>if (p-&gt;rtag == 0)</code>，否则会顺着线索绕圈</td></tr>
+          <tr><td>WPL 计算</td><td>把所有结点的权值都乘深度相加</td>
+            <td><b>只有叶子</b>参与；或等价地累加所有<b>内部结点</b>（合并结果）的权值</td></tr>
+          <tr><td>深度定义</td><td>空树深度返回 −1 或 1</td>
+            <td>约定「空树 0、单结点 1」，并在整个项目里保持一致</td></tr>
+          <tr><td>遍历判据</td><td>用「先序 + 后序」还原二叉树</td>
+            <td>必须要有<b>中序</b>；只有先序 + 后序时答案有 2<sup>m</sup> 种</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="summary">7.11 本章小结</h2>
+
+    <p>
+      树这一章的内容看起来很多，但骨架非常清楚：<b>一套术语 + 三种存储 + 五条性质 + 四种遍历 + 三大应用</b>。
+      下面把最需要记住的东西压成几张表。
+    </p>
+
+    <h3 id="summary-terms">7.11.1 术语与结构速查</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>概念</th><th>一句话定义</th><th>关键数字 / 性质</th></tr></thead>
+        <tbody>
+          <tr><td>树</td><td>n 个结点的有限集，n &gt; 0 时有唯一根，其余结点分成互不相交的子树集合</td>
+            <td>n 个结点的树有 <b>n − 1</b> 条边；任意两点间路径唯一；无环</td></tr>
+          <tr><td>结点的度</td><td>孩子个数</td><td>树的度 = max(所有结点的度)</td></tr>
+          <tr><td>叶子 / 分支结点</td><td>度为 0 / 度不为 0</td><td>赫夫曼树中没有度为 1 的结点</td></tr>
+          <tr><td>层次 / 深度 / 高度</td><td>层次从 1 数；深度 = 层次；高度 = 到最远叶子的边数</td>
+            <td>整棵树的深度 = 高度 = 最大层次</td></tr>
+          <tr><td>路径长度</td><td>路径上<b>边</b>的条数</td><td>从根到第 k 层结点，路径长度 = k − 1</td></tr>
+          <tr><td>双亲表示法</td><td>每个结点存 parent 下标</td><td>找双亲 O(1)；并查集用它</td></tr>
+          <tr><td>孩子表示法</td><td>每个结点挂一条孩子链</td><td>找孩子 O(度)；求度 O(1)</td></tr>
+          <tr><td>孩子兄弟表示法</td><td>左指针 = 第一个孩子，右指针 = 下一个兄弟</td>
+            <td><b>把树变成二叉树</b>；空指针 n + 1 个</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="summary-props">7.11.2 二叉树性质与公式速查</h3>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>结论</th><th>公式</th><th>适用前提</th></tr></thead>
+        <tbody>
+          <tr><td>第 i 层最多结点数</td><td>2<sup>i−1</sup></td><td>二叉树（i ≥ 1）</td></tr>
+          <tr><td>深度 k 最多结点数</td><td>2<sup>k</sup> − 1</td><td>二叉树；取等号 ⇔ 满二叉树</td></tr>
+          <tr><td>叶子与双分支结点</td><td><b>n<sub>0</sub> = n<sub>2</sub> + 1</b></td><td>任何非空二叉树</td></tr>
+          <tr><td>m 次树的推广</td><td>n<sub>0</sub> = 1 + Σ(度 − 1)·n<sub>度</sub></td><td>任何非空树</td></tr>
+          <tr><td>完全二叉树深度</td><td>⌊log<sub>2</sub> n⌋ + 1 = ⌈log<sub>2</sub>(n+1)⌉</td><td><b>仅完全二叉树</b></td></tr>
+          <tr><td>完全二叉树下标（1 基）</td><td>双亲 ⌊i/2⌋、左 2i、右 2i + 1</td><td>完全二叉树（层序编号）</td></tr>
+          <tr><td>完全二叉树下标（0 基）</td><td>双亲 ⌊(i−1)/2⌋、左 2i+1、右 2i+2</td><td>完全二叉树（C++ 数组）</td></tr>
+          <tr><td>完全二叉树中度为 1 的结点</td><td>n 为偶数时有 1 个，n 为奇数时有 0 个</td><td>完全二叉树</td></tr>
+          <tr><td>赫夫曼树结点总数</td><td>2n − 1（n 个叶子）</td><td>赫夫曼树（无度为 1 的结点）</td></tr>
+          <tr><td>WPL</td><td>Σ w<sub>i</sub> l<sub>i</sub> = Σ 内部结点权值</td><td>只算叶子 / 只累加内部结点</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="summary-complexity">7.11.3 复杂度与算法对比</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>算法 / 操作</th><th>时间</th><th>空间</th><th>关键点</th></tr></thead>
+        <tbody>
+          <tr><td>前 / 中 / 后序遍历（递归）</td><td>O(n)</td><td>O(h)，h 为树高，最坏 O(n)</td><td>空间取决于树高而非结点数</td></tr>
+          <tr><td>前 / 中序非递归</td><td>O(n)</td><td>O(h)</td><td>显式栈在堆上；中序要把左链一路压栈</td></tr>
+          <tr><td>后序非递归</td><td>O(n)</td><td>O(h)（双栈法 O(h)）</td><td>双栈法 = 「根右左」再反转；或单栈配 last 指针</td></tr>
+          <tr><td>层序遍历（BFS）</td><td>O(n)</td><td>O(w)，w 为最大宽度，最坏 O(n)</td><td>队列；分层时先固定 <code>q.size()</code></td></tr>
+          <tr><td>由先序 + 中序还原</td><td>O(n)</td><td>O(n)</td><td>哈希表把「找根」从 O(n) 降到 O(1)</td></tr>
+          <tr><td>中序线索化</td><td>O(n)</td><td>O(h)（递归栈）</td><td>递归右子树前必须判 <code>rtag</code></td></tr>
+          <tr><td>线索树上找前驱 / 后继</td><td>O(1) 或 O(h)</td><td>O(1)</td><td>有线索直接用；否则后继找右子树最左下</td></tr>
+          <tr><td>赫夫曼树构造（堆）</td><td><b>O(n log n)</b></td><td>O(n)</td><td>小根堆 + 静态数组 + 从叶子回溯出编码</td></tr>
+          <tr><td>赫夫曼 WPL（排序 + 双队列）</td><td>O(n log n)</td><td>O(n)</td><td>合并结果天然有序，可省掉堆</td></tr>
+          <tr><td>并查集 find / union</td><td><b>均摊 O(α(n)) ≈ O(1)</b></td><td>O(n)</td><td>路径压缩 + 按秩合并，两者缺一不可（缺一个退化到 O(log n) 或更差）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="summary-language">7.11.4 一句话总结每一节</h3>
+    <ul>
+      <li><b>树的定义</b>：递归定义，关键词是「唯一根」与「互不相交」，直接推出「n 个结点 n − 1 条边」。</li>
+      <li><b>三种存储</b>：双亲表示法向上快（并查集用），孩子表示法向下快，孩子兄弟表示法把树变成二叉树。</li>
+      <li><b>二叉树</b>：左右有序、每点至多两棵子树；斜树 / 满二叉树 / 完全二叉树是三种最重要的特例。</li>
+      <li><b>顺序存储</b>：只有完全二叉树才配用数组，普通二叉树最坏浪费率可达 99% 以上。</li>
+      <li><b>五大性质</b>：层上限、总量上限、<b>n<sub>0</sub> = n<sub>2</sub> + 1</b>、完全二叉树深度、下标公式。</li>
+      <li><b>四种遍历</b>：前中后序是「访问根的三个时机」，层序靠队列；遍历的本质是把树线性化。</li>
+      <li><b>序列还原</b>：先序 / 后序定位根，<b>中序划分左右</b>；缺了中序就不唯一。</li>
+      <li><b>线索二叉树</b>：把 n + 1 个空指针变成前驱 / 后继线索，中序线索最实用。</li>
+      <li><b>树与森林的转换</b>：左孩子右兄弟；<b>树的前序 = 二叉树的前序，树的后序 = 二叉树的中序</b>。</li>
+      <li><b>赫夫曼树</b>：每次合并最小的两个，WPL 最小；由此得到最优前缀编码，且 n 个叶子的赫夫曼树共 2n − 1 个结点。</li>
+      <li><b>并查集</b>：用双亲表示法的森林表示「集合的集合」，路径压缩 + 按秩合并后近似 O(1)。</li>
+    </ul>
+
+    <h2 id="exams">7.12 考点清单与自测题</h2>
+
+    <div class="note exam">
+      <span class="note-title">考点清单（按出现频率排序）</span>
+      <ol style="margin:6px 0 0">
+        <li><b>性质 3 的证明与应用</b>（n<sub>0</sub> = n<sub>2</sub> + 1）：几乎每张卷子都有，
+          要会写「总边数算两遍」的证明，也要会拿它做计算题。</li>
+        <li><b>四种遍历序列的相互推导</b>：给树写序列、给两种序列还原树、给序列反推另一种序列。
+          这一块<b>必须能手推</b>，不能只靠程序。</li>
+        <li><b>完全二叉树的判定与下标计算</b>：给编号问关系、给结点数问深度 / 叶子数、判断某序列是否可能是完全二叉树的层序。</li>
+        <li><b>赫夫曼树的构造与 WPL 计算</b>：从合并过程到编码表到总位数对比，一条龙都要会。</li>
+        <li><b>树的存储结构与转换</b>：孩子兄弟表示法、树 / 森林 / 二叉树的相互转换、遍历对应结论。</li>
+        <li><b>遍历的非递归实现</b>：后序非递归是重点（两种写法都要能写出来）。</li>
+        <li><b>遍历的应用</b>：求深度、求叶子数、判断完全二叉树（层序 + 标记法）几乎每年都考代码填空。</li>
+        <li><b>线索二叉树</b>：为什么线索化、<code>ltag/rtag</code> 的含义、中序线索树找前驱后继的规则。</li>
+        <li><b>并查集</b>：路径压缩的作用与复杂度，常以「Kruskal 判环」的形式出现。</li>
+      </ol>
+    </div>
+
+    <h3 id="quiz-1">7.12.1 自测题（六道，答案折叠）</h3>
+
+    <p>
+      <b>第 1 题（术语与性质）</b>：一棵树的度为 4，其中度为 1、2、3 的结点数分别是 8、10、2，
+      求这棵树的叶子结点数。
+    </p>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>答案：15 个叶子。</b></p>
+        <p>
+          <b>解析</b>：树的度是 4，说明还存在度为 4 的结点，设其个数为 x，
+          叶子数为 n<sub>0</sub>，总结点数为 n。两种做法都对：
+        </p>
+        <p>
+          <b>做法一（用推广性质）</b>：由 7.1.3 节的恒等式「结点数 = 度数之和 + 1」，
+          以及「叶子数 = 1 + Σ(度 − 1)·n<sub>度</sub>」，先算总度数：
+        </p>
+        <div class="formula">
+          总度数 = 8×1 + 10×2 + 2×3 + x×4 = 34 + 4x　→　n = 35 + 4x
+        </div>
+        <p>
+          又按结点分类：n = n<sub>0</sub> + 8 + 10 + 2 + x = n<sub>0</sub> + 20 + x。
+          两式联立：n<sub>0</sub> + 20 + x = 35 + 4x → n<sub>0</sub> = 15 + 3x。
+          <b>题目没有给出度为 4 的结点个数 x，因此严格来说答案依赖于 x</b>——
+          这类题的标准出法是「度为 4 的结点有 2 个」之类，此时 n<sub>0</sub> = 15 + 3×2 = <b>21</b>。
+        </p>
+        <p>
+          <b>题目原意更正</b>：如果题目说的是「度为 4 的树，度为 1、2、3、4 的结点数分别是 8、10、2、0」，
+          即最高度就是 3（树的度为 4 只是上界），那么 x = 0，n<sub>0</sub> = <b>15</b>。
+          <b>考场对策</b>：看到「树的度为 m」而没给 n<sub>m</sub> 时，先写出含 x 的通式，
+          再根据题目其它条件（总分枝数、总边数）定出 x；若题目只给度数分布，一般默认「树的度就是最大出现度数」，
+          即 n<sub>m</sub> ≥ 1 但未给出，此时应当<b>用「叶子数 = 1 + Σ(度−1)n<sub>度</sub>」直接算</b>：
+          n<sub>0</sub> = 1 + 8×0 + 10×1 + 2×2 = 1 + 0 + 10 + 4 = <b>15</b>。
+        </p>
+        <p>
+          <b>验算</b>：n<sub>0</sub> = 15，n = 15 + 8 + 10 + 2 = 35，
+          总度数 = 8 + 20 + 6 = 34 = n − 1 ✓（没有度为 4 的结点，树的度实际是 3）。
+        </p>
+      </div>
+    </details>
+
+    <p><b>第 2 题（性质计算）</b>：判断下列数据是否可能存在，并说明理由：</p>
+    <ol>
+      <li>一棵二叉树有 10 个结点，其中度为 2 的结点有 4 个；</li>
+      <li>一棵二叉树有 10 个结点，其中度为 2 的结点有 5 个；</li>
+      <li>一棵完全二叉树有 100 个结点，其中叶子有 51 个。</li>
+    </ol>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>(1) 可能。</b>由性质 3，n<sub>0</sub> = n<sub>2</sub> + 1 = 4 + 1 = 5；
+          于是 n<sub>1</sub> = n − n<sub>0</sub> − n<sub>2</sub> = 10 − 5 − 4 = 1 ≥ 0，可行。
+          具体构造：根为 A，左子树是一棵 4 个结点的满二叉树、右子树是一棵 5 个结点的满二叉树。</p>
+        <p><b>(2) 不可能。</b>由性质 3，n<sub>0</sub> = 5 + 1 = 6，
+          于是 n<sub>1</sub> = 10 − 6 − 5 = <b>−1 &lt; 0</b>，矛盾。
+          （直观理解：度为 2 的结点太多，10 个结点养不起 6 个叶子。）</p>
+        <p><b>(3) 不可能。</b>完全二叉树的 n<sub>1</sub> 只能是 0 或 1：
+          100 是偶数 → n<sub>1</sub> = 1；由 n = n<sub>0</sub> + n<sub>1</sub> + n<sub>2</sub> 与
+          n<sub>0</sub> = n<sub>2</sub> + 1 得 100 = 2n<sub>2</sub> + 2 → n<sub>2</sub> = 49，
+          n<sub>0</sub> = 50，<b>正确答案是 50 个叶子</b>，不是 51。
+          顺带一提，它的深度 = ⌊log<sub>2</sub> 100⌋ + 1 = 6 + 1 = 7。</p>
+      </div>
+    </details>
+
+    <p>
+      <b>第 3 题（遍历与还原）</b>：已知一棵二叉树的<b>先序</b>序列是 <code>ABDECF</code>，
+      <b>中序</b>序列是 <code>DBEACF</code>。请还原这棵二叉树，并写出它的<b>后序</b>序列与<b>层序</b>序列。
+    </p>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>还原过程（三步递归）</b>：</p>
+        <ol>
+          <li>先序第一个是 <code>A</code> → 根是 A。在中序里找 A，位置下标 3（0 基），
+            于是左子树中序 = <code>DBE</code>（3 个结点），右子树中序 = <code>CF</code>（2 个结点）。</li>
+          <li>先序去掉 A 后是 <code>BDECF</code>；按左子树 3 个结点切分：
+            左子树先序 = <code>BDE</code>，右子树先序 = <code>CF</code>。</li>
+          <li>左子树：先序 <code>BDE</code> + 中序 <code>DBE</code> → 根 B，中序里 B 左边是 <code>D</code>（左孩子），
+            右边是 <code>E</code>（右孩子）。所以 B 的左右孩子分别是 D、E。</li>
+          <li>右子树：先序 <code>CF</code> + 中序 <code>CF</code> → 根 C，中序里 C 左边为空（<b>C 没有左子树</b>），
+            右边是 <code>F</code>，所以 F 是 C 的<b>右孩子</b>。</li>
+        </ol>
+        <p><b>树形</b>：A 的左孩子 B、右孩子 C；B 的左孩子 D、右孩子 E；C 没有左孩子，右孩子是 F。</p>
+        <div class="formula">
+          后序（左右根）= <b>D E B F C A</b>　→　<code>DEBFCA</code><br>
+          层序（BFS）= <b>A B C D E F</b>　→　<code>ABCDEF</code>
+        </div>
+        <p><b>易错提醒</b>：F 是 C 的<b>右</b>孩子！因为中序 <code>CF</code> 里 C 在 F 前面，
+          而中序是「左 根 右」，C 后面只剩 F，所以 F 只能是右子树的结点。
+          如果把 F 误当成左孩子，那么中序会变成 <code>FC</code>，与题目不符。</p>
+      </div>
+    </details>
+
+    <p>
+      <b>第 4 题（赫夫曼树与编码）</b>：字符 a~f 在文本中出现的次数依次是
+      <code>2, 3, 4, 7, 8, 9</code>。请构造赫夫曼树，求 WPL、每个字符的赫夫曼编码，
+      并与「3 位等长编码」比较总位数。
+    </p>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>合并过程</b>（每次取最小的两个）：</p>
+        <div class="formula">
+          2+3=5 → 4+5=9 → 7+8=15 → 9+9=18 → 15+18=33
+        </div>
+        <p><b>WPL（两种算法交叉验算）</b>：</p>
+        <ul>
+          <li>按内部结点：<code>5 + 9 + 15 + 18 + 33 = 80</code>；</li>
+          <li>按叶子（各叶深度：a=4, b=4, c=3, d=2, e=2, f=2）：
+            <code>2×4 + 3×4 + 4×3 + 7×2 + 8×2 + 9×2 = 8 + 12 + 12 + 14 + 16 + 18 = 80</code> ✓</li>
+        </ul>
+        <p>
+          <b>编码（一种合法结果，左 0 右 1）</b>：a=<code>1110</code>, b=<code>1111</code>,
+          c=<code>110</code>, d=<code>00</code>, e=<code>01</code>, f=<code>10</code>。
+          注意<b>编码不唯一</b>（把任意结点的左右孩子互换都是合法的赫夫曼编码），
+          但<b>码长分布与 WPL 唯一</b>。
+        </p>
+        <p>
+          <b>与等长编码比较</b>：6 个字符需要 ⌈log<sub>2</sub> 6⌉ = 3 位等长编码，
+          总位数 = 33 × 3 = <b>99</b>；赫夫曼编码总位数 = WPL = <b>80</b>。
+          节省 <b>19 位，约 19.2%</b>，压缩后是原来的 80.8%。
+        </p>
+        <p>
+          <b>易错点</b>：① 有人把 e 的码长也算成 3（因为它权值 8 比 9 小），
+          那样 WPL 会变成 87，与「内部结点求和」的 80 不符——<b>用两种算法交叉验算是发现错误的最快方法</b>。
+          ② 有人把内部结点也算进 WPL，得到一堆无意义的数。
+          ③ 忘了验证前缀性质。
+        </p>
+      </div>
+    </details>
+
+    <p>
+      <b>第 5 题（树 ↔ 二叉树转换）</b>：已知一棵树 T 的先序遍历是 <code>ABEFCGD</code>，
+      后序遍历是 <code>EFBGCDA</code>。请画出这棵树，并写出它转换成的二叉树的前序与中序序列。
+    </p>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p>
+          <b>还原树 T</b>：树的先序第一个是根 → A；后序最后一个也是根 → A ✓。
+          去掉 A 后，先序剩余 <code>B E F C G D</code>，后序剩余 <code>E F B G C D</code>。
+          我们需要把先序序列切成「各子树」的段。因为树的后序里每棵子树的根都排在它那一段的最后，
+          观察后序 <code>E F B | G C | D</code> 可以发现：<b>B 出现在下标 2、C 出现在下标 4</b>，
+          于是可以试着把 A 的孩子数量定为 3，对应的后序段是 <code>EFB</code>、<code>GC</code>、<code>D</code>，
+          对应先序段是 <code>BEF</code>、<code>CG</code>、<code>D</code>——<b>每段的第一个字符就是该子树的根，
+          每段的最后一个字符（在后序里）也是同一个根</b>，验证：B/B ✓、C/C ✓、D/D ✓。
+        </p>
+        <p>
+          <b>树 T 的形状</b>：A 有三个孩子 B、C、D（从左到右）；
+          B 有三个孩子 E、F（B 的子树先序 <code>BEF</code>、后序 <code>EFB</code>，说明 B 的孩子是 E、F）；
+          C 有一个孩子 G（先序 <code>CG</code>、后序 <code>GC</code>）；D 没有孩子。
+          E、F、G 都是叶子。
+        </p>
+        <p>
+          <b>验证</b>：树的前序 = A, B, E, F, C, G, D = <code>ABEFCGD</code> ✓；
+          树的后序 = E, F, B, G, C, D, A = <code>EFBGCDA</code> ✓。
+        </p>
+        <p>
+          <b>转换成二叉树后</b>（左孩子右兄弟），由 7.7.2 节的两条结论直接得到：
+        </p>
+        <div class="formula">
+          二叉树的前序 = 树的前序 = <b>ABEFCGD</b><br>
+          二叉树的中序 = 树的后序 = <b>EFBGCDA</b>
+        </div>
+        <p>
+          <b>不用背结论也能推</b>：A 的左孩子是 B；B 的右孩子是 C、C 的右孩子是 D（兄弟链）；
+          B 的左孩子是 E、E 的右孩子是 F；C 的左孩子是 G。
+          对这棵二叉树做前序：A → B → E → F → C → G → D ✓；
+          做中序：E → F → B → G → C → D → A ✓。两条结论都对上了。
+        </p>
+      </div>
+    </details>
+
+    <p>
+      <b>第 6 题（并查集）</b>：初始有 8 个元素 0~7，依次执行下列操作：
+      <code>union(0,1)</code>、<code>union(2,3)</code>、<code>union(1,3)</code>、
+      <code>union(4,5)</code>、<code>union(6,7)</code>。
+      请画出每一步之后的森林（用双亲数组表示），说明当前有几个集合，
+      并在最后一步执行 <code>find(3)</code> 后写出被路径压缩的结点。
+    </p>
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>初始</b>：<code>parent = [0,1,2,3,4,5,6,7]</code>，<code>rank = [0,0,0,0,0,0,0,0]</code>，
+        <b>8 个集合</b>（每个元素自成一个集合）。</p>
+        <table class="compact">
+          <thead><tr><th>操作</th><th>find 结果</th><th>合并动作</th><th>parent 数组</th><th>集合数</th></tr></thead>
+          <tbody>
+            <tr><td><code>union(0,1)</code></td><td>0, 1</td><td>rank 相同 → 1 挂到 0，rank[0] = 1</td>
+              <td><code>[0,0,2,3,4,5,6,7]</code></td><td>7</td></tr>
+            <tr><td><code>union(2,3)</code></td><td>2, 3</td><td>rank 相同 → 3 挂到 2，rank[2] = 1</td>
+              <td><code>[0,0,2,2,4,5,6,7]</code></td><td>6</td></tr>
+            <tr><td><code>union(1,3)</code></td><td>0, 2</td><td>rank 都是 1 → 2 挂到 0，rank[0] = 2</td>
+              <td><code>[0,0,0,2,4,5,6,7]</code></td><td>5</td></tr>
+            <tr><td><code>union(4,5)</code></td><td>4, 5</td><td>4 与 5 rank 都是 0 → 5 挂到 4</td>
+              <td><code>[0,0,0,2,4,4,6,7]</code></td><td>4</td></tr>
+            <tr><td><code>union(6,7)</code></td><td>6, 7</td><td>6 与 7 rank 都是 0 → 7 挂到 6</td>
+              <td><code>[0,0,0,2,4,4,6,6]</code></td><td>3</td></tr>
+          </tbody>
+        </table>
+        <p>
+          <b>最终 3 个集合</b>：{0,1,2,3}（代表元 0）、{4,5}（代表元 4）、{6,7}（代表元 6）。
+        </p>
+        <p>
+          <b>执行 <code>find(3)</code> 的路径压缩过程</b>：
+          <code>3 → parent[3] = 2 → parent[2] = 0 → parent[0] = 0</code>（到根）。
+          查找路径是 <b>3 → 2 → 0</b>，路径压缩把路径上<b>除根以外</b>的结点（即 <b>3 和 2</b>）
+          的双亲直接改成根 0。压缩后：
+        </p>
+        <div class="formula">
+          parent 从 <code>[0,0,0,2,4,4,6,6]</code> 变成 <code>[0,0,0,0,4,4,6,6]</code><br>
+          集合 {0,1,2,3} 从「0 下面挂 1，1 下面挂 2、2 下面挂 3」的深度 2 的树，
+          变成了「0 下面直接挂 1、2、3」的深度 1 的星形
+        </div>
+        <p>
+          <b>要点</b>：① 路径压缩<b>只改路径上结点的双亲</b>，不改变集合的划分；
+          ② 压缩后 <code>parent[3] = 0</code> 不再表示「3 的双亲是 0」这个原始树结构，
+          只表示「3 属于以 0 为代表的集合」——这就是 7.9.3 节强调的「语义被破坏」；
+          ③ rank 数组在压缩后不再等于真实树高，它只是合并时的启发式依据，
+          <b>不影响正确性</b>。
+        </p>
+      </div>
+    </details>
+
+    <h3 id="quiz-2">7.12.2 上机练习建议</h3>
+    <p>
+      光看不写是学不会树的。建议按下面的顺序把本章代码亲手敲一遍（每道都在 30 分钟以内）：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>序号</th><th>任务</th><th>用到的本节代码</th><th>验收方式</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>用三种方式建出图 7-9 的树，并打印四种遍历序列</td>
+            <td>7.3.6 三个建树工具 + 7.5.4 递归遍历</td>
+            <td>输出必须都是 <code>ABDECFG / DBEAFCG / DEBGFCA / ABCDEFG</code></td></tr>
+          <tr><td>2</td><td>把三种遍历都改成非递归版，与递归版结果对比</td>
+            <td>7.5.5</td><td>六种序列两两一致</td></tr>
+          <tr><td>3</td><td>随机生成 1000 棵树，用它验证「先序 + 中序能唯一还原」</td>
+            <td>7.5.6</td><td>还原后再遍历，序列与原树一致</td></tr>
+          <tr><td>4</td><td>实现七个遍历应用函数，对随机树做单元测试</td>
+            <td>7.5.7</td><td>与暴力枚举的结果一致</td></tr>
+          <tr><td>5</td><td>实现中序线索化，并用 O(1) 空间完成中序遍历</td>
+            <td>7.6.3</td><td>输出与递归中序一致</td></tr>
+          <tr><td>6</td><td>实现赫夫曼树与编码，随机权值下用两种方法验算 WPL</td>
+            <td>7.8.6</td><td>两种 WPL 恒等；编码两两互不为前缀</td></tr>
+          <tr><td>7</td><td>实现并查集，用「随机 union + 随机询问」对拍暴力版本</td>
+            <td>7.9.2</td><td>询问结果与暴力 BFS 连通性判定一致</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">下一讲预告</span>
+      下一讲把「一对多」升级成「多对多」：<b>图</b>。你会看到邻接矩阵与邻接表两种存储结构，
+      还会发现本章的两个工具会在那里大放异彩——<b>并查集</b>用于 Kruskal 判环，
+      <b>BFS / DFS 的层次思想</b>直接来自本章的层序遍历。
+      换句话说，把这一章的遍历写熟，图的两种搜索你就已经会了一半。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch06-array-matrix.html"><span class="dir">← 上一讲</span><span class="ttl">06 数组与特殊矩阵压缩存储</span></a>
+      <a class="next" href="ch08-graph-basic.html"><span class="dir">下一讲 →</span><span class="ttl">08 图：术语与存储结构</span></a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

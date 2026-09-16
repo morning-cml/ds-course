@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据结构与算法设计 · 交互式课件</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'index', title: '课程总览' };</script>
+<script src="assets/js/course.js" defer></script>
+<style>
+  .quick { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .quick a { display:block; padding:12px 16px; border-radius:10px; background:var(--panel);
+             border:1px solid var(--border); color:var(--text); text-decoration:none; font-weight:600; font-size:14px; }
+  .quick a:hover { border-color:var(--brand); color:var(--brand); }
+  .quick a span { display:block; font-weight:400; font-size:12.5px; color:var(--text-faint); margin-top:3px; }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <section class="hero">
+      <h1>数据结构与算法设计</h1>
+      <p>
+        一套面向 C++ 学习者的<strong>可交互</strong>课件：所有抽象概念配结构图，
+        所有核心算法配<strong>可单步 / 可自动播放</strong>的动态演示，所有代码均为可直接编译运行的 C++。
+        覆盖从「数据结构是什么」到「KMP / Dijkstra / 关键路径 / 动态规划 / 排序下界」的完整主线，
+        并附洛谷题单用于练习与自测。
+      </p>
+      <div class="hero-stats">
+        <div><b>15</b><span>讲 · 22 万字讲义</span></div>
+        <div><b>81</b><span>个可单步交互动画</span></div>
+        <div><b>162</b><span>张结构图解</span></div>
+        <div><b>262</b><span>段 C++ 代码</span></div>
+      </div>
+    </section>
+
+    <div class="card" style="margin-top:-10px">
+      <h4 style="margin-top:0">动画配色约定（全站统一，看到颜色就知道进行到哪一步）</h4>
+      <div class="legend" style="gap:26px">
+        <span><i class="l-active"></i><b>蓝色</b>：当前正在处理的位置（指针 / 当前结点）</span>
+        <span><i class="l-compare"></i><b>橙色</b>：正在进行比较的元素</span>
+        <span><i class="l-done"></i><b>绿色</b>：已完成、已就位、已确定的元素</span>
+        <span><i class="l-warn"></i><b>红色</b>：冲突、失配或发生交换的位置</span>
+        <span><i></i><b>灰色/淡出</b>：已被排除、不再参与的部分</span>
+      </div>
+    </div>
+
+    <h2 id="howto" class="no-toc">怎么使用这套课件</h2>
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0">学习路线（建议按顺序）</h3>
+        <ol style="margin-bottom:0">
+          <li><b>先看结构图</b>：把「数据在内存里长什么样」想清楚，比背代码重要十倍。</li>
+          <li><b>再跑动画</b>：点「▶ 播放」看算法整体节奏，再点「◀ 上一步 / 下一步 ▶」逐帧抠细节。</li>
+          <li><b>后看代码</b>：代码块的左上角可一键复制，务必自己敲一遍并单步调试。</li>
+          <li><b>最后做题</b>：第 15 讲的洛谷题单按难度分层，做完再回头看讲义会有全新理解。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">页面上的小功能</h3>
+        <ul style="margin-bottom:0">
+          <li><b>本页导航在屏幕右侧，平时不显示</b>：鼠标移到屏幕右边缘就会自动抽出来（感应式）。
+            顶栏的 <b>☰</b> 按钮可以开关这个感应 —— 关掉后右侧完全不响应鼠标；
+            抽屉里的 <b>⇤</b> 能把目录钉住不自动收回，按 <span class="kbd">Esc</span> 收起。</li>
+          <li>右上角 <b>◐</b> 切换深色 / 浅色主题（观看动画时深色更护眼）。</li>
+          <li>右上角 <b>⎙</b> 可直接把当前章节打印或导出成 PDF，折叠的答案会自动展开。</li>
+          <li>动画下方的「速度」滑杆可调整播放快慢，复杂算法建议调慢逐帧看。</li>
+          <li><b>键盘快捷键</b>：<span class="kbd">←</span> <span class="kbd">→</span> 单步看动画，
+            <span class="kbd">空格</span> 播放 / 暂停，
+            <span class="kbd">Alt</span>+<span class="kbd">← / →</span> 翻到上一讲 / 下一讲。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="chapters">章节总览</h2>
+    <div class="chapter-grid">
+
+      <a class="chapter-card" href="ch01-intro.html">
+        <span class="no">01</span>
+        <h3>绪论：数据结构与算法分析</h3>
+        <p>数据结构的定义、逻辑结构与物理结构、四类基本结构、专业术语体系（数据/数据元素/数据项/ADT）、
+           算法五特性、大 O 时间复杂度的推导与计算技巧、最好/最坏/平均复杂度、空间复杂度。</p>
+        <div class="chips"><span class="tag b">大O计算</span><span class="tag">术语表</span><span class="tag g">复杂度图表</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch02-linear-list.html">
+        <span class="no">02</span>
+        <h3>线性表：顺序表与链表</h3>
+        <p>顺序表的插入删除与均摊分析、单链表 / 双向链表 / 循环链表 / 静态链表的完整 C++ 实现，
+           头插尾插、按位查找、删除、反转、合并、判环（快慢指针）与四者操作对比。</p>
+        <div class="chips"><span class="tag">内存布局</span><span class="tag b">指针动画</span><span class="tag o">对比表</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch03-stack.html">
+        <span class="no">03</span>
+        <h3>栈及其经典应用</h3>
+        <p>顺序栈与链栈的实现、共享栈；括号匹配、进制转换、中缀转后缀与后缀表达式求值、
+           递归与栈的关系、单调栈入门。</p>
+        <div class="chips"><span class="tag b">表达式求值动画</span><span class="tag g">括号匹配</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch04-queue.html">
+        <span class="no">04</span>
+        <h3>队列及其应用</h3>
+        <p>循环队列（三种判满方案）、链队列、双端队列；银行排队模拟、杨辉三角、
+           二叉树的层序基础、单调队列与滑动窗口。</p>
+        <div class="chips"><span class="tag b">循环队列动画</span><span class="tag o">排队模拟</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch05-string-kmp-bm.html">
+        <span class="no">05</span>
+        <h3>串：KMP 与 BM 模式匹配</h3>
+        <p>串的基本操作与朴素匹配；<b>next 数组手推全过程</b>、nextval 优化、KMP 匹配动画；
+           BM 算法的坏字符 / 好后缀规则与完整实现。</p>
+        <div class="chips"><span class="tag b">KMP 逐帧动画</span><span class="tag p">next 推导</span><span class="tag o">BM</span></div>
+      </a>
+
+
+      <a class="chapter-card" href="ch06-array-matrix.html">
+        <span class="no">06</span>
+        <h3>数组与特殊矩阵压缩存储</h3>
+        <p>多维数组的行优先 / 列优先地址计算、对称矩阵、上（下）三角矩阵、三对角矩阵、
+           稀疏矩阵的三元组与十字链表表示。</p>
+        <div class="chips"><span class="tag">地址公式</span><span class="tag g">下标映射动画</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch07-tree.html">
+        <span class="no">07</span>
+        <h3>树与二叉树</h3>
+        <p>树的术语体系、二叉树五大性质及证明、顺序与链式存储、前 / 中 / 后 / 层序四种遍历、
+           由遍历序列还原二叉树、线索二叉树、赫夫曼树与最优前缀编码、并查集。</p>
+        <div class="chips"><span class="tag b">四种遍历动画</span><span class="tag p">赫夫曼编码</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch08-graph-basic.html">
+        <span class="no">08</span>
+        <h3>图：术语与存储结构</h3>
+        <p>顶点 / 边 / 度 / 路径 / 连通性等基本术语、完全图与稠密稀疏图、邻接矩阵与邻接表
+           （含逆邻接表、十字链表、邻接多重表）、DFS 与 BFS 遍历、连通分量与生成树。</p>
+        <div class="chips"><span class="tag b">DFS/BFS 动画</span><span class="tag g">存储对比</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch09-graph-algo.html">
+        <span class="no">09</span>
+        <h3>图论算法：生成树与最短路径</h3>
+        <p>Prim 与 Kruskal 最小生成树（含并查集）、Dijkstra 单源最短路、Floyd 全源最短路、
+           Bellman-Ford / SPFA、拓扑排序、AOE 网与关键路径。</p>
+        <div class="chips"><span class="tag b">Prim/Kruskal</span><span class="tag b">Dijkstra</span><span class="tag p">关键路径</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch10-search-hash.html">
+        <span class="no">10</span>
+        <h3>查找与哈希表</h3>
+        <p>顺序查找、折半查找（判定树与 ASL 推导）、插值查找、斐波那契查找、分块查找；
+           哈希函数构造方法、开放定址 / 链地址 / 再哈希 / 公共溢出区四大冲突解决方案与 ASL 计算。</p>
+        <div class="chips"><span class="tag b">折半查找动画</span><span class="tag o">哈希冲突演示</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch11-sort-basic.html">
+        <span class="no">11</span>
+        <h3>八大排序算法图解（上）</h3>
+        <p>冒泡、简单选择、直接插入、希尔、堆、归并、快速、基数排序——逐一配动态图讲解实现过程，
+           附每种的 C++ 完整模板与执行轨迹。</p>
+        <div class="chips"><span class="tag b">8 个排序动画</span><span class="tag g">轨迹对照</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch12-sort-advanced.html">
+        <span class="no">12</span>
+        <h3>排序体系与下界分析（下）</h3>
+        <p>插入类 / 交换类 / 选择类 / 归并类 / 基数类五大体系共 10+ 种排序（含计数、桶、锦标赛、
+           3 路快排、内省排序）；比较排序下界 Ω(n log n) 的决策树证明、稳定性与全面对比表。</p>
+        <div class="chips"><span class="tag p">下界证明</span><span class="tag o">大对比表</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch13-paradigm-dp.html">
+        <span class="no">13</span>
+        <h3>算法设计范式与动态规划</h3>
+        <p>回溯法与解空间树（N 皇后、迷宫）、分治法（含主定理）、贪心与正确性、
+           动态规划从记忆化搜索到递推（01 背包、完全背包、LIS、LCS、区间 DP、状压 DP）、
+           数论 / 快速幂 / 筛法 / 高精度等数学算法。</p>
+        <div class="chips"><span class="tag b">N 皇后动画</span><span class="tag b">背包填表动画</span><span class="tag p">DP 分类</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch14-luogu.html">
+        <span class="no">14</span>
+        <h3>洛谷题单：例题与作业</h3>
+        <p>按章节整理的洛谷习题，每题给出难度、考点、思路提示与 C++ 参考代码框架，
+           另附「分阶段作业计划」供课后自测。</p>
+        <div class="chips"><span class="tag o">题单</span><span class="tag g">作业计划</span></div>
+      </a>
+
+      <a class="chapter-card" href="ch15-review.html">
+        <span class="no">15</span>
+        <h3>综合自测与速查手册</h3>
+        <p>全课程复杂度速查大表、C++ STL 容器用法对照、常用算法模板库、
+           易错概念辨析、模拟自测题（含答案折叠）。</p>
+        <div class="chips"><span class="tag b">速查表</span><span class="tag p">模拟自测</span></div>
+      </a>
+
+    </div>
+
+    <h2 id="map">知识地图</h2>
+    <div class="table-wrap">
+      <svg viewBox="0 0 980 470" width="980" height="470" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <style>
+            .m-box { fill: var(--panel); stroke: var(--border-strong); stroke-width:1.6; rx:8; }
+            .m-t { fill: var(--text); font-size:13px; font-family: var(--mono); text-anchor:middle; }
+            .m-h { fill:#fff; font-size:14px; font-weight:700; text-anchor:middle; }
+            .m-e { stroke: var(--border-strong); stroke-width:1.6; fill:none; marker-end:url(#ar); }
+            .m-l { fill: var(--text-faint); font-size:11px; text-anchor:middle; }
+          </style>
+        </defs>
+
+        <rect x="380" y="16" width="220" height="42" rx="10" fill="var(--brand)"/>
+        <text x="490" y="43" class="m-h">数据结构与算法设计</text>
+
+        <rect x="40" y="110" width="180" height="42" rx="8" fill="var(--purple)"/>
+        <text x="130" y="137" class="m-h">线性结构</text>
+        <rect x="270" y="110" width="180" height="42" rx="8" fill="var(--ok)"/>
+        <text x="360" y="137" class="m-h">树形结构</text>
+        <rect x="500" y="110" width="180" height="42" rx="8" fill="var(--accent)"/>
+        <text x="590" y="137" class="m-h">图形结构</text>
+        <rect x="730" y="110" width="200" height="42" rx="8" fill="#7a5af0"/>
+        <text x="830" y="137" class="m-h">查找与排序</text>
+
+        <path class="m-e" d="M440,58 L180,106"/>
+        <path class="m-e" d="M470,58 L400,106"/>
+        <path class="m-e" d="M530,58 L560,106"/>
+        <path class="m-e" d="M560,58 L800,106"/>
+
+        <rect class="m-box" x="20"  y="200" width="105" height="38"/><text x="72"  y="224" class="m-t">顺序表</text>
+        <rect class="m-box" x="135" y="200" width="105" height="38"/><text x="187" y="224" class="m-t">链表</text>
+        <rect class="m-box" x="20"  y="250" width="105" height="38"/><text x="72"  y="274" class="m-t">栈</text>
+        <rect class="m-box" x="135" y="250" width="105" height="38"/><text x="187" y="274" class="m-t">队列 / 串</text>
+
+        <rect class="m-box" x="255" y="200" width="105" height="38"/><text x="307" y="224" class="m-t">二叉树</text>
+        <rect class="m-box" x="370" y="200" width="105" height="38"/><text x="422" y="224" class="m-t">赫夫曼树</text>
+        <rect class="m-box" x="255" y="250" width="105" height="38"/><text x="307" y="274" class="m-t">遍历</text>
+        <rect class="m-box" x="370" y="250" width="105" height="38"/><text x="422" y="274" class="m-t">并查集</text>
+
+        <rect class="m-box" x="490" y="200" width="105" height="38"/><text x="542" y="224" class="m-t">邻接矩阵</text>
+        <rect class="m-box" x="605" y="200" width="105" height="38"/><text x="657" y="224" class="m-t">邻接表</text>
+        <rect class="m-box" x="490" y="250" width="105" height="38"/><text x="542" y="274" class="m-t">DFS / BFS</text>
+        <rect class="m-box" x="605" y="250" width="105" height="38"/><text x="657" y="274" class="m-t">最短路</text>
+        <rect class="m-box" x="720" y="250" width="105" height="38"/><text x="772" y="274" class="m-t">生成树</text>
+        <rect class="m-box" x="490" y="300" width="220" height="38"/><text x="600" y="324" class="m-t">拓扑排序 · 关键路径</text>
+
+        <rect class="m-box" x="720" y="200" width="105" height="38"/><text x="772" y="224" class="m-t">哈希表</text>
+        <rect class="m-box" x="835" y="200" width="130" height="38"/><text x="900" y="224" class="m-t">四大查找法</text>
+        <rect class="m-box" x="835" y="250" width="130" height="38"/><text x="900" y="274" class="m-t">10+ 排序</text>
+        <rect class="m-box" x="835" y="300" width="130" height="38"/><text x="900" y="324" class="m-t">下界 Ω(nlogn)</text>
+
+        <path class="m-e" d="M130,152 L80,196"/>
+        <path class="m-e" d="M140,152 L200,196"/>
+        <path class="m-e" d="M360,152 L310,196"/>
+        <path class="m-e" d="M370,152 L420,196"/>
+        <path class="m-e" d="M590,152 L545,196"/>
+        <path class="m-e" d="M600,152 L660,196"/>
+        <path class="m-e" d="M830,152 L780,196"/>
+
+        <rect x="40" y="380" width="900" height="66" rx="10" fill="var(--bg-soft)" stroke="var(--border)"/>
+        <text x="490" y="405" class="m-h" style="fill:var(--text)">算法设计范式</text>
+        <text x="490" y="430" class="m-l" style="font-size:12.5px">
+          分治 · 贪心 · 回溯与解空间树 · 动态规划（背包 / LIS / LCS / 区间 / 状压）· 数学算法（快速幂 / 筛法 / 高精度）
+        </text>
+      </svg>
+      <figcaption>图 0-1　课程知识地图：数据结构（存）与算法（算）两条腿，最后汇聚到算法设计范式</figcaption>
+    </div>
+
+    <h2 id="terms">阅读约定</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>记号</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>n</code></td><td>数据规模（元素个数 / 顶点数 / 串长）</td></tr>
+          <tr><td><code>O(1) &lt; O(log n) &lt; O(n) &lt; O(n log n) &lt; O(n²) &lt; O(2ⁿ) &lt; O(n!)</code></td><td>常见复杂度从小到大的增长顺序</td></tr>
+          <tr><td><span class="tag b">动画</span></td><td>该处配有可单步 / 可播放的动态演示，务必动手点开</td></tr>
+          <tr><td><span class="tag p">考点</span></td><td>考试与面试高频内容</td></tr>
+          <tr><td><span class="tag o">易错</span></td><td>常见踩坑点，请重点核对</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">给学习者的一句话</span>
+      数据结构不是「背下来的画」，而是「想清楚的过程」。每学一个结构，先问三个问题：
+      它在内存里怎么排？基本操作要动几个指针 / 挪几个元素？这些操作各自是什么复杂度？
+      把这三问答顺了，代码自然就写出来了。
+    </div>
+
+    <h2 id="progress">学习进度自查表</h2>
+    <p style="color:var(--text-soft);font-size:14px">
+      建议每学完一讲就回来勾一次。判断标准很简单：<b>能不能不看讲义，把这一讲的图画出来、把模板代码默写出来。</b>
+    </p>
+    <div class="grid c3">
+      <div class="card">
+        <h4 style="margin-top:0">01 绪论</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能说出逻辑结构与物理结构的区别</li>
+          <li>☐ 能独立推导 8 个循环 / 递归的复杂度</li>
+          <li>☐ 能默画复杂度增长曲线</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">02 线性表</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能默写顺序表插入删除并算移动次数</li>
+          <li>☐ 能手写单链表的插入、删除、反转</li>
+          <li>☐ 能说清头结点与首元结点的区别</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">03~04 栈与队列</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能写中缀转后缀 + 后缀求值</li>
+          <li>☐ 能默写循环队列的判空判满与元素计数</li>
+          <li>☐ 能解释为什么队列适合 BFS</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">05 串与 KMP</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能用纸笔推任意模式串的 π 与 next</li>
+          <li>☐ 能默写 KMP 匹配的 10 行核心代码</li>
+          <li>☐ 能说出 BM 两条规则的位移怎么取</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">06 数组与矩阵</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能现场推导行优先 / 列优先地址公式</li>
+          <li>☐ 能写出对称、三角、三对角的下标映射</li>
+          <li>☐ 能画出三元组表与十字链表</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">07 树与二叉树</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能证明 n₀ = n₂ + 1</li>
+          <li>☐ 能手写四种遍历（递归 + 非递归）</li>
+          <li>☐ 能构造赫夫曼树并算 WPL</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">08 图基础</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能默写握手定理并解释</li>
+          <li>☐ 能手写邻接矩阵 / 邻接表 / 前向星</li>
+          <li>☐ 能写 DFS、BFS 求连通分量</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">09 图论算法</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能手推 Prim / Kruskal 全过程</li>
+          <li>☐ 能手推 Dijkstra 的 dist 数组变化</li>
+          <li>☐ 能算 ve / vl / e / l 并找关键路径</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">10 查找与哈希</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能默画 n=11 的判定树并算 ASL</li>
+          <li>☐ 能算开放定址的 ASL（成功 / 失败）</li>
+          <li>☐ 能说清删除为什么需要墓碑</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">11~12 排序</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能默写快排 / 堆排 / 归并三份模板</li>
+          <li>☐ 能背出十种排序的复杂度与稳定性</li>
+          <li>☐ 能用决策树证明 Ω(n log n) 下界</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">13 范式与 DP</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ 能写 N 皇后与全排列的回溯</li>
+          <li>☐ 能解释 01 背包为什么倒序</li>
+          <li>☐ 能默写 LIS、LCS 两个模板</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">14 洛谷题单</h4>
+        <ul style="list-style:none;padding-left:0;font-size:13.5px">
+          <li>☐ KMP、并查集、Dijkstra 模板题 AC</li>
+          <li>☐ 背包三连（01 / 完全 / 多重）AC</li>
+          <li>☐ 会自己写对拍脚本</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pager">
+      <a class="next" href="ch01-intro.html" style="text-align:right">
+        <span class="dir">开始学习 →</span>
+        <span class="ttl">01 绪论：数据结构与算法分析</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

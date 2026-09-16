@@ -1,0 +1,3398 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 队列及其应用 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch04', title: '队列及其应用' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch04-viz.js" defer></script>
+<style>
+  /* 本页专用样式（补充 course.css 中未定义的 viz 状态类，保持与公共样式一致的变量体系） */
+  .vz-box.warn { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2.4; }
+  .vz-box.dim  { opacity: .35; }
+  .vz-box.ghost{ fill: var(--bg-soft); stroke: var(--border); stroke-dasharray: 4 3; }
+  .vz-text.sm  { font-size: 11.5px; }
+  .vz-text.lg  { font-size: 15px; font-weight: 700; }
+  .vz-text.ok  { fill: var(--ok); }
+  .vz-text.bad { fill: var(--danger); }
+  .vz-text.brand{ fill: var(--brand); }
+  .viz-desc code { background: var(--bg-soft); padding: 0 4px; border-radius: 4px; }
+  .q-cmp td:first-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 04 讲</div>
+      <h1>队列及其应用</h1>
+      <p class="lede">从食堂打饭的队形讲到操作系统的调度队列：搞懂 FIFO 的本质、循环队列的取模技巧、
+        链队列的指针细节，再用队列解决排队模拟、杨辉三角、层序遍历、迷宫最短路和滑动窗口最大值。</p>
+      <div class="meta">
+        <span>预计 100 分钟</span>
+        <span>前置：第 02 讲 线性表 · 第 03 讲 栈</span>
+        <span>关键词：FIFO · 循环队列 · 假溢出 · 单调队列 · BFS</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:6px 0 0">
+        <li><b>概念层</b>：队列的定义、FIFO 特性、队头 front / 队尾 rear、ADT 五个基本操作，以及队列与栈的对照。</li>
+        <li><b>存储层</b>：顺序队列的「假溢出」是怎么来的 → 循环队列取模 <code>(rear+1)%MaxSize</code> 的原理 → 三种判满方案的取舍。</li>
+        <li><b>实现层</b>：完整可编译的 <code>CircularQueue&lt;T&gt;</code> 与 <code>LinkQueue&lt;T&gt;</code> 模板类，含单元素出队的经典坑。</li>
+        <li><b>扩展层</b>：双端队列 deque、受限双端队列，以及「栈和队列都是双端队列的特例」这一统一视角。</li>
+        <li><b>应用层</b>：银行排队模拟（重点）、杨辉三角、二叉树层序遍历、迷宫最短路、单调队列滑动窗口、图的 BFS 与消息队列。</li>
+        <li><b>工具层</b>：STL 的 <code>std::queue</code> / <code>std::deque</code> / <code>std::priority_queue</code> 速查与常见坑。</li>
+      </ul>
+    </div>
+
+    <h2 id="s1">4.1 队列的定义与抽象数据类型</h2>
+
+    <p>先别急着看代码。想象一下中午十二点的食堂：所有同学很自觉地排成一列，新来的人站到<b>队伍最后</b>，
+      窗口师傅只从<b>队伍最前面</b>叫号。没有人会插队（我们希望如此），也没有人能从中间被叫走。
+      这个每天都在发生的场景，就是数据结构里最实用的结构之一 —— <b>队列 queue</b>。</p>
+
+    <p>把食堂翻译成术语：队列是只允许在<b>一端插入</b>、在<b>另一端删除</b>的<b>线性表 linear list</b>。
+      允许插入的那一端叫<b>队尾 rear（tail）</b>，允许删除的那一端叫<b>队头 front（head）</b>。
+      插入操作叫<b>入队 enqueue</b>，删除操作叫<b>出队 dequeue</b>。
+      由于先来的人先被服务，队列的存取次序是<b>先进先出 First In First Out，FIFO</b>。</p>
+
+    <div class="note tip">
+      <span class="note-title">一句话本质</span>
+      队列 = 加了「两端分工」约束的线性表：<b>一端只进、另一端只出</b>，于是元素的出队顺序与入队顺序完全一致。
+      栈是「后进先出 LIFO」，队列是「先进先出 FIFO」，这一字之差决定了它们能解决完全不同的问题。
+    </div>
+
+    <h3 id="s1-fifo">4.1.1 FIFO：队列最核心的性质</h3>
+
+    <p>FIFO 不是一句口号，它有三个可以拿来考试、也可以拿来写代码的等价推论：</p>
+    <ol>
+      <li><b>出队序列 = 入队序列</b>。若元素依次入队 <code>a₁, a₂, …, aₙ</code>，则出队顺序必定是 <code>a₁, a₂, …, aₙ</code>，中途出队、入队交错也改变不了这个相对次序。</li>
+      <li><b>队头元素是「最早到达且尚未离开」的元素</b>。这句话在模拟类题目里就是「谁先来谁先被服务」。</li>
+      <li><b>队列保证公平性（fairness）</b>。操作系统用队列做进程调度、打印机用队列管理任务，图的就是这个「不饿死」的性质。</li>
+    </ol>
+
+    <p>反过来问一句：<b>为什么栈和队列都只能操作两端，却感觉队列更「温和」？</b>
+      因为栈的插入和删除在同一端，后插入的元素压在先插入的元素上面，自然就「后来居上」；
+      而队列把插入和删除拆到两端，新元素排在队尾，永远不会插到老元素前面，于是顺序被完整保留下来。
+      这就像排队与叠盘子的区别 —— 排队讲秩序，叠盘子讲效率。</p>
+
+    <h3 id="s1-adt">4.1.2 队列的抽象数据类型 ADT</h3>
+
+    <p>抽象数据类型 abstract data type（ADT）只描述「能做什么」，不描述「怎么做到」。
+      队列的 ADT 非常小，小到只有五个操作，这也是它好用的原因：</p>
+
+    <dl class="def">
+      <dt>InitQueue(&amp;Q)</dt>
+      <dd><b>初始化</b>。构造一个空队列。对循环队列来说是 <code>front = rear = 0</code>；对带头结点的链队列来说是 <code>front = rear = new Node</code>。</dd>
+
+      <dt>QueueEmpty(Q)</dt>
+      <dd><b>判空</b>。空队列返回 <code>true</code>。所有出队、取队头操作之前都必须先判空，这是本章最容易漏掉的一步。</dd>
+
+      <dt>EnQueue(&amp;Q, x)</dt>
+      <dd><b>入队</b>。若队列未满，把元素 <code>x</code> 放到队尾，成为新的队尾。失败（队满）时一般返回 <code>false</code> 而不是抛异常，方便上层做「缓冲池满」的流控。</dd>
+
+      <dt>DeQueue(&amp;Q, &amp;x)</dt>
+      <dd><b>出队</b>。若队列非空，删除队头元素并用 <code>x</code> 「带回」它的值。注意这个「带回」是通过引用参数实现的 —— 这是 C 风格 ADT 的写法，C++ 里也可以让 <code>DeQueue()</code> 直接返回元素值。</dd>
+
+      <dt>GetHead(Q, &amp;x)</dt>
+      <dd><b>取队头元素</b>。只读不删，队列状态不变。它和出队的区别，就像「看一眼排队叫号屏」和「真的被叫走」。</dd>
+    </dl>
+
+    <div class="note warn">
+      <span class="note-title">ADT 里「没有」的操作才是重点</span>
+      队列的 ADT 里<b>故意不提供</b>「按位置查找」「遍历」「从中间删除」。
+      这不是偷懒，而是<b>信息隐藏</b>：一旦允许随便访问中间元素，队列的 FIFO 语义就守不住了，多线程下也就无法安全地并发使用。
+      考试里若有人写「队列支持随机访问」，那是把 <code>std::deque</code> 的随机访问能力和队列的语义混为一谈了。
+    </div>
+
+    <h3 id="s1-cmp">4.1.3 队列 vs 栈：一张图看清区别</h3>
+
+    <p>下面这张对照图建议直接记进脑子：<b>栈是「单口容器」，队列是「双口管道」</b>。
+      栈的所有动作都发生在同一个口上，队列则在两端各开一个口。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 860 330" width="860" height="330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="栈与队列对照图">
+        <defs>
+          <marker id="q1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q1-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <rect x="24" y="20" width="380" height="290" rx="12" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="214" y="48" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="inherit">栈 stack ｜ 后进先出 LIFO</text>
+
+        <rect x="130" y="80" width="130" height="190" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <rect x="131" y="81" width="128" height="47" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="195" y="110" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">30</text>
+        <rect x="131" y="128" width="128" height="47" fill="var(--panel)" stroke="var(--border)" stroke-width="1.2"/>
+        <text x="195" y="157" text-anchor="middle" fill="var(--text-soft)" font-size="15" font-family="Consolas, monospace">20</text>
+        <rect x="131" y="175" width="128" height="47" fill="var(--panel)" stroke="var(--border)" stroke-width="1.2"/>
+        <text x="195" y="204" text-anchor="middle" fill="var(--text-soft)" font-size="15" font-family="Consolas, monospace">10</text>
+        <rect x="131" y="222" width="128" height="47" fill="var(--panel)" stroke="var(--border)" stroke-width="1.2"/>
+        <text x="195" y="251" text-anchor="middle" fill="var(--text-soft)" font-size="15" font-family="Consolas, monospace">5</text>
+
+        <text x="284" y="106" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">← top</text>
+        <line x1="200" y1="70" x2="200" y2="34" stroke="var(--brand)" stroke-width="2" marker-end="url(#q1-b)"/>
+        <line x1="176" y1="34" x2="176" y2="70" stroke="var(--accent)" stroke-width="2" marker-end="url(#q1-o)"/>
+        <text x="248" y="42" fill="var(--brand)" font-size="12.5" font-family="inherit">入栈 push</text>
+        <text x="60" y="42" fill="var(--accent)" font-size="12.5" font-family="inherit">出栈 pop</text>
+        <text x="214" y="296" text-anchor="middle" fill="var(--text-faint)" font-size="12.5" font-family="inherit">插入与删除都在同一端（栈顶）</text>
+
+        <rect x="430" y="20" width="406" height="290" rx="12" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="633" y="48" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="inherit">队列 queue ｜ 先进先出 FIFO</text>
+
+        <rect x="480" y="120" width="66" height="60" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="513" y="157" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">5</text>
+        <rect x="548" y="120" width="66" height="60" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="581" y="157" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">10</text>
+        <rect x="616" y="120" width="66" height="60" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="649" y="157" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">20</text>
+        <rect x="684" y="120" width="66" height="60" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="717" y="157" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">30</text>
+
+        <text x="513" y="204" text-anchor="middle" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">front</text>
+        <line x1="513" y1="196" x2="513" y2="184" stroke="var(--brand)" stroke-width="2" marker-end="url(#q1-b)"/>
+        <text x="717" y="204" text-anchor="middle" fill="var(--ok)" font-size="13" font-family="Consolas, monospace">rear</text>
+        <line x1="717" y1="196" x2="717" y2="184" stroke="var(--ok)" stroke-width="2" marker-end="url(#q1-a)"/>
+
+        <line x1="500" y1="150" x2="444" y2="150" stroke="var(--brand)" stroke-width="2" marker-end="url(#q1-b)"/>
+        <text x="436" y="106" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">出队</text>
+        <text x="436" y="122" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">dequeue</text>
+        <line x1="756" y1="150" x2="812" y2="150" stroke="var(--ok)" stroke-width="2" marker-end="url(#q1-a)"/>
+        <text x="792" y="106" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="inherit">入队</text>
+        <text x="792" y="122" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="inherit">enqueue</text>
+        <text x="633" y="270" text-anchor="middle" fill="var(--text-faint)" font-size="12.5" font-family="inherit">入队在队尾（右），出队在队头（左），两端分工</text>
+        <text x="633" y="292" text-anchor="middle" fill="var(--text-faint)" font-size="12.5" font-family="inherit">先入队的 5 一定先出队，次序不会被后来的元素打乱</text>
+      </svg>
+      <figcaption>图 4-1　栈与队列对照：栈单口进出（LIFO），队列双口分工（FIFO）</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact q-cmp">
+        <thead><tr><th>对比维度</th><th>栈 stack</th><th>队列 queue</th></tr></thead>
+        <tbody>
+          <tr><td>插入位置</td><td>栈顶 top</td><td>队尾 rear</td></tr>
+          <tr><td>删除位置</td><td>栈顶 top（与插入同端）</td><td>队头 front（与插入异端）</td></tr>
+          <tr><td>存取次序</td><td class="c-warn">LIFO 后进先出</td><td class="c-ok">FIFO 先进先出</td></tr>
+          <tr><td>典型比喻</td><td>叠盘子、弹夹、浏览器后退</td><td>排队打饭、打印机任务、收费站</td></tr>
+          <tr><td>元素个数为 n 时可能的出栈/出队序列数</td><td>卡特兰数 <code>C(2n,n)/(n+1)</code></td><td>只有 <b>1</b> 种（即入队序列本身）</td></tr>
+          <tr><td>典型应用</td><td>括号匹配、表达式求值、递归、DFS、单调栈</td><td>层序遍历、BFS、缓冲池、调度、单调队列</td></tr>
+          <tr><td>基本操作复杂度</td><td>入栈 / 出栈均 O(1)</td><td>入队 / 出队均 O(1)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-1</span>
+      「已知入队序列为 <code>1 2 3 4</code>，则出队序列有几种？」——答案是 <b>1 种</b>，就是 <code>1 2 3 4</code>。
+      对比「入栈序列为 <code>1 2 3 4</code>，可能的出栈序列有几种」答案是卡特兰数 <code>14</code> 种。
+      这个对比是判断题与选择题的高频陷阱，务必分清。
+    </div>
+
+    <h2 id="s2">4.2 顺序队列与「假溢出」</h2>
+
+    <p>队列的逻辑结构定下来了，接下来要决定它在内存里怎么排。最自然的想法是<b>顺序存储</b>：
+      开一块定长数组，用两个下标 <code>front</code> 与 <code>rear</code> 记录队头队尾位置。
+      但这里有一个非常经典的陷阱，学队列的人几乎都栽过跟头 —— <b>假溢出 false overflow</b>。</p>
+
+    <h3 id="s2-naive">4.2.1 顺序队列的结构与朴素写法</h3>
+
+    <p>约定：数组 <code>data[0..MaxSize-1]</code>，<code>front</code> 指向<b>队头元素</b>，
+      <code>rear</code> 指向<b>队尾元素的下一个空位</b>（也就是下一个新元素要落下去的位置）。
+      初始时两者都为 0，此时队列为空（<code>front == rear</code>）。</p>
+
+    <ul>
+      <li><b>入队</b>：<code>data[rear] = x; rear++;</code></li>
+      <li><b>出队</b>：<code>x = data[front]; front++;</code></li>
+      <li><b>元素个数</b>：<code>rear - front</code></li>
+      <li><b>判空</b>：<code>front == rear</code></li>
+      <li><b>判满</b>：<code>rear == MaxSize</code>（朴素写法只能这么判）</li>
+    </ul>
+
+    <p>看起来很干净，对吧？问题就出在最后两条上。</p>
+
+    <h3 id="s2-false">4.2.2 假溢出：明明有空位，为什么说队满？</h3>
+
+    <p>关键在于 <code>front</code> 和 <code>rear</code> 都<b>只会往后走，从来不回头</b>。
+      出队让 <code>front</code> 右移，入队让 <code>rear</code> 右移，于是每出队一个元素，
+      队列前方就多出一个「永远用不到」的空位。等 <code>rear</code> 撞到 <code>MaxSize</code> 时，
+      程序判定「队满」，可数组前面那些空位其实还能装好几个元素。</p>
+
+    <p>下面这张分步图把它画得很直白。设 <code>MaxSize = 8</code>：</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 430" width="880" height="430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="顺序队列假溢出的三步图解">
+        <defs>
+          <marker id="q2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q2-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q2-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">① 入队 A B C D 四个元素</text>
+        <g font-family="Consolas, monospace" font-size="15">
+          <rect x="40"  y="44" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="83"  y="75" text-anchor="middle" fill="var(--text)">A</text>
+          <rect x="128" y="44" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="171" y="75" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="216" y="44" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="259" y="75" text-anchor="middle" fill="var(--text)">C</text>
+          <rect x="304" y="44" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="347" y="75" text-anchor="middle" fill="var(--text)">D</text>
+          <rect x="392" y="44" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="435" y="75" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="480" y="44" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="523" y="75" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="568" y="44" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="611" y="75" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="656" y="44" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="699" y="75" text-anchor="middle" fill="var(--text-faint)">—</text>
+        </g>
+        <g fill="var(--text-faint)" font-size="11.5" font-family="Consolas, monospace">
+          <text x="83"  y="110" text-anchor="middle">0</text><text x="171" y="110" text-anchor="middle">1</text>
+          <text x="259" y="110" text-anchor="middle">2</text><text x="347" y="110" text-anchor="middle">3</text>
+          <text x="435" y="110" text-anchor="middle">4</text><text x="523" y="110" text-anchor="middle">5</text>
+          <text x="611" y="110" text-anchor="middle">6</text><text x="699" y="110" text-anchor="middle">7</text>
+        </g>
+        <text x="83" y="134" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">front=0</text>
+        <text x="435" y="134" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">rear=4</text>
+        <line x1="83" y1="118" x2="83" y2="104" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#q2-b)"/>
+        <line x1="435" y1="118" x2="435" y2="104" stroke="var(--ok)" stroke-width="1.8" marker-end="url(#q2-a)"/>
+        <text x="770" y="72" fill="var(--text-soft)" font-size="12.5" font-family="inherit">元素个数 = 4 − 0 = 4</text>
+
+        <text x="24" y="176" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">② 出队 A B 两个元素（front 右移，但空位留在最前面）</text>
+        <g font-family="Consolas, monospace" font-size="15">
+          <rect x="40"  y="192" width="86" height="48" rx="5" fill="var(--bg-soft)" stroke="var(--border)" stroke-width="1.4" stroke-dasharray="5 4"/><text x="83"  y="223" text-anchor="middle" fill="var(--text-faint)">空</text>
+          <rect x="128" y="192" width="86" height="48" rx="5" fill="var(--bg-soft)" stroke="var(--border)" stroke-width="1.4" stroke-dasharray="5 4"/><text x="171" y="223" text-anchor="middle" fill="var(--text-faint)">空</text>
+          <rect x="216" y="192" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="259" y="223" text-anchor="middle" fill="var(--text)">C</text>
+          <rect x="304" y="192" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="347" y="223" text-anchor="middle" fill="var(--text)">D</text>
+          <rect x="392" y="192" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="435" y="223" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="480" y="192" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="523" y="223" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="568" y="192" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="611" y="223" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <rect x="656" y="192" width="86" height="48" rx="5" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.4"/><text x="699" y="223" text-anchor="middle" fill="var(--text-faint)">—</text>
+        </g>
+        <text x="259" y="258" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">front=2</text>
+        <text x="435" y="258" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">rear=4</text>
+        <line x1="259" y1="266" x2="259" y2="252" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#q2-b)"/>
+        <line x1="435" y1="266" x2="435" y2="252" stroke="var(--ok)" stroke-width="1.8" marker-end="url(#q2-a)"/>
+        <text x="770" y="220" fill="var(--text-soft)" font-size="12.5" font-family="inherit">元素个数 = 4 − 2 = 2</text>
+
+        <text x="24" y="300" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">③ 再入队 E F G H —— rear 撞到 MaxSize，被判定「队满」</text>
+        <g font-family="Consolas, monospace" font-size="15">
+          <rect x="40"  y="316" width="86" height="48" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4"/><text x="83"  y="347" text-anchor="middle" fill="var(--danger)">空</text>
+          <rect x="128" y="316" width="86" height="48" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4"/><text x="171" y="347" text-anchor="middle" fill="var(--danger)">空</text>
+          <rect x="216" y="316" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="259" y="347" text-anchor="middle" fill="var(--text)">C</text>
+          <rect x="304" y="316" width="86" height="48" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="347" y="347" text-anchor="middle" fill="var(--text)">D</text>
+          <rect x="392" y="316" width="86" height="48" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="435" y="347" text-anchor="middle" fill="var(--text)">E</text>
+          <rect x="480" y="316" width="86" height="48" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="523" y="347" text-anchor="middle" fill="var(--text)">F</text>
+          <rect x="568" y="316" width="86" height="48" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="611" y="347" text-anchor="middle" fill="var(--text)">G</text>
+          <rect x="656" y="316" width="86" height="48" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="699" y="347" text-anchor="middle" fill="var(--text)">H</text>
+        </g>
+        <text x="259" y="382" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">front=2</text>
+        <text x="699" y="382" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">rear=8 == MaxSize</text>
+        <line x1="259" y1="390" x2="259" y2="376" stroke="var(--brand)" stroke-width="1.8" marker-end="url(#q2-b)"/>
+        <line x1="699" y1="390" x2="699" y2="376" stroke="var(--danger)" stroke-width="1.8" marker-end="url(#q2-d)"/>
+        <text x="83" y="408" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="inherit">这两个空位永远用不到了 → 假溢出</text>
+        <text x="770" y="344" fill="var(--text-soft)" font-size="12.5" font-family="inherit">元素个数 = 8 − 2 = 6</text>
+      </svg>
+      <figcaption>图 4-2　顺序队列的假溢出：rear 撞到 MaxSize 时，前面仍有 2 个空位无法使用</figcaption>
+    </div>
+
+    <p>把这三步连起来看，问题的根子就清楚了：<b>数组是「线性 + 有限」的，而 front / rear 是单调递增的</b>。
+      每次出队都在数组头部制造一块「死区」，死区只会变大不会变小，最终把整个数组的前半段全部浪费掉。
+      此时队列真实占用 = <code>rear - front = 6</code>，而容量是 8，明明还能塞 2 个，却只能报「队满」。</p>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-1　假溢出 ≠ 真溢出</span>
+      <ul style="margin:6px 0 0">
+        <li><b>真溢出 true overflow</b>：<code>rear - front == MaxSize</code>，整个数组真的塞满了，任何方案都救不了，只能扩容或拒绝服务。</li>
+        <li><b>假溢出 false overflow</b>：<code>rear == MaxSize</code> 但 <code>front &gt; 0</code>，数组前面还有空位。这是<b>结构设计缺陷</b>，不是容量不足。</li>
+        <li>很多同学看到「队满」就去扩容数组 —— 那是治标不治本，而且会把 O(1) 的入队变成偶尔 O(n)。<b>正确解法是让下标绕回来，即循环队列。</b></li>
+      </ul>
+    </div>
+
+    <p>下面这个动画把假溢出的全过程演示一遍。留意 <code>front</code> 是怎么一步步把前面的空位「吃掉」的。</p>
+
+    <div id="viz-queue-basic"></div>
+
+    <p>看完动画你应该能自己总结出结论：只要让 <code>rear</code> 在撞到 <code>MaxSize</code> 之后能回到下标 0，
+      假溢出就自然消失了 —— 这正是下一节循环队列要干的事。</p>
+
+    <h3 id="s2-code">4.2.3 朴素顺序队列的完整 C++ 实现</h3>
+
+    <p>为了让你亲眼看到假溢出，下面这份代码<b>故意</b>用朴素写法实现，并在 <code>main</code> 里构造出「队满但有空位」的场景。
+      拷贝下来跑一遍，观察输出里 <code>size=6, MaxSize=8</code> 却 <code>EnQueue failed</code> 的那一行。</p>
+
+    <pre data-lang="cpp" data-file="seq_queue_naive.cpp">// seq_queue_naive.cpp —— 朴素顺序队列：用来复现"假溢出"
+#include &lt;iostream&gt;
+using namespace std;
+
+const int MaxSize = 8;
+
+struct SeqQueue {
+    int  data[MaxSize];
+    int  front;   // 队头元素下标
+    int  rear;    // 队尾元素的下一个空位
+    void InitQueue() { front = rear = 0; }
+    bool QueueEmpty() const { return front == rear; }
+    int  Length()     const { return rear - front; }
+    // 朴素判满：只看 rear 有没有撞到数组末尾
+    bool QueueFull()  const { return rear == MaxSize; }
+
+    bool EnQueue(int x) {
+        if (QueueFull()) return false;      // ← 这里就是假溢出的源头
+        data[rear++] = x;
+        return true;
+    }
+    bool DeQueue(int&amp; x) {
+        if (QueueEmpty()) return false;
+        x = data[front++];
+        return true;
+    }
+    bool GetHead(int&amp; x) const {
+        if (QueueEmpty()) return false;
+        x = data[front];
+        return true;
+    }
+};
+
+int main() {
+    SeqQueue q;
+    q.InitQueue();
+
+    cout &lt;&lt; "--- 1) 入队 A B C D ---\n";
+    for (int i = 0; i &lt; 4; ++i) {
+        q.EnQueue(i + 1);
+        cout &lt;&lt; "EnQueue " &lt;&lt; i + 1 &lt;&lt; "  front=" &lt;&lt; q.front
+             &lt;&lt; " rear=" &lt;&lt; q.rear &lt;&lt; " size=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "--- 2) 出队两个 ---\n";
+    int x;
+    for (int i = 0; i &lt; 2; ++i) {
+        q.DeQueue(x);
+        cout &lt;&lt; "DeQueue " &lt;&lt; x &lt;&lt; "  front=" &lt;&lt; q.front
+             &lt;&lt; " rear=" &lt;&lt; q.rear &lt;&lt; " size=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "--- 3) 再入队 4 个，看谁失败 ---\n";
+    for (int i = 5; i &lt;= 8; ++i) {
+        bool ok = q.EnQueue(i);
+        cout &lt;&lt; "EnQueue " &lt;&lt; i &lt;&lt; (ok ? " 成功" : " 失败(队满)")
+             &lt;&lt; "  front=" &lt;&lt; q.front &lt;&lt; " rear=" &lt;&lt; q.rear
+             &lt;&lt; " size=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "--- 结论 ---\n";
+    cout &lt;&lt; "size=" &lt;&lt; q.Length() &lt;&lt; " 但 rear==MaxSize 判满，"
+         &lt;&lt; "前面 " &lt;&lt; q.front &lt;&lt; " 个位置白白浪费 —— 这就是假溢出\n";
+    return 0;
+}
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">动手改一改</span>
+      把 <code>QueueFull()</code> 改成 <code>return rear - front == MaxSize;</code> 会怎样？
+      假设此时 <code>front=2, rear=8</code>，改完后判满会返回 <code>false</code>，
+      于是 <code>data[8] = x</code> 直接<b>越界写内存</b>（数组下标只到 7）。
+      所以「只改判满条件」不仅没解决问题，还引入了更危险的越界 —— 必须连下标一起改成循环，这就是下一节的内容。
+    </div>
+
+    <h2 id="s3">4.3 循环队列：把数组「掰弯」</h2>
+
+    <p>假溢出的根源是「下标只增不减」。那么解法就呼之欲出了：<b>给下标加一个上限，越界就回到 0</b>。
+      物理上数组还是一维的，但逻辑上我们把它的首尾接了起来，构成一个环 —— 这就是<b>循环队列 circular queue</b>，
+      也叫<b>环形队列 ring buffer</b>。</p>
+
+    <div class="note tip">
+      <span class="note-title">一句话本质</span>
+      循环队列 = 顺序队列 + 取模运算。它把「下标越界」这件事，从错误变成了「绕回起点」的正常行为，
+      于是 <code>front</code> 和 <code>rear</code> 可以无限前进，空间利用率做到 100%（方案一略低一点）。
+    </div>
+
+    <h3 id="s3-mod">4.3.1 取模运算 <code>(rear + 1) % MaxSize</code> 的原理</h3>
+
+    <p>取模（模运算 modulo）的含义是「除法的余数」。当 <code>MaxSize = 8</code> 时：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>当前 rear</th><th>朴素写法 rear+1</th><th>循环写法 (rear+1)%8</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>1</td><td>1</td><td>正常后移</td></tr>
+          <tr><td>3</td><td>4</td><td>4</td><td>正常后移</td></tr>
+          <tr><td>6</td><td>7</td><td>7</td><td>正常后移</td></tr>
+          <tr><td>7</td><td class="c-bad">8（越界！）</td><td class="c-ok">0（绕回队首）</td><td><b>关键的一步</b></td></tr>
+          <tr><td>9</td><td class="c-bad">10</td><td class="c-ok">1</td><td>无论走多远都能映射回 0..7</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>为什么 <code>% MaxSize</code> 恰好能实现「绕回」？因为余数的取值范围天然就是 <code>[0, MaxSize-1]</code>，
+      正好是合法下标的集合；而只要没超过 <code>MaxSize</code>，余数就等于原数，不影响正常情形。
+      一行代码同时兼顾了「前进」和「绕回」两件事，这就是取模的优雅之处。</p>
+
+    <p>下图把 <code>MaxSize = 8</code> 的循环队列画成一个环：外圈数字是<b>数组下标</b>，环内是<b>元素值</b>。
+      注意「队尾」永远在 <code>rear</code> 的<b>逆时针前一格</b>，因为 <code>rear</code> 指向的是下一个空位（下一个要写入的位置）。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 660 430" width="660" height="430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="循环队列环形下标与元素分布图">
+        <defs>
+          <marker id="q3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q3-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <circle cx="330" cy="215" r="118" fill="none" stroke="var(--border)" stroke-width="26" stroke-dasharray="2 0"/>
+        <path d="M330,97 A118,118 0 0 1 448,215" fill="none" stroke="var(--brand)" stroke-width="6" opacity=".85"/>
+        <path d="M448,215 A118,118 0 0 1 412,297" fill="none" stroke="var(--ok)" stroke-width="6" opacity=".85"/>
+
+        <g font-family="Consolas, monospace" font-size="15">
+          <circle cx="330" cy="97"  r="26" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.2"/><text x="330" y="103" text-anchor="middle" fill="var(--text)">11</text>
+          <circle cx="413" cy="131" r="26" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.2"/><text x="413" y="137" text-anchor="middle" fill="var(--text)">22</text>
+          <circle cx="448" cy="215" r="26" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.2"/><text x="448" y="221" text-anchor="middle" fill="var(--text)">33</text>
+          <circle cx="413" cy="299" r="26" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="413" y="305" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="330" cy="333" r="26" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="330" y="339" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="247" cy="299" r="26" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="247" y="305" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="212" cy="215" r="26" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="212" y="221" text-anchor="middle" fill="var(--text-faint)">—</text>
+          <circle cx="247" cy="131" r="26" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="247" y="137" text-anchor="middle" fill="var(--text-faint)">—</text>
+        </g>
+
+        <g fill="var(--text-faint)" font-size="12" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="330" y="46">data[0]</text>
+          <text x="452" y="82">data[1]</text>
+          <text x="504" y="219">data[2]</text>
+          <text x="452" y="338">data[3]</text>
+          <text x="330" y="384">data[4]</text>
+          <text x="208" y="338">data[5]</text>
+          <text x="156" y="219">data[6]</text>
+          <text x="208" y="82">data[7]</text>
+        </g>
+
+        <text x="330" y="196" text-anchor="middle" fill="var(--brand)" font-size="13.5" font-family="Consolas, monospace" font-weight="700">front = 0</text>
+        <line x1="330" y1="203" x2="330" y2="126" stroke="var(--brand)" stroke-width="2" marker-end="url(#q3-b)"/>
+        <text x="330" y="230" text-anchor="middle" fill="var(--ok)" font-size="13.5" font-family="Consolas, monospace" font-weight="700">rear = 3</text>
+        <line x1="357" y1="222" x2="418" y2="215" stroke="var(--ok)" stroke-width="2" marker-end="url(#q3-g)"/>
+        <text x="330" y="256" text-anchor="middle" fill="var(--text-soft)" font-size="12" font-family="inherit">共 3 个元素</text>
+        <text x="330" y="275" text-anchor="middle" fill="var(--text-soft)" font-size="12" font-family="Consolas, monospace">(3-0+8)%8 = 3</text>
+
+        <path d="M470,120 A130,130 0 0 0 452,300" fill="none" stroke="var(--purple)" stroke-width="2.4" marker-end="url(#q3-a)" stroke-dasharray="6 5"/>
+        <text x="536" y="196" fill="var(--purple)" font-size="12.5" font-family="inherit">rear 前进方向</text>
+        <text x="536" y="216" fill="var(--purple)" font-size="12.5" font-family="inherit">(rear+1)%8</text>
+        <text x="536" y="236" fill="var(--purple)" font-size="12.5" font-family="inherit">到 7 之后回 0</text>
+
+        <text x="30" y="416" fill="var(--text-faint)" font-size="12.5" font-family="inherit">环外是物理下标，环内是元素值；rear 指向下一个空位，所以队尾元素在 rear 的前一格</text>
+      </svg>
+      <figcaption>图 4-3　循环队列的环形视图：<code>front=0, rear=3</code>，元素为 11、22、33，共 3 个</figcaption>
+    </div>
+
+    <h3 id="s3-full">4.3.2 三种判满方案及其优缺点</h3>
+
+    <p>循环队列带来一个新麻烦：<b>队空和队满的判定条件撞车了</b>。
+      初始时 <code>front == rear == 0</code> 表示空；可当队列绕了一圈塞满时，
+      <code>rear</code> 又会追上 <code>front</code>，还是 <code>front == rear</code>。
+      同一个条件既表示空又表示满，程序无法区分 —— 这是循环队列唯一需要动脑筋的地方。</p>
+
+    <p>教材与工程上一共有三种主流解法，考试里三种都会考，请务必都掌握。</p>
+
+    <h4>方案一：牺牲一个存储单元（最常用）</h4>
+
+    <p>约定「<code>rear</code> 再走一步就撞上 <code>front</code>」时算作队满，
+      于是数组里<b>永远至少留一个空位</b>。判空仍是 <code>front == rear</code>，
+      判满变成 <code>(rear + 1) % MaxSize == front</code>。
+      代价是容量为 <code>MaxSize</code> 的数组最多存 <code>MaxSize - 1</code> 个元素；
+      好处是<b>不额外花一个变量、不需要额外的分支</b>，代码最短，也是 408 考研与大多数教材的默认方案。</p>
+
+    <pre data-lang="cpp" data-file="circular_queue_scheme1.cpp">// circular_queue_scheme1.cpp —— 方案一：牺牲一个存储单元判满
+#include &lt;iostream&gt;
+using namespace std;
+
+const int MaxSize = 8;                  // 数组容量；实际最多存 MaxSize-1 = 7 个元素
+
+struct CircularQueue1 {
+    int data[MaxSize];
+    int front, rear;                    // front 指向队头元素，rear 指向队尾元素的下一个位置
+
+    void InitQueue() { front = rear = 0; }
+
+    bool QueueEmpty() const { return front == rear; }
+    // 核心：rear 的下一个位置就是 front ⇒ 再存一个就会与队头重合 ⇒ 判满
+    bool QueueFull()  const { return (rear + 1) % MaxSize == front; }
+
+    int Length() const { return (rear - front + MaxSize) % MaxSize; }
+
+    bool EnQueue(int x) {
+        if (QueueFull()) return false;
+        data[rear] = x;
+        rear = (rear + 1) % MaxSize;    // 前进一格，越界则回到 0
+        return true;
+    }
+    bool DeQueue(int&amp; x) {
+        if (QueueEmpty()) return false;
+        x = data[front];
+        front = (front + 1) % MaxSize;  // 同样要取模
+        return true;
+    }
+    bool GetHead(int&amp; x) const {
+        if (QueueEmpty()) return false;
+        x = data[front];
+        return true;
+    }
+};
+
+int main() {
+    CircularQueue1 q;
+    q.InitQueue();
+
+    cout &lt;&lt; "最多可存元素个数 = " &lt;&lt; MaxSize - 1 &lt;&lt; "\n";
+    for (int i = 1; i &lt;= 8; ++i) {              // 故意多入队一个，触发判满
+        bool ok = q.EnQueue(i * 10);
+        cout &lt;&lt; "EnQueue " &lt;&lt; i * 10 &lt;&lt; (ok ? " 成功" : " 失败(队满)")
+             &lt;&lt; "  front=" &lt;&lt; q.front &lt;&lt; " rear=" &lt;&lt; q.rear
+             &lt;&lt; " size=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    }
+    int x;
+    q.DeQueue(x); cout &lt;&lt; "DeQueue -&gt; " &lt;&lt; x &lt;&lt; " size=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    q.EnQueue(99);  cout &lt;&lt; "EnQueue 99 后 size=" &lt;&lt; q.Length()
+                        &lt;&lt; "  front=" &lt;&lt; q.front &lt;&lt; " rear=" &lt;&lt; q.rear &lt;&lt; "\n";
+    while (q.DeQueue(x)) cout &lt;&lt; x &lt;&lt; " ";
+    cout &lt;&lt; "\n队列已清空, empty=" &lt;&lt; (q.QueueEmpty() ? "true" : "false") &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <h4>方案二：增设 <code>size</code> 计数器</h4>
+
+    <p>额外维护一个整数 <code>size</code> 记录当前元素个数。入队成功 <code>++size</code>，出队成功 <code>--size</code>。
+      于是判空是 <code>size == 0</code>，判满是 <code>size == MaxSize</code>，两种情况再也不会混淆，
+      而且<b>数组一个位置都不浪费</b>，<code>size</code> 本身还可以直接当作 <code>Length()</code> 返回，
+      不用再算公式。</p>
+
+    <pre data-lang="cpp" data-file="circular_queue_scheme2.cpp">// circular_queue_scheme2.cpp —— 方案二：size 计数器，容量不浪费
+#include &lt;iostream&gt;
+using namespace std;
+
+const int MaxSize = 8;                  // 最多可存满 8 个元素
+
+struct CircularQueue2 {
+    int data[MaxSize];
+    int front, rear;
+    int size;                           // 当前元素个数，判空判满全靠它
+
+    void InitQueue() { front = rear = size = 0; }
+
+    bool QueueEmpty() const { return size == 0; }
+    bool QueueFull()  const { return size == MaxSize; }
+    int  Length()     const { return size; }        // 直接返回，无需公式
+
+    bool EnQueue(int x) {
+        if (QueueFull()) return false;
+        data[rear] = x;
+        rear = (rear + 1) % MaxSize;
+        ++size;                          // 与 rear 同步维护
+        return true;
+    }
+    bool DeQueue(int&amp; x) {
+        if (QueueEmpty()) return false;
+        x = data[front];
+        front = (front + 1) % MaxSize;
+        --size;                          // 千万别漏掉这一句
+        return true;
+    }
+};
+
+int main() {
+    CircularQueue2 q;
+    q.InitQueue();
+    for (int i = 1; i &lt;= MaxSize; ++i) q.EnQueue(i);          // 存满 8 个
+    cout &lt;&lt; "存满后 size=" &lt;&lt; q.Length()
+         &lt;&lt; " full=" &lt;&lt; (q.QueueFull() ? "true" : "false") &lt;&lt; "\n";
+    cout &lt;&lt; "再入队 999 结果=" &lt;&lt; (q.EnQueue(999) ? "成功" : "失败") &lt;&lt; "\n";
+
+    int x;
+    q.DeQueue(x); q.DeQueue(x);
+    q.EnQueue(100); q.EnQueue(200);
+    cout &lt;&lt; "两次出队两次入队后 size=" &lt;&lt; q.Length()
+         &lt;&lt; " front=" &lt;&lt; q.front &lt;&lt; " rear=" &lt;&lt; q.rear &lt;&lt; "\n";
+    cout &lt;&lt; "依次出队: ";
+    while (q.DeQueue(x)) cout &lt;&lt; x &lt;&lt; " ";
+    cout &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <h4>方案三：设置 <code>tag</code> 标志位</h4>
+
+    <p>只在「<code>front == rear</code>」这一瞬间才需要区分空与满，而这两种情况的<b>成因</b>不同：
+      空是「刚出队造成的」，满是「刚入队造成的」。于是加一个 <code>tag</code>：
+      <b>最近一次操作是入队则 <code>tag = 1</code>，是出队则 <code>tag = 0</code></b>。
+      那么 <code>front == rear &amp;&amp; tag == 0</code> 就是空，<code>front == rear &amp;&amp; tag == 1</code> 就是满。
+      它同样不浪费存储单元，代价是每次操作多一次赋值，并且判空判满的判断条件变长了一点。</p>
+
+    <pre data-lang="cpp" data-file="circular_queue_scheme3.cpp">// circular_queue_scheme3.cpp —— 方案三：tag 标志位区分空与满
+#include &lt;iostream&gt;
+using namespace std;
+
+const int MaxSize = 8;
+
+struct CircularQueue3 {
+    int  data[MaxSize];
+    int  front, rear;
+    int  tag;        // tag==0: 最近一次是出队（若 front==rear 则为空）
+                     // tag==1: 最近一次是入队（若 front==rear 则为满）
+
+    void InitQueue() { front = rear = 0; tag = 0; }
+
+    bool QueueEmpty() const { return front == rear &amp;&amp; tag == 0; }
+    bool QueueFull()  const { return front == rear &amp;&amp; tag == 1; }
+    int  Length()     const {
+        if (front == rear) return tag == 1 ? MaxSize : 0;   // 重合时靠 tag 判断
+        return (rear - front + MaxSize) % MaxSize;
+    }
+
+    bool EnQueue(int x) {
+        if (QueueFull()) return false;
+        data[rear] = x;
+        rear = (rear + 1) % MaxSize;
+        tag = 1;                       // 记录"刚刚入队"
+        return true;
+    }
+    bool DeQueue(int&amp; x) {
+        if (QueueEmpty()) return false;
+        x = data[front];
+        front = (front + 1) % MaxSize;
+        tag = 0;                       // 记录"刚刚出队"
+        return true;
+    }
+};
+
+int main() {
+    CircularQueue3 q;
+    q.InitQueue();
+    for (int i = 1; i &lt;= MaxSize; ++i) q.EnQueue(i);
+    cout &lt;&lt; "存满后 full=" &lt;&lt; (q.QueueFull() ? "true" : "false")
+         &lt;&lt; " length=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    int x;
+    for (int i = 0; i &lt; 3; ++i) q.DeQueue(x);
+    cout &lt;&lt; "出队 3 个后 empty=" &lt;&lt; (q.QueueEmpty() ? "true" : "false")
+         &lt;&lt; " length=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    q.EnQueue(777);
+    cout &lt;&lt; "再入队一个 length=" &lt;&lt; q.Length() &lt;&lt; " front=" &lt;&lt; q.front
+         &lt;&lt; " rear=" &lt;&lt; q.rear &lt;&lt; " tag=" &lt;&lt; q.tag &lt;&lt; "\n";
+    while (q.DeQueue(x)) cout &lt;&lt; x &lt;&lt; " ";
+    cout &lt;&lt; "\n清空后 empty=" &lt;&lt; (q.QueueEmpty() ? "true" : "false")
+         &lt;&lt; " length=" &lt;&lt; q.Length() &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <div class="table-wrap">
+      <table class="q-cmp">
+        <thead>
+          <tr><th>对比项</th><th>方案一 牺牲单元</th><th>方案二 size 计数器</th><th>方案三 tag 标志位</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>判空条件</td><td><code>front == rear</code></td><td><code>size == 0</code></td><td><code>front==rear &amp;&amp; tag==0</code></td></tr>
+          <tr><td>判满条件</td><td><code>(rear+1)%M == front</code></td><td><code>size == MaxSize</code></td><td><code>front==rear &amp;&amp; tag==1</code></td></tr>
+          <tr><td>最大元素数</td><td class="c-warn">MaxSize − 1（浪费 1 格）</td><td class="c-ok">MaxSize（零浪费）</td><td class="c-ok">MaxSize（零浪费）</td></tr>
+          <tr><td>额外空间</td><td class="c-ok">0</td><td>1 个 int</td><td>1 个 int（可压成 1 bit）</td></tr>
+          <tr><td>求长度</td><td>要算 <code>(rear-front+M)%M</code></td><td class="c-ok">直接返回 size</td><td>重合时要靠 tag 特判</td></tr>
+          <tr><td>每次操作成本</td><td class="c-ok">1 次取模</td><td>1 次取模 + 1 次自增</td><td>1 次取模 + 1 次赋值</td></tr>
+          <tr><td>实现难度</td><td class="c-ok">最简单</td><td>简单，但容易漏维护 size</td><td>判断条件最绕，易写错</td></tr>
+          <tr><td>典型出处</td><td>考研 408、严蔚敏教材默认写法</td><td>绝大多数工业级 ring buffer</td><td>教材补充、面试手写题</td></tr>
+          <tr><td>适用场景</td><td>元素大小敏感度低、追求代码短</td><td>需要频繁查长度、容量不能浪费</td><td>要求「空间零浪费且不加计数器」的场合</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-2</span>
+      题目若只说「循环队列」而不指定方案，<b>默认按方案一（牺牲一个单元）</b>作答：
+      容量为 <code>MaxSize</code> 的数组最多存 <code>MaxSize-1</code> 个元素。
+      常见问法：「数组 A[0..n-1] 实现循环队列，最多能存放多少个元素？」——答 <code>n-1</code>。
+      若题目明确给了 <code>size</code> 或 <code>tag</code>，再按对应方案答 <code>n</code>。
+    </div>
+
+    <h3 id="s3-count">4.3.3 元素个数公式的推导</h3>
+
+    <p>公式 <code>(rear - front + MaxSize) % MaxSize</code> 看着像背下来的，其实推两行就明白。
+      设 <code>MaxSize = M</code>，只可能出现两种情况：</p>
+
+    <div class="card">
+      <p style="margin-top:0"><b>情况 A：<code>rear &gt;= front</code>（还没绕过圈）</b><br>
+        元素分布在 <code>front</code> 到 <code>rear-1</code> 的连续区间里，个数就是 <code>rear - front</code>。<br>
+        例：<code>front=2, rear=6</code> → 元素在 <code>data[2..5]</code>，共 4 个，而 <code>6-2=4</code> ✓</p>
+      <p><b>情况 B：<code>rear &lt; front</code>（已经绕过圈）</b><br>
+        元素分成两段：<code>front</code> 到 <code>M-1</code> 一段，<code>0</code> 到 <code>rear-1</code> 一段。<br>
+        个数 = <code>(M - front) + rear</code> = <code>rear - front + M</code>。<br>
+        例：<code>M=8, front=6, rear=2</code> → 第一段 <code>data[6],data[7]</code> 共 2 个，第二段 <code>data[0],data[1]</code> 共 2 个，
+        合计 4 个，而 <code>2-6+8=4</code> ✓</p>
+      <p style="margin-bottom:0"><b>合并</b>：情况 A 里 <code>rear - front</code> 落在 <code>[0, M-1]</code>，
+        直接对 M 取余不变；情况 B 里 <code>rear - front + M</code> 落在 <code>[M, 2M-1]</code>，取余后正好等于 <code>rear - front + M</code>。
+        于是两种情况可以统一写成：</p>
+      <div class="formula center">Length = (rear − front + MaxSize) % MaxSize</div>
+      <p style="margin-bottom:0">也可以写成等价形式 <code>(rear - front) % MaxSize</code> 之后再 <code>+ MaxSize</code> 再 <code>% MaxSize</code>，
+        但没人这么写 —— 先加 <code>MaxSize</code> 保证非负是最省事、最不容易出错的写法。</p>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-2　为什么必须先加 MaxSize？</span>
+      因为 C++ 的 <code>%</code> 是<b>截断取余</b>（C++11 起规定商向零取整），负数取余会得到负数：
+      <code>(2 - 6) % 8 == -4</code>，而不是 4。
+      于是 <code>-4</code> 会被当成元素个数，后续循环全部乱套。
+      正确写法是 <code>(rear - front + MaxSize) % MaxSize</code> —— <b>先加后模</b>，保证被除数非负。
+      顺便说一句：方案一下 <code>front == rear</code> 时公式给出 0（空），这是正确的；
+      因为「满」的状态永远不会让 <code>front == rear</code>（此时 <code>(rear+1)%M == front</code>）。
+    </div>
+
+    <h3 id="s3-class">4.3.4 完整模板类 <code>CircularQueue&lt;T&gt;</code></h3>
+
+    <p>把方案一封进一个模板类，支持任意元素类型，并补齐 <code>GetHead</code>、<code>Length</code>、<code>Clear</code> 与遍历打印。
+      这里用<b>动态分配</b>的数组，容量由构造函数传入，比写死 <code>MaxSize</code> 更实用；
+      同时按「三法则」补上了析构函数、拷贝构造与拷贝赋值，避免浅拷贝导致的 double free。</p>
+
+    <pre data-lang="cpp" data-file="circular_queue_template.cpp">// circular_queue_template.cpp —— 完整的循环队列模板类（方案一判满）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class CircularQueue {
+public:
+    // capacity 是数组容量，实际最多存 capacity-1 个元素
+    // 注意：成员初始化顺序由声明顺序决定，所以下面 private 区把 cap 声明在 data 之前，
+    // 否则 data(new T[cap]) 会用到尚未初始化的 cap，属于未定义行为。
+    explicit CircularQueue(int capacity = 8)
+        : cap(capacity &gt; 1 ? capacity : 2), data(new T[cap]), front(0), rear(0) {}
+
+    CircularQueue(const CircularQueue&amp; o)                 // 拷贝构造：深拷贝
+        : cap(o.cap), data(new T[o.cap]), front(o.front), rear(o.rear) {
+        for (int i = 0; i &lt; cap; ++i) data[i] = o.data[i];
+    }
+    CircularQueue&amp; operator=(const CircularQueue&amp; o) {    // 拷贝赋值：先复制再释放
+        if (this == &amp;o) return *this;
+        T* nd = new T[o.cap];
+        for (int i = 0; i &lt; o.cap; ++i) nd[i] = o.data[i];
+        delete[] data;
+        data = nd; cap = o.cap; front = o.front; rear = o.rear;
+        return *this;
+    }
+    ~CircularQueue() { delete[] data; }
+
+    void Clear()       { front = rear = 0; }
+    bool Empty() const { return front == rear; }
+    bool Full()  const { return (rear + 1) % cap == front; }
+    int  Size()  const { return (rear - front + cap) % cap; }
+    int  Capacity() const { return cap - 1; }              // 可用容量（牺牲一格）
+
+    bool Push(const T&amp; x) {                                // 入队
+        if (Full()) return false;
+        data[rear] = x;
+        rear = (rear + 1) % cap;
+        return true;
+    }
+    bool Pop(T&amp; out) {                                     // 出队（带回元素值）
+        if (Empty()) return false;
+        out = data[front];
+        front = (front + 1) % cap;
+        return true;
+    }
+    bool Front(T&amp; out) const {                             // 取队头，不删除
+        if (Empty()) return false;
+        out = data[front];
+        return true;
+    }
+    bool Back(T&amp; out) const {                              // 取队尾（rear 的前一格）
+        if (Empty()) return false;
+        out = data[(rear - 1 + cap) % cap];
+        return true;
+    }
+
+    // 遍历：从队头开始按逻辑顺序打印（注意不是从下标 0 开始）
+    void Print(const string&amp; tag = "") const {
+        if (!tag.empty()) cout &lt;&lt; tag &lt;&lt; " ";
+        cout &lt;&lt; "[size=" &lt;&lt; Size() &lt;&lt; "/" &lt;&lt; Capacity()
+             &lt;&lt; " front=" &lt;&lt; front &lt;&lt; " rear=" &lt;&lt; rear &lt;&lt; "] ";
+        if (Empty()) { cout &lt;&lt; "(空)\n"; return; }
+        for (int i = 0, k = front; i &lt; Size(); ++i, k = (k + 1) % cap)
+            cout &lt;&lt; data[k] &lt;&lt; (i + 1 == Size() ? "" : " -&gt; ");
+        cout &lt;&lt; "\n";
+    }
+
+private:
+    int cap;      // 数组容量（必须声明在 data 之前，保证初始化顺序正确）
+    T*  data;
+    int front;    // 队头下标
+    int rear;     // 队尾元素的下一个位置
+};
+
+int main() {
+    CircularQueue&lt;int&gt; q(6);            // 容量 6，最多存 5 个
+    q.Print("初始");
+    for (int i = 1; i &lt;= 5; ++i) q.Push(i * i);
+    q.Print("入队 1,4,9,16,25");
+
+    cout &lt;&lt; "再入队 36 结果: " &lt;&lt; (q.Push(36) ? "成功" : "失败(队满)") &lt;&lt; "\n";
+
+    int v;
+    q.Pop(v); q.Pop(v);
+    q.Print("出队两次");
+
+    q.Push(36); q.Push(49);             // 绕回数组头部
+    q.Print("再入队 36,49");
+
+    q.Front(v); cout &lt;&lt; "队头 = " &lt;&lt; v &lt;&lt; "\n";
+    q.Back(v);  cout &lt;&lt; "队尾 = " &lt;&lt; v &lt;&lt; "\n";
+
+    CircularQueue&lt;string&gt; sq(4);        // 元素类型换成 string 也能用
+    sq.Push("队列"); sq.Push("真"); sq.Push("好用");
+    sq.Print("字符串队列");
+
+    CircularQueue&lt;int&gt; copy = q;        // 验证深拷贝
+    copy.Pop(v);
+    copy.Print("拷贝后出队一个");
+    q.Print("原队列不受影响");
+
+    while (q.Pop(v)) cout &lt;&lt; v &lt;&lt; " ";
+    cout &lt;&lt; "\n清空后 Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <p>下面这个动画把循环队列的入队、出队、判满、判空连起来演示。
+      请重点观察 <code>rear</code> 从下标 7 绕回 0 的那一步，以及此时<b>长度公式发生了什么变化</b>。</p>
+
+    <div id="viz-circular"></div>
+
+    <h3 id="s3-perf">4.3.5 循环队列的复杂度</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>时间复杂度</th><th>空间复杂度</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>EnQueue 入队</td><td class="c-ok">O(1)</td><td>O(1)</td><td>一次赋值 + 一次取模</td></tr>
+          <tr><td>DeQueue 出队</td><td class="c-ok">O(1)</td><td>O(1)</td><td>只移动 front，不搬移元素</td></tr>
+          <tr><td>GetHead 取队头</td><td class="c-ok">O(1)</td><td>O(1)</td><td>直接读 <code>data[front]</code></td></tr>
+          <tr><td>QueueEmpty / QueueFull</td><td class="c-ok">O(1)</td><td>O(1)</td><td>一次比较或取模</td></tr>
+          <tr><td>Length 求长度</td><td class="c-ok">O(1)</td><td>O(1)</td><td>方案二更是直接返回 size</td></tr>
+          <tr><td>遍历</td><td>O(n)</td><td>O(1)</td><td>必须按 <code>(i+1)%cap</code> 走，不能简单 <code>i++</code></td></tr>
+          <tr><td>整表</td><td>—</td><td>O(MaxSize) 预分配</td><td>数组容量固定，是典型的<b>静态</b>结构</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错点 4-3　遍历循环队列时不能用 <code>for(i=front; i&lt;rear; i++)</code></span>
+      当 <code>rear &lt; front</code>（绕过圈）时，这个循环一次都不执行，或者直接越界。
+      正确写法是「先算个数，再走环」：
+      <code>for (int i = 0, k = front; i &lt; Size(); ++i, k = (k + 1) % cap)</code>。
+      这一点在考试写代码题里扣分极狠，务必形成肌肉记忆。
+    </div>
+
+    <h2 id="s4">4.4 链队列：用链表实现队列</h2>
+
+    <p>循环队列虽好，但它是<b>静态</b>的：容量一经确定就不能改，存满了只能拒绝服务。
+      如果元素个数事先无法估计，或者波动很大，就该请出链表 —— 这就是<b>链队列 linked queue</b>。
+      链队列天生没有「队满」这个概念（除非内存耗尽），长度可以任意增长。</p>
+
+    <h3 id="s4-head">4.4.1 带头结点的链队列：为什么出入队都是 O(1)</h3>
+
+    <p>链队列需要两个指针：<code>front</code> 指向队头结点，<code>rear</code> 指向队尾结点。
+      但直接让 <code>front</code> 指向第一个<b>数据结点</b>会带来一个麻烦：
+      出队时如果是最后一个元素，<code>rear</code> 会变成野指针，必须特判（这正是本节要重点讲的坑）。
+      工程上更常见的做法是<b>附加一个头结点 head node</b>（也叫哑结点 dummy node），
+      它不存放有效数据，只用来统一边界情况。</p>
+
+    <p>于是约定变成：</p>
+    <ul>
+      <li><code>front</code> 始终指向<b>头结点</b>，真正的队头元素是 <code>front-&gt;next</code>；</li>
+      <li><code>rear</code> 始终指向<b>队尾结点</b>（它就是最后一个数据结点）；</li>
+      <li>空队列的判定是 <code>front == rear</code>（此时两者都指向头结点，头结点的 <code>next</code> 为 <code>NULL</code>）；</li>
+      <li>队列中元素个数 = 从 <code>front-&gt;next</code> 走到 <code>rear</code> 的结点数，也可以额外维护一个 <code>size</code>。</li>
+    </ul>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 340" width="900" height="340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="带头结点的链队列结构图">
+        <defs>
+          <marker id="q4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q4-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q4-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <text x="26" y="34" fill="var(--text)" font-size="14" font-weight="700" font-family="inherit">非空队列（带头结点）</text>
+
+        <rect x="120" y="70" width="120" height="62" rx="6" fill="var(--bg-soft)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="200" y1="70" x2="200" y2="132" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="160" y="106" text-anchor="middle" fill="var(--text-faint)" font-size="12" font-family="inherit">head</text>
+        <text x="230" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">next</text>
+        <text x="180" y="152" text-anchor="middle" fill="var(--text-faint)" font-size="11.5" font-family="inherit">头结点（不存数据）</text>
+
+        <rect x="330" y="70" width="120" height="62" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.2"/>
+        <line x1="410" y1="70" x2="410" y2="132" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="370" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">5</text>
+        <text x="440" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">next</text>
+
+        <rect x="540" y="70" width="120" height="62" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="620" y1="70" x2="620" y2="132" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="580" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">10</text>
+        <text x="650" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">next</text>
+
+        <rect x="750" y="70" width="120" height="62" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.2"/>
+        <line x1="830" y1="70" x2="830" y2="132" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="790" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">20</text>
+        <text x="860" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">∧</text>
+
+        <line x1="240" y1="101" x2="324" y2="101" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#q4-a)"/>
+        <line x1="450" y1="101" x2="534" y2="101" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#q4-a)"/>
+        <line x1="660" y1="101" x2="744" y2="101" stroke="var(--border-strong)" stroke-width="1.8" marker-end="url(#q4-a)"/>
+
+        <text x="150" y="42" text-anchor="middle" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">front</text>
+        <line x1="150" y1="50" x2="150" y2="66" stroke="var(--brand)" stroke-width="2" marker-end="url(#q4-b)"/>
+        <text x="790" y="42" text-anchor="middle" fill="var(--ok)" font-size="13" font-family="Consolas, monospace">rear</text>
+        <line x1="790" y1="50" x2="790" y2="66" stroke="var(--ok)" stroke-width="2" marker-end="url(#q4-g)"/>
+        <text x="370" y="152" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">← 真正的队头 front-&gt;next</text>
+
+        <line x1="120" y1="196" x2="878" y2="196" stroke="var(--border)" stroke-width="1.4" stroke-dasharray="6 6"/>
+        <text x="26" y="238" fill="var(--text)" font-size="14" font-weight="700" font-family="inherit">空队列</text>
+        <rect x="120" y="256" width="120" height="62" rx="6" fill="var(--bg-soft)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="200" y1="256" x2="200" y2="318" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="160" y="292" text-anchor="middle" fill="var(--text-faint)" font-size="12" font-family="inherit">head</text>
+        <text x="230" y="292" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">∧</text>
+        <text x="150" y="228" text-anchor="middle" fill="var(--brand)" font-size="13" font-family="Consolas, monospace">front</text>
+        <line x1="150" y1="236" x2="150" y2="252" stroke="var(--brand)" stroke-width="2" marker-end="url(#q4-b)"/>
+        <text x="300" y="228" text-anchor="middle" fill="var(--ok)" font-size="13" font-family="Consolas, monospace">rear</text>
+        <line x1="300" y1="236" x2="200" y2="252" stroke="var(--ok)" stroke-width="2" marker-end="url(#q4-g)"/>
+        <text x="330" y="292" fill="var(--text-soft)" font-size="12.5" font-family="inherit">空队列时 front == rear，都指向头结点，头结点的 next 为 NULL</text>
+      </svg>
+      <figcaption>图 4-4　带头结点的链队列：front 指向头结点，rear 指向尾结点，空队列时两者重合</figcaption>
+    </div>
+
+    <p>为什么说「出入队都是 O(1)」？逐条看指针动作：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>指针动作（带头结点）</th><th>是否遍历</th><th>复杂度</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>入队 EnQueue(x)</b></td>
+            <td><code>rear-&gt;next = s; rear = s;</code>（s 是新结点）</td>
+            <td class="c-ok">否，rear 已知</td><td class="c-ok">O(1)</td>
+          </tr>
+          <tr>
+            <td><b>出队 DeQueue(x)</b></td>
+            <td><code>p = front-&gt;next; x = p-&gt;data; front-&gt;next = p-&gt;next; if (rear == p) rear = front; delete p;</code></td>
+            <td class="c-ok">否，front-&gt;next 已知</td><td class="c-ok">O(1)</td>
+          </tr>
+          <tr>
+            <td>取队头 GetHead</td><td><code>x = front-&gt;next-&gt;data;</code></td><td class="c-ok">否</td><td class="c-ok">O(1)</td>
+          </tr>
+          <tr>
+            <td>判空 QueueEmpty</td><td><code>front == rear</code>（或 <code>front-&gt;next == NULL</code>）</td><td class="c-ok">否</td><td class="c-ok">O(1)</td>
+          </tr>
+          <tr>
+            <td>求长度 Length</td><td>从头结点走一遍到 rear</td><td class="c-warn">是</td><td class="c-warn">O(n)，可加 size 优化到 O(1)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>对比一下<b>不带头结点</b>的版本，你立刻能看出头结点的价值：</p>
+    <ul>
+      <li><b>带头结点</b>：入队、出队都只改 <code>next</code> 指针，从不修改 <code>front</code> 本身（除非释放头结点）。空队列和非空队列的代码路径<b>完全一致</b>，不需要特判。</li>
+      <li><b>不带头结点</b>：入队第一个元素时要同时改 <code>front</code> 和 <code>rear</code>；出队最后一个元素时要把 <code>rear</code> 拉回 <code>NULL</code>。每个操作都要写「如果队列为空 / 只剩一个元素」的分支，代码丑且容易漏。</li>
+    </ul>
+
+    <div class="note tip">
+      <span class="note-title">头结点的通用思想</span>
+      「加一个不存数据的哨兵结点，把边界情况变成一般情况」是链表类题目的万能套路：
+      单链表的插入删除、链栈、链队列、双向链表都用它。
+      记住一句话：<b>哨兵不解决算法问题，它只消灭 if 分支。</b>
+    </div>
+
+    <h3 id="s4-class">4.4.2 完整模板类 <code>LinkQueue&lt;T&gt;</code></h3>
+
+    <pre data-lang="cpp" data-file="link_queue_template.cpp">// link_queue_template.cpp —— 带头结点的链队列模板类（含 size 优化与深拷贝）
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class LinkQueue {
+public:
+    LinkQueue() {                       // 构造：创建头结点，front 与 rear 都指向它
+        head = new Node();
+        front = rear = head;
+        count = 0;
+    }
+    LinkQueue(const LinkQueue&amp; o) : LinkQueue() {          // 拷贝构造
+        for (Node* p = o.head-&gt;next; p; p = p-&gt;next) Push(p-&gt;data);
+    }
+    LinkQueue&amp; operator=(const LinkQueue&amp; o) {             // 拷贝赋值
+        if (this == &amp;o) return *this;
+        Clear();
+        for (Node* p = o.head-&gt;next; p; p = p-&gt;next) Push(p-&gt;data);
+        return *this;
+    }
+    ~LinkQueue() { Clear(); delete head; }                 // 先删数据结点，再删头结点
+
+    bool Empty() const { return front == rear; }           // 或 head-&gt;next == nullptr
+    int  Size()  const { return count; }
+
+    void Clear() {                                          // 保留头结点，释放所有数据结点
+        Node* p = head-&gt;next;
+        while (p) { Node* q = p-&gt;next; delete p; p = q; }
+        head-&gt;next = nullptr;
+        front = rear = head;
+        count = 0;
+    }
+
+    void Push(const T&amp; x) {                                 // 入队：只在尾部接一个新结点
+        Node* s = new Node(x);
+        rear-&gt;next = s;                                     // 原尾结点的 next 指向新结点
+        rear = s;                                           // rear 后移成为新队尾
+        ++count;
+    }
+
+    bool Pop(T&amp; out) {                                      // 出队：摘掉 front-&gt;next
+        if (Empty()) return false;
+        Node* p = front-&gt;next;                              // p 是真正的队头结点
+        out = p-&gt;data;
+        front-&gt;next = p-&gt;next;                              // 跨过 p
+        if (rear == p) rear = front;                        // ★ 队列被取空：rear 必须回到头结点
+        delete p;
+        --count;
+        return true;
+    }
+
+    bool Front(T&amp; out) const {
+        if (Empty()) return false;
+        out = front-&gt;next-&gt;data;
+        return true;
+    }
+    bool Back(T&amp; out) const {
+        if (Empty()) return false;
+        out = rear-&gt;data;
+        return true;
+    }
+
+    void Print(const string&amp; tag = "") const {
+        if (!tag.empty()) cout &lt;&lt; tag &lt;&lt; " ";
+        cout &lt;&lt; "[size=" &lt;&lt; count &lt;&lt; "] front -&gt; ";
+        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
+        cout &lt;&lt; "NULL\n";
+    }
+
+private:
+    struct Node {
+        T     data;
+        Node* next;
+        Node() : next(nullptr) {}
+        explicit Node(const T&amp; d) : data(d), next(nullptr) {}
+    };
+    Node* head;   // 头结点
+    Node* front;  // 指向头结点
+    Node* rear;   // 指向队尾结点
+    int   count;  // 元素个数，把 Length 从 O(n) 降到 O(1)
+};
+
+int main() {
+    LinkQueue&lt;int&gt; q;
+    q.Print("空队列");
+
+    for (int i = 1; i &lt;= 5; ++i) { q.Push(i * 10); }
+    q.Print("入队 10..50");
+
+    int v;
+    q.Front(v); cout &lt;&lt; "队头 = " &lt;&lt; v &lt;&lt; "\n";
+    q.Back(v);  cout &lt;&lt; "队尾 = " &lt;&lt; v &lt;&lt; "\n";
+
+    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n"; q.Print("出队一次");
+    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n"; q.Print("出队两次");
+
+    LinkQueue&lt;string&gt; sq;
+    sq.Push("链"); sq.Push("队"); sq.Push("列");
+    sq.Print("字符串链队列");
+
+    LinkQueue&lt;int&gt; copy = q;            // 深拷贝验证
+    copy.Pop(v); copy.Print("拷贝后出队");
+    q.Print("原队列不受影响");
+
+    cout &lt;&lt; "全部出队: ";
+    while (q.Pop(v)) cout &lt;&lt; v &lt;&lt; " ";
+    cout &lt;&lt; "\n清空后 Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <h3 id="s4-single">4.4.3 经典易错点：只有一个元素的队列出队后，<code>rear</code> 去哪了？</h3>
+
+    <p>这是链队列最著名的坑，没有之一。假设队列里只剩下一个元素，此时
+      <code>front-&gt;next == rear</code>（队头结点就是队尾结点）。执行出队时，如果只写：</p>
+
+    <pre data-lang="cpp" data-file="link_queue_bug.cpp">// link_queue_bug.cpp —— 反例：出队时忘记处理 rear，导致 rear 悬空
+// 本程序可以正常编译运行，但它演示的 PopBuggy() 是一个【逻辑错误】的实现：
+// 出队最后一个元素后 rear 仍指向已被 delete 的结点，下一次 Push 就是 use-after-free。
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; };
+
+struct BuggyQueue {
+    Node* front;   // 不带头结点，直接指向队头元素
+    Node* rear;
+
+    void InitQueue() { front = rear = nullptr; }
+    bool Empty() const { return front == nullptr; }
+
+    void Push(int x) {
+        Node* s = new Node{x, nullptr};
+        if (Empty()) front = rear = s;
+        else { rear-&gt;next = s; rear = s; }
+    }
+
+    // ✗ 错误写法：只把 front 后移，忘了处理 rear
+    bool PopBuggy(int&amp; out) {
+        if (Empty()) return false;
+        Node* p = front;                  // p 就是队头结点
+        out = p-&gt;data;
+        front = front-&gt;next;              // front 后移（若只有一个元素则变成 nullptr）
+        delete p;                         // p 被释放
+        // 漏了：if (front == nullptr) rear = nullptr;
+        // 此刻 rear 仍指向 p 那块已释放的内存 —— 悬空指针 dangling pointer
+        return true;
+    }
+};
+
+int main() {
+    BuggyQueue q;
+    q.InitQueue();
+    q.Push(42);                           // 队列中只有 1 个元素：front == rear
+
+    int v = 0;
+    q.PopBuggy(v);
+    cout &lt;&lt; "出队 -&gt; " &lt;&lt; v &lt;&lt; "\n";
+    cout &lt;&lt; "出队后 front == nullptr ? " &lt;&lt; (q.front == nullptr ? "是" : "否") &lt;&lt; "\n";
+    cout &lt;&lt; "出队后 rear  == nullptr ? " &lt;&lt; (q.rear == nullptr ? "是" : "否") &lt;&lt; "\n";
+    cout &lt;&lt; "结论：队列逻辑上已空，但 rear 仍然悬空。\n";
+    cout &lt;&lt; "      此处若执行 q.Push(99)，就会写已释放内存（未定义行为），\n";
+    cout &lt;&lt; "      所以我们到此为止，不真的去踩这颗雷。\n";
+    cout &lt;&lt; "正确做法：delete p 之前判断 if (front == nullptr) rear = nullptr;\n";
+    return 0;
+}
+</pre>
+
+    <p>为什么会漏？因为大多数人的心智模型是「出队只动 <code>front</code>，入队只动 <code>rear</code>」，
+      默认两者互不干扰。<b>但队列空掉的那一刻，这两个指针必须重新会合</b>——
+      否则 <code>rear</code> 就悬空了，而下一次入队会直接往已释放的内存里写数据。</p>
+
+    <h4>正确写法（两种都行）</h4>
+
+    <pre data-lang="cpp" data-file="link_queue_single_elem.cpp">// link_queue_single_elem.cpp —— 正确处理"最后一个元素出队"的两种写法
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; };
+
+struct LinkQueue {
+    Node* front;   // 指向头结点
+    Node* rear;    // 指向队尾结点
+
+    void InitQueue() {
+        front = rear = new Node{0, nullptr};
+    }
+    bool Empty() const { return front == rear; }
+
+    void Push(int x) {
+        Node* s = new Node{x, nullptr};
+        rear-&gt;next = s;
+        rear = s;
+    }
+
+    // 写法一：先判断"p 是不是队尾"，是则把 rear 拉回头结点（推荐，语义最清晰）
+    bool PopV1(int&amp; out) {
+        if (Empty()) return false;
+        Node* p = front-&gt;next;
+        out = p-&gt;data;
+        front-&gt;next = p-&gt;next;
+        if (rear == p) rear = front;   // ★ 关键的一行：队列空了，rear 归位
+        delete p;
+        return true;
+    }
+
+    // 写法二：先摘链，再判断"出队后队列是否为空"，是则 rear 归位（少一次比较？其实一样）
+    bool PopV2(int&amp; out) {
+        if (Empty()) return false;
+        Node* p = front-&gt;next;
+        out = p-&gt;data;
+        front-&gt;next = p-&gt;next;
+        delete p;
+        if (front-&gt;next == nullptr) rear = front;  // ★ 用"摘完是否为空"来判断
+        return true;
+    }
+};
+
+int main() {
+    LinkQueue q;
+    q.InitQueue();
+
+    cout &lt;&lt; "初始 Empty = " &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+
+    q.Push(7);                                   // 队列中只有 1 个元素
+    cout &lt;&lt; "入队 7 后 Empty = " &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+
+    int v = 0;
+    q.PopV1(v);
+    cout &lt;&lt; "出队 -&gt; " &lt;&lt; v &lt;&lt; "  Empty = " &lt;&lt; (q.Empty() ? "true" : "false")
+         &lt;&lt; "  front==rear ? " &lt;&lt; (q.front == q.rear ? "是（rear 已归位）" : "否（rear 悬空！）") &lt;&lt; "\n";
+
+    // 出队清空后再入队，验证 rear 依然有效
+    q.Push(100); q.Push(200);
+    cout &lt;&lt; "再次入队 100,200 后依次出队: ";
+    while (q.PopV2(v)) cout &lt;&lt; v &lt;&lt; " ";
+    cout &lt;&lt; "\nEmpty = " &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+
+    q.Push(999);                                 // 空队列再入队，验证 front/rear 一致性
+    q.PopV1(v);
+    cout &lt;&lt; "再入队 999 出队 -&gt; " &lt;&lt; v &lt;&lt; "，程序正常结束（没有悬空指针）\n";
+
+    delete q.front;                              // 释放头结点
+    return 0;
+}
+</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-4　链队列出队的三条铁律</span>
+      <ol style="margin:6px 0 0">
+        <li><b>出队前必判空</b>：<code>front == rear</code>（或 <code>front-&gt;next == nullptr</code>）时直接返回 <code>false</code>，否则 <code>p-&gt;data</code> 就是空指针解引用。</li>
+        <li><b>摘链顺序不能颠倒</b>：必须先把 <code>front-&gt;next</code> 指向 <code>p-&gt;next</code>，再 <code>delete p</code>。反过来先去 <code>delete</code> 再读 <code>p-&gt;next</code> 就是 use-after-free。</li>
+        <li><b>最后一个元素出队后必须 <code>rear = front</code></b>：这是链队列区别于单链表删除的唯一特殊之处，也是最常考的填空点。</li>
+      </ol>
+    </div>
+
+    <h3 id="s4-nohead">4.4.4 不带头结点的链队列对比</h3>
+
+    <p>教材上也能见到不带头结点的写法。它的结构更「紧凑」（省一个结点），
+      但每一个操作都要多写分支。下表把两者的差异摆在一起：</p>
+
+    <div class="table-wrap">
+      <table class="q-cmp">
+        <thead><tr><th>对比项</th><th>带头结点</th><th>不带头结点</th></tr></thead>
+        <tbody>
+          <tr><td>空队列状态</td><td><code>front == rear</code>，指向头结点</td><td><code>front == rear == NULL</code></td></tr>
+          <tr><td>队头元素</td><td><code>front-&gt;next-&gt;data</code></td><td><code>front-&gt;data</code></td></tr>
+          <tr><td>入队（队列为空时）</td><td>统一 <code>rear-&gt;next = s; rear = s;</code></td><td class="c-warn">必须特判：<code>front = rear = s;</code></td></tr>
+          <tr><td>入队（队列非空）</td><td>同上，代码相同</td><td><code>rear-&gt;next = s; rear = s;</code></td></tr>
+          <tr><td>出队（只剩一个元素）</td><td><code>if (rear == p) rear = front;</code></td><td class="c-warn"><code>front = rear = NULL;</code> 必须特判</td></tr>
+          <tr><td>出队（还有多个元素）</td><td><code>front-&gt;next = p-&gt;next;</code></td><td><code>front = front-&gt;next;</code></td></tr>
+          <tr><td>代码分支数量</td><td class="c-ok">无特判，路径统一</td><td>每个操作 2 条分支</td></tr>
+          <tr><td>空间开销</td><td>多 1 个结点（通常 8~16 字节）</td><td class="c-ok">无额外开销</td></tr>
+          <tr><td>易错程度</td><td class="c-ok">低</td><td class="c-warn">高，考试扣分重灾区</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre data-lang="cpp" data-file="link_queue_no_head.cpp">// link_queue_no_head.cpp —— 不带头结点的链队列，注意两处特判
+#include &lt;iostream&gt;
+using namespace std;
+
+template &lt;typename T&gt;
+class LinkQueueNoHead {
+public:
+    LinkQueueNoHead() : front(nullptr), rear(nullptr), count(0) {}
+    ~LinkQueueNoHead() {
+        while (front) { Node* p = front; front = front-&gt;next; delete p; }
+    }
+    bool Empty() const { return front == nullptr; }     // 也可写 rear == nullptr
+    int  Size()  const { return count; }
+
+    void Push(const T&amp; x) {
+        Node* s = new Node(x);
+        if (Empty()) {                                  // ★ 特判一：空队列入队
+            front = rear = s;                           //   front 也要一起修改
+        } else {
+            rear-&gt;next = s;
+            rear = s;
+        }
+        ++count;
+    }
+
+    bool Pop(T&amp; out) {
+        if (Empty()) return false;
+        Node* p = front;                                // 队头就是 front 自己
+        out = p-&gt;data;
+        if (front == rear) {                            // ★ 特判二：只剩一个元素
+            front = rear = nullptr;                     //   两个指针一起置空
+        } else {
+            front = front-&gt;next;                        //   否则只需 front 后移
+        }
+        delete p;
+        --count;
+        return true;
+    }
+
+    bool Front(T&amp; out) const {
+        if (Empty()) return false;
+        out = front-&gt;data;
+        return true;
+    }
+
+    void Print(const char* tag = "") const {
+        if (tag &amp;&amp; *tag) cout &lt;&lt; tag &lt;&lt; " ";
+        cout &lt;&lt; "[size=" &lt;&lt; count &lt;&lt; "] ";
+        if (Empty()) { cout &lt;&lt; "(空)\n"; return; }
+        for (Node* p = front; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
+        cout &lt;&lt; "NULL\n";
+    }
+
+private:
+    struct Node {
+        T     data;
+        Node* next;
+        explicit Node(const T&amp; d) : data(d), next(nullptr) {}
+    };
+    Node* front;
+    Node* rear;
+    int   count;
+};
+
+int main() {
+    LinkQueueNoHead&lt;int&gt; q;
+    q.Print("空队列");
+    q.Push(1);  q.Print("入队 1");      // 走的是"空队列入队"分支
+    q.Push(2);  q.Print("入队 2");      // 走的是普通分支
+
+    int v;
+    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n";  q.Print("出队一次");
+    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n";  q.Print("出队两次（已空）");
+
+    cout &lt;&lt; "空队列再入队 8：";
+    q.Push(8); q.Print("");
+    q.Pop(v); cout &lt;&lt; "出队 -&gt; " &lt;&lt; v &lt;&lt; "，Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    return 0;
+}
+</pre>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="不带头结点链队列出队最后一个元素的指针变化">
+        <defs>
+          <marker id="q5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q5-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q5-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+          <marker id="q5-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="30" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">① 不带头结点，队列中只剩一个元素（front == rear）</text>
+        <rect x="120" y="48" width="130" height="58" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.2"/>
+        <line x1="210" y1="48" x2="210" y2="106" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="165" y="82" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">42</text>
+        <text x="245" y="82" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">∧</text>
+        <text x="165" y="128" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">front</text>
+        <line x1="165" y1="132" x2="165" y2="112" stroke="var(--brand)" stroke-width="2" marker-end="url(#q5-b)"/>
+        <text x="278" y="128" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">rear</text>
+        <line x1="278" y1="132" x2="210" y2="112" stroke="var(--ok)" stroke-width="2" marker-end="url(#q5-g)"/>
+        <text x="360" y="82" fill="var(--text-soft)" font-size="12.5" font-family="inherit">此时 front 和 rear 指向同一个结点，出队后两者都必须置空</text>
+
+        <text x="24" y="188" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">② 若只把 front 后移而不处理 rear → rear 悬空</text>
+        <rect x="120" y="206" width="130" height="58" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="185" y="240" text-anchor="middle" fill="var(--danger)" font-size="13" font-family="inherit">已 delete</text>
+        <text x="165" y="286" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">front = NULL</text>
+        <text x="300" y="286" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">rear 仍指向已释放内存</text>
+        <line x1="300" y1="270" x2="230" y2="250" stroke="var(--danger)" stroke-width="2" marker-end="url(#q5-d)"/>
+        <text x="520" y="240" fill="var(--danger)" font-size="12.5" font-family="inherit">下次 Push 会写坏内存：rear-&gt;next = s 是 use-after-free</text>
+        <text x="520" y="264" fill="var(--text-faint)" font-size="12.5" font-family="inherit">正确做法：if (front == rear) front = rear = nullptr; 再 delete p;</text>
+      </svg>
+      <figcaption>图 4-5　不带头结点链队列的「最后一个元素出队」：front 与 rear 必须同时置空</figcaption>
+    </div>
+
+    <h2 id="s5">4.5 双端队列 Deque：两端都能进出的「加强版」</h2>
+
+    <p>队列限制「一端只进、一端只出」，栈限制「同一端进出」。
+      如果我们把这两种限制<b>全部解除</b>，允许在两端都能插入、都能删除，得到的就是<b>双端队列 double-ended queue，简称 deque</b>（读作 "deck"）。</p>
+
+    <dl class="def">
+      <dt>push_front(x)</dt><dd>在<b>前端</b>插入元素 x，x 成为新的队头。</dd>
+      <dt>push_back(x)</dt><dd>在<b>后端</b>插入元素 x，x 成为新的队尾。等价于普通队列的入队。</dd>
+      <dt>pop_front()</dt><dd>删除<b>前端</b>元素。等价于普通队列的出队。</dd>
+      <dt>pop_back()</dt><dd>删除<b>后端</b>元素。</dd>
+    </dl>
+
+    <p>四个操作都是 <code>O(1)</code>。用循环数组实现时，只需要把「单侧前进」变成「<code>front</code> 向前退格、<code>rear</code> 向后前进」两个方向都支持取模即可：</p>
+
+    <div class="formula">front = (front − 1 + MaxSize) % MaxSize　　rear = (rear + 1) % MaxSize</div>
+
+    <p>注意 <code>front</code> 前移时同样要先加 <code>MaxSize</code> 再取模 —— 和长度公式踩的是同一个坑。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="双端队列四种操作示意图">
+        <defs>
+          <marker id="q6-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q6-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q6-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="q6-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <text x="440" y="30" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="inherit">双端队列 deque：两端均可插入、均可删除</text>
+
+        <rect x="270" y="88" width="90" height="62" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="315" y="126" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">12</text>
+        <rect x="362" y="88" width="90" height="62" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="407" y="126" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">7</text>
+        <rect x="454" y="88" width="90" height="62" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="499" y="126" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">25</text>
+        <rect x="546" y="88" width="90" height="62" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <text x="591" y="126" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">3</text>
+
+        <text x="315" y="76" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">front 端</text>
+        <text x="591" y="76" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">back 端</text>
+
+        <line x1="226" y1="104" x2="264" y2="104" stroke="var(--brand)" stroke-width="2.2" marker-end="url(#q6-b)"/>
+        <text x="196" y="98" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">push_front</text>
+        <text x="196" y="114" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">前端插入</text>
+
+        <line x1="264" y1="140" x2="226" y2="140" stroke="var(--accent)" stroke-width="2.2" marker-end="url(#q6-o)"/>
+        <text x="190" y="168" text-anchor="middle" fill="var(--accent)" font-size="12.5" font-family="inherit">pop_front</text>
+        <text x="190" y="184" text-anchor="middle" fill="var(--accent)" font-size="12.5" font-family="inherit">前端删除</text>
+
+        <line x1="676" y1="104" x2="640" y2="104" stroke="var(--ok)" stroke-width="2.2" marker-end="url(#q6-g)"/>
+        <text x="712" y="98" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="inherit">push_back</text>
+        <text x="712" y="114" text-anchor="middle" fill="var(--ok)" font-size="12.5" font-family="inherit">后端插入</text>
+
+        <line x1="640" y1="140" x2="676" y2="140" stroke="var(--accent)" stroke-width="2.2" marker-end="url(#q6-o)"/>
+        <text x="716" y="168" text-anchor="middle" fill="var(--accent)" font-size="12.5" font-family="inherit">pop_back</text>
+        <text x="716" y="184" text-anchor="middle" fill="var(--accent)" font-size="12.5" font-family="inherit">后端删除</text>
+
+        <rect x="60" y="216" width="760" height="62" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="440" y="240" text-anchor="middle" fill="var(--text-soft)" font-size="12.5" font-family="inherit">只允许 push_back / pop_front 使用 → 退化为普通<b>队列</b>（FIFO）</text>
+        <text x="440" y="264" text-anchor="middle" fill="var(--text-soft)" font-size="12.5" font-family="inherit">只允许 push_back / pop_back 使用 → 退化为<b>栈</b>（LIFO）</text>
+      </svg>
+      <figcaption>图 4-6　双端队列：两端都能进出，因此栈与队列都是它的特例</figcaption>
+    </div>
+
+    <h3 id="s5-restricted">4.5.1 受限双端队列：输入受限与输出受限</h3>
+
+    <p>考试里还常考两种「半限制」的 deque，它们的出题点在于<b>判断某个输出序列是否合法</b>：</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s5-in-limit">输入受限双端队列 input-restricted deque</h3>
+        <p>只允许在<b>一端插入</b>，但<b>两端都可以删除</b>。</p>
+        <p>可以理解为「一个队列 + 一个栈的出口」：元素只能从后端进来，但既可以从后端直接拿走（像栈），
+          也可以等它慢慢移动到前端再拿走（像队列）。</p>
+        <p style="margin-bottom:0"><b>合法输出序列变多了</b>：它比普通队列灵活，但比真正的 deque 受限。</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s5-out-limit">输出受限双端队列 output-restricted deque</h3>
+        <p>只允许在<b>一端删除</b>，但<b>两端都可以插入</b>。</p>
+        <p>可以理解为「一个队列 + 一个栈的入口」：元素可以从两端任意一端进来，
+          但只能从固定的一端出去。</p>
+        <p style="margin-bottom:0"><b>它同样比普通队列灵活</b>：因为可以从队头「插队」进元素，从而改变输出顺序。</p>
+      </div>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-3</span>
+      经典题：「输入受限双端队列，入队序列 <code>1 2 3 4</code>，能否得到输出序列 <code>4 1 2 3</code>？」
+      分析套路是<b>倒着推</b>：先确定最后一个输出是谁，再反推此刻队列里还剩下什么、它们能否按目标顺序离开。
+      判断时牢记两条限制：<b>输入只能从哪端进</b>、<b>输出能从哪端出</b>，然后枚举每一种可能，用排除法即可。
+      由于枚举空间小（4 个元素最多 24 种序列），手推完全可行，切忌凭感觉猜。
+    </div>
+
+    <h3 id="s5-stl">4.5.2 用 C++ <code>std::deque</code> 演示四种操作</h3>
+
+    <p><code>std::deque</code> 是 STL 里真正实现了双端队列的容器（也是 <code>std::queue</code> 与 <code>std::stack</code> 的默认底层容器）。
+      它允许在两端 <code>O(1)</code> 插入删除，同时还<b>支持随机访问</b> <code>d[i]</code> —— 这一点比 <code>std::queue</code> 强得多。</p>
+
+    <pre data-lang="cpp" data-file="std_deque_demo.cpp">// std_deque_demo.cpp —— std::deque 的四种操作与"栈/队列特例"验证
+#include &lt;iostream&gt;
+#include &lt;deque&gt;
+#include &lt;string&gt;
+using namespace std;
+
+void show(const string&amp; tag, const deque&lt;int&gt;&amp; d) {
+    cout &lt;&lt; tag &lt;&lt; "  [size=" &lt;&lt; d.size() &lt;&lt; "] front-&gt;back: ";
+    for (size_t i = 0; i &lt; d.size(); ++i) cout &lt;&lt; d[i] &lt;&lt; (i + 1 == d.size() ? "" : " ");
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    deque&lt;int&gt; d;
+
+    cout &lt;&lt; "=== 1) 四种基本操作 ===\n";
+    d.push_back(10);  show("push_back(10)  ", d);
+    d.push_back(20);  show("push_back(20)  ", d);
+    d.push_front(5);  show("push_front(5)  ", d);
+    d.push_front(1);  show("push_front(1)  ", d);
+    cout &lt;&lt; "front() = " &lt;&lt; d.front() &lt;&lt; "   back() = " &lt;&lt; d.back() &lt;&lt; "\n";
+
+    d.pop_front();    show("pop_front()    ", d);
+    d.pop_back();     show("pop_back()     ", d);
+
+    cout &lt;&lt; "随机访问 d[1] = " &lt;&lt; d[1] &lt;&lt; "（deque 支持下标，queue 不支持）\n\n";
+
+    cout &lt;&lt; "=== 2) 只用 push_back + pop_front 就是队列 ===\n";
+    {
+        deque&lt;int&gt; q;
+        for (int i = 1; i &lt;= 4; ++i) q.push_back(i);
+        cout &lt;&lt; "FIFO 出队顺序: ";
+        while (!q.empty()) { cout &lt;&lt; q.front() &lt;&lt; " "; q.pop_front(); }
+        cout &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "=== 3) 只用 push_back + pop_back 就是栈 ===\n";
+    {
+        deque&lt;int&gt; s;
+        for (int i = 1; i &lt;= 4; ++i) s.push_back(i);
+        cout &lt;&lt; "LIFO 出栈顺序: ";
+        while (!s.empty()) { cout &lt;&lt; s.back() &lt;&lt; " "; s.pop_back(); }
+        cout &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "=== 4) 用 deque 手工做一个「输出受限」的双端队列 ===\n";
+    {
+        deque&lt;int&gt; od;
+        od.push_front(1);          // 两端都能插入
+        od.push_back(2);
+        od.push_front(3);
+        show("插入后       ", od);   // 3 1 2
+        cout &lt;&lt; "只能从 back 端删除: ";
+        while (!od.empty()) { cout &lt;&lt; od.back() &lt;&lt; " "; od.pop_back(); }
+        cout &lt;&lt; "\n";
+    }
+    return 0;
+}
+</pre>
+
+    <p>下面这个动画可以亲自动手，在前端 / 后端分别做插入与删除，观察 <code>front</code> 与 <code>rear</code> 指针是如何向两侧扩展的。</p>
+
+    <div id="viz-deque"></div>
+
+    <h3 id="s5-special">4.5.3 统一视角：栈和队列都是双端队列的特例</h3>
+
+    <p>这句话不是修辞，而是严格的包含关系：</p>
+    <ul>
+      <li><b>队列 = 只用 <code>push_back</code> + <code>pop_front</code> 的 deque</b>。「一端进、另一端出」正是 FIFO。</li>
+      <li><b>栈 = 只用 <code>push_back</code> + <code>pop_back</code> 的 deque</b>。「同一端进出」正是 LIFO。</li>
+      <li>输入受限 deque ≈ 「<code>push_back</code> + (<code>pop_front</code> | <code>pop_back</code>)」，输出受限 deque ≈ 「(<code>push_front</code> | <code>push_back</code>) + <code>pop_front</code>」。</li>
+    </ul>
+
+    <p>正因为存在这种包含关系，STL 的实现者才敢用 <code>deque</code> 同时作为 <code>queue</code> 和 <code>stack</code> 的默认底层容器 ——
+      一套经过充分测试的双端队列代码，加一层薄薄的接口限制，就同时得到了栈和队列。</p>
+
+    <div class="note tip">
+      <span class="note-title">设计启示：约束即价值</span>
+      从数据结构的能力上看，deque ⊃ queue ⊃ （受限 deque） ⊃ 单调队列；
+      但<b>能力越强的结构，越难保证语义</b>。用 <code>deque</code> 冒充队列，编译器不会阻止你写 <code>pop_back()</code>，
+      一旦误用就会破坏 FIFO 语义。这就是为什么 STL 宁可为队列单独包一层 <code>std::queue</code>：
+      <b>把不该用的操作藏起来，让错误在编译期就暴露。</b>
+    </div>
+
+    <h2 id="s6">4.6 循环队列 vs 链队列：工程上怎么选</h2>
+
+    <p>两种实现都能做到 <code>O(1)</code> 的入队出队，那实际项目里到底用哪个？先看对比表：</p>
+
+    <div class="table-wrap">
+      <table class="q-cmp">
+        <thead>
+          <tr><th>对比维度</th><th>循环队列（顺序存储）</th><th>链队列（链式存储）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>存储方式</td><td>定长数组 + 取模</td><td>结点 + <code>next</code> 指针 + 头结点</td></tr>
+          <tr><td>入队时间</td><td class="c-ok">O(1)，一次赋值一次取模</td><td class="c-ok">O(1)，一次 <code>new</code> + 两次指针赋值</td></tr>
+          <tr><td>出队时间</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)（需特判最后一个元素）</td></tr>
+          <tr><td>长度</td><td>方案一需算公式；方案二 O(1) 直读</td><td>需遍历 O(n)，加 <code>size</code> 后 O(1)</td></tr>
+          <tr><td>空间开销</td><td class="c-ok">无指针开销，但需预分配</td><td class="c-warn">每元素多 1 个指针（8 字节）</td></tr>
+          <tr><td>空间浪费</td><td>方案一浪费 1 格；预分配过大则内存闲置</td><td class="c-ok">按需分配，几乎零浪费</td></tr>
+          <tr><td>扩容能力</td><td class="c-bad">固定容量，满了只能拒绝或整体搬迁</td><td class="c-ok">天然无上限（受内存限制）</td></tr>
+          <tr><td>内存局部性 locality</td><td class="c-ok">极好，元素连续，CPU 缓存友好</td><td class="c-warn">差，结点分散在堆上，缓存不友好</td></tr>
+          <tr><td>内存分配次数</td><td class="c-ok">0 次（一次性分配）</td><td class="c-warn">每个元素 1 次 <code>new</code> / <code>delete</code></td></tr>
+          <tr><td>随机访问</td><td>可以（但不该暴露）</td><td class="c-bad">不支持，必须从头遍历</td></tr>
+          <tr><td>实现难度</td><td class="c-warn">判空判满与长度公式易错</td><td class="c-warn">指针操作与边界特判易错</td></tr>
+          <tr><td>多线程友好度</td><td class="c-ok">高，也容易做成无锁 ring buffer</td><td>低，<code>new/delete</code> 需加锁</td></tr>
+          <tr><td>典型适用场景</td><td>容量可预估、追求速度：嵌入式串口缓冲、音频采样、日志队列、多线程任务池</td><td>长度波动极大且无法预估：任务队列、生产者消费者、动态请求缓冲</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">选型口诀</span>
+      <b>「容量可估用循环，长度莫测用链式；性能敏感用循环，频繁增删用链式。」</b><br>
+      真实系统里还有一种常见折中：用<b>循环队列 + 动态扩容</b>（满了就 <code>new</code> 一个两倍大的数组，把元素按逻辑顺序搬过去）。
+      这样既有数组的缓存友好，又不像纯循环队列那样被容量卡死 —— 这就是 <code>std::deque</code> 和大多数 ring buffer 库的做法：
+      <b>分块 + 索引映射</b>，把「扩容」和「O(1) 双端操作」两个目标同时拿下。
+    </div>
+
+    <h2 id="s7">4.7 应用一：银行排队模拟（离散事件模拟）</h2>
+
+    <p>前面都是「结构怎么实现」，从这一节开始讲「结构能干什么」。
+      队列最有代表性的应用，就是<b>模拟排队系统</b>。这是本章的重头戏，请一定动手跑一遍代码。</p>
+
+    <h3 id="s7-prob">4.7.1 问题描述：一个窗口，随机到达的顾客</h3>
+
+    <p>场景：银行只开 <b>1 个窗口</b>。顾客陆续到来，到达的<b>时间间隔是随机的</b>；
+      每个顾客办理业务所需的<b>服务时长也是随机的</b>。窗口同一时刻只能服务一个人，
+      后面来的人自动排到队尾。我们想回答这些问题：</p>
+
+    <ul>
+      <li>顾客平均要等多久？（<b>平均等待时间</b>）</li>
+      <li>最倒霉的那位等了多久？（<b>最大等待时间</b>）</li>
+      <li>队伍最长排到多少人？（<b>队列最大长度</b>，决定要不要加隔离带）</li>
+      <li>窗口有多长时间是空闲的？（<b>空闲率</b>，决定要不要裁撤窗口）</li>
+    </ul>
+
+    <p>这些问题<b>没有解析公式</b>（除非假设到达服从泊松分布、服务时间服从指数分布，才轮到排队论出场），
+      但用计算机模拟却非常简单 —— 这就是<b>离散事件模拟 discrete event simulation</b>。</p>
+
+    <h3 id="s7-des">4.7.2 离散事件模拟的三个核心概念</h3>
+
+    <dl class="def">
+      <dt>事件 event</dt>
+      <dd>让系统状态发生突变的那一刻。本问题里只有两类：<b>顾客到达 arrival</b> 与 <b>服务完成 departure</b>。
+        注意时间只在事件发生的瞬间才「跳一下」，中间那些没人来也没人走的「空档」不需要逐秒模拟。</dd>
+
+      <dt>时间推进 time advance</dt>
+      <dd>把仿真时钟直接拨到「下一个事件发生的时间」，而不是 <code>t = t + 1</code> 逐个时间单位试探。
+        本问题里下一个事件时间 = <code>min(下一位顾客的到达时刻, 当前顾客的服务完成时刻)</code>。</dd>
+
+      <dt>状态 state</dt>
+      <dd>用来描述系统此刻处境的全部变量：<code>clock</code>（当前时刻）、<code>queue</code>（排队的顾客）、
+        <code>serverBusy</code>（窗口是否占用）、各项累计统计量。</dd>
+    </dl>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 320" width="900" height="320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="离散事件模拟的时间轴示意图">
+        <defs>
+          <marker id="q7-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q7-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+          <marker id="q7-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">仿真时钟只在事件发生时才推进（时间单位：分钟）</text>
+        <line x1="88" y1="120" x2="862" y2="120" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#q7-a)"/>
+        <text x="866" y="124" text-anchor="end" fill="var(--text-faint)" font-size="12" font-family="inherit">t</text>
+
+        <g font-family="Consolas, monospace" font-size="11.5" fill="var(--text-soft)" text-anchor="middle">
+          <text x="100" y="144">0</text><text x="220" y="144">3</text><text x="300" y="144">5</text>
+          <text x="380" y="144">7</text><text x="420" y="144">8</text><text x="460" y="144">9</text>
+          <text x="580" y="144">12</text><text x="820" y="144">18</text>
+        </g>
+
+        <line x1="100" y1="112" x2="100" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="220" y1="112" x2="220" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="300" y1="112" x2="300" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="380" y1="112" x2="380" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="420" y1="112" x2="420" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="460" y1="112" x2="460" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="580" y1="112" x2="580" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+        <line x1="820" y1="112" x2="820" y2="128" stroke="var(--border-strong)" stroke-width="2"/>
+
+        <circle cx="100" cy="86" r="8" fill="var(--brand)"/><text x="100" y="62" text-anchor="middle" fill="var(--brand)" font-size="12" font-family="inherit">到达A</text>
+        <circle cx="220" cy="86" r="8" fill="var(--brand)"/><text x="212" y="62" text-anchor="middle" fill="var(--brand)" font-size="12" font-family="inherit">到达B</text>
+        <circle cx="300" cy="86" r="8" fill="var(--ok)"/><text x="300" y="62" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">A完成</text>
+        <circle cx="380" cy="86" r="8" fill="var(--brand)"/><text x="380" y="62" text-anchor="middle" fill="var(--brand)" font-size="12" font-family="inherit">到达C</text>
+        <circle cx="420" cy="86" r="8" fill="var(--brand)"/><text x="446" y="62" text-anchor="middle" fill="var(--brand)" font-size="12" font-family="inherit">到达D</text>
+        <circle cx="460" cy="86" r="8" fill="var(--ok)"/><text x="500" y="62" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">B完成</text>
+        <circle cx="580" cy="86" r="8" fill="var(--ok)"/><text x="580" y="62" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">C完成</text>
+        <circle cx="820" cy="86" r="8" fill="var(--ok)"/><text x="800" y="62" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">D完成</text>
+
+        <rect x="100" y="158" width="200" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="200" y="177" text-anchor="middle" fill="var(--text)" font-size="12" font-family="inherit">窗口服务 A（0 → 5）</text>
+        <rect x="300" y="158" width="160" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="380" y="177" text-anchor="middle" fill="var(--text)" font-size="12" font-family="inherit">服务 B（5 → 9）</text>
+        <rect x="460" y="158" width="120" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="520" y="177" text-anchor="middle" fill="var(--text)" font-size="12" font-family="inherit">服务 C</text>
+        <rect x="580" y="158" width="240" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="700" y="177" text-anchor="middle" fill="var(--text)" font-size="12" font-family="inherit">窗口服务 D（12 → 18）</text>
+
+        <rect x="220" y="196" width="80" height="22" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.6"/>
+        <text x="260" y="211" text-anchor="middle" fill="var(--danger)" font-size="11.5" font-family="inherit">B 等 2</text>
+        <rect x="380" y="196" width="80" height="22" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.6"/>
+        <text x="420" y="211" text-anchor="middle" fill="var(--danger)" font-size="11.5" font-family="inherit">C 等 2</text>
+        <rect x="420" y="226" width="160" height="22" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.6"/>
+        <text x="500" y="241" text-anchor="middle" fill="var(--danger)" font-size="11.5" font-family="inherit">D 等待 4（8 → 12）</text>
+
+        <text x="24" y="286" fill="var(--text-faint)" font-size="12.5" font-family="inherit">
+          绿色方块 = 窗口忙碌区间；红色方块 = 顾客在队列里的等待时长。等待时间 = 开始服务时刻 − 到达时刻。
+        </text>
+        <text x="24" y="308" fill="var(--text-faint)" font-size="12.5" font-family="inherit">
+          只有 8 个事件点需要处理，中间的空白时段直接跳过 —— 这就是离散事件模拟的效率来源。
+        </text>
+      </svg>
+      <figcaption>图 4-7　离散事件模拟时间轴：A、B、C、D 的到达与离开事件，以及各自的等待时长</figcaption>
+    </div>
+
+    <h3 id="s7-rule">4.7.3 手工推演：模拟的判定规则</h3>
+
+    <p>在写代码之前，我们先人工模拟 4 个顾客，把规则彻底搞明白。
+      设 <code>MaxSize</code> 足够大，数据如下（时间单位：分钟）：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>顾客</th><th>到达时刻 arrive</th><th>服务时长 serve</th><th>到达时队伍状态</th><th>开始服务</th><th>等待时间</th><th>离开时刻</th></tr></thead>
+        <tbody>
+          <tr><td>A</td><td>0</td><td>5</td><td>空，窗口空闲</td><td>0</td><td class="c-ok">0</td><td>5</td></tr>
+          <tr><td>B</td><td>3</td><td>4</td><td>空但窗口忙（A 到 5 才结束）</td><td>5</td><td class="c-warn">2</td><td>9</td></tr>
+          <tr><td>C</td><td>7</td><td>3</td><td>空但窗口忙（B 到 9 才结束）</td><td>9</td><td class="c-warn">2</td><td>12</td></tr>
+          <tr><td>D</td><td>8</td><td>6</td><td>B 还在服务，C 在排队 → 队伍长度 1</td><td>12</td><td class="c-bad">4</td><td>18</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>推演的关键只有一条判定规则，请务必记住：</p>
+
+    <div class="formula center">顾客开始服务的时刻 = max(自己的到达时刻, 窗口变为空闲的时刻)</div>
+
+    <p>队列在模拟里的作用非常明确：<b>它存放「已经到达但还没轮到自己」的顾客</b>。
+      顾客到达时 <code>push</code> 进队列；窗口空闲时从队列 <code>front</code> 取出下一位 <code>pop</code>。
+      FIFO 保证了「先到先服务 first come first served，FCFS」，也就是现实中的排队公平性 ——
+      这正是队列不可替代的地方：<b>换任何别的结构，都会破坏先来后到。</b></p>
+
+    <h3 id="s7-rand">4.7.4 随机数：到达间隔与服务时长怎么来</h3>
+
+    <p>模拟离不开随机数。C++11 提供了 <code>&lt;random&gt;</code> 库，写法如下：</p>
+
+    <pre data-lang="cpp" data-file="random_interval.cpp">// random_interval.cpp —— 用 C++11 &lt;random&gt; 生成"随机间隔"与"随机服务时长"
+#include &lt;iostream&gt;
+#include &lt;random&gt;
+using namespace std;
+
+int main() {
+    // 固定种子 → 每次运行结果完全一致，方便调试与对照答案；
+    // 换成 random_device{}() 就能得到真正的随机结果。
+    mt19937 gen(20240501u);
+
+    // 到达间隔：1~6 分钟均匀分布（平均 3.5 分钟来一位）
+    uniform_int_distribution&lt;int&gt; arriveGap(1, 6);
+    // 服务时长：2~8 分钟均匀分布（平均 5 分钟服务一位）
+    uniform_int_distribution&lt;int&gt; serveTime(2, 8);
+
+    cout &lt;&lt; "前 10 位顾客的到达间隔与到达时刻：\n";
+    int t = 0;
+    for (int i = 0; i &lt; 10; ++i) {
+        int gap = arriveGap(gen);
+        t += gap;
+        cout &lt;&lt; "顾客" &lt;&lt; i + 1 &lt;&lt; ": 间隔=" &lt;&lt; gap
+             &lt;&lt; " 到达时刻=" &lt;&lt; t
+             &lt;&lt; " 预计服务=" &lt;&lt; serveTime(gen) &lt;&lt; " 分钟\n";
+    }
+
+    cout &lt;&lt; "\n注意：平均到达间隔 " &lt;&lt; 3.5
+         &lt;&lt; " 分钟 &lt; 平均服务时长 5 分钟，\n"
+         &lt;&lt; "      说明顾客来得比服务得快 → 队伍会越排越长（系统不稳定）。\n";
+    return 0;
+}
+</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错点 4-5　别再用 <code>rand() % n</code> 了</span>
+      <ul style="margin:6px 0 0">
+        <li><code>rand()</code> 的最大值 <code>RAND_MAX</code> 在某些平台只有 32767，<code>rand() % n</code> 取小模数时低位随机性差，分布并不均匀。</li>
+        <li><code>rand()</code> 是全局状态，多线程下需要加锁，会拖慢仿真速度。</li>
+        <li>正确姿势：<code>mt19937</code>（梅森旋转）+ <code>uniform_int_distribution</code>，需要小数就用 <code>uniform_real_distribution&lt;double&gt;</code>，需要正态分布就用 <code>normal_distribution</code>。</li>
+        <li><b>调试时务必固定种子</b>（如 <code>mt19937 gen(20240501u)</code>），否则每次结果都变，根本没法定位问题。</li>
+      </ul>
+    </div>
+
+    <h3 id="s7-stl">4.7.5 版本 A：用 <code>std::queue</code> 实现完整模拟</h3>
+
+    <p>这是推荐写法：短、清晰、不容易出错。程序会输出每一位顾客的到达 / 开始服务 / 等待 / 离开时刻，
+      最后给出统计指标。</p>
+
+    <pre data-lang="cpp" data-file="bank_sim_stl.cpp">// bank_sim_stl.cpp —— 银行单窗口排队模拟（std::queue 版本，可直接编译运行）
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;random&gt;
+#include &lt;iomanip&gt;
+#include &lt;algorithm&gt;      // std::max
+using namespace std;
+
+struct Customer {
+    int id;         // 编号
+    int arrive;     // 到达时刻
+    int serve;      // 需要服务多久
+    int start;      // 实际开始服务时刻
+    int leave;      // 离开时刻
+    int wait() const { return start - arrive; }
+};
+
+struct Stat {
+    double totalWait = 0;   // 累计等待时间
+    int    maxWait   = 0;   // 最大等待时间
+    int    maxQueue  = 0;   // 队列最大长度
+    int    idleTime  = 0;   // 窗口空闲总时长
+    int    done      = 0;   // 已完成人数
+};
+
+// 单窗口模拟：n 位顾客，窗口 1 个
+Stat simulate(int n, unsigned seed) {
+    mt19937 gen(seed);
+    uniform_int_distribution&lt;int&gt; arriveGap(1, 6);   // 到达间隔 1~6
+    uniform_int_distribution&lt;int&gt; serveTime(2, 8);   // 服务时长 2~8
+
+    queue&lt;Customer&gt; q;          // ★ 队列：已到达但还没轮到服务的顾客
+    Stat st;
+    int clock = 0;              // 仿真时钟
+    int freeAt = 0;             // 窗口变为空闲的时刻（0 表示一开始就空闲）
+    int nextArrive = arriveGap(gen);
+
+    for (int i = 1; i &lt;= n; ++i) {
+        clock = nextArrive;                     // 时间推进到「下一位顾客到达」
+        q.push(Customer{i, clock, serveTime(gen), 0, 0});
+        if ((int)q.size() &gt; st.maxQueue) st.maxQueue = (int)q.size();
+
+        // 只要窗口在 clock 之前（或正好）已经空出来，队头就可以立刻开始服务。
+        // 服务一个人耗时 &gt; 0，所以每来一位新顾客，最多只会消耗掉队头一个人。
+        while (!q.empty() &amp;&amp; freeAt &lt;= clock) {
+            Customer w = q.front(); q.pop();
+            w.start = max(w.arrive, freeAt);    // ★ 核心公式：max(到达时刻, 窗口空闲时刻)
+            if (w.start &gt; freeAt) st.idleTime += w.start - freeAt;  // 窗口空等了一段时间
+            w.leave = w.start + w.serve;
+            freeAt  = w.leave;                  // 窗口下一次空闲的时刻
+            st.totalWait += w.wait();
+            if (w.wait() &gt; st.maxWait) st.maxWait = w.wait();
+            ++st.done;
+            cout &lt;&lt; "顾客" &lt;&lt; setw(3) &lt;&lt; w.id
+                 &lt;&lt; "  到达 " &lt;&lt; setw(3) &lt;&lt; w.arrive
+                 &lt;&lt; "  服务 " &lt;&lt; w.serve &lt;&lt; " 分钟"
+                 &lt;&lt; "  开始 " &lt;&lt; setw(3) &lt;&lt; w.start
+                 &lt;&lt; "  等待 " &lt;&lt; setw(3) &lt;&lt; w.wait()
+                 &lt;&lt; "  离开 " &lt;&lt; setw(3) &lt;&lt; w.leave &lt;&lt; "\n";
+        }
+
+        nextArrive = clock + arriveGap(gen);     // 下一位顾客的到达时刻
+    }
+
+    // 收尾：不会再有新顾客了，把队列里剩下的人依次服务完
+    while (!q.empty()) {
+        Customer w = q.front(); q.pop();
+        w.start = max(w.arrive, freeAt);
+        if (w.start &gt; freeAt) st.idleTime += w.start - freeAt;
+        w.leave = w.start + w.serve;
+        freeAt  = w.leave;
+        st.totalWait += w.wait();
+        if (w.wait() &gt; st.maxWait) st.maxWait = w.wait();
+        ++st.done;
+        cout &lt;&lt; "顾客" &lt;&lt; setw(3) &lt;&lt; w.id
+             &lt;&lt; "  到达 " &lt;&lt; setw(3) &lt;&lt; w.arrive
+             &lt;&lt; "  服务 " &lt;&lt; w.serve &lt;&lt; " 分钟"
+             &lt;&lt; "  开始 " &lt;&lt; setw(3) &lt;&lt; w.start
+             &lt;&lt; "  等待 " &lt;&lt; setw(3) &lt;&lt; w.wait()
+             &lt;&lt; "  离开 " &lt;&lt; setw(3) &lt;&lt; w.leave &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "\n================ 模拟结果 ================\n";
+    cout &lt;&lt; fixed &lt;&lt; setprecision(2);
+    cout &lt;&lt; "顾客总数       : " &lt;&lt; n &lt;&lt; "\n";
+    cout &lt;&lt; "总耗时         : " &lt;&lt; freeAt &lt;&lt; " 分钟\n";
+    cout &lt;&lt; "平均等待时间   : " &lt;&lt; (n ? st.totalWait / n : 0.0) &lt;&lt; " 分钟\n";
+    cout &lt;&lt; "最大等待时间   : " &lt;&lt; st.maxWait &lt;&lt; " 分钟\n";
+    cout &lt;&lt; "队列最大长度   : " &lt;&lt; st.maxQueue &lt;&lt; " 人\n";
+    cout &lt;&lt; "窗口空闲时长   : " &lt;&lt; st.idleTime &lt;&lt; " 分钟（占用率 "
+         &lt;&lt; (freeAt ? 100.0 * (freeAt - st.idleTime) / freeAt : 0.0) &lt;&lt; "%）\n";
+    return st;
+}
+
+int main() {
+    cout &lt;&lt; "=========== 银行单窗口排队模拟（20 位顾客）===========\n";
+    Stat a = simulate(20, 20240501u);
+
+    cout &lt;&lt; "\n=========== 换一批随机数据（200 位顾客）===========\n";
+    Stat b = simulate(200, 987654321u);
+
+    cout &lt;&lt; "\n=========== 对比分析 ============\n";
+    cout &lt;&lt; "20 人  : 平均等待 " &lt;&lt; a.totalWait / 20 &lt;&lt; " 分钟, 最长队伍 " &lt;&lt; a.maxQueue &lt;&lt; " 人\n";
+    cout &lt;&lt; "200 人 : 平均等待 " &lt;&lt; b.totalWait / 200 &lt;&lt; " 分钟, 最长队伍 " &lt;&lt; b.maxQueue &lt;&lt; " 人\n";
+    cout &lt;&lt; "结论：样本越大统计越稳定，队伍长度随人数增加而变长，说明服务能力不足。\n";
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-4　排队模拟的三个必写量</span>
+      <ol style="margin:6px 0 0">
+        <li><b>开始服务时刻 = max(到达时刻, 窗口空闲时刻)</b>。这一个 <code>max</code> 就是整道题的核心，写错它全盘皆错。</li>
+        <li><b>等待时间 = 开始服务时刻 − 到达时刻</b>。注意不是「离开 − 到达」，那叫<b>逗留时间</b>（等待 + 服务）。</li>
+        <li><b>队列最大长度在「入队后」统计</b>，因为队列只会在两次到达之间变短；出队时再统计就会漏掉峰值。</li>
+      </ol>
+    </div>
+
+    <h3 id="s7-circular">4.7.6 版本 B：把 <code>std::queue</code> 换成自写循环队列</h3>
+
+    <p>版本 A 用的是 STL。但考试要你自己写，工程上也常需要把队列控制在自己手里
+      （比如要统计队列最大长度、要不加锁、要固定内存）。
+      下面这份程序把我们自己写的 <code>CircularQueue&lt;T&gt;</code> 塞进模拟器，
+      并且顺便把「窗口数」做成参数 —— 于是它同时也是一个<b>多窗口模拟器</b>。</p>
+
+    <pre data-lang="cpp" data-file="bank_sim_circular.cpp">// bank_sim_circular.cpp —— 自写循环队列版银行排队模拟（支持 1~N 个窗口）
+#include &lt;iostream&gt;
+#include &lt;random&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;iomanip&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ---------- 1. 自写的循环队列（方案一：牺牲一个存储单元判满） ---------- */
+template &lt;typename T&gt;
+class CircularQueue {
+public:
+    explicit CircularQueue(int capacity = 1024)
+        : cap(capacity &gt; 1 ? capacity : 2), data(new T[cap]), front(0), rear(0), count(0) {}
+    ~CircularQueue() { delete[] data; }
+
+    bool Empty() const { return count == 0; }
+    bool Full()  const { return count == cap - 1; }     // 牺牲一格
+    int  Size()  const { return count; }
+
+    bool Push(const T&amp; x) {
+        if (Full()) return false;
+        data[rear] = x;
+        rear = (rear + 1) % cap;
+        ++count;
+        return true;
+    }
+    bool Pop(T&amp; out) {
+        if (Empty()) return false;
+        out = data[front];
+        front = (front + 1) % cap;
+        --count;
+        return true;
+    }
+private:
+    int cap;
+    T*  data;
+    int front, rear, count;
+};
+
+/* ---------- 2. 顾客与统计 ---------- */
+struct Customer {
+    int id, arrive, serve, start, leave;
+    int wait() const { return start - arrive; }
+};
+
+struct Report {
+    double avgWait = 0;     // 平均等待时间
+    int    maxWait = 0;     // 最大等待时间
+    int    maxQueue = 0;    // 队列最大长度
+    int    totalTime = 0;   // 全部服务完的总耗时
+    double busyRate = 0;    // 窗口平均占用率
+};
+
+/* ---------- 3. 模拟器：windows 个窗口，共享一条等待队列 ---------- */
+Report simulate(int n, unsigned seed, int windows, bool verbose = false) {
+    mt19937 gen(seed);
+    uniform_int_distribution&lt;int&gt; arriveGap(1, 6);    // 到达间隔 1~6 分钟
+    uniform_int_distribution&lt;int&gt; serveTime(2, 8);    // 服务时长 2~8 分钟
+
+    CircularQueue&lt;Customer&gt; q(4096);                  // ★ 本章的主角：等待队列
+    vector&lt;int&gt; freeAt(windows, 0);                   // 每个窗口下一次空闲的时刻
+    Report rep;
+
+    double totalWait = 0, totalIdle = 0;
+    int clock = 0, nextArrive = arriveGap(gen);
+
+    for (int i = 1; i &lt;= n; ++i) {
+        clock = nextArrive;
+        Customer c{i, clock, serveTime(gen), 0, 0};
+        if (!q.Push(c)) { cout &lt;&lt; "队列已满，顾客 " &lt;&lt; i &lt;&lt; " 被拒绝\n"; continue; }
+        if (q.Size() &gt; rep.maxQueue) rep.maxQueue = q.Size();   // ★ 队列峰值在入队后统计
+
+        // 有空闲窗口就持续叫号：每次挑"最早空闲"的那个窗口，保证负载均衡
+        while (!q.Empty()) {
+            int best = -1;
+            for (int k = 0; k &lt; windows; ++k)
+                if (freeAt[k] &lt;= clock &amp;&amp; (best == -1 || freeAt[k] &lt; freeAt[best])) best = k;
+            if (best == -1) break;                     // 所有窗口都忙 → 继续排队
+
+            Customer w; q.Pop(w);
+            w.start = max(w.arrive, freeAt[best]);     // ★ 核心公式
+            if (w.start &gt; freeAt[best]) totalIdle += w.start - freeAt[best];
+            w.leave  = w.start + w.serve;
+            freeAt[best] = w.leave;
+            totalWait += w.wait();
+            if (w.wait() &gt; rep.maxWait) rep.maxWait = w.wait();
+
+            if (verbose)
+                cout &lt;&lt; "顾客" &lt;&lt; setw(3) &lt;&lt; w.id &lt;&lt; "  窗口" &lt;&lt; best + 1
+                     &lt;&lt; "  到达 " &lt;&lt; setw(3) &lt;&lt; w.arrive
+                     &lt;&lt; "  开始 " &lt;&lt; setw(3) &lt;&lt; w.start
+                     &lt;&lt; "  等待 " &lt;&lt; setw(3) &lt;&lt; w.wait()
+                     &lt;&lt; "  离开 " &lt;&lt; setw(3) &lt;&lt; w.leave &lt;&lt; "\n";
+        }
+        nextArrive = clock + arriveGap(gen);
+    }
+
+    // 收尾：把所有还在排队的人服务完
+    while (!q.Empty()) {
+        int best = 0;
+        for (int k = 1; k &lt; windows; ++k) if (freeAt[k] &lt; freeAt[best]) best = k;
+        Customer w; q.Pop(w);
+        w.start = max(w.arrive, freeAt[best]);
+        if (w.start &gt; freeAt[best]) totalIdle += w.start - freeAt[best];
+        w.leave = w.start + w.serve;
+        freeAt[best] = w.leave;
+        totalWait += w.wait();
+        if (w.wait() &gt; rep.maxWait) rep.maxWait = w.wait();
+    }
+
+    rep.totalTime = *max_element(freeAt.begin(), freeAt.end());
+    rep.avgWait   = n ? totalWait / n : 0.0;
+    rep.busyRate  = rep.totalTime ? 100.0 * (windows * rep.totalTime - totalIdle)
+                                                / (windows * rep.totalTime) : 0.0;
+    return rep;
+}
+
+int main() {
+    cout &lt;&lt; fixed &lt;&lt; setprecision(2);
+    cout &lt;&lt; "=========== 单窗口详细过程（前 15 位顾客）===========\n";
+    simulate(15, 20240501u, 1, true);
+
+    cout &lt;&lt; "\n=========== 单窗口 vs 多窗口：各模拟 300 位顾客 ===========\n";
+    cout &lt;&lt; setw(8) &lt;&lt; "窗口数" &lt;&lt; setw(14) &lt;&lt; "平均等待(分)"
+         &lt;&lt; setw(14) &lt;&lt; "最大等待(分)" &lt;&lt; setw(14) &lt;&lt; "队列最大长度"
+         &lt;&lt; setw(14) &lt;&lt; "总耗时(分)" &lt;&lt; setw(12) &lt;&lt; "占用率(%)\n";
+    for (int w = 1; w &lt;= 4; ++w) {
+        Report r = simulate(300, 20240501u, w);
+        cout &lt;&lt; setw(8) &lt;&lt; w &lt;&lt; setw(14) &lt;&lt; r.avgWait &lt;&lt; setw(14) &lt;&lt; r.maxWait
+             &lt;&lt; setw(14) &lt;&lt; r.maxQueue &lt;&lt; setw(14) &lt;&lt; r.totalTime
+             &lt;&lt; setw(12) &lt;&lt; r.busyRate &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "\n结论：\n";
+    cout &lt;&lt; "  1) 窗口越多，平均等待与最大等待下降得非常快（近似成反比）；\n";
+    cout &lt;&lt; "  2) 但窗口占用率同时下降 —— 加到一定数量后，再加窗口就是浪费人力；\n";
+    cout &lt;&lt; "  3) 用这个模拟器反复调整参数，就能找到「等待可接受 &amp;&amp; 占用率不过低」的平衡点。\n";
+    return 0;
+}
+</pre>
+
+    <div class="note tip">
+      <span class="note-title">为什么用「共享一条队列 + 谁先空闲谁叫号」</span>
+      现实银行有两种排队方式：<b>每个窗口各排一队</b>（多队列）和<b>所有人排一队、叫号机分配</b>（单队列）。
+      模拟结果表明：<b>单队列 + 多窗口的公平性和平均等待都明显优于多队列</b> ——
+      因为多队列会出现「自己这队前面的人很慢，旁边窗口却空着」的浪费，也就是所谓的<b>队头阻塞 head-of-line blocking</b>。
+      这也是银行、政务大厅普遍采用叫号机的原因：<b>用一条队列换来了全局的负载均衡</b>。
+    </div>
+
+    <p>下面这个动画把模拟过程可视化了：顾客从右边不断到达并排队，窗口服务完一个人就立刻叫下一位。
+      留意左侧统计面板里平均等待、最大等待与队列峰值的变化。</p>
+
+    <div id="viz-bank"></div>
+
+    <h2 id="s8">4.8 应用二：杨辉三角</h2>
+
+    <p>杨辉三角（Pascal 三角形）是队列最经典的教学例题，因为它把「队列保存上一层结果」这一招用得非常漂亮。</p>
+
+    <p>三角的递推规则是：<b>每个数等于它肩上两个数之和</b>，两边恒为 1。第 <code>i</code> 行第 <code>j</code> 个数就是组合数 <code>C(i-1, j-1)</code>。
+      如果用二维数组算，空间是 <code>O(n²)</code>；而用队列，我们只需要保存<b>上一行</b>，
+      边出队边算出下一行，空间降到 <code>O(n)</code>。</p>
+
+    <p><b>核心技巧：在每行末尾补一个 0 作为哨兵。</b>为什么？因为杨辉三角的边界（每行两端的 1）本质上来自
+      「上一行不存在的元素视为 0」。在队尾压入一个 0，公式 <code>新元素 = 队头 + 队头后面那个</code> 就能统一处理两端，
+      不需要任何特判。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 820 360" width="820" height="360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="杨辉三角与队列逐层生成示意">
+        <defs>
+          <marker id="q8-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q8-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">杨辉三角：每个数 = 肩上两数之和</text>
+
+        <g font-family="Consolas, monospace" font-size="14" text-anchor="middle">
+          <circle cx="180" cy="66" r="19" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="180" y="72" fill="var(--text)">1</text>
+
+          <circle cx="150" cy="118" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="150" y="124" fill="var(--text)">1</text>
+          <circle cx="210" cy="118" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="210" y="124" fill="var(--text)">1</text>
+
+          <circle cx="120" cy="170" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="120" y="176" fill="var(--text)">1</text>
+          <circle cx="180" cy="170" r="19" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><text x="180" y="176" fill="var(--text)">2</text>
+          <circle cx="240" cy="170" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="240" y="176" fill="var(--text)">1</text>
+
+          <circle cx="90"  cy="222" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="90"  y="228" fill="var(--text)">1</text>
+          <circle cx="150" cy="222" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="150" y="228" fill="var(--text)">3</text>
+          <circle cx="210" cy="222" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="210" y="228" fill="var(--text)">3</text>
+          <circle cx="270" cy="222" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="270" y="228" fill="var(--text)">1</text>
+
+          <circle cx="60"  cy="274" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="60"  y="280" fill="var(--text)">1</text>
+          <circle cx="120" cy="274" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="120" y="280" fill="var(--text)">4</text>
+          <circle cx="180" cy="274" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="180" y="280" fill="var(--text)">6</text>
+          <circle cx="240" cy="274" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="240" y="280" fill="var(--text)">4</text>
+          <circle cx="300" cy="274" r="19" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="300" y="280" fill="var(--text)">1</text>
+        </g>
+
+        <line x1="150" y1="118" x2="174" y2="152" stroke="var(--border)" stroke-width="1.4"/>
+        <line x1="210" y1="118" x2="186" y2="152" stroke="var(--border)" stroke-width="1.4"/>
+        <text x="180" y="140" text-anchor="middle" fill="var(--accent)" font-size="11.5" font-family="inherit">1+1=2</text>
+
+        <rect x="380" y="42" width="410" height="270" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="400" y="68" fill="var(--text)" font-size="13" font-weight="700" font-family="inherit">用队列逐层生成（以第 3 行 → 第 4 行为例）</text>
+
+        <g font-family="Consolas, monospace" font-size="12.5">
+          <text x="400" y="96" fill="var(--text-soft)">队列 = 哨兵 0 + 第 3 行 + 哨兵 0：</text>
+          <rect x="596" y="80" width="30" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="611" y="97" text-anchor="middle" fill="var(--danger)">0</text>
+          <rect x="628" y="80" width="30" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="643" y="97" text-anchor="middle" fill="var(--text)">1</text>
+          <rect x="660" y="80" width="30" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="675" y="97" text-anchor="middle" fill="var(--text)">2</text>
+          <rect x="692" y="80" width="30" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="707" y="97" text-anchor="middle" fill="var(--text)">1</text>
+          <rect x="724" y="80" width="30" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="739" y="97" text-anchor="middle" fill="var(--danger)">0</text>
+
+          <text x="400" y="128" fill="var(--text-soft)">① 取队头 a=0，看下一个 b=1 → 入队 0+1 = <tspan fill="var(--brand)">1</tspan></text>
+          <text x="400" y="152" fill="var(--text-soft)">② 取队头 a=1，看下一个 b=2 → 入队 1+2 = <tspan fill="var(--brand)">3</tspan></text>
+          <text x="400" y="176" fill="var(--text-soft)">③ 取队头 a=2，看下一个 b=1 → 入队 2+1 = <tspan fill="var(--brand)">3</tspan></text>
+          <text x="400" y="200" fill="var(--text-soft)">④ 取队头 a=1，看下一个 b=0 → 入队 1+0 = <tspan fill="var(--brand)">1</tspan></text>
+
+          <text x="400" y="232" fill="var(--ok)" font-size="12.5" font-family="inherit">新一行 = 1 3 3 1，队尾再补一个哨兵 0 供下一轮使用</text>
+
+          <rect x="400" y="248" width="30" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="415" y="265" text-anchor="middle" fill="var(--danger)">0</text>
+          <rect x="432" y="248" width="30" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="447" y="265" text-anchor="middle" fill="var(--text)">1</text>
+          <rect x="464" y="248" width="30" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="479" y="265" text-anchor="middle" fill="var(--text)">3</text>
+          <rect x="496" y="248" width="30" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="511" y="265" text-anchor="middle" fill="var(--text)">3</text>
+          <rect x="528" y="248" width="30" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="543" y="265" text-anchor="middle" fill="var(--text)">1</text>
+          <rect x="560" y="248" width="30" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="575" y="265" text-anchor="middle" fill="var(--danger)">0</text>
+          <text x="604" y="265" fill="var(--text-faint)" font-size="11.5" font-family="inherit">← 生成结束后的队列（旧前导哨兵被吃掉，旧尾哨兵变成新前导哨兵）</text>
+          <text x="400" y="296" fill="var(--text-faint)" font-size="11.5" font-family="inherit">每一步只做「弹出 a、窥视 b、入队 a+b」，循环体里没有一个 if 分支。</text>
+        </g>
+
+        <text x="24" y="330" fill="var(--text-faint)" font-size="12.5" font-family="inherit">
+          哨兵 0 的作用：把"行首与行尾要特殊处理"变成统一的加法运算，循环体里一个 if 都不需要。
+        </text>
+      </svg>
+      <figcaption>图 4-8　杨辉三角：用队列保存上一行，队尾补 0 当哨兵，逐层推出下一行</figcaption>
+    </div>
+
+    <p>把上面的过程写成代码，只有十几行核心逻辑：</p>
+
+    <pre data-lang="cpp" data-file="yanghui_triangle.cpp">// yanghui_triangle.cpp —— 用队列逐层生成杨辉三角（空间 O(n)，无特判）
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;iomanip&gt;
+using namespace std;
+
+// 队列不变式：front 侧是哨兵 0，中间是第 line 行，rear 侧也是哨兵 0
+//          即 [0, r1, r2, ..., r_line, 0]，共 line+2 个元素
+void PascalTriangle(int rows) {
+    queue&lt;int&gt; q;
+    q.push(0); q.push(1); q.push(0);          // 第 1 行（两端的 0 是哨兵）
+
+    for (int line = 1; line &lt;= rows; ++line) {
+        // ---- 第 1 步：打印第 line 行 ----
+        // 把 line+2 个元素全部"弹出再塞回"，队列内容与顺序完全不变
+        for (int k = 0; k &lt;= line + 1; ++k) {
+            int v = q.front(); q.pop();
+            if (k &gt;= 1 &amp;&amp; k &lt;= line) cout &lt;&lt; setw(5) &lt;&lt; v;   // 跳过两个哨兵
+            q.push(v);
+        }
+        cout &lt;&lt; "\n";
+
+        // ---- 第 2 步：由第 line 行推出第 line+1 行 ----
+        // 滑动窗口：弹出 a，窥视 b，把 a+b 塞到队尾
+        for (int k = 0; k &lt;= line; ++k) {
+            int a = q.front(); q.pop();
+            int b = q.front();                    // std::queue 只能看队头，不弹出
+            q.push(a + b);
+        }
+        q.push(0);                                // 新的行尾哨兵
+        // 此时队列恰好是 [0, 新的一行..., 0]，不变式继续成立
+    }
+}
+
+int main() {
+    cout &lt;&lt; "====== 杨辉三角前 8 行（队列法）======\n";
+    PascalTriangle(8);
+
+    cout &lt;&lt; "\n====== 校验：第 5 行应是 1 4 6 4 1，第 8 行应是 1 7 21 35 35 21 7 1 ======\n";
+
+    cout &lt;&lt; "\n====== 副产物：直接得到二项式系数 C(10,k)，不用阶乘 ======\n";
+    const int n = 10;
+    queue&lt;long long&gt; q;
+    q.push(1);                                    // C(n,0) = 1
+    for (int k = 0; k &lt;= n; ++k) {
+        long long v = q.front(); q.pop();
+        cout &lt;&lt; v &lt;&lt; (k == n ? "" : " ");
+        if (k &lt; n) q.push(v * (n - k) / (k + 1)); // C(n,k+1) = C(n,k)*(n-k)/(k+1)，整除
+    }
+    cout &lt;&lt; "\n（若用阶乘 n!/(k!(n-k)!) 计算，n 稍大就会溢出，而这个递推式始终在安全范围内）\n";
+    return 0;
+}
+</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错点 4-6　杨辉三角的三种写法与空间对比</span>
+      <div class="table-wrap" style="margin:8px 0 0">
+        <table class="compact">
+          <thead><tr><th>写法</th><th>空间</th><th>时间</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>二维数组 <code>a[i][j]=a[i-1][j-1]+a[i-1][j]</code></td><td class="c-warn">O(n²)</td><td>O(n²)</td><td>最直观，但只需要上一行却存了全部</td></tr>
+            <tr><td>滚动数组 <code>a[j] += a[j-1]</code></td><td class="c-ok">O(n)</td><td>O(n²)</td><td>必须<b>倒着</b>遍历 j，否则会用到本轮已更新的值</td></tr>
+            <tr><td>队列法（本节）</td><td class="c-ok">O(n)</td><td>O(n²)</td><td>空间与滚动数组相同，但思路更贴合「一层推一层」的语义</td></tr>
+          </tbody>
+        </table>
+      </div>
+      注意：队列法里<b>队列中同时存在两行元素</b>（本行未处理完的 + 下一行已生成的），
+      所以空间常数比滚动数组大，峰值约为 <code>2n</code> 个 int，仍然是 <code>O(n)</code>。
+    </div>
+
+    <h2 id="s9">4.9 应用三：二叉树的层序遍历（第 07 讲预热）</h2>
+
+    <p>树的遍历有四种：前序、中序、后序、层序。前三种靠<b>递归（也就是栈）</b>就能写出来，
+      唯独层序不行 —— 因为层序要求「先访问完第 1 层，再访问第 2 层……同一层里从左到右」，
+      这个顺序和「入队顺序完全一致」，所以它天生就是队列的地盘。</p>
+
+    <p><b>为什么队列天然适合层序？</b>因为 BFS 式的访问有一个关键性质：
+      <b>先被访问的结点，它的孩子也一定先被访问</b>。
+      当我们访问结点 <code>x</code> 时把它的左右孩子依次入队，
+      队列里就自动形成了「上一层剩余结点在前、下一层结点在后」的隐含分层结构。
+      每次从队头取一个结点，就相当于按层、从左到右地推进。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 380" width="880" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="二叉树层序遍历与队列状态示意">
+        <defs>
+          <marker id="q9-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q9-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">一棵二叉树（结点里标的是访问序号）</text>
+
+        <line x1="140" y1="70" x2="90" y2="126" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="140" y1="70" x2="200" y2="126" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="90" y1="150" x2="56" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="90" y1="150" x2="126" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="200" y1="150" x2="176" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+        <line x1="200" y1="150" x2="240" y2="206" stroke="var(--border-strong)" stroke-width="1.8"/>
+
+        <circle cx="140" cy="50" r="21" fill="var(--brand)" stroke="var(--brand-dark)" stroke-width="1.8"/>
+        <text x="140" y="56" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">A1</text>
+        <circle cx="90" cy="146" r="21" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.8"/>
+        <text x="90" y="152" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">B2</text>
+        <circle cx="200" cy="146" r="21" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.8"/>
+        <text x="200" y="152" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">C3</text>
+        <circle cx="56" cy="226" r="21" fill="var(--ok)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="56" y="232" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">D4</text>
+        <circle cx="126" cy="226" r="21" fill="var(--ok)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="126" y="232" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">E5</text>
+        <circle cx="176" cy="226" r="21" fill="var(--ok)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="176" y="232" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">F6</text>
+        <circle cx="240" cy="226" r="21" fill="var(--ok)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="240" y="232" text-anchor="middle" fill="#fff" font-size="14" font-weight="700" font-family="Consolas, monospace">G7</text>
+
+        <text x="24" y="290" fill="var(--text-soft)" font-size="12.5" font-family="inherit">访问顺序：A → B → C → D → E → F → G（正是入队顺序）</text>
+
+        <rect x="360" y="42" width="470" height="300" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="382" y="68" fill="var(--text)" font-size="13" font-weight="700" font-family="inherit">队列在每个时刻的内容（front 在左）</text>
+
+        <g font-family="Consolas, monospace" font-size="12.5">
+          <text x="382" y="98" fill="var(--text-soft)">访问 A 前：</text>
+          <rect x="500" y="82" width="46" height="24" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/><text x="523" y="99" text-anchor="middle" fill="var(--text)">A</text>
+          <text x="562" y="99" fill="var(--text-faint)" font-size="11.5" font-family="inherit">根结点先入队</text>
+
+          <text x="382" y="134" fill="var(--text-soft)">弹出 A，压入 B C：</text>
+          <rect x="500" y="118" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="523" y="135" text-anchor="middle" fill="var(--text)">B</text>
+          <rect x="550" y="118" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="573" y="135" text-anchor="middle" fill="var(--text)">C</text>
+          <text x="612" y="135" fill="var(--text-faint)" font-size="11.5" font-family="inherit">← 第 2 层到齐</text>
+
+          <text x="382" y="170" fill="var(--text-soft)">弹出 B，压入 D E：</text>
+          <rect x="500" y="154" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="523" y="171" text-anchor="middle" fill="var(--text)">C</text>
+          <rect x="550" y="154" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="573" y="171" text-anchor="middle" fill="var(--text)">D</text>
+          <rect x="600" y="154" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="623" y="171" text-anchor="middle" fill="var(--text)">E</text>
+
+          <text x="382" y="206" fill="var(--text-soft)">弹出 C，压入 F G：</text>
+          <rect x="500" y="190" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="523" y="207" text-anchor="middle" fill="var(--text)">D</text>
+          <rect x="550" y="190" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="573" y="207" text-anchor="middle" fill="var(--text)">E</text>
+          <rect x="600" y="190" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="623" y="207" text-anchor="middle" fill="var(--text)">F</text>
+          <rect x="650" y="190" width="46" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="673" y="207" text-anchor="middle" fill="var(--text)">G</text>
+          <text x="712" y="207" fill="var(--text-faint)" font-size="11.5" font-family="inherit">← 第 3 层到齐</text>
+
+          <text x="382" y="252" fill="var(--ok)" font-size="12.5" font-family="inherit">关键不变式：同一层的结点在队列里一定是连续的一段，且不跨层交错。</text>
+          <text x="382" y="276" fill="var(--text-soft)" font-size="12.5" font-family="inherit">想统计"树有几层""每层有多少结点"？只需在每轮开始前记下 size = q.size()，</text>
+          <text x="382" y="298" fill="var(--text-soft)" font-size="12.5" font-family="inherit">这批 size 个结点就正好是同一层 —— 这是层序题目的万能套路。</text>
+          <text x="382" y="326" fill="var(--text-faint)" font-size="11.5" font-family="inherit">时间 O(n)、空间 O(最宽一层的结点数)，最坏（满二叉树最后一层）为 O(n)。</text>
+        </g>
+      </svg>
+      <figcaption>图 4-9　二叉树层序遍历：队列中同一层结点连续排列，出队顺序就是层序</figcaption>
+    </div>
+
+    <pre data-lang="cpp" data-file="binary_tree_level_order.cpp">// binary_tree_level_order.cpp —— 用队列实现二叉树的层序遍历（含按层分组统计）
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+using namespace std;
+
+struct TreeNode {
+    int       val;
+    TreeNode* left;
+    TreeNode* right;
+    explicit TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}
+};
+
+// 基础版：一层一层从左到右打印
+void LevelOrder(TreeNode* root) {
+    if (!root) return;
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);                                  // 根结点先入队
+    while (!q.empty()) {
+        TreeNode* cur = q.front(); q.pop();        // 出队一个结点 = "访问"它
+        cout &lt;&lt; cur-&gt;val &lt;&lt; " ";
+        if (cur-&gt;left)  q.push(cur-&gt;left);          // 左孩子入队
+        if (cur-&gt;right) q.push(cur-&gt;right);         // 右孩子入队
+    }
+    cout &lt;&lt; "\n";
+}
+
+// 进阶版：按层分组输出，顺便统计树高（面试高频）
+vector&lt;vector&lt;int&gt;&gt; LevelOrderGrouped(TreeNode* root) {
+    vector&lt;vector&lt;int&gt;&gt; res;
+    if (!root) return res;
+    queue&lt;TreeNode*&gt; q;
+    q.push(root);
+    while (!q.empty()) {
+        int sz = (int)q.size();                    // ★ 关键：先锁定"本层结点数"
+        vector&lt;int&gt; layer;
+        for (int i = 0; i &lt; sz; ++i) {             // 只处理这 sz 个，就是同一层
+            TreeNode* cur = q.front(); q.pop();
+            layer.push_back(cur-&gt;val);
+            if (cur-&gt;left)  q.push(cur-&gt;left);
+            if (cur-&gt;right) q.push(cur-&gt;right);
+        }
+        res.push_back(layer);
+    }
+    return res;
+}
+
+int main() {
+    //           1
+    //         /   ╲
+    //        2     3
+    //       / ╲   / ╲
+    //      4   5 6   7
+    TreeNode* root = new TreeNode(1);
+    root-&gt;left = new TreeNode(2);          root-&gt;right = new TreeNode(3);
+    root-&gt;left-&gt;left = new TreeNode(4);    root-&gt;left-&gt;right = new TreeNode(5);
+    root-&gt;right-&gt;left = new TreeNode(6);   root-&gt;right-&gt;right = new TreeNode(7);
+
+    cout &lt;&lt; "层序遍历: ";
+    LevelOrder(root);
+
+    cout &lt;&lt; "按层分组:\n";
+    vector&lt;vector&lt;int&gt;&gt; layers = LevelOrderGrouped(root);
+    for (size_t i = 0; i &lt; layers.size(); ++i) {
+        cout &lt;&lt; "  第 " &lt;&lt; i + 1 &lt;&lt; " 层（" &lt;&lt; layers[i].size() &lt;&lt; " 个）: ";
+        for (size_t j = 0; j &lt; layers[i].size(); ++j) cout &lt;&lt; layers[i][j] &lt;&lt; " ";
+        cout &lt;&lt; "\n";
+    }
+    cout &lt;&lt; "树的高度 = " &lt;&lt; layers.size() &lt;&lt; "\n";
+
+    // 对比：前序遍历用递归（本质是栈），层序用队列，二者代码结构差别一目了然
+    cout &lt;&lt; "\n对比 —— 右视图（每层最右结点）: ";
+    for (size_t i = 0; i &lt; layers.size(); ++i) cout &lt;&lt; layers[i].back() &lt;&lt; " ";
+    cout &lt;&lt; "\n（这类「每层 XXX」的题目，全部都是层序遍历 + size 锁定层边界的套路）\n";
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-5　层序题的万能模板</span>
+      <code>while (!q.empty()) { int sz = q.size(); for (int i = 0; i &lt; sz; ++i) { ... } }</code><br>
+      这个「先记录 <code>sz = q.size()</code>，再循环 <code>sz</code> 次」的写法，
+      一次性解决了「分层」「求树高」「求每层最大值」「右视图」「之字形遍历」等一整类题目。
+      记住它，第 07 讲和第 14 讲都能直接用。
+    </div>
+
+    <h2 id="s10">4.10 应用四：迷宫最短路径（BFS + 队列）</h2>
+
+    <p>第 03 讲我们用<b>栈</b>解过迷宫：一条路走到黑，撞墙就回退。它能找到一条通路，
+      但<b>找不到最短的那条</b>。要想求最短路径，就得换成<b>队列 + BFS（广度优先搜索 breadth-first search）</b>。</p>
+
+    <h3 id="s10-why">4.10.1 为什么 BFS 得到的必然是最短路径？</h3>
+
+    <p>关键在一个词：<b>逐层扩展</b>。BFS 从起点出发，先把「走 1 步能到」的所有格子全部访问完，
+      再访问「走 2 步能到」的，再访问「走 3 步能到」的……</p>
+
+    <div class="note tip">
+      <span class="note-title">一句话证明</span>
+      队列保证了<b>「步数少的格子一定先被访问」</b>：设某个格子 <code>x</code> 的最短距离是 <code>d</code>，
+      那么所有距离小于 <code>d</code> 的格子都会在 <code>x</code> 之前入队。
+      因此当 <code>x</code> 第一次被访问（第一次入队）时，走过的步数一定就是最短步数 ——
+      <b>第一次到达即最短</b>。这就是 BFS 求无权图最短路的全部原理。
+    </div>
+
+    <p>注意前提条件：BFS 求最短路只对<b>边权相等（无权图 / 每条边代价都是 1）</b>的图成立。
+      如果每条路的代价不同（比如有的地面走得快、有的泥地走得慢），就得用 Dijkstra（第 09 讲）。
+      这也是考试常考的辨析点。</p>
+
+    <h3 id="s10-cmp">4.10.2 栈求迷宫 vs 队列求迷宫：一张表看清差别</h3>
+
+    <div class="table-wrap">
+      <table class="q-cmp">
+        <thead><tr><th>对比项</th><th>栈 + DFS（第 03 讲）</th><th>队列 + BFS（本节）</th></tr></thead>
+        <tbody>
+          <tr><td>搜索方式</td><td>深度优先，一条路走到黑</td><td>广度优先，一圈一圈向外扩</td></tr>
+          <tr><td>数据结构作用</td><td>保存「岔路口」，用于回退</td><td>保存「待扩展的边界」，用于分层</td></tr>
+          <tr><td>找到的路径</td><td class="c-warn">一条通路（通常不是最短）</td><td class="c-ok">最短路径（步数最少）</td></tr>
+          <tr><td>能否判「无解」</td><td>能，但要走遍所有可能</td><td>能，队列空了就是无解</td></tr>
+          <tr><td>时间复杂度</td><td>O(格子数)，最坏可能重复走很多次</td><td>O(格子数 × 4)，每个格子只访问一次</td></tr>
+          <tr><td>空间复杂度</td><td>O(路径长度)，与深度成正比</td><td>O(格子数)，与最宽的一层成正比</td></tr>
+          <tr><td>适合的场景</td><td>只要「走得通」，或需要枚举所有路径</td><td>要「最优」，或需要距离场</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 400" width="880" height="400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="迷宫 BFS 分层扩展示意">
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">BFS 分层扩展：数字 = 从起点 S 走到该格的最少步数</text>
+
+        <g font-family="Consolas, monospace" font-size="13" text-anchor="middle">
+          <rect x="40"  y="44" width="40" height="40" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="3"/><text x="60"  y="69" fill="var(--ok)" font-weight="700">0</text>
+          <rect x="80"  y="44" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="100" y="69" fill="var(--text-faint)">1</text>
+          <rect x="120" y="44" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="140" y="69" fill="var(--text-faint)">2</text>
+          <rect x="160" y="44" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="180" y="69" fill="var(--text-faint)">3</text>
+          <rect x="200" y="44" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="220" y="69" fill="var(--text-soft)">#</text>
+          <rect x="240" y="44" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="260" y="69" fill="var(--text-faint)">9</text>
+          <rect x="280" y="44" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="300" y="69" fill="var(--text-faint)">10</text>
+
+          <rect x="40"  y="84" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="60"  y="109" fill="var(--text)">1</text>
+          <rect x="80"  y="84" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="100" y="109" fill="var(--text-faint)">2</text>
+          <rect x="120" y="84" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="140" y="109" fill="var(--text-soft)">#</text>
+          <rect x="160" y="84" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="180" y="109" fill="var(--text-faint)">4</text>
+          <rect x="200" y="84" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="220" y="109" fill="var(--text-soft)">#</text>
+          <rect x="240" y="84" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="260" y="109" fill="var(--text-faint)">8</text>
+          <rect x="280" y="84" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="300" y="109" fill="var(--text-faint)">9</text>
+
+          <rect x="40"  y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="60"  y="149" fill="var(--text)">2</text>
+          <rect x="80"  y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="100" y="149" fill="var(--text)">3</text>
+          <rect x="120" y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="140" y="149" fill="var(--text)">4</text>
+          <rect x="160" y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="180" y="149" fill="var(--text)">5</text>
+          <rect x="200" y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="220" y="149" fill="var(--text)">6</text>
+          <rect x="240" y="124" width="40" height="40" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/><text x="260" y="149" fill="var(--text)">7</text>
+          <rect x="280" y="124" width="40" height="40" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="3"/><text x="300" y="149" fill="var(--ok)" font-weight="700">8</text>
+
+          <rect x="40"  y="164" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="60"  y="189" fill="var(--text-soft)">#</text>
+          <rect x="80"  y="164" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="100" y="189" fill="var(--text-faint)">4</text>
+          <rect x="120" y="164" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="140" y="189" fill="var(--text-faint)">5</text>
+          <rect x="160" y="164" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="180" y="189" fill="var(--text-soft)">#</text>
+          <rect x="200" y="164" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="220" y="189" fill="var(--text-faint)">7</text>
+          <rect x="240" y="164" width="40" height="40" fill="var(--panel-2)" stroke="var(--border-strong)"/><text x="260" y="189" fill="var(--text-soft)">#</text>
+          <rect x="280" y="164" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="300" y="189" fill="var(--text-faint)">9</text>
+
+          <rect x="40"  y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="60"  y="229" fill="var(--text-faint)">6</text>
+          <rect x="80"  y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="100" y="229" fill="var(--text-faint)">5</text>
+          <rect x="120" y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="140" y="229" fill="var(--text-faint)">6</text>
+          <rect x="160" y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="180" y="229" fill="var(--text-faint)">7</text>
+          <rect x="200" y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="220" y="229" fill="var(--text-faint)">8</text>
+          <rect x="240" y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="260" y="229" fill="var(--text-faint)">9</text>
+          <rect x="280" y="204" width="40" height="40" fill="var(--bg-soft)" stroke="var(--border)"/><text x="300" y="229" fill="var(--text-faint)">10</text>
+        </g>
+
+        <text x="60" y="38" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">S 起点</text>
+        <text x="300" y="38" text-anchor="middle" fill="var(--ok)" font-size="12" font-family="inherit">T 终点</text>
+
+        <path d="M60,64 L60,144 L340,144" fill="none" stroke="var(--danger)" stroke-width="2.8" stroke-linejoin="round" opacity=".9"/>
+        <text x="370" y="126" fill="var(--danger)" font-size="12.5" font-family="inherit">← 红色折线是回溯出的最短路径</text>
+        <text x="370" y="148" fill="var(--danger)" font-size="12.5" font-family="inherit">　 长度 8 步，与 dist[T]=8 一致</text>
+
+        <rect x="500" y="44" width="356" height="238" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="522" y="70" fill="var(--text)" font-size="13" font-weight="700" font-family="inherit">BFS 的执行节奏</text>
+        <text x="522" y="98" fill="var(--text-soft)" font-size="12.5" font-family="inherit">第 0 圈：只有起点 S（距离 0）</text>
+        <text x="522" y="122" fill="var(--text-soft)" font-size="12.5" font-family="inherit">第 1 圈：距离 1 的所有格子入队</text>
+        <text x="522" y="146" fill="var(--text-soft)" font-size="12.5" font-family="inherit">第 2 圈：距离 2 的所有格子入队</text>
+        <text x="522" y="170" fill="var(--text-soft)" font-size="12.5" font-family="inherit">…… 直到把整个连通块铺满</text>
+        <text x="522" y="200" fill="var(--ok)" font-size="12.5" font-family="inherit">T 第一次被访问时距离就是 8 —— 最短路长度。</text>
+        <text x="522" y="224" fill="var(--text-soft)" font-size="12.5" font-family="inherit">路径靠 parent[] 从 T 反向回溯到 S 得到。</text>
+        <text x="522" y="252" fill="var(--danger)" font-size="12" font-family="inherit">注意：不是「走到 T 就停」的贪心，而是「分层</text>
+        <text x="522" y="270" fill="var(--danger)" font-size="12" font-family="inherit">铺开」的必然结果。</text>
+
+        <text x="24" y="286" fill="var(--text-faint)" font-size="12.5" font-family="inherit"># 表示墙；每个可达格子的数字就是它到起点的最短距离（距离场 distance field）。</text>
+        <text x="24" y="310" fill="var(--text-faint)" font-size="12.5" font-family="inherit">这张距离场就是一把「从任意格子导航到起点」的地图 —— BFS 的副产物往往比路径本身更有用。</text>
+      </svg>
+      <figcaption>图 4-10　迷宫 BFS 的距离场与最短路径（红色折线），数字表示从起点 S 出发的最少步数</figcaption>
+    </div>
+
+    <p>下面这个动画把 BFS 逐圈铺开的过程完整演示出来，可以看到队列里始终只有「当前层 + 下一层」的格子。</p>
+
+    <div id="viz-maze-bfs"></div>
+
+    <pre data-lang="cpp" data-file="maze_bfs.cpp">// maze_bfs.cpp —— BFS + 队列求迷宫最短路径（无权图最短路标准模板）
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+using namespace std;
+
+const int R = 5, C = 7;
+int maze[R][C] = {
+    {0, 0, 0, 0, 1, 0, 0},
+    {0, 0, 1, 0, 1, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0},
+    {1, 0, 0, 1, 0, 1, 0},
+    {0, 0, 0, 0, 0, 0, 0},   // 0 可走，1 是墙
+};
+
+struct Point { int r, c; };
+
+int main() {
+    Point start{0, 0}, target{2, 6};
+
+    vector&lt;vector&lt;int&gt;&gt; dist(R, vector&lt;int&gt;(C, -1));   // -1 表示未访问
+    vector&lt;vector&lt;Point&gt;&gt; parent(R, vector&lt;Point&gt;(C, Point{-1, -1}));
+    const int dr[4] = {-1, 1, 0, 0};                   // 上 下 左 右
+    const int dc[4] = {0, 0, -1, 1};
+
+    queue&lt;Point&gt; q;                                    // ★ 队列：BFS 的边界
+    q.push(start);
+    dist[start.r][start.c] = 0;                        // 起点距离为 0
+
+    while (!q.empty()) {
+        Point cur = q.front(); q.pop();                // 取出队头 = 按距离从小到大扩展
+        // 这里不做"遇到终点就 break"的提前退出，为的是把完整距离场打出来观察；
+        // 实际做题时加上 if (cur == target) break; 可以省掉后半程的搜索。
+
+        for (int k = 0; k &lt; 4; ++k) {
+            int nr = cur.r + dr[k], nc = cur.c + dc[k];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;  // 越界
+            if (maze[nr][nc] == 1) continue;                        // 撞墙
+            if (dist[nr][nc] != -1) continue;                       // 已访问（第一次访问即最短）
+            dist[nr][nc] = dist[cur.r][cur.c] + 1;                  // 距离 = 上一层 + 1
+            parent[nr][nc] = cur;                                   // 记录前驱，用于回溯路径
+            q.push(Point{nr, nc});
+        }
+    }
+
+    cout &lt;&lt; "========== BFS 距离场（. 表示从起点不可达）==========\n";
+    for (int i = 0; i &lt; R; ++i) {
+        for (int j = 0; j &lt; C; ++j) {
+            if (maze[i][j] == 1) cout &lt;&lt; "  #";
+            else if (dist[i][j] &lt; 0) cout &lt;&lt; "  .";
+            else printf("%3d", dist[i][j]);
+        }
+        cout &lt;&lt; "\n";
+    }
+
+    if (dist[target.r][target.c] &lt; 0) {
+        cout &lt;&lt; "\n起点到终点不可达！\n";
+        return 0;
+    }
+
+    cout &lt;&lt; "\n最短路径长度 = " &lt;&lt; dist[target.r][target.c] &lt;&lt; " 步\n";
+
+    // 从终点沿 parent 反向回溯到起点，再反过来输出
+    vector&lt;Point&gt; path;
+    for (Point p = target; p.r != -1; p = parent[p.r][p.c]) path.push_back(p);
+    cout &lt;&lt; "最短路径（起点 → 终点）: ";
+    for (int i = (int)path.size() - 1; i &gt;= 0; --i) {
+        cout &lt;&lt; "(" &lt;&lt; path[i].r &lt;&lt; "," &lt;&lt; path[i].c &lt;&lt; ")";
+        if (i) cout &lt;&lt; " -&gt; ";
+    }
+    cout &lt;&lt; "\n";
+
+    cout &lt;&lt; "\n========== 可视化（* 是路径，# 是墙，. 是空地）==========\n";
+    vector&lt;string&gt; grid(R, string(C, '.'));
+    for (int i = 0; i &lt; R; ++i)
+        for (int j = 0; j &lt; C; ++j)
+            if (maze[i][j] == 1) grid[i][j] = '#';
+    for (size_t i = 0; i &lt; path.size(); ++i) grid[path[i].r][path[i].c] = '*';
+    grid[start.r][start.c] = 'S';
+    grid[target.r][target.c] = 'T';
+    for (int i = 0; i &lt; R; ++i) cout &lt;&lt; "  " &lt;&lt; grid[i] &lt;&lt; "\n";
+
+    cout &lt;&lt; "\n结论：队列的 FIFO 保证了「距离小的先出队」，所以第一次到达终点时\n";
+    cout &lt;&lt; "      走过的步数一定最少 —— 这就是 BFS 求无权图最短路的原理。\n";
+    return 0;
+}
+</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-7　BFS 求最短路的四个经典错误</span>
+      <ol style="margin:6px 0 0">
+        <li><b>忘记标记起点已访问</b>，导致起点被反复入队，甚至死循环。入队时就标记 <code>dist = 0</code>，别等到出队才标。</li>
+        <li><b>把「访问标记」放在出队时做</b>。正确做法是<b>入队时就标记/置距离</b>，否则同一个格子会被多个邻居重复入队，队列规模可能爆炸到 <code>O(4n)</code>。</li>
+        <li><b>用 BFS 求带权图最短路</b>。BFS 只对边权相同（都为 1）的图有效；带权图请用 Dijkstra（第 09 讲）。</li>
+        <li><b>回溯路径时忘了 <code>parent</code> 的终止条件</b>。起点没有前驱，初始化成 <code>(-1,-1)</code> 作为哨兵，循环用 <code>p.r != -1</code> 结束，否则会越界。</li>
+      </ol>
+    </div>
+
+    <h2 id="s11">4.11 应用五：单调队列与滑动窗口最大值</h2>
+
+    <p>这是队列在算法竞赛里最精彩的应用，也是「把 <code>O(nk)</code> 降到 <code>O(n)</code>」的经典范例。</p>
+
+    <h3 id="s11-prob">4.11.1 问题：滑动窗口最大值</h3>
+
+    <p>给定数组 <code>a[0..n-1]</code> 和一个窗口大小 <code>k</code>。
+      窗口从左向右滑动，每次移动一格，求<b>每个窗口内的最大值</b>。</p>
+
+    <p>暴力做法：每个窗口遍历 <code>k</code> 个元素找最大，一共 <code>n-k+1</code> 个窗口，
+      时间 <code>O(nk)</code>。当 <code>n = 10⁶, k = 10³</code> 时就是 <code>10⁹</code> 次运算，妥妥超时。</p>
+
+    <p><b>浪费在哪？</b>相邻两个窗口有 <code>k-1</code> 个元素是重叠的，
+      暴力法却把它们的比较<b>完全重做了一遍</b>。更糟的是，如果一个元素比它右边新进来的元素小，
+      那它在<b>有生之年都不可能成为最大值</b>了 —— 它已经被后面的强者「永久压制」。
+      我们完全没必要再留着它。</p>
+
+    <h3 id="s11-idea">4.11.2 单调递减队列：把「没用的元素」踢出去</h3>
+
+    <p>维护一个队列，里面存<b>下标</b>（不是数值，因为要靠下标判断是否滑出窗口），并保证：</p>
+    <ol>
+      <li><b>队列里的下标严格递增</b>（天然满足，因为我们从左到右扫描）；</li>
+      <li><b>队列里的数值严格递减</b>（新元素入队前，把所有比它小的队尾元素全部弹走）。</li>
+    </ol>
+
+    <p>满足这两条，<b>队头就永远是当前窗口的最大值</b>。三个动作：</p>
+
+    <div class="card">
+      <p style="margin-top:0"><b>① 入队（去尾）</b>：新元素 <code>a[i]</code> 到来时，从队尾开始，
+        把所有 <code>≤ a[i]</code> 的元素下标弹出去，然后把 <code>i</code> 压入队尾。<br>
+        <i>为什么可以弹？</i>因为它们既比 <code>a[i]</code> 小，又比 <code>a[i]</code> 先离开窗口 ——
+        <b>永远没有翻身的机会</b>。这一操作叫「单调性维护」。</p>
+      <p><b>② 出队（去头）</b>：检查队头下标是否 <code>&lt; i - k + 1</code>（已经滑出窗口左边界），是则弹出。</p>
+      <p style="margin-bottom:0"><b>③ 取答案</b>：当 <code>i &gt;= k - 1</code>（窗口已经填满）时，
+        队头下标对应的数值就是本窗口最大值。</p>
+    </div>
+
+    <p><b>为什么整体是 O(n)？</b>这是最容易被问到的一点，答案是<b>均摊分析 amortized analysis</b>：
+      每个下标<b>最多入队一次、出队一次</b>（要么因为被新元素顶掉，要么因为滑出窗口），
+      所以 <code>while</code> 循环在整个算法中总共只执行 <code>O(n)</code> 次。
+      虽然有嵌套循环，但总工作量是线性的。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 420" width="880" height="420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="单调队列求滑动窗口最大值的过程">
+        <defs>
+          <marker id="q11-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/>
+          </marker>
+          <marker id="q11-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
+          </marker>
+        </defs>
+
+        <text x="24" y="28" fill="var(--text)" font-size="13.5" font-weight="700" font-family="inherit">数组 a = [1, 3, -1, -3, 5, 3, 6, 7]，k = 3</text>
+
+        <g font-family="Consolas, monospace" font-size="14" text-anchor="middle">
+          <rect x="40"  y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="66"  y="76" fill="var(--text)">1</text>
+          <rect x="96"  y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="122" y="76" fill="var(--text)">3</text>
+          <rect x="152" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="178" y="76" fill="var(--text)">-1</text>
+          <rect x="208" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="234" y="76" fill="var(--text)">-3</text>
+          <rect x="264" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="290" y="76" fill="var(--text)">5</text>
+          <rect x="320" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="346" y="76" fill="var(--text)">3</text>
+          <rect x="376" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="402" y="76" fill="var(--text)">6</text>
+          <rect x="432" y="46" width="52" height="46" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="458" y="76" fill="var(--text)">7</text>
+        </g>
+        <g fill="var(--text-faint)" font-size="11.5" font-family="Consolas, monospace" text-anchor="middle">
+          <text x="66" y="108">0</text><text x="122" y="108">1</text><text x="178" y="108">2</text>
+          <text x="234" y="108">3</text><text x="290" y="108">4</text><text x="346" y="108">5</text>
+          <text x="402" y="108">6</text><text x="458" y="108">7</text>
+        </g>
+
+        <rect x="40" y="40" width="164" height="58" rx="8" fill="none" stroke="var(--brand)" stroke-width="2.6"/>
+        <text x="122" y="126" text-anchor="middle" fill="var(--brand)" font-size="12" font-family="inherit">窗口 [0,2] 最大值 = 3</text>
+        <rect x="264" y="40" width="164" height="58" rx="8" fill="none" stroke="var(--accent)" stroke-width="2.6"/>
+        <text x="346" y="126" text-anchor="middle" fill="var(--accent)" font-size="12" font-family="inherit">窗口 [4,6] 最大值 = 6</text>
+
+        <text x="24" y="168" fill="var(--text)" font-size="13" font-weight="700" font-family="inherit">扫描过程中单调队列（存下标）的变化</text>
+
+        <g font-family="Consolas, monospace" font-size="12.5">
+          <text x="30" y="198" fill="var(--text-soft)">i=0, a=1</text>
+          <rect x="140" y="182" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="167" y="199" text-anchor="middle" fill="var(--text)">0(1)</text>
+          <text x="206" y="199" fill="var(--text-faint)" font-size="11.5" font-family="inherit">队尾没有更小的元素，直接入队</text>
+
+          <text x="30" y="228" fill="var(--text-soft)">i=1, a=3</text>
+          <rect x="140" y="212" width="54" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="167" y="229" text-anchor="middle" fill="var(--danger)">0 弹出</text>
+          <rect x="200" y="212" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="227" y="229" text-anchor="middle" fill="var(--text)">1(3)</text>
+          <text x="266" y="229" fill="var(--danger)" font-size="11.5" font-family="inherit">1 ≤ 3 且更早离开 → 永久淘汰</text>
+
+          <text x="30" y="258" fill="var(--text-soft)">i=2, a=-1</text>
+          <rect x="140" y="242" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="167" y="259" text-anchor="middle" fill="var(--text)">1(3)</text>
+          <rect x="200" y="242" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="227" y="259" text-anchor="middle" fill="var(--text)">2(-1)</text>
+          <text x="266" y="259" fill="var(--ok)" font-size="11.5" font-family="inherit">3 &gt; -1，保留；-1 入队 → 输出 3</text>
+
+          <text x="30" y="288" fill="var(--text-soft)">i=3, a=-3</text>
+          <rect x="140" y="272" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="167" y="289" text-anchor="middle" fill="var(--text)">1(3)</text>
+          <rect x="200" y="272" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="227" y="289" text-anchor="middle" fill="var(--text)">2(-1)</text>
+          <rect x="260" y="272" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="287" y="289" text-anchor="middle" fill="var(--text)">3(-3)</text>
+          <text x="326" y="289" fill="var(--ok)" font-size="11.5" font-family="inherit">输出 3</text>
+
+          <text x="30" y="318" fill="var(--text-soft)">i=4, a=5</text>
+          <rect x="140" y="302" width="54" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="167" y="319" text-anchor="middle" fill="var(--danger)">1 滑出</text>
+          <rect x="200" y="302" width="54" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="227" y="319" text-anchor="middle" fill="var(--danger)">2 弹出</text>
+          <rect x="260" y="302" width="54" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="287" y="319" text-anchor="middle" fill="var(--danger)">3 弹出</text>
+          <rect x="320" y="302" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="347" y="319" text-anchor="middle" fill="var(--text)">4(5)</text>
+          <text x="386" y="319" fill="var(--ok)" font-size="11.5" font-family="inherit">5 比它们都大 → 全部清空，输出 5</text>
+
+          <text x="30" y="348" fill="var(--text-soft)">i=5, a=3</text>
+          <rect x="140" y="332" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="167" y="349" text-anchor="middle" fill="var(--text)">4(5)</text>
+          <rect x="200" y="332" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="227" y="349" text-anchor="middle" fill="var(--text)">5(3)</text>
+          <text x="266" y="349" fill="var(--ok)" font-size="11.5" font-family="inherit">输出 5</text>
+
+          <text x="30" y="378" fill="var(--text-soft)">i=6, a=6</text>
+          <rect x="140" y="362" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="167" y="379" text-anchor="middle" fill="var(--text)">4(5)</text>
+          <rect x="200" y="362" width="54" height="24" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="227" y="379" text-anchor="middle" fill="var(--danger)">5 弹出</text>
+          <rect x="260" y="362" width="54" height="24" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="287" y="379" text-anchor="middle" fill="var(--text)">6(6)</text>
+          <text x="326" y="379" fill="var(--ok)" font-size="11.5" font-family="inherit">输出 6</text>
+        </g>
+
+        <rect x="500" y="150" width="356" height="252" rx="10" fill="var(--panel-2)" stroke="var(--border)"/>
+        <text x="522" y="176" fill="var(--text)" font-size="13" font-weight="700" font-family="inherit">最终答案</text>
+        <text x="522" y="204" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [0,2] → 3</text>
+        <text x="522" y="226" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [1,3] → 3</text>
+        <text x="522" y="248" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [2,4] → 5</text>
+        <text x="522" y="270" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [3,5] → 5</text>
+        <text x="522" y="292" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [4,6] → 6</text>
+        <text x="522" y="314" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [5,7] → 7</text>
+        <text x="522" y="344" fill="var(--ok)" font-size="12.5" font-family="inherit">结果数组：[3, 3, 5, 5, 6, 7]</text>
+        <text x="522" y="372" fill="var(--brand)" font-size="12.5" font-family="inherit">每个下标最多进队一次、出队一次 → 总时间 O(n)</text>
+        <text x="522" y="394" fill="var(--text-faint)" font-size="12" font-family="inherit">暴力法需要 6 个窗口 × 3 次比较 = 18 次比较；单调队列只用了约 8 次。</text>
+      </svg>
+      <figcaption>图 4-11　单调递减队列求滑动窗口最大值：被淘汰的下标再无翻身机会</figcaption>
+    </div>
+
+    <p>下面这个动画让你逐步观察窗口移动、队尾淘汰与队头过期，是最值得反复看的一个演示。</p>
+
+    <div id="viz-sliding-window"></div>
+
+    <pre data-lang="cpp" data-file="sliding_window_max.cpp">// sliding_window_max.cpp —— 单调队列 O(n) 求滑动窗口最大值
+#include &lt;iostream&gt;
+#include &lt;deque&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;      // std::max
+#include &lt;climits&gt;       // LLONG_MIN
+using namespace std;
+
+// 返回每个长度为 k 的窗口的最大值；窗口数 = n-k+1
+vector&lt;int&gt; MaxSlidingWindow(const vector&lt;int&gt;&amp; a, int k) {
+    vector&lt;int&gt; res;
+    deque&lt;int&gt; dq;                       // ★ 单调递减队列，存放【下标】
+    if (k &lt;= 0 || (int)a.size() &lt; k) return res;
+
+    for (int i = 0; i &lt; (int)a.size(); ++i) {
+        // ① 去尾：队尾元素如果 ≤ 当前元素，就永远不可能成为最大值，弹出
+        while (!dq.empty() &amp;&amp; a[dq.back()] &lt;= a[i]) dq.pop_back();
+        dq.push_back(i);
+
+        // ② 去头：队头下标如果已经滑出窗口左边界，弹出
+        if (dq.front() &lt;= i - k) dq.pop_front();
+
+        // ③ 取答案：窗口填满后，队头就是本窗口最大值
+        if (i &gt;= k - 1) res.push_back(a[dq.front()]);
+    }
+    return res;
+}
+
+// 对照用：暴力法 O(nk)
+vector&lt;int&gt; MaxSlidingWindowBrute(const vector&lt;int&gt;&amp; a, int k) {
+    vector&lt;int&gt; res;
+    for (int i = 0; i + k &lt;= (int)a.size(); ++i) {
+        int mx = a[i];
+        for (int j = i + 1; j &lt; i + k; ++j) mx = max(mx, a[j]);
+        res.push_back(mx);
+    }
+    return res;
+}
+
+int main() {
+    vector&lt;int&gt; a = {1, 3, -1, -3, 5, 3, 6, 7};
+    int k = 3;
+
+    cout &lt;&lt; "数组: ";
+    for (size_t i = 0; i &lt; a.size(); ++i) cout &lt;&lt; a[i] &lt;&lt; " ";
+    cout &lt;&lt; "   窗口大小 k = " &lt;&lt; k &lt;&lt; "\n\n";
+
+    vector&lt;int&gt; fast = MaxSlidingWindow(a, k);
+    vector&lt;int&gt; slow = MaxSlidingWindowBrute(a, k);
+
+    cout &lt;&lt; "单调队列 O(n) 结果: ";
+    for (size_t i = 0; i &lt; fast.size(); ++i) cout &lt;&lt; fast[i] &lt;&lt; " ";
+    cout &lt;&lt; "\n暴力法 O(nk) 结果: ";
+    for (size_t i = 0; i &lt; slow.size(); ++i) cout &lt;&lt; slow[i] &lt;&lt; " ";
+    cout &lt;&lt; "\n两种方法结果一致: " &lt;&lt; (fast == slow ? "是" : "否") &lt;&lt; "\n\n";
+
+    // ---- 变形 1：滑动窗口最小值（把比较符号反过来即可）----
+    {
+        deque&lt;int&gt; dq; vector&lt;int&gt; mn;
+        for (int i = 0; i &lt; (int)a.size(); ++i) {
+            while (!dq.empty() &amp;&amp; a[dq.back()] &gt;= a[i]) dq.pop_back();  // 改成单调递增
+            dq.push_back(i);
+            if (dq.front() &lt;= i - k) dq.pop_front();
+            if (i &gt;= k - 1) mn.push_back(a[dq.front()]);
+        }
+        cout &lt;&lt; "变形：滑动窗口最小值 = ";
+        for (size_t i = 0; i &lt; mn.size(); ++i) cout &lt;&lt; mn[i] &lt;&lt; " ";
+        cout &lt;&lt; "\n";
+    }
+
+    // ---- 变形 2：求长度不超过 k 的连续子数组最大和 ----
+    {
+        vector&lt;long long&gt; pre(a.size() + 1, 0);
+        for (size_t i = 0; i &lt; a.size(); ++i) pre[i + 1] = pre[i] + a[i];
+        deque&lt;int&gt; dq; long long best = LLONG_MIN;
+        for (int i = 0; i &lt;= (int)a.size(); ++i) {
+            while (!dq.empty() &amp;&amp; pre[dq.back()] &gt;= pre[i]) dq.pop_back();  // 维护前缀和最小
+            dq.push_back(i);
+            if (dq.front() &lt; i - k) dq.pop_front();
+            if (i &gt; 0) best = max(best, pre[i] - pre[dq.front()]);
+        }
+        cout &lt;&lt; "变形：长度不超过 " &lt;&lt; k &lt;&lt; " 的最大子数组和 = " &lt;&lt; best &lt;&lt; "\n";
+    }
+
+    cout &lt;&lt; "\n复杂度对比：暴力 O(nk) = " &lt;&lt; a.size() * k
+         &lt;&lt; " 次比较；单调队列 O(n)，每个下标最多进出各一次。\n";
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-6　单调队列三连问</span>
+      <ol style="margin:6px 0 0">
+        <li><b>为什么弹出队尾？</b>因为它们比新元素小（或相等）且更早离开窗口，永远不可能成为答案。</li>
+        <li><b>为什么弹出队头？</b>因为它的下标已经滑出窗口范围，虽然值可能很大，但已经「不在场」了。</li>
+        <li><b>为什么是 O(n)？</b>每个下标至多入队一次、出队一次，均摊 O(1)；不是 O(nk)，尽管代码里有嵌套的 while。</li>
+      </ol>
+      追问：「如果要求窗口<b>最小值</b>呢？」把 <code>&lt;=</code> 改成 <code>&gt;=</code>，队列变成单调递增，队头即最小值。就这么简单。
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错点 4-8　单调队列存的是下标，不是数值</span>
+      如果队列里只存数值，就无法判断「队头是否已经滑出窗口」。
+      这是单调队列实现中最常见的错误。同理，去头判断写的是 <code>dq.front() &lt;= i - k</code>（或 <code>&lt; i - k + 1</code>），
+      写成 <code>&lt; i - k + 1</code> 与 <code>&lt;= i - k</code> 是等价的，但千万别写成 <code>dq.front() == i - k</code> ——
+      万一队头早已过期（比如连续多个元素被弹出后留下的旧下标），就会漏判。
+    </div>
+
+    <h2 id="s12">4.12 应用六：队列还在这些地方出现</h2>
+
+    <p>队列是计算机科学里出现频率最高的数据结构之一。前面五个应用都能写出代码，
+      下面这四个场景你现在只需要「知道它在用队列」，等学到对应章节时自然水到渠成。</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s12-bfs">图的广度优先遍历 BFS（第 08 讲）</h3>
+        <p>4.10 节的迷宫只是「网格图」这个特例。把网格换成任意图（邻接表 / 邻接矩阵），
+          把「上下左右四个邻居」换成「所有邻接顶点」，算法一字不改 ——
+          这就是图的 BFS 遍历。</p>
+        <p style="margin-bottom:0">它能求无权图的单源最短路、判断二分图、求连通分量。
+          <b>记住：BFS 的骨架永远是「队列 + visited 标记」。</b></p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s12-os">操作系统：作业调度与缓冲池</h3>
+        <p>操作系统里排队的场景比比皆是：<b>就绪队列</b>（等着上 CPU 的进程）、
+          <b>设备等待队列</b>（等着用打印机的进程）、<b>I/O 缓冲池</b>（多个缓冲区组成一个队列，满了就阻塞生产者）。</p>
+        <p style="margin-bottom:0">最朴素的调度算法就叫<b>先来先服务 FCFS</b>，
+          本质就是一条队列；而「缓冲区池」几乎都是用<b>循环队列</b>实现的，
+          因为它要在固定内存里反复读写、不能有假溢出。</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s12-print">打印任务队列</h3>
+        <p>你同时点了 10 份文档打印，打印机却只能一份一份来。操作系统会把这些任务按提交顺序排成一条队列，
+          打完了就从队头取下一份。</p>
+        <p style="margin-bottom:0">这解释了一个日常现象：<b>你先点的先打</b>（FIFO 公平），
+          而「取消打印」其实就是从队列中间删除一个元素 ——
+          这也说明了为什么真实系统里的队列往往要比 ADT 多一些管理接口。</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s12-mq">消息队列 MQ</h3>
+        <p>分布式系统里的 RabbitMQ、Kafka、RocketMQ，
+          核心都是「生产者把消息塞进队列，消费者从队列里取出来处理」。</p>
+        <p style="margin-bottom:0">队列在这里承担了<b>削峰填谷</b>（突发流量先排进队列，消费者按自己的节奏处理）与
+          <b>解耦</b>（生产者不必知道消费者是谁）两大职责。
+          这也正是队列「先进先出」语义在工程上最有价值的体现。</p>
+      </div>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">还有一个高级应用：工作窃取 work-stealing</span>
+      现代线程池（如 Java 的 ForkJoinPool、Go 调度器）给每个线程配一条<b>双端队列</b>：
+      线程自己从<b>后端</b>取任务（LIFO，缓存友好），
+      空闲线程则从别的线程<b>前端</b>「偷」任务（FIFO，偷最老的任务以减少冲突）。
+      一个结构、两端策略，正是 4.5 节双端队列的绝佳应用。
+    </div>
+
+    <h2 id="s13">4.13 C++ STL 中的队列家族</h2>
+
+    <p>C++ 标准库提供了三个和队列直接相关的容器适配器 / 容器。它们的关系是：
+      <b><code>std::queue</code> 和 <code>std::stack</code> 都是「容器适配器」，默认底层容器就是 <code>std::deque</code></b>；
+      而 <code>std::priority_queue</code> 是「带优先级的队列」，底层是堆。</p>
+
+    <h3 id="s13-queue"><code>std::queue</code> 接口速查</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>含义</th><th>复杂度</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td><code>q.push(x)</code></td><td>入队</td><td>O(1)</td><td>等价于 <code>emplace</code>，但 <code>emplace</code> 是原地构造，更省一次拷贝</td></tr>
+          <tr><td><code>q.pop()</code></td><td>出队</td><td>O(1)</td><td class="c-bad"><b>返回 void，不返回元素值！</b></td></tr>
+          <tr><td><code>q.front()</code></td><td>取队头</td><td>O(1)</td><td class="c-bad">空队列调用是未定义行为</td></tr>
+          <tr><td><code>q.back()</code></td><td>取队尾</td><td>O(1)</td><td class="c-bad">空队列调用是未定义行为</td></tr>
+          <tr><td><code>q.empty()</code></td><td>判空</td><td>O(1)</td><td>取元素前必须先判</td></tr>
+          <tr><td><code>q.size()</code></td><td>元素个数</td><td>O(1)</td><td>返回 <code>size_t</code>（无符号！）</td></tr>
+          <tr><td><code>q = q2</code></td><td>赋值</td><td>O(n)</td><td>元素可拷贝即可</td></tr>
+          <tr><td><code>q.swap(q2)</code></td><td>交换</td><td>O(1)</td><td>常用于「清空队列」的惯用法</td></tr>
+          <tr><td class="c-bad">遍历 / 下标 / 迭代器</td><td class="c-bad">不支持</td><td>—</td><td><code>queue</code> 有意不提供 <code>begin()</code>：只能访问两端</td></tr>
+          <tr><td class="c-bad"><code>q.clear()</code></td><td class="c-bad">不存在</td><td>—</td><td>要清空只能循环 <code>pop()</code> 或与空队列 <code>swap</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s13-deque"><code>std::deque</code> 接口速查</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>含义</th><th>复杂度</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td><code>d.push_back(x)</code> / <code>d.push_front(x)</code></td><td>两端插入</td><td>O(1)</td><td>deque 的核心价值</td></tr>
+          <tr><td><code>d.pop_back()</code> / <code>d.pop_front()</code></td><td>两端删除</td><td>O(1)</td><td>同样返回 void</td></tr>
+          <tr><td><code>d.front()</code> / <code>d.back()</code></td><td>取两端元素</td><td>O(1)</td><td>—</td></tr>
+          <tr><td><code>d[i]</code> / <code>d.at(i)</code></td><td>随机访问</td><td>O(1)</td><td class="c-warn"><code>queue</code> 没有这个能力，别混用</td></tr>
+          <tr><td><code>d.insert(pos, x)</code> / <code>d.erase(pos)</code></td><td>中间插删</td><td class="c-warn">O(n)</td><td>要移动元素，尽量别用</td></tr>
+          <tr><td><code>d.clear()</code></td><td>清空</td><td>O(n)</td><td>deque 有，queue 没有</td></tr>
+          <tr><td>迭代器失效</td><td>—</td><td>—</td><td class="c-warn">两端插删会使<b>全部迭代器</b>失效（比 vector 更激进），中间插删则全部失效</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s13-pq"><code>std::priority_queue</code>：优先队列（第 11 讲预热）</h3>
+
+    <p>优先队列出队的不是「最早进来的」，而是「优先级最高的」。
+      它<b>不满足 FIFO</b>，所以严格来说不是队列，只是名字里带 queue。
+      底层用<b>二叉堆 binary heap</b> 实现，入队出队都是 <code>O(log n)</code>，
+      取堆顶是 <code>O(1)</code> —— 这正是第 11 讲堆排序与第 09 讲 Dijkstra 优化的基础工具。</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>含义</th><th>复杂度</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td><code>pq.push(x)</code></td><td>插入</td><td>O(log n)</td><td>向上调整 sift-up</td></tr>
+          <tr><td><code>pq.pop()</code></td><td>弹出堆顶</td><td>O(log n)</td><td>向下调整 sift-down</td></tr>
+          <tr><td><code>pq.top()</code></td><td>取堆顶</td><td>O(1)</td><td>默认是<b>最大值</b>（大顶堆）</td></tr>
+          <tr><td><code>priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt;</code></td><td>小顶堆写法</td><td>—</td><td class="c-warn">三个模板参数一个都不能少（第三个是「比较器」）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s13-pit">STL 队列的六个常见坑</h3>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-9　这六个坑几乎每个人都踩过</span>
+      <ol style="margin:6px 0 0">
+        <li><b><code>pop()</code> 不返回元素值</b>。必须写成 <code>int v = q.front(); q.pop();</code>。
+          为什么这么设计？因为「返回值 + 删除」在异常安全与效率上都有麻烦，标准库选择了最朴素的语义。</li>
+        <li><b>对空队列调用 <code>front()</code> / <code>back()</code> / <code>pop()</code> 是未定义行为</b>。
+          <code>deque</code> 因为内部结构复杂，空容器访问常常直接段错误（而不是像 <code>vector</code> 那样"碰巧读到垃圾值"）。</li>
+        <li><b><code>queue</code> 不能遍历、不能下标、没有迭代器</b>。
+          想打印队列内容，只能「边出队边打印」，或者改用 <code>deque</code>。
+          这不是缺陷，而是刻意的封装（见 4.1.2 节的讨论）。</li>
+        <li><b><code>size()</code> 返回无符号数</b>。写 <code>for (int i = 0; i &lt; q.size() - 1; ++i)</code> 时，
+          若 <code>q.size()</code> 为 0，<code>q.size() - 1</code> 会回绕成一个巨大的正数 —— 经典死循环来源。
+          正确写法是先转 <code>int</code>：<code>int sz = (int)q.size();</code>。</li>
+        <li><b><code>priority_queue</code> 默认是大顶堆</b>。想取最小值必须写全三个模板参数，
+          而且比较器用的是 <code>greater</code>（与自己写 <code>operator&lt;</code> 的直觉相反）。</li>
+        <li><b><code>queue</code> 没有 <code>clear()</code></b>。
+          清空的惯用法是 <code>queue&lt;int&gt;().swap(q);</code>（与临时空队列交换），一行搞定。</li>
+      </ol>
+    </div>
+
+    <pre data-lang="cpp" data-file="stl_queue_family.cpp">// stl_queue_family.cpp —— std::queue / std::deque / std::priority_queue 三大件实操
+#include &lt;iostream&gt;
+#include &lt;queue&gt;
+#include &lt;deque&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+using namespace std;
+
+struct Task {
+    string name;
+    int    priority;                       // 数字越大优先级越高
+    // priority_queue 默认用 less&lt;Task&gt;，也就是「谁的 operator&lt; 为真谁排在后面」
+    bool operator&lt;(const Task&amp; o) const { return priority &lt; o.priority; }
+};
+
+int main() {
+    /* ================= 1. std::queue：普通 FIFO ================= */
+    cout &lt;&lt; "=========== 1. std::queue ===========\n";
+    queue&lt;string&gt; q;
+    q.push("客户A");
+    q.push("客户B");
+    q.push("客户C");
+    cout &lt;&lt; "队头 = " &lt;&lt; q.front() &lt;&lt; "，队尾 = " &lt;&lt; q.back()
+         &lt;&lt; "，大小 = " &lt;&lt; q.size() &lt;&lt; "\n";
+
+    while (!q.empty()) {                    // 想遍历 queue？只能边出队边看
+        string s = q.front();               // ★ 先取
+        q.pop();                            // ★ 再弹（pop 不返回值）
+        cout &lt;&lt; "出队: " &lt;&lt; s &lt;&lt; "  剩余 " &lt;&lt; q.size() &lt;&lt; "\n";
+    }
+    cout &lt;&lt; "queue 没有 clear()，惯用清空写法: queue&lt;string&gt;().swap(q);\n";
+    queue&lt;string&gt;().swap(q);
+    cout &lt;&lt; "清空后 empty = " &lt;&lt; (q.empty() ? "true" : "false") &lt;&lt; "\n\n";
+
+    /* ================= 2. std::deque：两端都能动 ================= */
+    cout &lt;&lt; "=========== 2. std::deque ===========\n";
+    deque&lt;int&gt; d;
+    d.push_back(3); d.push_back(4);
+    d.push_front(2); d.push_front(1);       // 前端插入
+    cout &lt;&lt; "deque 内容: ";
+    for (size_t i = 0; i &lt; d.size(); ++i) cout &lt;&lt; d[i] &lt;&lt; " ";   // 支持随机访问
+    cout &lt;&lt; "\n";
+
+    // 单调队列：用 deque 从两端操作，是它的经典用法
+    vector&lt;int&gt; a = {1, 3, -1, -3, 5, 3, 6, 7};
+    int k = 3;
+    deque&lt;int&gt; mono;                        // 存下标，保持数值单调递减
+    cout &lt;&lt; "滑动窗口最大值(k=" &lt;&lt; k &lt;&lt; "): ";
+    for (int i = 0; i &lt; (int)a.size(); ++i) {
+        while (!mono.empty() &amp;&amp; a[mono.back()] &lt;= a[i]) mono.pop_back();  // 去尾
+        mono.push_back(i);
+        if (mono.front() &lt;= i - k) mono.pop_front();                     // 去头
+        if (i &gt;= k - 1) cout &lt;&lt; a[mono.front()] &lt;&lt; " ";
+    }
+    cout &lt;&lt; "\n\n";
+
+    /* ================= 3. std::priority_queue：堆 ================= */
+    cout &lt;&lt; "=========== 3. std::priority_queue ===========\n";
+    priority_queue&lt;int&gt; maxHeap;            // 默认大顶堆
+    for (int x : {3, 1, 4, 1, 5, 9, 2, 6}) maxHeap.push(x);
+    cout &lt;&lt; "大顶堆依次弹出: ";
+    while (!maxHeap.empty()) { cout &lt;&lt; maxHeap.top() &lt;&lt; " "; maxHeap.pop(); }
+    cout &lt;&lt; "\n";
+
+    priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt; minHeap;   // 小顶堆：三个参数都要写
+    for (int x : {3, 1, 4, 1, 5, 9, 2, 6}) minHeap.push(x);
+    cout &lt;&lt; "小顶堆依次弹出: ";
+    while (!minHeap.empty()) { cout &lt;&lt; minHeap.top() &lt;&lt; " "; minHeap.pop(); }
+    cout &lt;&lt; "\n";
+
+    priority_queue&lt;Task&gt; tasks;             // 自定义类型：按 priority 排序
+    tasks.push({"写作业", 2});
+    tasks.push({"打游戏", 1});
+    tasks.push({"交论文", 9});
+    tasks.push({"回消息", 5});
+    cout &lt;&lt; "按优先级处理任务: ";
+    while (!tasks.empty()) {
+        Task t = tasks.top(); tasks.pop();
+        cout &lt;&lt; t.name &lt;&lt; "(" &lt;&lt; t.priority &lt;&lt; ") ";
+    }
+    cout &lt;&lt; "\n";
+
+    cout &lt;&lt; "\n小结：queue 只能先进先出；deque 两端 O(1) 且能随机访问；\n";
+    cout &lt;&lt; "      priority_queue 是堆，O(log n) 取最值，不保证 FIFO。\n";
+    return 0;
+}
+</pre>
+
+    <h2 id="s14">4.14 本章小结</h2>
+
+    <div class="grid c2">
+      <div class="card">
+        <h3 style="margin-top:0" id="s14-concept">概念层面</h3>
+        <ul style="margin-bottom:0">
+          <li>队列是<b>只能在队尾入队、队头出队</b>的线性表，特性是 <b>FIFO</b>。</li>
+          <li>ADT 五个操作：<code>InitQueue</code> / <code>QueueEmpty</code> / <code>EnQueue</code> / <code>DeQueue</code> / <code>GetHead</code>。</li>
+          <li>队列的合法出队序列<b>只有一种</b>（就是入队序列），这是与栈最本质的区别。</li>
+          <li>栈和队列都是<b>双端队列的特例</b>：限制两端能力，就得到不同的语义。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0" id="s14-impl">实现层面</h3>
+        <ul style="margin-bottom:0">
+          <li>顺序队列有<b>假溢出</b>（<code>rear</code> 撞满但前面有空格），必须用<b>循环队列</b>解决。</li>
+          <li>循环队列的核心是取模：<code>rear = (rear+1)%MaxSize</code>。</li>
+          <li>判满三方案：<b>牺牲一个单元</b> / <b>size 计数器</b> / <b>tag 标志位</b>。</li>
+          <li>元素个数：<code>(rear - front + MaxSize) % MaxSize</code>（先加后模，避免负数）。</li>
+          <li>链队列用<b>头结点</b>消灭边界特判；但<b>最后一个元素出队后必须让 <code>rear</code> 归位</b>。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>结构</th><th>入队</th><th>出队</th><th>取队头</th><th>求长度</th><th>判满</th><th>空间</th></tr></thead>
+        <tbody>
+          <tr><td>朴素顺序队列</td><td>O(1)</td><td>O(1)</td><td>O(1)</td><td>O(1)</td><td class="c-bad">有假溢出</td><td>O(MaxSize)</td></tr>
+          <tr><td>循环队列（牺牲单元）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>rear+1==front</td><td>O(MaxSize)，浪费 1 格</td></tr>
+          <tr><td>循环队列（size）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>size==MaxSize</td><td>O(MaxSize)+1 变量</td></tr>
+          <tr><td>链队列（带头结点）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>O(n) / 加 size 为 O(1)</td><td class="c-ok">无（可无限增长）</td><td>O(n)，每元素多 1 指针</td></tr>
+          <tr><td>双端队列 deque</td><td class="c-ok">两端 O(1)</td><td class="c-ok">两端 O(1)</td><td class="c-ok">两端 O(1)</td><td>O(1)</td><td>取决于实现</td><td>O(n)</td></tr>
+          <tr><td>单调队列</td><td>均摊 O(1)</td><td>均摊 O(1)</td><td class="c-ok">O(1) 取最值</td><td>O(1)</td><td>—</td><td>O(k)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s14-apps">应用的统一视角</h3>
+
+    <p>把本章五个应用串起来看，队列在不同场景里扮演的角色其实只有三种：</p>
+
+    <ol>
+      <li><b>「缓冲」角色</b>：银行排队、打印任务、消息队列、I/O 缓冲池。
+        队列把「生产者」和「消费者」的节奏解耦，起到削峰填谷的作用。</li>
+      <li><b>「分层推进」角色</b>：迷宫 BFS、图的 BFS、二叉树层序遍历。
+        队列保证了「近的先处理」，于是天然形成一层一层向外扩展的顺序。</li>
+      <li><b>「维护候选集」角色</b>：单调队列求滑动窗口最大值。
+        队列不再只是被动排队，而是主动淘汰「不可能成为答案」的元素，把复杂度从 <code>O(nk)</code> 压到 <code>O(n)</code>。</li>
+    </ol>
+
+    <p>看清这三种角色，以后再遇到新问题，你会先问自己：<b>这里的「先来后到」是什么？有没有「近的先处理」的需求？
+      有没有元素已经彻底没用了、可以安全丢掉？</b> 只要有一个答案是肯定的，队列大概率就是你要找的工具。</p>
+
+    <h2 id="s15">4.15 易错点清单与考点</h2>
+
+    <h3 id="s15-bugs">高频易错点汇总</h3>
+
+    <div class="note danger">
+      <span class="note-title">易错点 4-10　期末考试与面试的「送命题」清单</span>
+      <ol style="margin:6px 0 0">
+        <li><b>把假溢出当成真溢出</b>，于是错误地选择了「扩容数组」而不是「改成循环队列」。</li>
+        <li><b>循环队列判满写成 <code>rear == front</code></b>，与判空条件撞车，导致队列永远「满」或永远「空」。</li>
+        <li><b>长度公式漏加 <code>MaxSize</code></b>：<code>(rear - front) % MaxSize</code> 在 <code>rear &lt; front</code> 时得到负数。</li>
+        <li><b>出队时忘记 <code>front = (front+1) % MaxSize</code> 的取模</b>，front 越界后数组访问全部错位。</li>
+        <li><b>链队列最后一个元素出队后忘记 <code>rear = front</code>（或 <code>rear = nullptr</code>）</b>，造成悬空指针与 use-after-free。</li>
+        <li><b>出队时先 <code>delete</code> 再读 <code>p-&gt;next</code></b>，顺序颠倒导致 use-after-free。</li>
+        <li><b>遍历循环队列用 <code>for (i = front; i &lt; rear; i++)</code></b>，绕过圈时直接失效。必须用「个数 + 取模」。</li>
+        <li><b>单调队列里存数值而不是下标</b>，无法判断队头是否滑出窗口。</li>
+        <li><b>BFS 在出队时才标记访问</b>，导致同一格子被重复入队，最坏情况下队列规模膨胀数倍。</li>
+        <li><b><code>queue::pop()</code> 当成有返回值</b>（Java 的 <code>poll()</code> 才有），编译不过还找不到原因。</li>
+        <li><b>杨辉三角忘记补哨兵 0</b>，于是每行的行首 / 行尾都要写特判，一写就错。</li>
+        <li><b>用 BFS 去求带权图最短路</b>，答案偏小 —— 带权图请用 Dijkstra。</li>
+      </ol>
+    </div>
+
+    <h3 id="s15-exam">考点提示</h3>
+
+    <div class="note exam">
+      <span class="note-title">考点 4-7　本章高频考点（按出现频率排序）</span>
+      <ol style="margin:6px 0 0">
+        <li><b>循环队列的判空 / 判满 / 长度公式</b>：几乎每份卷子都有，选择题 + 填空题双份。</li>
+        <li><b>给定 front、rear、MaxSize 求元素个数或判断队空 / 队满</b>：代入公式即可，注意先加后模。</li>
+        <li><b>入队序列与出队序列的关系</b>：队列只有一种出队序列；受限双端队列则要枚举判断。</li>
+        <li><b>链队列的指针操作填空</b>：尤其是「只有一个元素时出队」的那两行。</li>
+        <li><b>循环队列的代码填空</b>：<code>rear = (rear+1) % MaxSize</code> 与 <code>front = (front+1) % MaxSize</code>。</li>
+        <li><b>用队列实现层序遍历 / 求树高 / 求每层最值</b>：第 07 讲与本章的交叉考点，务必背熟模板。</li>
+        <li><b>BFS 求最短路</b>：既要会写代码，也要能说清「为什么第一次到达即最短」。</li>
+        <li><b>单调队列求滑动窗口最值</b>：竞赛与考研机试的常见题，注意均摊 O(n) 的分析。</li>
+      </ol>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">一个万能的自检方法</span>
+      写完任何队列代码，先用三个「极端场景」跑一遍：<b>①空队列出队</b>、<b>②只有一个元素时出队</b>、
+      <b>③刚好存满（或绕圈后存满）时入队</b>。三个都对了，基本就不会挂。
+      这三条正是本章所有易错点的来源。
+    </div>
+
+    <h2 id="s16">4.16 自测题</h2>
+
+    <p>先自己动笔算，再展开答案对照。四道题分别覆盖概念、公式、指针与算法设计。</p>
+
+    <h3 id="s16-q1">第 1 题（循环队列公式）</h3>
+
+    <p>一个循环队列存放在数组 <code>data[0..9]</code> 中（<code>MaxSize = 10</code>），
+      采用「牺牲一个存储单元」判满。当前 <code>front = 7</code>、<code>rear = 3</code>。请回答：</p>
+    <ol>
+      <li>队列中有多少个元素？</li>
+      <li>队列是空、是满，还是既不为空也不为满？</li>
+      <li>最多还能再入队几个元素？</li>
+      <li>若连续出队 3 个元素，<code>front</code> 变成多少？</li>
+    </ol>
+
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>1) 元素个数</b>：<code>(rear - front + MaxSize) % MaxSize = (3 - 7 + 10) % 10 = 6</code>。
+          也可以直接数：<code>data[7], data[8], data[9], data[0], data[1], data[2]</code> 共 6 个，绕了一圈。</p>
+        <p><b>2) 状态</b>：判空是 <code>front == rear</code>，不成立；判满是 <code>(rear+1)%10 == front</code>，
+          即 <code>4 == 7</code>，不成立。所以<b>既不为空也不为满</b>。</p>
+        <p><b>3) 还能入队几个</b>：容量 <code>MaxSize - 1 = 9</code>，已有 6 个，还能入队 <b>3 个</b>。
+          验证：入队 3 个后 <code>rear</code> 从 3 走到 6，此时 <code>(6+1)%10 = 7 == front</code>，正好判满 ✓</p>
+        <p><b>4) 出队 3 个后</b>：<code>front = (7 + 3) % 10 = 0</code>。
+          注意这里「加了 3 正好等于 10，取模后回绕到 0」，是最容易写错的边界。</p>
+      </div>
+    </details>
+
+    <h3 id="s16-q2">第 2 题（假溢出辨析）</h3>
+
+    <p>某同学用数组 <code>data[0..7]</code> 实现队列，<code>front</code> 指向队头元素、<code>rear</code> 指向队尾元素的下一个位置，
+      判满条件是 <code>rear == MaxSize</code>，判空条件是 <code>front == rear</code>。
+      他说：「我的队列最多只能存 8 个元素，存满后出队一个再入队一个完全没问题。」请指出他错在哪里，并给出两种正确的修改方案。</p>
+
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p><b>错在哪</b>：他的实现存在<b>假溢出</b>。队列确实「曾经」能存 8 个元素，
+          但只要发生过出队，<code>front</code> 就会右移，前面留下的空位<b>永远无法再被使用</b>。
+          于是当 <code>rear == 8</code> 时程序报「队满」，而实际元素个数可能只有 <code>8 - front</code> 个。
+          更严重的是：如果他把判满改成 <code>rear - front == MaxSize</code> 而不改下标逻辑，
+          <code>data[rear]</code> 会直接<b>越界写内存</b>。</p>
+        <p><b>方案 A（推荐）：改成循环队列</b>。<code>rear = (rear+1) % MaxSize</code>、
+          <code>front = (front+1) % MaxSize</code>，判满改为 <code>(rear+1) % MaxSize == front</code>，
+          元素个数用 <code>(rear-front+MaxSize) % MaxSize</code>。代价是牺牲一个存储单元（最多存 7 个）。</p>
+        <p><b>方案 B：改成链队列</b>。用带头结点的单链表，<code>front</code> 指向头结点、<code>rear</code> 指向尾结点。
+          没有「假溢出」概念，长度只受内存限制；代价是每个元素多一个指针，且缓存局部性变差。</p>
+        <p>顺带一提：如果一定要保留顺序存储又想存满，可以给循环队列加一个 <code>size</code> 计数器（方案二）
+          或 <code>tag</code> 标志位（方案三），这样能存满 8 个而不浪费单元。</p>
+      </div>
+    </details>
+
+    <h3 id="s16-q3">第 3 题（链队列指针）</h3>
+
+    <p>带头结点的链队列中，<code>front</code> 指向头结点，<code>rear</code> 指向队尾结点，队列中当前只有一个元素。
+      请写出出队操作的完整代码（含判空），并说明为什么不能省略其中的某一行。</p>
+
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <pre data-lang="cpp" data-file="q3_answer.cpp">// q3_answer.cpp —— 第 3 题参考答案：带头结点链队列的出队操作（含最小验证）
+#include &lt;iostream&gt;
+using namespace std;
+
+struct Node { int data; Node* next; };
+
+struct LinkQueue {
+    Node* front;    // 指向头结点
+    Node* rear;     // 指向队尾结点
+
+    void InitQueue() { front = rear = new Node{0, nullptr}; }
+    bool Empty() const { return front == rear; }
+
+    void EnQueue(int x) {
+        Node* s = new Node{x, nullptr};
+        rear-&gt;next = s;
+        rear = s;
+    }
+
+    bool DeQueue(int&amp; x) {
+        if (front == rear) return false;    // 1. 判空：空队列直接返回 false
+        Node* p = front-&gt;next;              // 2. p 指向真正的队头结点
+        x = p-&gt;data;                        // 3. 取值
+        front-&gt;next = p-&gt;next;              // 4. 摘链：必须先接好再释放
+        if (rear == p) rear = front;        // 5. ★ 出队的是最后一个元素：rear 必须归位
+        delete p;                           // 6. 释放结点
+        return true;
+    }
+};
+
+int main() {
+    LinkQueue q;
+    q.InitQueue();
+    q.EnQueue(7);                           // 队列中只有一个元素
+
+    int v = 0;
+    q.DeQueue(v);
+    cout &lt;&lt; "出队 -&gt; " &lt;&lt; v &lt;&lt; "\n";
+    cout &lt;&lt; "出队后 front == rear ? " &lt;&lt; (q.front == q.rear ? "是（rear 已归位）" : "否（rear 悬空！）") &lt;&lt; "\n";
+
+    q.EnQueue(100); q.EnQueue(200);         // 再次入队，验证 rear 依然有效
+    cout &lt;&lt; "再次出队: ";
+    while (q.DeQueue(v)) cout &lt;&lt; v &lt;&lt; " ";
+    cout &lt;&lt; "\n程序正常结束：没有悬空指针，没有内存越界。\n";
+
+    delete q.front;                         // 释放头结点
+    return 0;
+}
+</pre>
+        <p><b>不能省略第 5 行</b>。当队列中只有一个元素时，<code>p</code> 既是队头结点又是队尾结点（<code>rear == p</code>）。
+          执行第 4 行后 <code>front-&gt;next = nullptr</code>，队列逻辑上已经空了，
+          但 <code>rear</code> 仍然指向 <code>p</code>。第 6 行 <code>delete p</code> 之后，
+          <code>rear</code> 就成了<b>悬空指针</b>，下一次 <code>EnQueue</code> 执行 <code>rear-&gt;next = s</code> 时
+          会往已释放的内存里写数据，属于未定义行为 —— 可能立刻崩溃，也可能潜伏很久之后才以诡异的方式出错。</p>
+        <p>另外注意第 4 行与第 6 行的<b>顺序绝不能颠倒</b>：先 <code>delete p</code> 再读 <code>p-&gt;next</code> 就是 use-after-free。</p>
+      </div>
+    </details>
+
+    <h3 id="s16-q4">第 4 题（算法设计：单调队列）</h3>
+
+    <p>给定数组 <code>a = [2, 1, 4, 5, 3, 7]</code>，窗口大小 <code>k = 3</code>。
+      请手工写出用单调队列求每个窗口最大值的完整过程（每步的队列内容 + 输出），
+      并说明为什么该算法的时间复杂度是 <code>O(n)</code> 而不是 <code>O(nk)</code>。</p>
+
+    <details class="fold">
+      <summary>查看答案与解析</summary>
+      <div class="fold-body">
+        <p>队列中存<b>下标</b>，括号内是数值。规则：入队前先弹出队尾所有 ≤ 当前值的元素；队头若滑出窗口则弹出。</p>
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th>i</th><th>a[i]</th><th>去尾弹出</th><th>队列（front → rear）</th><th>去头</th><th>输出</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>2</td><td>—</td><td>[0(2)]</td><td>—</td><td>—</td></tr>
+              <tr><td>1</td><td>1</td><td>无（2 &gt; 1）</td><td>[0(2), 1(1)]</td><td>—</td><td>—</td></tr>
+              <tr><td>2</td><td>4</td><td>弹出 1(1)、0(2)</td><td>[2(4)]</td><td>—</td><td class="c-ok">4</td></tr>
+              <tr><td>3</td><td>5</td><td>弹出 2(4)</td><td>[3(5)]</td><td>—</td><td class="c-ok">5</td></tr>
+              <tr><td>4</td><td>3</td><td>无（5 &gt; 3）</td><td>[3(5), 4(3)]</td><td><code>3 &gt; 4-3=1</code>，不弹</td><td class="c-ok">5</td></tr>
+              <tr><td>5</td><td>7</td><td>弹出 4(3)、3(5)</td><td>[5(7)]</td><td>—</td><td class="c-ok">7</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>答案</b>：<code>[4, 5, 5, 7]</code>，共 <code>n-k+1 = 4</code> 个窗口。</p>
+        <p><b>为什么是 O(n)</b>：虽然代码里有一个 <code>while</code> 嵌在 <code>for</code> 里，
+          但每个下标<b>最多入队一次、最多出队一次</b>（出队只有两种原因：被更大的新元素顶掉，或滑出窗口）。
+          因此内层 <code>while</code> 的总执行次数不超过 <code>2n</code>，
+          整个算法的总操作数是 <code>O(n)</code> —— 这叫<b>均摊分析 amortized analysis</b>。
+          对比暴力法：4 个窗口 × 3 次比较 = 12 次比较；本例的单调队列只做了 5 次弹出 + 6 次入队。</p>
+      </div>
+    </details>
+
+    <div class="note">
+      <span class="note-title">下一讲预告</span>
+      队列讲完了，线性结构这条主线还剩最后一个成员：<b>串 string</b>。
+      下一讲我们会看模式匹配的两大经典算法 —— KMP 与 BM。
+      剧透一下：KMP 的 <code>next</code> 数组推导过程本质上是一次「自己匹配自己」，
+      而 BM 的「坏字符规则」则用到了和本章相似的「跳着走、不回头」思想。
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch03-stack.html"><span class="dir">← 上一讲</span><span class="ttl">03 栈及其经典应用</span></a>
+      <a class="next" href="ch05-string-kmp-bm.html"><span class="dir">下一讲 →</span><span class="ttl">05 串：KMP 与 BM 模式匹配</span></a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

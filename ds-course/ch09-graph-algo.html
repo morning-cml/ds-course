@@ -1,0 +1,3639 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 图论算法：生成树与最短路径 · 数据结构与算法设计</title>
+<link rel="stylesheet" href="assets/css/course.css">
+<script>window.DS_PAGE = { id: 'ch09', title: '图论算法：生成树与最短路径' };</script>
+<script src="assets/js/course.js" defer></script>
+<script src="assets/js/ch09-viz.js" defer></script>
+<style>
+  /* 本页专用：让静态图解在窄屏下也不溢出 */
+  .figure svg { display: block; margin: 0 auto; }
+  .kbd { font-family: var(--mono); font-size: 12.5px; background: var(--bg-soft);
+         border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-soft); margin: 6px 0 0; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px;
+              vertical-align: -1px; border: 1.5px solid var(--border-strong); }
+  .l-green { background: var(--ok-soft); border-color: var(--ok) !important; }
+  .l-orange { background: var(--accent-soft); border-color: var(--accent) !important; }
+  .l-blue { background: var(--brand-soft); border-color: var(--brand) !important; }
+  .l-gray { background: var(--bg-soft); }
+</style>
+</head>
+<body>
+
+<header class="topbar"></header>
+
+<div class="layout">
+  <aside class="sidebar toc-auto"></aside>
+
+  <main class="content">
+
+    <div class="doc-head">
+      <div class="kicker">第 09 讲</div>
+      <h1>图论算法：生成树与最短路径</h1>
+      <p class="lede">
+        上一讲我们把图「存」了起来，这一讲开始让图「动」起来。同样是带权图，问法不同，算法就完全不同：
+        <b>让所有点连通且总代价最小</b>是最小生成树（Prim / Kruskal）；
+        <b>从一点到另一点走哪条路最省</b>是最短路径（Dijkstra / Floyd / Bellman-Ford）；
+        <b>哪些事必须先做、哪些可以并行</b>是拓扑排序（AOV 网）；
+        <b>整个工程最快几天完工、哪些环节不能拖</b>是关键路径（AOE 网）。
+        这四组算法是 408 与各类算法竞赛的绝对高频考点，也是「贪心」「动态规划」两大思想的最佳入门范例。
+      </p>
+      <div class="meta">
+        <span>预计 150 分钟</span>
+        <span>前置：第 08 讲图的存储、第 07 讲树、第 01 讲大 O</span>
+        <span>关键词：贪心 · 松弛 · 并查集 · 拓扑序 · 关键路径</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-title">本章导读</span>
+      <ul style="margin:0">
+        <li><b>9.1</b> 统一约定与贯穿全章的示例图 —— <b>先花 5 分钟把这张图看懂、抄下来</b>，后面每个算法都在它上面跑，对照起来才不费劲。</li>
+        <li><b>9.2</b> 最小生成树：割性质与环性质、Prim、Kruskal、并查集、对比表 —— 考试最爱考 Prim / Kruskal 的<b>手推过程表</b>。</li>
+        <li><b>9.3</b> Dijkstra 单源最短路：松弛的本质、手推表、朴素版与堆优化版、路径还原、<b>为什么不能有负权边</b>。</li>
+        <li><b>9.4</b> Floyd 全源最短路：<code>dp[k][i][j]</code> 的三维思想、<b>为什么 k 必须放在最外层</b>、扩展应用。</li>
+        <li><b>9.5</b> Bellman-Ford 与 SPFA：能处理负权、能判负环，但要小心被卡。</li>
+        <li><b>9.6</b> 拓扑排序（AOV 网）：Kahn 算法与 DFS 版，判断有向图有无环。</li>
+        <li><b>9.7</b> 关键路径（AOE 网）：ve / vl / e / l 四张表，408 的高频大题。</li>
+        <li><b>9.8</b> 连通性进阶 + <b>9.9</b> 本章小结、易错点与 6 道自测题。</li>
+      </ul>
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s1">9.1 统一约定与贯穿全章的示例图</h2>
+
+    <h3 id="s1-1">9.1.1 四个统一约定</h3>
+    <p>
+      图论算法的细节特别容易被「下标从 0 还是从 1 开始」「有向还是无向」「边权能不能为负」这类约定搞乱。
+      为了避免你在本章里反复切换脑子，我们先一次性把约定钉死，全章不再变：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>约定项</th><th>本章的选择</th><th>为什么这么选</th></tr></thead>
+        <tbody>
+          <tr><td>顶点编号</td><td><b>0 ~ n−1</b>（0 基）</td><td>与 C++ 数组下标天然对齐，写 <code>for (int i = 0; i &lt; n; i++)</code> 不用做 ±1 的心算。</td></tr>
+          <tr><td>图的类型</td><td>MST 与最短路用<b>带权无向图</b>；拓扑排序与关键路径用<b>带权有向图（DAG）</b></td><td>生成树、最短路在无向图上讨论最直观；AOV / AOE 网本身必须是有向无环图。</td></tr>
+          <tr><td>权值</td><td>全部为<b>正整数</b>（本章示例权值取 2 ~ 11）</td><td>Dijkstra 与 Floyd 都要求非负权；负权单独放到 9.3.7 与 9.5 节讲。</td></tr>
+          <tr><td>存储结构</td><td><b>邻接矩阵</b> <code>g[u][v]</code> 与 <b>链式前向星</b>（数组模拟邻接表）两种</td><td>朴素算法用矩阵最省事，堆优化算法必须用邻接表，两种都要会写。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s1-2">9.1.2 两种存储结构的代码骨架</h3>
+    <p>
+      后面所有算法的代码都建立在这两个骨架之上。链式前向星的名字听起来吓人，其实就是
+      「<b>用数组模拟链表</b>」：<code>head[u]</code> 指向顶点 u 的第一条边，每条边记录
+      <code>to</code>（终点）、<code>w</code>（权值）、<code>nxt</code>（同起点的下一条边），
+      插入时用头插法。<b>它比 <code>vector&lt;vector&lt;Edge&gt;&gt;</code> 更快、更省内存</b>，
+      是算法竞赛的标准写法。
+    </p>
+
+    <pre data-lang="cpp" data-file="graph_base.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 1005;          // 最大顶点数
+const int MAXM = 200005;        // 最大边数（无向图要开 2 倍）
+const int INF  = 0x3f3f3f3f;    // 1e9 级别，"无穷大"的安全取值
+
+int n, m;                       // n 个顶点（0 ~ n-1），m 条边
+int g[MAXN][MAXN];              // ① 邻接矩阵：g[u][v] = 边权，无边为 INF
+
+/* ② 链式前向星：数组模拟邻接表 */
+int head[MAXN], etot = 0;       // head[u] = 顶点 u 的第一条边的下标，-1 表示没有
+struct Edge {
+    int to, w, nxt;             // 终点、边权、同起点的下一条边
+} e[MAXM];
+
+void init() {
+    memset(g, 0x3f, sizeof(g));                 // 邻接矩阵全部置为 INF
+    for (int i = 0; i &lt; n; i++) g[i][i] = 0;
+    memset(head, -1, sizeof(head));
+    etot = 0;
+}
+
+/* 加一条 u -&gt; v 权值为 w 的有向边（无向图调用两次即可） */
+void addEdge(int u, int v, int w) {
+    e[etot] = {v, w, head[u]};
+    head[u] = etot++;
+}
+
+/* 遍历顶点 u 的所有出边：这是链式前向星唯一需要背下来的循环 */
+void traverse(int u) {
+    for (int i = head[u]; i != -1; i = e[i].nxt) {
+        int v = e[i].to, w = e[i].w;
+        // 在这里处理边 (u, v, w)
+    }
+}
+
+int main() {
+    n = 7; m = 11;
+    init();
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; m; i++) {
+        int u = E[i][0], v = E[i][1], w = E[i][2];
+        g[u][v] = g[v][u] = w;          // 无向图：矩阵对称
+        addEdge(u, v, w); addEdge(v, u, w);
+    }
+    cout &lt;&lt; "n = " &lt;&lt; n &lt;&lt; ", m = " &lt;&lt; m &lt;&lt; ", etot = " &lt;&lt; etot &lt;&lt; "\n";
+    cout &lt;&lt; "g[0][1] = " &lt;&lt; g[0][1] &lt;&lt; ",  g[0][4] = " &lt;&lt; (g[0][4] == INF ? -1 : g[0][4]) &lt;&lt; "\n";
+    return 0;
+}</pre>
+
+    <h3 id="s1-3">9.1.3 贯穿全章的示例图 G</h3>
+    <p>
+      下面这张图是本章的「主角」：<b>7 个顶点、11 条带权无向边</b>，权值全是正整数。
+      它规模不大，手推得动；又足够「有故事」——既有等权边（可以造出多个不同的最小生成树），
+      又有「直连不如绕路」（比如 0 到 6 直连是 11，绕 0→1→2→6 只要 7），
+      所以我们能用同一张图把 Prim、Kruskal、Dijkstra、Floyd 全部演一遍。
+      请把它抄到草稿纸上，后面每张手推表都对着它看。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 700 430" width="700" height="430" xmlns="http://www.w3.org/2000/svg">
+        <!-- 边 -->
+        <g stroke="var(--border-strong)" stroke-width="2" fill="none">
+          <line x1="110" y1="90" x2="240" y2="90"/>
+          <line x1="240" y1="90" x2="370" y2="90"/>
+          <line x1="370" y1="90" x2="500" y2="90"/>
+          <line x1="110" y1="90" x2="370" y2="90"/>
+          <line x1="110" y1="90" x2="500" y2="90"/>
+          <line x1="240" y1="90" x2="500" y2="90"/>
+          <line x1="240" y1="90" x2="240" y2="330"/>
+          <line x1="250" y1="110" x2="370" y2="312"/>
+          <line x1="129" y1="109" x2="360" y2="312"/>
+          <line x1="370" y1="90" x2="370" y2="330"/>
+          <line x1="500" y1="110" x2="370" y2="310"/>
+          <line x1="130" y1="330" x2="350" y2="330"/>
+        </g>
+        <!-- 边的权值标签（带底色，避免被线穿过） -->
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <rect x="163" y="46" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="176" y="57" fill="var(--text-soft)">2</text>
+          <rect x="293" y="46" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="306" y="57" fill="var(--text-soft)">2</text>
+          <rect x="423" y="46" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="436" y="57" fill="var(--text-soft)">3</text>
+          <rect x="228" y="46" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="241" y="57" fill="var(--text-soft)">3</text>
+          <rect x="313" y="46" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="326" y="57" fill="var(--text-soft)">5</text>
+          <rect x="193" y="190" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="206" y="201" fill="var(--text-soft)">11</text>
+          <rect x="223" y="190" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="236" y="201" fill="var(--text-soft)">6</text>
+          <rect x="373" y="190" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="386" y="201" fill="var(--text-soft)">4</text>
+          <rect x="240" y="296" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="253" y="307" fill="var(--text-soft)">2</text>
+          <rect x="423" y="290" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="436" y="301" fill="var(--text-soft)">5</text>
+          <rect x="163" y="290" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="176" y="301" fill="var(--text-soft)">5</text>
+        </g>
+        <!-- 顶点 -->
+        <g>
+          <circle cx="110" cy="90" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="110" y="96" text-anchor="middle" fill="var(--brand)" font-size="16" font-weight="700" font-family="Consolas, monospace">0</text>
+          <circle cx="240" cy="90" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="240" y="96" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">1</text>
+          <circle cx="370" cy="90" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="370" y="96" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">2</text>
+          <circle cx="500" cy="90" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="500" y="96" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">3</text>
+          <circle cx="110" cy="330" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="110" y="336" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">4</text>
+          <circle cx="240" cy="330" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="240" y="336" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">5</text>
+          <circle cx="370" cy="330" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="370" y="336" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas, monospace">6</text>
+        </g>
+        <text x="14" y="418" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">V = {0,1,2,3,4,5,6}　　E = {(0,1)2 (1,2)2 (2,6)4 (0,2)3 (0,3)3 (1,3)5 (3,4)2 (4,6)5 (3,5)5 (1,5)6 (0,6)11}</text>
+      </svg>
+      <figcaption>图 9-1　贯穿全章的示例图 G：7 个顶点、11 条带权无向边（权值为正）</figcaption>
+    </div>
+
+    <p>把这张图整理成两种存储结构，就是下面这样（后文所有代码都用这两张表初始化）：</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <b>邻接矩阵</b>（∞ 表示不可直达，对角线为 0）
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th></th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>
+            <tbody>
+              <tr><td><b>0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>∞</td><td>∞</td><td>11</td></tr>
+              <tr><td><b>1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td><td>6</td><td>∞</td></tr>
+              <tr><td><b>2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>∞</td><td>∞</td><td>4</td></tr>
+              <tr><td><b>3</b></td><td>3</td><td>5</td><td>∞</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td></tr>
+              <tr><td><b>4</b></td><td>∞</td><td>∞</td><td>∞</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>5</td></tr>
+              <tr><td><b>5</b></td><td>∞</td><td>6</td><td>∞</td><td>5</td><td>∞</td><td class="c-ok">0</td><td>∞</td></tr>
+              <tr><td><b>6</b></td><td>11</td><td>∞</td><td>4</td><td>∞</td><td>5</td><td>∞</td><td class="c-ok">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:13px;color:var(--text-soft);margin:6px 0 0">存储代价 <b>O(n²)</b>，与边数无关；判 <code>(u,v)</code> 是否有边是 <b>O(1)</b>。适合稠密图，也是 Prim 朴素版与 Floyd 的默认选择。</p>
+      </div>
+      <div class="card">
+        <b>链式前向星</b>（无向边存成两条有向边，共 22 条）
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th>head[]</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>
+            <tbody>
+              <tr><td>第一条边下标</td><td>9</td><td>5</td><td>3</td><td>7</td><td>6</td><td>4</td><td>2</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:13px;color:var(--text-soft);margin:6px 0 0">
+          头插法的结果是<b>边表顺序与读入顺序相反</b>：先读 (0,1)，最后读 (0,6)，于是 <code>head[0]</code> 指向最后插入的 (0,6)。
+          遍历顺序不影响任何算法的正确性，但会影响<b>相同权值时的选择结果</b>（这一点在 9.2.4 的 Prim 手推里会看到）。
+        </p>
+        <p style="font-size:13px;color:var(--text-soft);margin:6px 0 0">
+          存储代价 <b>O(n + m)</b>，遍历一个点的所有出边是 <b>O(deg)</b>。适合稀疏图，是 Kruskal、Dijkstra 堆优化、SPFA 的标配。
+        </p>
+      </div>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">先记住三个「答案」，后面用来对账</span>
+      本章所有手推表算完，都应该和下面三个数字对得上——它们就是你的「标准答案」：
+      <ul style="margin:6px 0 0">
+        <li>示例图 G 的<b>最小生成树权值和 = 18</b>（无论从哪个顶点开始 Prim，或换成 Kruskal，都是 18）。</li>
+        <li>从顶点 0 出发的<b>单源最短距离</b> <code>dist = [0, 2, 3, 3, 5, 8, 7]</code>。</li>
+        <li>全源最短路矩阵的第 0 行 = 上面这行；任意两点间距离都 ≤ 直连边权。</li>
+      </ul>
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s2">9.2 最小生成树（MST）：把图连通得最便宜</h2>
+
+    <h3 id="s2-1">9.2.1 生成树与最小生成树的定义</h3>
+    <p>
+      <b>生成树（spanning tree）</b>：连通无向图 G 的一个子图，它包含 G 的<b>全部 n 个顶点</b>，
+      并且恰好有 <b>n−1 条边</b>、本身是一棵树（连通且无环）。
+      一个连通图的生成树一般不止一棵，比如一个三角形（3 个顶点 3 条边）就有 3 棵生成树。
+    </p>
+    <p>
+      <b>最小生成树（Minimum Spanning Tree, MST）</b>：在带权连通无向图中，
+      <b>边权总和最小</b>的那棵生成树。<b>注意三个前提</b>：
+    </p>
+    <ul>
+      <li><b>连通</b>：不连通就谈不上「生成树」，只能求「最小生成森林」（每个连通块各求一棵 MST）。</li>
+      <li><b>无向</b>：有向图对应的是「最小树形图（朱刘算法）」，那是另一个话题。</li>
+      <li><b>带权</b>：权值可以理解为造价、距离、时间，目标就是总代价最小。</li>
+    </ul>
+    <p>
+      现实中的原型非常多：<b>用最少的网线把 n 个城市连起来</b>、<b>用最短的线路给一片小区供气</b>、
+      <b>电路板上用最少的铜箔连通所有焊点</b>……只要满足「连通所有点 + 总代价最小」，就是 MST 问题。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 268" width="900" height="268" xmlns="http://www.w3.org/2000/svg">
+        <!-- ① 原图 -->
+        <text x="10" y="20" fill="var(--text)" font-size="13" font-weight="700">① 原带权无向图</text>
+        <g stroke="var(--border-strong)" stroke-width="2">
+          <line x1="50" y1="60" x2="140" y2="60"/>
+          <line x1="140" y1="60" x2="140" y2="140"/>
+          <line x1="50" y1="60" x2="50" y2="140"/>
+          <line x1="50" y1="140" x2="140" y2="140"/>
+          <line x1="140" y1="140" x2="200" y2="100"/>
+        </g>
+        <g font-family="Consolas, monospace" font-size="11" text-anchor="middle" fill="var(--text-soft)">
+          <text x="95" y="52">3</text>
+          <text x="152" y="104">4</text>
+          <text x="36" y="104">5</text>
+          <text x="95" y="156">6</text>
+          <text x="178" y="128">2</text>
+        </g>
+        <g font-family="Consolas, monospace" font-size="13" text-anchor="middle" font-weight="700">
+          <circle cx="50" cy="60" r="14" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="50" y="65" fill="var(--text)">A</text>
+          <circle cx="140" cy="60" r="14" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="140" y="65" fill="var(--text)">B</text>
+          <circle cx="50" cy="140" r="14" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="50" y="145" fill="var(--text)">C</text>
+          <circle cx="140" cy="140" r="14" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="140" y="145" fill="var(--text)">D</text>
+          <circle cx="200" cy="100" r="14" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="200" y="105" fill="var(--text)">E</text>
+        </g>
+        <text x="10" y="188" fill="var(--text-faint)" font-size="11.5">4 个顶点、5 条边，其中环 A-B-D-C-A 的总权 = 3+4+6+5 = 18</text>
+        <text x="10" y="208" fill="var(--text-faint)" font-size="11.5">生成树必须「n=4 个点、n−1=3 条边、连通且无环」</text>
+
+        <line x1="240" y1="16" x2="240" y2="252" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+        <!-- ② 三棵生成树 -->
+        <text x="262" y="20" fill="var(--text)" font-size="13" font-weight="700">② 三种取法都能得到生成树（3 条边、连通、无环）</text>
+        <g font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+          <!-- 树 1 -->
+          <text x="330" y="44" fill="var(--ok)" font-size="12" font-weight="700">方案 甲：权值和 3+4+2 = 9</text>
+          <g stroke="var(--ok)" stroke-width="2.5">
+            <line x1="290" y1="80" x2="370" y2="80"/><line x1="370" y1="80" x2="370" y2="140"/><line x1="370" y1="140" x2="420" y2="110"/>
+          </g>
+          <g stroke="var(--border)" stroke-width="1.5" stroke-dasharray="3 3">
+            <line x1="290" y1="80" x2="290" y2="140"/><line x1="290" y1="140" x2="370" y2="140"/>
+          </g>
+          <g font-weight="700">
+            <circle cx="290" cy="80" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="290" y="85" fill="var(--text)">A</text>
+            <circle cx="370" cy="80" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="370" y="85" fill="var(--text)">B</text>
+            <circle cx="290" cy="140" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="290" y="145" fill="var(--text)">C</text>
+            <circle cx="370" cy="140" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="370" y="145" fill="var(--text)">D</text>
+            <circle cx="420" cy="110" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="420" y="115" fill="var(--text)">E</text>
+          </g>
+          <text x="330" y="176" fill="var(--text-faint)" font-size="11">虚线 = 未选用的边</text>
+          <text x="330" y="194" fill="var(--ok)" font-size="11.5" font-weight="700">← 最小生成树（MST）</text>
+        </g>
+        <!-- 树 2 -->
+        <g font-family="Consolas, monospace" font-size="11" text-anchor="middle">
+          <text x="620" y="44" fill="var(--text-soft)" font-size="12" font-weight="700">方案 乙：权值和 3+5+2 = 10</text>
+          <g stroke="var(--brand)" stroke-width="2.5">
+            <line x1="580" y1="80" x2="660" y2="80"/><line x1="580" y1="80" x2="580" y2="140"/><line x1="660" y1="80" x2="700" y2="110"/>
+          </g>
+          <g stroke="var(--border)" stroke-width="1.5" stroke-dasharray="3 3">
+            <line x1="660" y1="80" x2="660" y2="140"/><line x1="580" y1="140" x2="660" y2="140"/>
+          </g>
+          <g font-weight="700">
+            <circle cx="580" cy="80" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="580" y="85" fill="var(--text)">A</text>
+            <circle cx="660" cy="80" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="660" y="85" fill="var(--text)">B</text>
+            <circle cx="580" cy="140" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="580" y="145" fill="var(--text)">C</text>
+            <circle cx="660" cy="140" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="660" y="145" fill="var(--text)">D</text>
+            <circle cx="700" cy="110" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="700" y="115" fill="var(--text)">E</text>
+          </g>
+          <text x="620" y="176" fill="var(--text-faint)" font-size="11">也是生成树，但不是最小的</text>
+          <text x="620" y="194" fill="var(--text-soft)" font-size="11.5">权值和 10 &gt; 9，被淘汰</text>
+        </g>
+        <!-- ③ 非生成树 -->
+        <text x="262" y="228" fill="var(--text)" font-size="12.5" font-weight="700">③ 两个反例：为什么「随便选 3 条边」不行？</text>
+        <text x="262" y="248" fill="var(--danger)" font-size="12">若选 A-B、B-D、C-D、A-C（4 条边）→ 出现环 A-B-D-C-A，<b>不是树</b>；　若选 A-B、C-D 只有 2 条边 → <b>不连通</b>，E 掉了队</text>
+      </svg>
+      <figcaption>图 9-2　生成树与最小生成树：同一个图有多棵生成树，MST 是权值和最小的那棵</figcaption>
+    </div>
+
+    <h3 id="s2-2">9.2.2 MST 的两条性质：割性质与环性质</h3>
+    <p>
+      Prim 和 Kruskal 表面上差别很大（一个长点、一个长边），但它们背后站的是同一条定理。
+      理解了这条定理，你就知道这两个算法<b>不是碰巧对</b>，而是必然对。
+    </p>
+
+    <div class="note">
+      <span class="note-title">割性质（cut property）—— MST 的「存在性」保证</span>
+      把顶点集 V 任意划分成两个非空部分 S 与 V−S，这个划分称为一个<b>割（cut）</b>；
+      横跨两边的边称为<b>割边</b>。则：<b>跨越任意一个割的权值最小的那条边，一定属于某棵最小生成树</b>。
+      （若有多条权值并列最小，则至少有一条属于某棵 MST。）
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 660 300" width="660" height="300" xmlns="http://www.w3.org/2000/svg">
+        <!-- 左：割性质 -->
+        <text x="12" y="22" fill="var(--text)" font-size="13.5" font-weight="700">① 割性质：跨割最便宜的边一定在 MST 里</text>
+        <rect x="16" y="40" width="270" height="240" rx="10" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <text x="30" y="62" fill="var(--brand)" font-size="12.5" font-weight="700">集合 S</text>
+        <rect x="300" y="40" width="340" height="240" rx="10" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <text x="316" y="62" fill="var(--ok)" font-size="12.5" font-weight="700">集合 V − S</text>
+        <line x1="80" y1="120" x2="420" y2="120" stroke="var(--border-strong)" stroke-width="4"/>
+        <line x1="90" y1="190" x2="430" y2="220" stroke="var(--danger)" stroke-width="6"/>
+        <line x1="70" y1="240" x2="400" y2="80" stroke="var(--border-strong)" stroke-width="4"/>
+        <circle cx="80" cy="120" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <circle cx="420" cy="120" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <circle cx="85" cy="192" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <circle cx="434" cy="222" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <circle cx="66" cy="242" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <circle cx="402" cy="78" r="13" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <text x="250" y="112" text-anchor="middle" fill="var(--text-soft)" font-size="12" font-family="Consolas,monospace">w=7</text>
+        <text x="262" y="196" text-anchor="middle" fill="var(--danger)" font-size="13" font-weight="700" font-family="Consolas,monospace">w=2 ← 最小割边</text>
+        <text x="200" y="152" text-anchor="middle" fill="var(--text-soft)" font-size="12" font-family="Consolas,monospace">w=5</text>
+        <text x="120" y="278" fill="var(--text-soft)" font-size="12">任意割 S / V−S：跨割边里权值最小的那条 → 必在某棵 MST 中</text>
+
+        <!-- 右：环性质 -->
+        <text x="12" y="292" fill="var(--text-faint)" font-size="12">推论：Prim 每次把「离树最近的割边」收进来，Kruskal 每次收下「不与已选边成环的最小边」，本质都在用割性质。</text>
+      </svg>
+      <figcaption>图 9-3　割性质：跨越任意割的最小权边必属于某棵最小生成树</figcaption>
+    </div>
+
+    <div class="note">
+      <span class="note-title">环性质（cycle property）—— MST 的「排除性」保证</span>
+      对图中的任意一个<b>环</b>，环上<b>权值最大</b>的那条边一定<b>不属于</b>任何一棵最小生成树
+      （若最大权有并列，则至少可以去掉其中一条而不影响最优性）。
+      <br>直觉解释：环上每条边都只是「连通环上这些点」的一种方式，既然有一条最贵的，那把它拆掉、用环上其它边照样能连通，
+      总代价只会更小 —— 所以最贵的边没必要留。
+    </div>
+
+    <p>
+      把这两条性质对着示例图 G 用一遍，你立刻就能「不跑算法」判断出一些边的命运：
+    </p>
+    <ul>
+      <li>环 0–1–2–0 的三条边是 2、2、3。最大的是 <code>(0,2)</code> 权 3，所以<b>(0,2) 不在任何 MST 中</b>。这解释了为什么 Kruskal 在第 4 条边就把它丢掉。</li>
+      <li>环 1–2–6–4–3–1 …… 直接看环 2–6–4–3–1–2？其实不用绕这么远：环 0–1–2–6–0 的边为 2、2、4、11，最大的是 <code>(0,6)</code> 权 11，所以 <b>(0,6) 不在 MST 中</b>。</li>
+      <li>环 1–3–5–1 的边为 5、5、6，最大的是 <code>(1,5)</code> 权 6 —— 但注意这一轮里 5 与 5 并列最小，所以 (1,3) 或 (3,5) 谁进 MST 都可以，<b>但 (1,5) 一定不进</b>。</li>
+    </ul>
+
+    <div class="note warn">
+      <span class="note-title">「所有 MST 权值和相同」到底是什么意思</span>
+      MST <b>可以有很多棵</b>：示例图 G 里权值为 2 的边有 3 条、权值为 3 的边有 2 条，
+      所以 (0,2) 与 (0,3) 有时可以互换，(1,3) 与 (3,5) 也可以互换，能得到多棵不同的最小生成树。
+      但定理告诉我们：<b>它们的边权总和必然完全相同</b>（本例恒为 18）。
+      <br>原因：MST 的权值和是由「<b>割的最小割边权值之和</b>」这种只与图有关、与选择无关的量决定的；
+      更严格地说，可以证明若两棵生成树 T₁、T₂ 权值和不同，就能通过「交换一条边」把较重的改成较轻的，矛盾。
+      <br><b>考试口径</b>：「最小生成树可能不唯一，但最小生成树的<b>权值和</b>唯一」——这句话是对的；
+      「最小生成树的<b>边集</b>唯一」——这句话是错的。
+    </div>
+
+    <h3 id="s2-3">9.2.3 Prim 算法：一个顶点一个顶点地「长大」</h3>
+    <h4 id="s2-3-1">一句话本质</h4>
+    <div class="formula center">
+      Prim = 从一个顶点出发，每次选「距离当前生成树最近的那个顶点」，把它和那条最短的连接边一起吞进树里
+    </div>
+    <p>
+      把生成树想象成一个正在扩张的「国家」，树外的顶点是「邻国」。每个邻国都有一个「到该国的最短代价」
+      <code>lowcost[i]</code>，还有一个「是通过哪座城市连过去的」<code>closest[i]</code>。
+      每一轮，Prim 挑 <code>lowcost</code> 最小的邻国<b>吞并</b>，然后用新吞并的城市去更新其它邻国的代价。
+      整个过程其实就是 9.2.2 的割性质：<b>已入树的点集 S 与树外的点集 V−S 构成一个割</b>，
+      而 <code>lowcost</code> 最小的那个邻国对应的边，正是这个割的最小割边。
+    </p>
+
+    <h4 id="s2-3-2">算法流程（4 步）</h4>
+    <ol>
+      <li><b>初始化</b>：任选一个起点 s，令 <code>lowcost[s] = 0</code>（其它为 ∞），
+        <code>lowcost[i] = w(s,i)</code>（不可达则 ∞），<code>closest[i] = s</code>，标记 <code>visited[s] = true</code>。</li>
+      <li><b>选点</b>：在 <code>visited = false</code> 的顶点中，找 <code>lowcost</code> 最小的顶点 k。若 <code>lowcost[k] == ∞</code>，
+        说明图不连通，算法结束。否则把 k 加入生成树，边 <code>(closest[k], k)</code> 入选，<code>visited[k] = true</code>。</li>
+      <li><b>松弛</b>：对 k 的每个未访问邻接点 j，若 <code>w(k,j) &lt; lowcost[j]</code>，
+        则 <code>lowcost[j] = w(k,j)</code>、<code>closest[j] = k</code>。
+        <b>注意这条式子左边是「到树的距离」，右边是「一条边的权」</b>——不需要累加，因为只要接到树上就只花一条边的代价。</li>
+      <li><b>重复</b>第 2、3 步 n−1 次，得到 n−1 条边，即最小生成树。</li>
+    </ol>
+
+    <h4 id="s2-3-3">完整手推过程（以示例图 G 为例，从顶点 0 出发）</h4>
+    <p>
+      下表是 408 最常考的形式：<b>每一轮记录 <code>lowcost[]</code>、<code>closest[]</code>、选中的顶点、加入的边与当前总权值</b>。
+      「∞」表示当前还够不着。灰色的格子表示该顶点已经进树了。<b>请务必自己动手抄一遍、遮住答案推一遍</b>。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>轮次</th><th>lowcost[1..6]</th><th>closest[1..6]</th><th>选中顶点</th><th>加入的边</th><th>边权</th><th>累计边数</th><th>总权值</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>初始</b></td>
+            <td class="c-warn">2, 3, 3, ∞, ∞, 11</td>
+            <td class="c-warn">0, 0, 0, −, −, 0</td>
+            <td>—</td><td>—</td><td>—</td><td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <td><b>第 1 轮</b></td>
+            <td>2, 3, 3, ∞, ∞, 11</td>
+            <td>0, 0, 0, −, −, 0</td>
+            <td class="c-ok"><b>1</b>（最小 2）</td>
+            <td>(0,1)</td><td>2</td><td>1</td><td><b>2</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td>—, 2, 3, ∞, 6, 11</td>
+            <td>—, <b>1</b>, 0, −, <b>1</b>, 0</td>
+            <td colspan="4" class="c-warn">经 1 更新了 2（3→2）与 5（∞→6），closest 都改成 1</td>
+          </tr>
+          <tr>
+            <td><b>第 2 轮</b></td>
+            <td>—, 2, 3, ∞, 6, 11</td>
+            <td>—, 1, 0, −, 1, 0</td>
+            <td class="c-ok"><b>2</b>（最小 2）</td>
+            <td>(1,2)</td><td>2</td><td>2</td><td><b>4</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td>—, —, 3, ∞, 6, <b>4</b></td>
+            <td>—, —, 0, −, 1, <b>2</b></td>
+            <td colspan="4" class="c-warn">经 2 更新了 6（11→4）</td>
+          </tr>
+          <tr>
+            <td><b>第 3 轮</b></td>
+            <td>—, —, 3, ∞, 6, 4</td>
+            <td>—, —, 0, −, 1, 2</td>
+            <td class="c-ok"><b>3</b>（最小 3）</td>
+            <td>(0,3)</td><td>3</td><td>3</td><td><b>7</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td>—, —, —, <b>2</b>, <b>5</b>, 4</td>
+            <td>—, —, —, <b>3</b>, <b>3</b>, 2</td>
+            <td colspan="4" class="c-warn">经 3 更新了 4（∞→2）与 5（6→5）</td>
+          </tr>
+          <tr>
+            <td><b>第 4 轮</b></td>
+            <td>—, —, —, 2, 5, 4</td>
+            <td>—, —, —, 3, 3, 2</td>
+            <td class="c-ok"><b>4</b>（最小 2）</td>
+            <td>(3,4)</td><td>2</td><td>4</td><td><b>9</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td>—, —, —, —, 5, 4</td>
+            <td>—, —, —, —, 3, 2</td>
+            <td colspan="4" class="c-warn">4 的邻居只有 3（已入树）和 6，w(4,6)=5 不小于 lowcost[6]=4，<b>本轮 lowcost 不变</b></td>
+          </tr>
+          <tr>
+            <td><b>第 5 轮</b></td>
+            <td>—, —, —, —, 5, 4</td>
+            <td>—, —, —, —, 3, 2</td>
+            <td class="c-ok"><b>6</b>（最小 4）</td>
+            <td>(2,6)</td><td>4</td><td>5</td><td><b>13</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td>—, —, —, —, 5, —</td>
+            <td>—, —, —, —, 3, —</td>
+            <td colspan="4" class="c-warn">6 的邻居 0/2/4 全部已入树，无可松弛对象</td>
+          </tr>
+          <tr>
+            <td><b>第 6 轮</b></td>
+            <td>—, —, —, —, 5, —</td>
+            <td>—, —, —, —, 3, —</td>
+            <td class="c-ok"><b>5</b>（最小 5）</td>
+            <td>(3,5)</td><td>5</td><td>6</td><td><b>18</b></td>
+          </tr>
+          <tr>
+            <td>松弛</td>
+            <td colspan="7" class="c-ok">全部顶点已入树，7 个顶点 6 条边 ⇒ <b>最小生成树完成，总权值 = 18</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：手推 Prim 表的三个细节</span>
+      <ol style="margin:6px 0 0">
+        <li><b>比较的是「到树的距离」，不是「从源点出发的路径长度」</b>。比如第 5 轮 <code>lowcost[6] = 4</code>，
+          是边 (2,6) 的权，而<b>不是</b> 0→1→2→6 的累计长度 8。这与 Dijkstra 的 <code>dist</code> 有本质区别，
+          也是把 Prim 表当成 Dijkstra 表来填的典型错误。</li>
+        <li><b>等值时怎么办</b>：第 3 轮 <code>lowcost[2] = 3</code>、<code>lowcost[3] = 3</code> 并列最小。
+          这里选了 3（编号较大）。如果先选 2，那么加入的是边 (0,2)，随后经 2 会把 6 的代价降到 4；
+          最终树的边集会变成 {(0,1),(1,2),(0,2)?…} —— 注意这时会<b>成环</b>，所以 (0,2) 不会进来。
+          实际结果是选 2 时得到 {(0,1),(1,2),(2,6),(3,4),(0,3),(3,5)}，权值和同样是 18。
+          <b>结论：等值时的选择不影响总权值，但影响具体边集</b>。</li>
+        <li><b>每一轮必须写「松弛」这一步</b>：只写「选中顶点」而不写 lowcost 的变化过程，阅卷时是要扣分的。</li>
+      </ol>
+    </div>
+
+    <p>下面这个动画把上面的表格逐步演一遍，注意观察橙色候选格与绿色已入树的边：</p>
+
+    <div id="viz-prim"></div>
+
+    <h4 id="s2-3-4">Prim 朴素版 O(n²)：邻接矩阵实现</h4>
+    <p>
+      朴素版的复杂度由「找最小值」这一动作决定：每轮扫一遍 <code>lowcost</code> 数组 O(n)，
+      共 n 轮，所以是 <b>O(n²)</b>；松弛操作总共 O(m)。当图很稠密（m 接近 n²）时，
+      <b>O(n²) 反而比 O(m log n) 更优</b>——这就是 Prim 适合稠密图的原因。
+    </p>
+
+    <pre data-lang="cpp" data-file="prim_naive.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 1005;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+int g[MAXN][MAXN];      // 邻接矩阵，无边为 INF
+int lowcost[MAXN];      // lowcost[i]：顶点 i 到当前生成树的最小边权
+int closest[MAXN];      // closest[i]：上面那条边在树内的那一个端点
+bool vis[MAXN];         // 是否已加入生成树
+
+/* 返回最小生成树的权值和；图不连通时返回 -1
+   时间复杂度 O(n^2)，与边数 m 无关 —— 适合稠密图 */
+int prim(int start) {
+    memset(vis, 0, sizeof(vis));
+    for (int i = 0; i &lt; n; i++) {
+        lowcost[i] = g[start][i];
+        closest[i] = start;
+    }
+    vis[start] = true;
+    lowcost[start] = 0;
+
+    int sum = 0, cnt = 0;
+    for (int round = 1; round &lt; n; round++) {
+        /* 第 2 步：在未入树的顶点中找 lowcost 最小的 */
+        int k = -1, best = INF;
+        for (int i = 0; i &lt; n; i++) {
+            if (!vis[i] &amp;&amp; lowcost[i] &lt; best) { best = lowcost[i]; k = i; }
+        }
+        if (k == -1) return -1;                 // 图不连通
+        vis[k] = true;
+        sum += lowcost[k];
+        cnt++;
+        printf("第 %d 轮：加入顶点 %d，边 (%d,%d) 权 %d，累计 %d\n",
+               round, k, closest[k], k, lowcost[k], sum);
+
+        /* 第 3 步：用新顶点 k 去松弛其它未入树的点 */
+        for (int j = 0; j &lt; n; j++) {
+            if (!vis[j] &amp;&amp; g[k][j] &lt; lowcost[j]) {
+                lowcost[j] = g[k][j];           // 只取一条边的权，不累加！
+                closest[j] = k;
+            }
+        }
+    }
+    return cnt == n - 1 ? sum : -1;
+}
+
+int main() {
+    n = 7; m = 11;
+    memset(g, 0x3f, sizeof(g));
+    for (int i = 0; i &lt; n; i++) g[i][i] = 0;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; m; i++) {
+        int u = E[i][0], v = E[i][1], w = E[i][2];
+        g[u][v] = g[v][u] = w;
+    }
+    printf("MST 总权值 = %d\n", prim(0));
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">常见错误：把 lowcost 当成 dist 累加</span>
+      写成 <code>lowcost[j] = min(lowcost[j], lowcost[k] + g[k][j])</code> 是<b>错的</b>。
+      那样算出来的是「从起点 s 到 j 的路径长度」，是 Dijkstra 的写法。
+      Prim 关心的是「j 离<b>整棵树</b>有多近」，只要接上一条边就行，所以是
+      <code>lowcost[j] = min(lowcost[j], g[k][j])</code>。
+    </div>
+
+    <h4 id="s2-3-5">Prim 堆优化版 O(m log n)：链式前向星 + priority_queue</h4>
+    <p>
+      朴素版的瓶颈在「每轮扫一遍数组找最小」，这是 O(n²)。用一个<b>小根堆</b>维护候选边，
+      就能把每次找最小降到 O(log m)。总复杂度 <b>O(m log m) = O(m log n)</b>（因为 m ≤ n²，log m ≤ 2 log n）。
+      在稀疏图上这比 O(n²) 快得多。
+    </p>
+
+    <pre data-lang="cpp" data-file="prim_heap.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, w, nxt; } e[MAXM];
+void addEdge(int u, int v, int w) { e[etot] = {v, w, head[u]}; head[u] = etot++; }
+
+bool vis[MAXN];
+int dist_[MAXN];                 // 各顶点到「已选点集」的最小边权
+
+/* 堆里存 pair&lt;边权, 顶点&gt;，按第一关键字排序 ⇒ 小根堆 */
+int prim(int s) {
+    memset(vis, 0, sizeof(vis));
+    memset(dist_, 0x3f, sizeof(dist_));
+    priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;, greater&lt;pair&lt;int,int&gt;&gt; &gt; pq;
+    dist_[s] = 0;
+    pq.push(make_pair(0, s));
+
+    int sum = 0, cnt = 0;
+    while (!pq.empty()) {
+        pair&lt;int,int&gt; t = pq.top(); pq.pop();
+        int d = t.first, u = t.second;
+        if (vis[u]) continue;               // 过期元素：这个点早就进树了，跳过
+        vis[u] = true;
+        sum += d; cnt++;
+        for (int i = head[u]; i != -1; i = e[i].nxt) {
+            int v = e[i].to, w = e[i].w;
+            if (!vis[v] &amp;&amp; w &lt; dist_[v]) {  // 同样是「一条边的权」，不累加
+                dist_[v] = w;
+                pq.push(make_pair(w, v));
+            }
+        }
+    }
+    return cnt == n ? sum : -1;
+}
+
+int main() {
+    n = 7;
+    memset(head, -1, sizeof(head));
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; 11; i++) {
+        addEdge(E[i][0], E[i][1], E[i][2]);
+        addEdge(E[i][1], E[i][0], E[i][2]);     // 无向边存两次
+    }
+    printf("堆优化 Prim：MST 总权值 = %d\n", prim(0));
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">堆优化 Prim 的三个细节</span>
+      <ul style="margin:6px 0 0">
+        <li><b>为什么会有「过期元素」</b>：同一个顶点可能被多次压入堆（每次发现更短的连接边就压一次），
+          所以出堆时要 <code>if (vis[u]) continue;</code> 跳过。不做这一步，答案会重复累加。</li>
+        <li><b>「不累加」体现在哪</b>：压入堆的是 <code>w</code>（一条边的权），而 Dijkstra 压入的是 <code>dist[u] + w</code>。
+          就这一点差别，决定了两个算法解的是不同的问题。</li>
+        <li><b>复杂度</b>：每条边最多引发一次入堆，共 O(m) 次堆操作，每次 O(log m)，所以是 <b>O(m log m)</b>；
+          空间 O(n + m)。</li>
+      </ul>
+    </div>
+
+    <h3 id="s2-4">9.2.4 Kruskal 算法：按边权从小到大「能用就用」</h3>
+    <h4 id="s2-4-1">一句话本质</h4>
+    <div class="formula center">
+      Kruskal = 把边按权值排序，从小到大依次尝试：两端点还不在同一个连通块 → 收下；已在同一块 → 丢弃（会成环）
+    </div>
+    <p>
+      Kruskal 的思路比 Prim 更「朴素」：既然要总权最小，那就从最便宜的边开始买。
+      但便宜边可能连的是已经连通的两个点，硬加进去就<b>成环</b>了，而生成树不允许有环 —— 于是丢弃。
+      这个「判断两端点是否已连通」的动作，正好是<b>并查集（Disjoint Set Union, DSU）</b>的拿手好戏：
+      查询与合并几乎都是 O(1)。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 300" width="900" height="300" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="18" fill="var(--text)" font-size="13.5" font-weight="700">Kruskal 的贪心循环：按权值从小到大，逐条判断「能不能用」</text>
+
+        <!-- 排序后的边列表 -->
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <rect x="14" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="42" y="53" fill="var(--text)">2</text>
+          <rect x="74" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="102" y="53" fill="var(--text)">2</text>
+          <rect x="134" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="162" y="53" fill="var(--text)">2</text>
+          <rect x="194" y="34" width="56" height="28" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="222" y="53" fill="var(--text)">3</text>
+          <rect x="254" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="282" y="53" fill="var(--text)">3</text>
+          <rect x="314" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="342" y="53" fill="var(--text)">4</text>
+          <rect x="374" y="34" width="56" height="28" rx="5" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/><text x="402" y="53" fill="var(--text)">5</text>
+          <rect x="434" y="34" width="56" height="28" rx="5" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/><text x="462" y="53" fill="var(--text)">5</text>
+          <rect x="494" y="34" width="56" height="28" rx="5" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="522" y="53" fill="var(--text-faint)">5</text>
+          <rect x="554" y="34" width="56" height="28" rx="5" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="582" y="53" fill="var(--text-faint)">6</text>
+          <rect x="614" y="34" width="56" height="28" rx="5" fill="var(--bg-soft)" stroke="var(--border-strong)"/><text x="642" y="53" fill="var(--text-faint)">11</text>
+        </g>
+        <text x="686" y="53" fill="var(--text-faint)" font-size="12">← 排序升序（示例图 G）</text>
+        <text x="14" y="82" fill="var(--text-soft)" font-size="11.5">绿 = 采纳（6 条）　红 = 丢弃（成环）　灰 = 选满 6 条后无需再看</text>
+
+        <!-- 判断流程 -->
+        <rect x="300" y="102" width="300" height="34" rx="8" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="450" y="124" text-anchor="middle" fill="var(--brand)" font-size="13" font-weight="700">取下一条边 e = (u,v)，问：find(u) == find(v) ？</text>
+
+        <path d="M380,138 L200,178" stroke="var(--ok)" stroke-width="2.2" fill="none" marker-end="url(#ak1)"/>
+        <path d="M520,138 L700,178" stroke="var(--danger)" stroke-width="2.2" fill="none" marker-end="url(#ak1d)"/>
+        <defs>
+          <marker id="ak1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/></marker>
+          <marker id="ak1d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/></marker>
+        </defs>
+        <text x="256" y="162" fill="var(--ok)" font-size="12.5" font-weight="700">否（不在同一集合）</text>
+        <text x="560" y="162" fill="var(--danger)" font-size="12.5" font-weight="700">是（已经连通）</text>
+
+        <rect x="60" y="182" width="280" height="62" rx="8" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="200" y="204" text-anchor="middle" fill="var(--text)" font-size="12.5">① 采纳这条边，累加权值</text>
+        <text x="200" y="224" text-anchor="middle" fill="var(--text)" font-size="12.5">② <tspan font-family="Consolas, monospace">unite(u,v)</tspan>：合并两个集合</text>
+        <text x="200" y="240" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">（这一步绝不会产生环 —— 正是并查集保证的）</text>
+
+        <rect x="560" y="182" width="280" height="62" rx="8" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/>
+        <text x="700" y="204" text-anchor="middle" fill="var(--text)" font-size="12.5">丢弃这条边（什么都不做）</text>
+        <text x="700" y="224" text-anchor="middle" fill="var(--text)" font-size="12.5">因为它会与已选边构成<b>环</b></text>
+        <text x="700" y="240" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">由环性质：环上最大权边不属于任何 MST</text>
+
+        <rect x="300" y="258" width="300" height="32" rx="8" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="450" y="279" text-anchor="middle" fill="var(--text)" font-size="12.5">已选边数 == n − 1 ？ → 是则停止，否则继续下一条</text>
+      </svg>
+      <figcaption>图 9-4　Kruskal 的贪心循环与并查集判环（示例图 G 的边排序结果）</figcaption>
+    </div>
+
+    <h4 id="s2-4-2">并查集：Kruskal 的心脏</h4>
+    <p>
+      并查集维护若干个不相交的集合，支持两种操作：
+      <code>find(x)</code> 返回 x 所在集合的「代表元（树根）」，
+      <code>union(x,y)</code> 把两个集合合并。两个优化是它的精髓：
+    </p>
+    <ul>
+      <li><b>路径压缩（path compression）</b>：<code>find</code> 时把沿途所有结点直接挂到根上，
+        下次查询就是 O(1)。写法就是递归里的 <code>fa[x] = find(fa[x])</code>。</li>
+      <li><b>按秩合并（union by rank/size）</b>：合并时把「矮树」挂到「高树」下，
+        避免树退化成链。用 <code>siz[]</code> 或 <code>rank[]</code> 记录。</li>
+    </ul>
+    <p>
+      两个优化一起用，单次操作的均摊复杂度是 <b>O(α(n))</b>，其中 α 是反阿克曼函数，
+      在 n 取到宇宙原子总数级别时也不超过 4 —— 工程上直接当成常数。
+    </p>
+
+    <pre data-lang="cpp" data-file="dsu.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+int fa[MAXN], rnk[MAXN];        // fa: 父指针；rnk: 秩（树高上界）
+
+void dsuInit(int n) {
+    for (int i = 0; i &lt; n; i++) { fa[i] = i; rnk[i] = 0; }
+}
+
+/* 路径压缩：递归写法最简洁；写成非递归可避免深递归爆栈 */
+int find(int x) {
+    if (fa[x] == x) return x;
+    return fa[x] = find(fa[x]);         // 关键：顺手把 x 挂到根上
+}
+
+/* 按秩合并：返回是否真的合并了（false 表示原本就在同一集合） */
+bool unite(int x, int y) {
+    int rx = find(x), ry = find(y);
+    if (rx == ry) return false;         // 同集合，不需要合并
+    if (rnk[rx] &lt; rnk[ry]) swap(rx, ry);   // 让 rx 成为较高的那棵
+    fa[ry] = rx;
+    if (rnk[rx] == rnk[ry]) rnk[rx]++;
+    return true;
+}
+
+/* 批量合并的标准写法：第一遍只查根（不修改树），第二遍才真正挂接。
+   这样 rank 的比较用的都是合并前的真实树高，按秩合并才真正有效。 */
+bool uniteAll(int (*edges)[2], int cnt) {
+    int rx[MAXN], ry[MAXN];
+    for (int i = 0; i &lt; cnt; i++) {
+        int a = find(edges[i][0]), b = find(edges[i][1]);
+        if (a != b) { rx[i] = a; ry[i] = b; } else { rx[i] = ry[i] = -1; }
+    }
+    bool any = false;
+    for (int i = 0; i &lt; cnt; i++) {
+        if (rx[i] &lt; 0) continue;
+        int ra = find(rx[i]), rb = find(ry[i]);   // 可能已被前几次合并影响，需重新查根
+        if (ra == rb) continue;
+        if (rnk[ra] &lt; rnk[rb]) swap(ra, rb);
+        fa[rb] = ra;
+        if (rnk[ra] == rnk[rb]) rnk[ra]++;
+        any = true;
+    }
+    return any;
+}
+
+/* 更朴素的按大小合并版本（等价，且不用处理 rnk 的细节） */
+int siz[MAXN];
+void dsuInit2(int n) { for (int i = 0; i &lt; n; i++) { fa[i] = i; siz[i] = 1; } }
+bool unite2(int x, int y) {
+    int rx = find(x), ry = find(y);
+    if (rx == ry) return false;
+    if (siz[rx] &lt; siz[ry]) swap(rx, ry);   // 小集合挂到大集合上
+    fa[ry] = rx; siz[rx] += siz[ry];
+    return true;
+}
+
+int main() {
+    dsuInit(7);
+    /* 依次加入 Kruskal 选中的边，观察集合变化 */
+    int pick[6][2] = {{0,1},{1,2},{3,4},{0,3},{2,6},{3,5}};
+    for (int i = 0; i &lt; 6; i++) {
+        bool ok = unite(pick[i][0], pick[i][1]);
+        printf("合并 (%d,%d) ？ %s   集合根：", pick[i][0], pick[i][1], ok ? "成功" : "已在同一集合");
+        for (int v = 0; v &lt; 7; v++) printf("%d ", find(v));
+        printf("\n");
+    }
+    /* 再试一条会成环的边 */
+    printf("尝试 (0,2)：%s\n", unite(0, 2) ? "合并成功" : "两端已连通 → 丢弃");
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">易错：<code>unite</code> 里必须先判 <code>rx == ry</code></span>
+      如果直接写 <code>fa[find(x)] = find(y);</code> 而不判断是否同集合，当 x、y 已在同一集合时，
+      会把根的父亲指向自己所在集合的根，虽然有时「碰巧」不出错，
+      但一旦配合按秩合并就会破坏秩的定义，甚至让 <code>find</code> 死循环。
+      <b>请务必保留 <code>if (rx == ry) return false;</code> 这一行。</b>
+    </div>
+
+    <h4 id="s2-4-3">Kruskal 手推过程表（同一个示例图 G）</h4>
+    <p>
+      Kruskal 的第一步是排序，这一步本身就是考点。排序后的边序列（权值相同时按端点编号排）：
+    </p>
+    <div class="formula center">
+      2(0,1) → 2(1,2) → 2(3,4) → 3(0,2) → 3(0,3) → 4(2,6) → 5(1,3) → 5(3,5) → 5(4,6) → 6(1,5) → 11(0,6)
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 940 132" width="940" height="132" xmlns="http://www.w3.org/2000/svg">
+        <text x="8" y="18" fill="var(--text)" font-size="13" font-weight="700">按权值升序排列的边（权值写在方框上方，端点写在框内）</text>
+        <g font-family="Consolas, monospace" text-anchor="middle">
+          <rect x="10" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="46" y="62" fill="var(--text)" font-size="14">(0,1)</text>
+          <text x="46" y="34" fill="var(--ok)" font-size="12" font-weight="700">2 ★</text>
+
+          <rect x="90" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="126" y="62" fill="var(--text)" font-size="14">(1,2)</text>
+          <text x="126" y="34" fill="var(--ok)" font-size="12" font-weight="700">2 ★</text>
+
+          <rect x="170" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="206" y="62" fill="var(--text)" font-size="14">(3,4)</text>
+          <text x="206" y="34" fill="var(--ok)" font-size="12" font-weight="700">2 ★</text>
+
+          <rect x="250" y="40" width="72" height="34" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/>
+          <text x="286" y="62" fill="var(--text)" font-size="14">(0,2)</text>
+          <text x="286" y="34" fill="var(--danger)" font-size="12" font-weight="700">3 ✗环</text>
+
+          <rect x="330" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="366" y="62" fill="var(--text)" font-size="14">(0,3)</text>
+          <text x="366" y="34" fill="var(--ok)" font-size="12" font-weight="700">3 ★</text>
+
+          <rect x="410" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="446" y="62" fill="var(--text)" font-size="14">(2,6)</text>
+          <text x="446" y="34" fill="var(--ok)" font-size="12" font-weight="700">4 ★</text>
+
+          <rect x="490" y="40" width="72" height="34" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/>
+          <text x="526" y="62" fill="var(--text)" font-size="14">(1,3)</text>
+          <text x="526" y="34" fill="var(--danger)" font-size="12" font-weight="700">5 ✗环</text>
+
+          <rect x="570" y="40" width="72" height="34" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="606" y="62" fill="var(--text)" font-size="14">(3,5)</text>
+          <text x="606" y="34" fill="var(--ok)" font-size="12" font-weight="700">5 ★</text>
+
+          <rect x="650" y="40" width="72" height="34" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/>
+          <text x="686" y="62" fill="var(--text)" font-size="14">(4,6)</text>
+          <text x="686" y="34" fill="var(--danger)" font-size="12" font-weight="700">5 ✗环</text>
+
+          <rect x="730" y="40" width="72" height="34" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2"/>
+          <text x="766" y="62" fill="var(--text)" font-size="14">(1,5)</text>
+          <text x="766" y="34" fill="var(--danger)" font-size="12" font-weight="700">6 ✗环</text>
+
+          <rect x="810" y="40" width="80" height="34" rx="6" fill="var(--bg-soft)" stroke="var(--border-strong)" stroke-width="1.6"/>
+          <text x="850" y="62" fill="var(--text-faint)" font-size="14">(0,6)</text>
+          <text x="850" y="34" fill="var(--text-faint)" font-size="12">11（未处理）</text>
+        </g>
+        <text x="10" y="104" fill="var(--ok)" font-size="12.5">★ = 采纳（共 6 条，权值和 2+2+2+3+4+5 = 18）　　✗ = 丢弃（加入会形成环）</text>
+        <text x="10" y="124" fill="var(--text-faint)" font-size="12">注意：选满 n−1 = 6 条边后即可停止，所以权值 11 的 (0,6) 根本没被判定；但即使判定也会因 (0,6) 成环被丢弃。</text>
+      </svg>
+      <figcaption>图 9-5　Kruskal 的边排序与取舍结果（示例图 G）</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>次序</th><th>边</th><th>权值</th><th>两端点所在集合（find 结果）</th><th>是否同集合</th><th>决策</th><th>累计边数</th><th>累计权值</th><th>并查集合并</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>(0,1)</td><td>2</td><td>{0} vs {1}</td><td>否</td><td class="c-ok">采纳</td><td>1</td><td>2</td><td>{0,1}</td></tr>
+          <tr><td>2</td><td>(1,2)</td><td>2</td><td>{0,1} vs {2}</td><td>否</td><td class="c-ok">采纳</td><td>2</td><td>4</td><td>{0,1,2}</td></tr>
+          <tr><td>3</td><td>(3,4)</td><td>2</td><td>{3} vs {4}</td><td>否</td><td class="c-ok">采纳</td><td>3</td><td>6</td><td>{3,4}</td></tr>
+          <tr><td>4</td><td>(0,2)</td><td>3</td><td>{0,1,2} vs {0,1,2}</td><td class="c-bad">是</td><td class="c-bad">丢弃（成环 0–1–2–0）</td><td>3</td><td>6</td><td>不变</td></tr>
+          <tr><td>5</td><td>(0,3)</td><td>3</td><td>{0,1,2} vs {3,4}</td><td>否</td><td class="c-ok">采纳</td><td>4</td><td>9</td><td>{0,1,2,3,4}</td></tr>
+          <tr><td>6</td><td>(2,6)</td><td>4</td><td>{0,1,2,3,4} vs {6}</td><td>否</td><td class="c-ok">采纳</td><td>5</td><td>13</td><td>{0,1,2,3,4,6}</td></tr>
+          <tr><td>7</td><td>(1,3)</td><td>5</td><td>{0,...} vs {0,...}</td><td class="c-bad">是</td><td class="c-bad">丢弃（成环 1–2–6? 实为 1–0–3）</td><td>5</td><td>13</td><td>不变</td></tr>
+          <tr><td>8</td><td>(3,5)</td><td>5</td><td>{0,1,2,3,4,6} vs {5}</td><td>否</td><td class="c-ok">采纳</td><td>6</td><td><b>18</b></td><td>全部合并，结束</td></tr>
+          <tr><td>9</td><td>(4,6)</td><td>5</td><td>—</td><td>—</td><td class="c-warn">已选满，无需处理</td><td>6</td><td>18</td><td>—</td></tr>
+          <tr><td>10</td><td>(1,5)</td><td>6</td><td>—</td><td>—</td><td class="c-warn">已选满，无需处理</td><td>6</td><td>18</td><td>—</td></tr>
+          <tr><td>11</td><td>(0,6)</td><td>11</td><td>—</td><td>—</td><td class="c-warn">已选满，无需处理</td><td>6</td><td>18</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      第 7 条边 <code>(1,3)</code> 被丢弃的原因值得说清楚：此时 1 已在集合 {0,1,2,3,4,6} 中（路径 1–0–3 已经连通），
+      3 也在同一个集合里，再加上 (1,3) 就形成了环 1–0–3–1。
+      <b>丢弃的判据永远只有一个：两端点 find 的结果是否相同。</b>
+    </p>
+
+    <p>下面动画把每一条边的判定过程演一遍，注意右侧并查集集合的变化：</p>
+
+    <div id="viz-kruskal"></div>
+
+    <h4 id="s2-4-4">Kruskal 完整实现 O(m log m)</h4>
+    <p>
+      复杂度由排序主导：排序 O(m log m)，并查集部分 O(m α(n))，合计 <b>O(m log m)</b>。
+      与顶点数 n 关系不大，只看边数 —— 所以 <b>Kruskal 适合稀疏图</b>。
+    </p>
+
+    <pre data-lang="cpp" data-file="kruskal.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 200005;
+
+int n, m;
+int fa[MAXN], siz[MAXN];
+
+int find(int x) { return fa[x] == x ? x : (fa[x] = find(fa[x])); }
+bool unite(int x, int y) {
+    int rx = find(x), ry = find(y);
+    if (rx == ry) return false;
+    if (siz[rx] &lt; siz[ry]) swap(rx, ry);
+    fa[ry] = rx; siz[rx] += siz[ry];
+    return true;
+}
+void dsuInit() { for (int i = 0; i &lt; n; i++) { fa[i] = i; siz[i] = 1; } }
+
+struct Edge { int u, v, w; };
+Edge e[MAXM];
+
+bool cmp(const Edge&amp; a, const Edge&amp; b) {
+    if (a.w != b.w) return a.w &lt; b.w;       // 先按权值升序
+    if (a.u != b.u) return a.u &lt; b.u;       // 权值相同按端点编号（让结果可复现）
+    return a.v &lt; b.v;
+}
+
+/* 返回最小生成树权值和；图不连通时返回 -1（此时得到的是最小生成森林） */
+int kruskal() {
+    sort(e, e + m, cmp);
+    dsuInit();
+    int sum = 0, cnt = 0;
+    for (int i = 0; i &lt; m &amp;&amp; cnt &lt; n - 1; i++) {
+        if (unite(e[i].u, e[i].v)) {        // 不同集合 → 采纳
+            sum += e[i].w; cnt++;
+            printf("采纳第 %d 条边 (%d,%d) 权 %d，累计 %d\n", i + 1, e[i].u, e[i].v, e[i].w, sum);
+        } else {
+            printf("丢弃第 %d 条边 (%d,%d) 权 %d：两端已连通，会成环\n", i + 1, e[i].u, e[i].v, e[i].w);
+        }
+    }
+    return cnt == n - 1 ? sum : -1;
+}
+
+int main() {
+    n = 7; m = 11;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; m; i++) e[i] = {E[i][0], E[i][1], E[i][2]};
+    printf("MST 总权值 = %d\n", kruskal());
+    return 0;
+}</pre>
+
+    <h3 id="s2-5">9.2.5 Prim vs Kruskal：怎么选</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>对比维度</th><th>Prim（朴素）</th><th>Prim（堆优化）</th><th>Kruskal</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>核心思想</td><td colspan="2">长点：每次把离树最近的<b>顶点</b>吞进来（割性质）</td><td>长边：每次收下不与已选边成环的最小<b>边</b>（环性质）</td></tr>
+          <tr><td><b>时间复杂度</b></td><td><b>O(n²)</b></td><td><b>O(m log m) = O(m log n)</b></td><td><b>O(m log m)</b>（排序主导）</td></tr>
+          <tr><td>空间复杂度</td><td>O(n²)（邻接矩阵）</td><td>O(n + m)</td><td>O(n + m)</td></tr>
+          <tr><td>适用图类型</td><td class="c-ok"><b>稠密图</b>（m ≈ n²）</td><td>稀疏图、中等规模</td><td class="c-ok"><b>稀疏图</b>（m ≈ n）</td></tr>
+          <tr><td>是否需要并查集</td><td class="c-bad">不需要</td><td class="c-bad">不需要</td><td class="c-ok"><b>必须</b></td></tr>
+          <tr><td>是否需要对所有边排序</td><td>不需要</td><td>不需要（堆只排候选边）</td><td class="c-ok"><b>需要</b>，O(m log m) 是瓶颈</td></tr>
+          <tr><td>实现难度</td><td class="c-ok">最简单（20 行）</td><td>中等（堆 + 前向星）</td><td>中等（排序 + 并查集）</td></tr>
+          <tr><td>能否处理非连通图</td><td>只能得到起点所在连通块的 MST</td><td>同左</td><td class="c-ok">自然得到最小生成森林（每个连通块一棵）</td></tr>
+          <tr><td>适用场景</td><td>稠密图、n 较小（n ≤ 5000）</td><td>大稀疏图</td><td>大稀疏图、需要按边权顺序处理时</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：一句话判断该用谁</span>
+      <b>稠密用 Prim，稀疏用 Kruskal。</b>更精确地说：
+      当 m 远小于 n² 时（稀疏图），Kruskal 的 O(m log m) 更快；
+      当 m 接近 n² 时（稠密图），Prim 的 O(n²) 更快，因为此时 m log n ≈ n² log n 反而更大。
+      <br>另外两个常考的判断题：<b>「Prim 适合稠密图，Kruskal 适合稀疏图」——对</b>；
+      <b>「Kruskal 需要并查集，Prim 不需要」——对</b>。
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s3">9.3 最短路径（一）：Dijkstra 单源最短路</h2>
+
+    <h3 id="s3-1">9.3.1 问题定义与「松弛」的本质</h3>
+    <p>
+      <b>单源最短路径（Single Source Shortest Path, SSSP）</b>：给定带权图和源点 s，
+      求 s 到其余每个顶点的最短路径长度 <code>dist[]</code>。
+      注意「最短」指的是<b>路径上所有边权之和最小</b>，而不是边数最少。
+    </p>
+    <p>
+      所有最短路算法都建立在同一个动作之上：<b>松弛（relaxation）</b>。
+      它只有一行：
+    </p>
+    <div class="formula center" data-math="if (dist[u] + w(u,v) < dist[v])  dist[v] = dist[u] + w(u,v)"></div>
+    <p>
+      <b>为什么松弛是对的？</b>用一句直观的话说：
+      <b>「如果你已经知道到 u 的最短路长度是 dist[u]，那么从 u 再走一条权为 w 的边到 v，
+      就得到了一条到 v 的长度为 dist[u]+w 的候选路线；既然是个候选，就该和现有的最好成绩比一比，谁小留谁。」</b>
+      <br>严谨一点的说法：设 s→v 的真实最短路径最后一条边是 (u,v)，那么这条路径的前半段必然是 s→u 的最短路径
+      （否则换掉前半段能得到更短的 s→v 路径，矛盾）—— 这条「<b>最优子结构</b>」性质保证了
+      <b>只要我们把每条边的两端都松弛到位，最终一定能算出所有最短路</b>。
+      区别只在于：Dijkstra 用贪心决定「先松弛谁」，Bellman-Ford 无脑地把所有边松弛 n−1 轮。
+    </p>
+
+    <div class="note tip">
+      <span class="note-title">松弛的三种「结果」</span>
+      <ul style="margin:6px 0 0">
+        <li><b>成功</b>：<code>dist[u] + w &lt; dist[v]</code>，更新 dist[v]（并记下 <code>pre[v] = u</code>，供路径还原）。</li>
+        <li><b>失败（更差）</b>：<code>dist[u] + w ≥ dist[v]</code>，什么也不做。</li>
+        <li><b>无法松弛</b>：<code>dist[u] = ∞</code>（u 还不可达），直接跳过，否则 ∞+w 会溢出。</li>
+      </ul>
+    </div>
+
+    <h3 id="s3-2">9.3.2 算法流程与贪心前提</h3>
+    <ol>
+      <li><b>初始化</b>：<code>dist[s] = 0</code>，其余 <code>dist[i] = ∞</code>；<code>visited[]</code> 全为 false；<code>pre[]</code> 全为 −1。</li>
+      <li><b>选点（贪心）</b>：在 <code>visited = false</code> 的顶点中，选 <code>dist</code> <b>最小</b>的那个顶点 u。</li>
+      <li><b>确定</b>：标记 <code>visited[u] = true</code>。此时 <code>dist[u]</code> 就<b>永远定下来了</b>，之后不再修改。</li>
+      <li><b>松弛</b>：对 u 的每个未确定邻接点 v，执行 <code>dist[v] = min(dist[v], dist[u] + w(u,v))</code>。</li>
+      <li><b>重复</b> 2~4 共 n 次（每次确定一个顶点）。若某轮选出的最小 dist 仍为 ∞，说明剩下的点都不可达，可以提前结束。</li>
+    </ol>
+    <p>
+      <b>贪心前提（正确性根据）</b>：为什么「当前 dist 最小的未确定顶点」一定已经是最优解？
+      设选出的顶点是 u，<code>dist[u] = d</code>。假设真实最短路更短，那么存在一条从 s 到 u 的路径，
+      它必然要先经过某个「未确定」的顶点 x（因为所有已确定顶点的 dist 都是最终的），
+      于是 <code>dist[x] ≤ d</code>（前缀长度不超过全路径长度，权值非负！）。
+      既然 u 是 dist 最小的未确定顶点，就有 <code>dist[x] ≥ d</code>，于是 <code>dist[x] = d</code> —— 那选 x 也一样，
+      不会得到更短的结果，矛盾。
+      <br><b>看清最后一步用了什么：边的权值非负。</b>如果允许负权，「前缀长度不超过全路径长度」就不再成立，
+      整个论证崩塌。这就是 Dijkstra 不能处理负权边的根本原因（详见 9.3.7）。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点：Dijkstra 的三个关键性质</span>
+      <ol style="margin:6px 0 0">
+        <li><b>每次确定一个顶点</b>，共确定 n 次，已确定集合不断扩大。</li>
+        <li><b>已确定顶点的 dist 不再改变</b>（这是它和 Bellman-Ford / SPFA 的最大区别，也是不能有负权的原因）。</li>
+        <li>Dijkstra 属于<b>贪心算法</b>，不是动态规划；它的正确性依赖「非负权」这个前提。</li>
+      </ol>
+    </div>
+
+    <h3 id="s3-3">9.3.3 Dijkstra 手推过程表（考点中的考点）</h3>
+    <p>
+      以示例图 G 为例，从顶点 0 出发。每轮记录 <code>dist[]</code>、<code>visited[]</code>、
+      选中的顶点以及被松弛的边。表中加粗的数值表示本轮被更新。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>轮次</th><th>dist[0..6]</th><th>visited（已确定）</th><th>选中顶点</th><th>被松弛的边</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>初始</b></td>
+            <td class="c-warn">0, ∞, ∞, ∞, ∞, ∞, ∞</td>
+            <td>{} 空</td><td>—</td><td>—</td>
+          </tr>
+          <tr>
+            <td><b>第 1 轮</b></td>
+            <td class="c-warn">0, ∞, ∞, ∞, ∞, ∞, ∞</td>
+            <td>{} → <b>{0}</b></td>
+            <td class="c-ok"><b>0</b>（dist = 0）</td>
+            <td>(0,1) ⇒ dist[1]=2　(0,2) ⇒ dist[2]=3　(0,3) ⇒ dist[3]=3　(0,6) ⇒ dist[6]=11</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>0, <b>2</b>, <b>3</b>, <b>3</b>, ∞, ∞, <b>11</b></td>
+            <td colspan="3" class="c-warn">本轮松弛后：四个顶点获得了初始估计值</td>
+          </tr>
+          <tr>
+            <td><b>第 2 轮</b></td>
+            <td>0, 2, 3, 3, ∞, ∞, 11</td>
+            <td>{0} → <b>{0,1}</b></td>
+            <td class="c-ok"><b>1</b>（最小 2）</td>
+            <td>(1,2)：2+2=4 &gt; 3，失败　(1,3)：2+5=7 &gt; 3，失败　(1,5)：2+6=8 &lt; ∞ ⇒ <b>dist[5]=8</b></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>0, 2, 3, 3, ∞, <b>8</b>, 11</td>
+            <td colspan="3" class="c-warn">只有 dist[5] 被更新（经 1 比直连更划算？——此处 5 原本不可达）</td>
+          </tr>
+          <tr>
+            <td><b>第 3 轮</b></td>
+            <td>0, 2, 3, 3, ∞, 8, 11</td>
+            <td>{0,1} → <b>{0,1,2}</b></td>
+            <td class="c-ok"><b>2</b>（最小 3，与 3 并列时取编号小的）</td>
+            <td>(2,6)：3+4=7 &lt; 11 ⇒ <b>dist[6]=7</b>　(2,1) 已确定　</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>0, 2, 3, 3, ∞, 8, <b>7</b></td>
+            <td colspan="3" class="c-warn">dist[6] 从 11 降到 7：直连 (0,6) 要 11，绕 0→1→2→6 只要 7</td>
+          </tr>
+          <tr>
+            <td><b>第 4 轮</b></td>
+            <td>0, 2, 3, 3, ∞, 8, 7</td>
+            <td>{0,1,2} → <b>{0,1,2,3}</b></td>
+            <td class="c-ok"><b>3</b>（最小 3）</td>
+            <td>(3,4)：3+2=5 &lt; ∞ ⇒ <b>dist[4]=5</b>　(3,5)：3+5=8 = 8，不更新（<b>等号不更新</b>）　(3,1)、(3,0) 已确定</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>0, 2, 3, 3, <b>5</b>, 8, 7</td>
+            <td colspan="3" class="c-warn">dist[5] 保持 8：经 1 的 0→1→5 = 8 与经 3 的 0→3→5 = 8 一样长</td>
+          </tr>
+          <tr>
+            <td><b>第 5 轮</b></td>
+            <td>0, 2, 3, 3, 5, 8, 7</td>
+            <td>{0,1,2,3} → <b>{0,1,2,3,4}</b></td>
+            <td class="c-ok"><b>4</b>（最小 5）</td>
+            <td>(4,6)：5+5=10 &gt; 7，失败　(4,3) 已确定　<b>本轮 dist 无变化</b></td>
+          </tr>
+          <tr>
+            <td><b>第 6 轮</b></td>
+            <td>0, 2, 3, 3, 5, 8, 7</td>
+            <td>{0,1,2,3,4} → <b>{0,1,2,3,4,6}</b></td>
+            <td class="c-ok"><b>6</b>（最小 7）</td>
+            <td>(6,0)、(6,2)、(6,4) 全部已确定　<b>本轮 dist 无变化</b></td>
+          </tr>
+          <tr>
+            <td><b>第 7 轮</b></td>
+            <td>0, 2, 3, 3, 5, 8, 7</td>
+            <td>→ <b>{0,1,2,3,4,5,6} 全部</b></td>
+            <td class="c-ok"><b>5</b>（dist = 8）</td>
+            <td>邻接点 1、3 均已确定　<b>算法结束</b></td>
+          </tr>
+          <tr>
+            <td><b>结果</b></td>
+            <td colspan="4" class="c-ok"><b>dist = [0, 2, 3, 3, 5, 8, 7]</b>；从 0 到 5 的最短路径为 0 → 1 → 5，长度 8</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错点：等值时更不更新？选点并列时选谁？</span>
+      <ul style="margin:6px 0 0">
+        <li><b>松弛时相等不更新</b>：第 4 轮 <code>0→3→5 = 8</code>，与已有的 <code>dist[5] = 8</code> 相等。
+          代码里的判断是严格小于 <code>&lt;</code>，所以<b>不更新</b>，<code>pre[5]</code> 保持为 1。
+          于是最终还原出的路径是 0 → 1 → 5，而不是 0 → 3 → 5。<b>两条路一样长，都对</b>，
+          但若题目问「按本算法得到的路径」，就要按代码行为回答。</li>
+        <li><b>选点并列</b>：第 3 轮 <code>dist[2] = dist[3] = 3</code>。上面的表格选了编号小的 2。
+          如果改成选 3，最短距离数组完全不变，但 <code>pre[]</code> 会不同（dist[6] 可能变成经 3 的 3+7=10 而不更新，
+          仍是 7），最终最短路树不一样。<b>结论：dist 数组唯一（权值和唯一），最短路树不唯一。</b></li>
+        <li><b>不要忘记 ∞ 的传播</b>：非连通图的某些顶点 dist 永远是 ∞，写代码时要记得跳过（<code>dist[u] &lt; INF</code>）。</li>
+      </ul>
+    </div>
+
+    <p>下面动画逐轮演示选点与松弛，橙色表示本轮被更新的顶点：</p>
+
+    <div id="viz-dijkstra"></div>
+
+    <h3 id="s3-4">9.3.4 朴素实现 O(n²)</h3>
+
+    <pre data-lang="cpp" data-file="dijkstra_naive.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 1005;
+const int INF  = 0x3f3f3f3f;
+
+int n;
+int g[MAXN][MAXN];
+int dist_[MAXN];
+bool vis[MAXN];
+int pre[MAXN];                  // 记录前驱，用于路径还原
+
+void dijkstra(int s) {
+    memset(vis, 0, sizeof(vis));
+    memset(pre, -1, sizeof(pre));
+    for (int i = 0; i &lt; n; i++) dist_[i] = g[s][i];   // 邻接矩阵直接给出初始估计
+    dist_[s] = 0; vis[s] = true;
+
+    for (int round = 1; round &lt; n; round++) {
+        /* 选点：未确定顶点中 dist 最小的 */
+        int u = -1;
+        for (int i = 0; i &lt; n; i++)
+            if (!vis[i] &amp;&amp; (u == -1 || dist_[i] &lt; dist_[u])) u = i;
+        if (u == -1 || dist_[u] == INF) break;         // 剩下的都不可达
+        vis[u] = true;
+        /* 松弛：注意这里是 dist_[u] + g[u][v]，要累加！ */
+        for (int v = 0; v &lt; n; v++) {
+            if (!vis[v] &amp;&amp; g[u][v] &lt; INF &amp;&amp; dist_[u] + g[u][v] &lt; dist_[v]) {
+                dist_[v] = dist_[u] + g[u][v];
+                pre[v] = u;
+            }
+        }
+    }
+}
+
+int main() {
+    n = 7;
+    memset(g, 0x3f, sizeof(g));
+    for (int i = 0; i &lt; n; i++) g[i][i] = 0;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; 11; i++) {
+        g[E[i][0]][E[i][1]] = E[i][2];
+        g[E[i][1]][E[i][0]] = E[i][2];
+    }
+    dijkstra(0);
+    printf("dist = ");
+    for (int i = 0; i &lt; n; i++) printf("%d ", dist_[i]);
+    printf("\n");
+    return 0;
+}</pre>
+
+    <h3 id="s3-5">9.3.5 堆优化实现 O(m log n)</h3>
+    <p>
+      和 Prim 一样，瓶颈在「找最小值」。把候选的 (dist, v) 压进小根堆，
+      每轮取出堆顶即可。总复杂度 <b>O(m log m)</b>。
+      <b>堆优化的 Dijkstra 必须用邻接表（链式前向星）</b>，否则光是遍历矩阵就是 O(n²)。
+    </p>
+
+    <pre data-lang="cpp" data-file="dijkstra_heap.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, w, nxt; } e[MAXM];
+void addEdge(int u, int v, int w) { e[etot] = {v, w, head[u]}; head[u] = etot++; }
+
+int dist_[MAXN];
+bool vis[MAXN];
+int pre[MAXN];
+
+void dijkstra(int s) {
+    memset(dist_, 0x3f, sizeof(dist_));
+    memset(vis, 0, sizeof(vis));
+    memset(pre, -1, sizeof(pre));
+
+    /* 小根堆：pair 默认按 first 比较，greater 让它变成小根堆 */
+    priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;, greater&lt;pair&lt;int,int&gt;&gt; &gt; pq;
+    dist_[s] = 0;
+    pq.push(make_pair(0, s));
+
+    while (!pq.empty()) {
+        pair&lt;int,int&gt; top = pq.top(); pq.pop();
+        int d = top.first, u = top.second;
+        if (vis[u]) continue;              // 过期元素：u 已经被确定过了，跳过
+        vis[u] = true;
+        for (int i = head[u]; i != -1; i = e[i].nxt) {
+            int v = e[i].to, w = e[i].w;
+            if (dist_[u] + w &lt; dist_[v]) { // 这里是「累加」，与 Prim 不同！
+                dist_[v] = dist_[u] + w;
+                pre[v] = u;
+                pq.push(make_pair(dist_[v], v));
+            }
+        }
+    }
+}
+
+int main() {
+    n = 7;
+    memset(head, -1, sizeof(head));
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; 11; i++) {
+        addEdge(E[i][0], E[i][1], E[i][2]);
+        addEdge(E[i][1], E[i][0], E[i][2]);
+    }
+    dijkstra(0);
+    printf("dist = ");
+    for (int i = 0; i &lt; n; i++) printf("%d ", dist_[i]);
+    printf("\n");
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错：堆优化里没有「未确定就跳过」</span>
+      朴素版松弛时判断 <code>!vis[v]</code>，堆优化版<b>通常不判断</b>（判断了也不错）。
+      为什么可以不判断？因为如果 v 已确定，那么 <code>dist_[u] + w ≥ dist_[v]</code> 必然成立
+      （非负权 + u 的 dist 不小于 v 的），松弛自然失败。但<b>如果图里有负权边，这个「自然失败」就不成立了</b>，
+      所以堆优化 Dijkstra 一样不能用于负权图。
+    </div>
+
+    <h3 id="s3-6">9.3.6 路径还原：pre[] 数组</h3>
+    <p>
+      只求长度太浪费了 —— 只要在松弛成功时记下 <code>pre[v] = u</code>，
+      就能在算法结束后从终点一路往回退，把整条路径还原出来。
+      由于每个顶点最多有一个 <code>pre</code>，所有顶点连起来是一棵以源点为根的树，
+      称为<b>最短路树（shortest path tree）</b>。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">易错：朴素版用 dist = g[s][·] 初始化时，别忘了 pre[]</span>
+      朴素版常常直接用邻接矩阵的一行当作 <code>dist</code> 的初值（省掉一次松弛）。
+      但这样一来，那些<b>一步就能到达</b>的顶点（<code>g[s][i] &lt; INF</code>）在后续轮次里
+      因为「不会变得更小」而<b>永远不会触发 <code>pre[i] = u</code></b>，
+      于是 <code>pre[i]</code> 一直是 −1，<b>路径还原会得到空路径</b>。
+      <br>解决办法就是初始化时顺手写上 <code>if (i != s &amp;&amp; g[s][i] &lt; INF) pre[i] = s;</code>。
+      这个小坑非常隐蔽（距离数组完全正确，只有路径还原出错），务必注意。
+    </div>
+
+    <pre data-lang="cpp" data-file="dijkstra_path.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 1005;
+const int INF  = 0x3f3f3f3f;
+
+int n;
+int g[MAXN][MAXN], dist_[MAXN], pre[MAXN];
+bool vis[MAXN];
+
+void dijkstra(int s) {
+    memset(vis, 0, sizeof(vis));
+    memset(pre, -1, sizeof(pre));
+    for (int i = 0; i &lt; n; i++) {
+        dist_[i] = g[s][i];
+        if (i != s &amp;&amp; g[s][i] &lt; INF) pre[i] = s;   // 关键：一步可达的点，前驱就是 s
+    }
+    dist_[s] = 0; vis[s] = true;
+    for (int r = 1; r &lt; n; r++) {
+        int u = -1;
+        for (int i = 0; i &lt; n; i++) if (!vis[i] &amp;&amp; (u == -1 || dist_[i] &lt; dist_[u])) u = i;
+        if (u == -1 || dist_[u] == INF) break;
+        vis[u] = true;
+        for (int v = 0; v &lt; n; v++)
+            if (!vis[v] &amp;&amp; g[u][v] &lt; INF &amp;&amp; dist_[u] + g[u][v] &lt; dist_[v]) {
+                dist_[v] = dist_[u] + g[u][v];
+                pre[v] = u;                     // 关键：记下前驱
+            }
+    }
+}
+
+/* 迭代法还原路径：从 t 往前推，再反转。顺序 O(路径长度) */
+vector&lt;int&gt; getPath(int s, int t) {
+    vector&lt;int&gt; path;
+    if (dist_[t] == INF) return path;            // 不可达
+    for (int cur = t; cur != -1; cur = pre[cur]) path.push_back(cur);
+    reverse(path.begin(), path.end());
+    if (path.empty() || path[0] != s) return vector&lt;int&gt;();   // 保护
+    return path;
+}
+
+/* 递归法还原路径（正序输出，思路更直观，但路径长时递归深度大） */
+void printPath(int s, int t) {
+    if (t == s) { printf("%d", s); return; }
+    if (pre[t] == -1) { printf("不可达"); return; }
+    printPath(s, pre[t]);
+    printf(" -&gt; %d", t);
+}
+
+int main() {
+    n = 7;
+    memset(g, 0x3f, sizeof(g));
+    for (int i = 0; i &lt; n; i++) g[i][i] = 0;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; 11; i++) g[E[i][0]][E[i][1]] = g[E[i][1]][E[i][0]] = E[i][2];
+    dijkstra(0);
+
+    vector&lt;int&gt; p = getPath(0, 5);
+    printf("0 到 5 的最短路径：");
+    for (size_t i = 0; i &lt; p.size(); i++) printf("%d%s", p[i], i + 1 &lt; p.size() ? " -&gt; " : "");
+    printf("，长度 %d\n", dist_[5]);
+
+    printf("递归输出 0 到 6："); printPath(0, 6); printf("，长度 %d\n", dist_[6]);
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">朴素版路径还原为什么从 <code>pre[s] = −1</code> 开始</span>
+      因为 <code>pre[]</code> 初始化为 −1，且源点的前驱不会被设置（源点自己不需要松弛），
+      所以「沿 pre 往回走直到 −1」一定停在源点。若担心越界，可以在循环里加 <code>steps &lt; n</code> 的保护，
+      防止图中有负环时陷入死循环（虽然 Dijkstra 不会遇到负环）。
+    </div>
+
+    <h3 id="s3-7">9.3.7 为什么 Dijkstra 不能处理负权边</h3>
+    <p>
+      这是 408 与面试的高频追问。答案分两层：<b>一层是「贪心前提被破坏」的原理</b>，
+      <b>一层是「拿一个反例把它算错」的实证</b>。两层都要会。
+    </p>
+    <p>
+      原理层：Dijkstra 每轮把 dist 最小的未确定顶点「永久锁定」，依据是
+      「它的 dist 不可能再变小了」。这个依据成立的前提是<b>后面发现的任何绕行路径都不会更短</b>，
+      而绕行路径 = 已在路上的长度 + 一条非负的边。一旦允许负权边，
+      「绕一圈回来反而更短」就出现了，被锁定的值可能是错的，而且<b>错了还改不回来</b>。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 330" width="900" height="330" xmlns="http://www.w3.org/2000/svg">
+        <text x="12" y="22" fill="var(--text)" font-size="13.5" font-weight="700">反例：源点 0，求到 1 和 3 的最短距离（图中有一条负权边）</text>
+        <!-- 顶点 -->
+        <circle cx="90" cy="150" r="24" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="90" y="157" text-anchor="middle" fill="var(--brand)" font-size="16" font-weight="700" font-family="Consolas,monospace">0</text>
+        <text x="90" y="112" text-anchor="middle" fill="var(--text-faint)" font-size="12">源点 s</text>
+
+        <circle cx="330" cy="80" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <text x="330" y="87" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">1</text>
+
+        <circle cx="330" cy="240" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <text x="330" y="247" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">2</text>
+
+        <circle cx="620" cy="150" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <text x="620" y="157" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">3</text>
+
+        <!-- 边 -->
+        <g stroke="var(--border-strong)" stroke-width="2.2" fill="none" marker-end="url(#ar8)">
+          <line x1="112" y1="140" x2="308" y2="90"/>
+          <line x1="112" y1="162" x2="308" y2="230"/>
+          <line x1="350" y1="96" x2="597" y2="139"/>
+        </g>
+        <line x1="348" y1="228" x2="312" y2="102" stroke="var(--danger)" stroke-width="3" marker-end="url(#ar8r)"/>
+        <defs>
+          <marker id="ar8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+          <marker id="ar8r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/></marker>
+        </defs>
+        <text x="200" y="103" fill="var(--text)" font-size="13" font-family="Consolas,monospace">w = 1</text>
+        <text x="196" y="212" fill="var(--text)" font-size="13" font-family="Consolas,monospace">w = 2</text>
+        <text x="478" y="106" fill="var(--text)" font-size="13" font-family="Consolas,monospace">w = 4</text>
+        <text x="357" y="172" fill="var(--danger)" font-size="13" font-weight="700" font-family="Consolas,monospace">w = −2</text>
+
+        <!-- 推演 -->
+        <text x="12" y="288" fill="var(--text-soft)" font-size="12.5">① 第 1 轮：确定 0，松弛得 dist = [0, 1, 2, ∞]</text>
+        <text x="12" y="308" fill="var(--text-soft)" font-size="12.5">② 第 2 轮：未确定顶点里 dist 最小的是 1（dist = 1），于是<b>锁定 dist[1] = 1</b>，并用它算出 dist[3] = 1 + 4 = 5</text>
+        <text x="410" y="288" fill="var(--danger)" font-size="12.5" font-weight="700">③ 第 3 轮：确定 2（dist = 2），发现 2→1 权为 −2，</text>
+        <text x="410" y="308" fill="var(--danger)" font-size="12.5" font-weight="700">本可令 dist[1] = 2 − 2 = 0，但 1 已锁定，无效！</text>
+        <text x="12" y="326" fill="var(--danger)" font-size="12.5">④ 结果：算法输出 dist[1] = 1、dist[3] = 5，而真实值是 dist[1] = <b>0</b>、dist[3] = <b>4</b>（走 0 → 2 → 1 → 3）——错了！</text>
+      </svg>
+      <figcaption>图 9-6　Dijkstra 的负权反例：顶点 1 被过早锁定，真正的更短路 0→2→1 与它推导出的 0→2→1→3 全都算错了</figcaption>
+    </div>
+
+    <p>把上面这个反例完整地算一遍（四条有向边：0→1 权 1、0→2 权 2、2→1 权 −2、1→3 权 4，源点为 0）：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>轮次</th><th>选中的顶点</th><th>dist[0..3]</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>初始</td><td>—</td><td>0, ∞, ∞, ∞</td><td>源点 0</td></tr>
+          <tr><td>第 1 轮</td><td>0（dist = 0）</td><td>0, <b>1</b>, <b>2</b>, ∞</td><td>松弛 (0,1) 与 (0,2)</td></tr>
+          <tr><td>第 2 轮</td><td class="c-bad">1（dist = 1）← 被锁定</td><td>0, 1, 2, <b>5</b></td><td>松弛 (1,3)：1+4 = 5。算法此时认定「到 1 的最短路就是直连的 1」，并据此定了 dist[3]</td></tr>
+          <tr><td>第 3 轮</td><td>2（dist = 2）</td><td class="c-bad">0, 1, 2, 5</td><td>发现边 2→1 权为 −2：<code>2 + (−2) = 0 &lt; 1</code>，<b>本应更新 dist[1]</b>；但 1 已确定、不再接受更新，这一发现白白浪费</td></tr>
+          <tr><td>第 4 轮</td><td>3（dist = 5）</td><td class="c-bad">0, 1, 2, 5</td><td>结束。3 的 5 是由错误的 dist[1] 推出来的，同样错</td></tr>
+          <tr><td colspan="2"><b>算法输出</b></td><td class="c-bad">dist = [0, <b>1</b>, 2, <b>5</b>]</td><td>顶点 1、3 的距离都错了</td></tr>
+          <tr><td colspan="2"><b>真实答案</b></td><td class="c-ok">dist = [0, <b>0</b>, 2, <b>4</b>]</td><td>0 → 2 → 1 长度 2 + (−2) = <b>0</b>；0 → 2 → 1 → 3 长度 0 + 4 = <b>4</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      请特别注意第 3 轮那件事有多讽刺：<b>算法确实「看见」了更短的路径（dist[1] 本可以降到 0），
+      但它已经没有资格修改 dist[1] 了</b>。更糟的是，错误的 dist[1] 早已在上一轮把 dist[3] 也带偏了 ——
+      <b>一个被过早锁定的错误值，会沿着后续的松弛一路污染下去</b>。
+    </p>
+    <div class="note tip">
+      <span class="note-title">为什么这个反例必须有 4 个顶点、且负边要「往回指」？</span>
+      想让 Dijkstra 出错，必须制造「<b>后处理的顶点能提供更短路</b>」的局面：设顶点 x 先被取出并锁定，
+      而顶点 y 后取出，且 <code>dist[y] + w(y,x) &lt; dist[x]</code>（这只能是负权造成的）。
+      可是取出顺序按 <code>dist</code> 从小到大，所以 <code>dist[x] ≤ dist[y]</code>，于是
+      <b>必须有 <code>w(y,x) &lt; 0</code></b>（否则不等式不可能成立）。
+      本例中 x = 1（dist 1）、y = 2（dist 2），负边恰好是 2→1 —— 方向与取出顺序相反。
+      这也解释了为什么「只有负权边才可能让 Dijkstra 出错」，而负环则会让最短路根本不存在。
+    </div>
+
+    <p>
+      更极端的情形是「<b>负权回路</b>」：如果存在一个总权为负的环，
+      绕着它多走一圈总长度就更小，<b>最短路径根本不存在</b>（可以无限小）。
+      这种图上任何最短路算法都给不出有意义的结果，只能用 Bellman-Ford 把负环<b>检测出来并报告</b>。
+    </p>
+
+    <div class="note danger">
+      <span class="note-title">三条必须记住的结论</span>
+      <ul style="margin:6px 0 0">
+        <li>Dijkstra <b>要求所有边权非负</b>；有负权边时必须换 Bellman-Ford 或 SPFA。</li>
+        <li>「被确定后不再修改」是 Dijkstra 高效的原因，也是它面对负权边时失效的原因 —— <b>成也贪心，败也贪心</b>。</li>
+        <li>负权边不等于负环。只有<b>从源点可达的负环</b>才会让最短路无意义；
+          如果负环不可达，Bellman-Ford 仍然能给出正确答案。</li>
+      </ul>
+    </div>
+
+    <h3 id="s3-8">9.3.8 与 BFS 求无权最短路的联系</h3>
+    <p>
+      回忆第 04 讲的 BFS：在<b>无权图</b>（或所有边权都为 1 的图）上，
+      BFS 第一次访问到某个顶点时的层数，就是从源点到它的最短路径长度。
+      <b>BFS 其实就是 Dijkstra 在「权值全为 1」时的特例</b>：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>对比项</th><th>BFS（无权图）</th><th>Dijkstra（非负权图）</th></tr></thead>
+        <tbody>
+          <tr><td>待处理顶点的组织方式</td><td><b>普通队列</b>（先进先出）</td><td><b>优先队列</b>（按 dist 出队）</td></tr>
+          <tr><td>为什么这样够用</td><td>每条边长一样，先入队的必然先到、必然最短</td><td>边长不同，必须按累计长度排序才能保证「出队即最优」</td></tr>
+          <tr><td>复杂度</td><td>O(n + m)</td><td>O(m log n)（堆优化）</td></tr>
+          <tr><td>两者关系</td><td colspan="2">把每条边看成权为 1，Dijkstra 的优先队列退化成普通队列（因为 dist 只会是 0,1,2,…），<b>两者完全等价</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      顺带一提，还有一个「<b>0-1 BFS</b>」的经典技巧：如果边权只有 0 和 1，
+      把普通队列换成<b>双端队列 deque</b>（权 0 的边把新点压到队首，权 1 的压到队尾），
+      就能在 O(n + m) 内求出最短路，比堆优化更快。它是 BFS 与 Dijkstra 之间的中间形态。
+    </p>
+
+    <!-- ==================================================================== -->
+    <h2 id="s4">9.4 最短路径（二）：Floyd 全源最短路</h2>
+
+    <h3 id="s4-1">9.4.1 全源最短路问题</h3>
+    <p>
+      Dijkstra 解决的是「<b>一个</b>源点到所有点」；如果要求「<b>任意两点之间</b>」的距离（全源最短路，All-Pairs Shortest Paths），
+      最简单的做法是「对每个顶点跑一遍 Dijkstra」，复杂度 O(n·m log n)；
+      而 <b>Floyd-Warshall 算法</b>用三重循环、O(n³) 一次性求出所有点对的距离，
+      代码只有 5 行，是「短小精悍」的典范。
+    </p>
+    <p>
+      它的适用条件：<b>允许有负权边，但不允许有负环</b>（有负环时结果无意义，不过我们可以顺便检测出来）。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 300" width="900" height="300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="af1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+        </defs>
+        <text x="10" y="20" fill="var(--text)" font-size="13.5" font-weight="700">k = 0 时：中转点集合为空，dist 就是邻接矩阵（只允许「一条边直达」）</text>
+        <g font-family="Consolas, monospace" font-size="13" text-anchor="middle">
+          <rect x="24" y="34" width="36" height="30" rx="5" fill="var(--brand-soft)" stroke="var(--brand)"/>
+          <text x="42" y="54" fill="var(--text)">i\j</text>
+          <rect x="64" y="34" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="94" y="54" fill="var(--text-soft)">0</text>
+          <rect x="128" y="34" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="158" y="54" fill="var(--text-soft)">1</text>
+          <rect x="192" y="34" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="222" y="54" fill="var(--text-soft)">2</text>
+          <rect x="256" y="34" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="286" y="54" fill="var(--text-soft)">3</text>
+
+          <rect x="24" y="68" width="36" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="42" y="88" fill="var(--text-soft)">0</text>
+          <rect x="64" y="68" width="60" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="94" y="88" fill="var(--text)">0</text>
+          <rect x="128" y="68" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="158" y="88" fill="var(--text)">1</text>
+          <rect x="192" y="68" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="222" y="88" fill="var(--text-faint)">∞</text>
+          <rect x="256" y="68" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="286" y="88" fill="var(--text)">4</text>
+
+          <rect x="24" y="102" width="36" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="42" y="122" fill="var(--text-soft)">1</text>
+          <rect x="64" y="102" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="94" y="122" fill="var(--text-faint)">∞</text>
+          <rect x="128" y="102" width="60" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="158" y="122" fill="var(--text)">0</text>
+          <rect x="192" y="102" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="222" y="122" fill="var(--text)">2</text>
+          <rect x="256" y="102" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="286" y="122" fill="var(--text-faint)">∞</text>
+
+          <rect x="24" y="136" width="36" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="42" y="156" fill="var(--text-soft)">2</text>
+          <rect x="64" y="136" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="94" y="156" fill="var(--text-faint)">∞</text>
+          <rect x="128" y="136" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="158" y="156" fill="var(--text-faint)">∞</text>
+          <rect x="192" y="136" width="60" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="222" y="156" fill="var(--text)">0</text>
+          <rect x="256" y="136" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="286" y="156" fill="var(--text)">3</text>
+
+          <rect x="24" y="170" width="36" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="42" y="190" fill="var(--text-soft)">3</text>
+          <rect x="64" y="170" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="94" y="190" fill="var(--text-faint)">∞</text>
+          <rect x="128" y="170" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="158" y="190" fill="var(--text-faint)">∞</text>
+          <rect x="192" y="170" width="60" height="30" rx="5" fill="var(--panel)" stroke="var(--border-strong)"/><text x="222" y="190" fill="var(--text-faint)">∞</text>
+          <rect x="256" y="170" width="60" height="30" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/><text x="286" y="190" fill="var(--text)">0</text>
+        </g>
+        <text x="24" y="226" fill="var(--text-faint)" font-size="12">k = −1（不允许任何中转）：矩阵里只有直连边的权值</text>
+
+        <!-- 右侧：状态转移 -->
+        <text x="400" y="20" fill="var(--text)" font-size="13.5" font-weight="700">状态转移：让第 k 个顶点「获得中转资格」</text>
+        <circle cx="470" cy="120" r="22" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="470" y="127" text-anchor="middle" fill="var(--brand)" font-size="15" font-weight="700" font-family="Consolas,monospace">i</text>
+        <circle cx="650" cy="120" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+        <text x="650" y="127" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="Consolas,monospace">j</text>
+        <circle cx="560" cy="60" r="22" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2.4"/>
+        <text x="560" y="67" text-anchor="middle" fill="var(--accent)" font-size="15" font-weight="700" font-family="Consolas,monospace">k</text>
+        <line x1="474" y1="102" x2="548" y2="72" stroke="var(--accent)" stroke-width="2" marker-end="url(#af1)"/>
+        <line x1="580" y1="74" x2="638" y2="104" stroke="var(--accent)" stroke-width="2" marker-end="url(#af1)"/>
+        <line x1="492" y1="120" x2="626" y2="120" stroke="var(--border-strong)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#af1)"/>
+        <text x="560" y="140" text-anchor="middle" fill="var(--text-faint)" font-size="11.5" font-family="Consolas,monospace">dist[i][j]（不用 k）</text>
+        <text x="500" y="66" fill="var(--accent)" font-size="12" font-family="Consolas,monospace">dist[i][k]</text>
+        <text x="588" y="60" fill="var(--accent)" font-size="12" font-family="Consolas,monospace">dist[k][j]</text>
+        <text x="400" y="185" fill="var(--text)" font-size="12.5" font-family="Consolas,monospace">dist[i][j] = min( dist[i][j],  dist[i][k] + dist[k][j] )</text>
+        <text x="400" y="212" fill="var(--text-soft)" font-size="12">蓝色虚线 = 原来的方案（不经过 k）；橙色折线 = 新方案（在 k 处中转一次）</text>
+        <text x="400" y="234" fill="var(--text-soft)" font-size="12">k 从 0 枚举到 n−1，每轮都让「可用的中转点」多一个，n 轮后所有组合都被考虑过</text>
+        <text x="400" y="256" fill="var(--danger)" font-size="12" font-weight="700">关键：k 是「阶段」，必须放在最外层循环（原因见 9.4.3）</text>
+      </svg>
+      <figcaption>图 9-7　Floyd 的动态规划状态与转移：逐步放开中转点 k</figcaption>
+    </div>
+
+    <h3 id="s4-2">9.4.2 动态规划的思想：从 dp[k][i][j] 到二维滚动</h3>
+    <p>
+      先想一个「笨」但清晰的 DP。定义：
+    </p>
+    <div class="formula center" data-math="dp[k][i][j] = 只允许经过编号 <= k 的顶点作为中转时，i 到 j 的最短距离"></div>
+    <p>
+      注意「只允许经过 ≤ k 的顶点中转」这句话的准确含义：路径的<b>中间点</b>只能从 {0,1,…,k} 里挑，
+      但<b>起点 i 和终点 j 可以是任意顶点</b>，而且路径的中间点允许重复经过编号更小的点。
+    </p>
+    <p>考虑第 k 个中转点「用还是不用」，只有两种可能：</p>
+    <ul>
+      <li><b>不用 k 中转</b>：那路径的中间点都在 {0,…,k−1} 里，长度就是 <code>dp[k−1][i][j]</code>。</li>
+      <li><b>用 k 中转</b>：路径形如 i → … → k → … → j，其中 i 到 k 的那段和 k 到 j 的那段，
+        中间点都只用 {0,…,k−1}（k 本身只作为端点出现一次），长度就是
+        <code>dp[k−1][i][k] + dp[k−1][k][j]</code>。</li>
+    </ul>
+    <p>取两者较小值，得到状态转移方程：</p>
+    <div class="formula center" data-math="dp[k][i][j] = min( dp[k-1][i][j],  dp[k-1][i][k] + dp[k-1][k][j] )"></div>
+    <p>
+      边界（k = −1，即不允许任何中转）：<code>dp[i][j] = w(i,j)</code>，无边为 ∞，<code>dp[i][i] = 0</code>。
+      这正好就是邻接矩阵。
+    </p>
+    <p>
+      <b>二维滚动（就地更新）</b>：注意 k 这一维只依赖 k−1，所以可以把这一维省掉，
+      直接在邻接矩阵上原地更新：
+    </p>
+    <div class="formula center" data-math="dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])"></div>
+    <p>
+      但「省掉一维」是有条件的：<b>k 必须放在最外层</b>。下一小节专门讲这个坑。
+    </p>
+
+    <h3 id="s4-3">9.4.3 为什么 k 必须在最外层（最经典的易错点）</h3>
+    <div class="note danger">
+      <span class="note-title">结论先给：把 i 或 j 放到最外层就是错的</span>
+      正确写法是 <code>for k → for i → for j</code>。
+      写成 <code>for i → for j → for k</code> 或 <code>for i → for k → for j</code> 都会出错。
+      <b>原因不是「效率问题」，而是「答案直接算错」。</b>
+    </div>
+    <p>
+      为什么？回看状态方程：<code>dp[k][i][j]</code> 依赖的是 <code>dp[k−1][i][k]</code> 与 <code>dp[k−1][k][j]</code>，
+      这两个值必须在「处理 k 这一轮」时<b>全部是已经算好的 k−1 轮结果</b>。
+      省掉 k 维后，「k−1 轮的结果」和「k 轮的结果」共用同一块内存，
+      这就要求：<b>当我们要用 <code>dist[i][k]</code> 和 <code>dist[k][j]</code> 时，它们必须还没有被本轮（k 轮）修改过。</b>
+    </p>
+    <p>
+      把 k 放在最外层时，枚举到 (i,j) 时 <code>dist[i][k]</code> 与 <code>dist[k][j]</code> 长什么样？
+      <code>dist[i][k]</code> 的下标里有一维等于 k —— 它在「本轮」会不会被改？
+      本轮所有更新都发生在 <code>dist[k][*]</code> 这一行与 <code>dist[*][k]</code> 这一列上，
+      而 <code>dist[i][k]</code> 恰好在第 k 列、<code>dist[k][j]</code> 恰好在第 k 行。
+      那不就正好被改了吗？<b>关键在这里：第 k 行/列上的元素在本轮根本不会变小。</b>
+      因为更新第 k 行需要 <code>dist[k][k] + dist[k][j]</code>，而 <code>dist[k][k] = 0</code>（无负环时），
+      算出来等于 <code>dist[k][j]</code> 自身，不可能变小；第 k 列同理。
+      <b>所以第 k 行、第 k 列在整个第 k 轮里保持的正是 k−1 轮的旧值 —— 滚动更新合法。</b>
+    </p>
+    <p>反过来，把 i 放在最外层（<code>for i → for k → for j</code>）会发生什么？</p>
+    <ul>
+      <li>处理 i = 0 时，我们用 k = 3 去更新 <code>dist[0][j]</code>，这时 <code>dist[3][j]</code> 里的值
+        可能还只是「完全没有中转」的原始值（因为 i = 3 那一行还没轮到处理），
+        甚至 <code>dist[0][3]</code> 自己都还没被 k = 1、k = 2 更新过。</li>
+      <li>结果就是：<b>有些中转组合被漏掉了</b>，最后得到的矩阵偏大，答案错误。</li>
+      <li>最直观的表现：<b>算法跑完之后，矩阵还没有收敛</b>——
+        你再跑一遍三重循环，矩阵还会变小（正确的 Floyd 跑第二遍时矩阵不变，这是检验写法的土办法）。</li>
+    </ul>
+
+    <div class="note tip">
+      <span class="note-title">一个能当场验证的微型反例（请自己推一遍）</span>
+      4 个顶点、3 条有向边：<code>0→3 权 1</code>、<code>3→1 权 1</code>、<code>1→2 权 1</code>。
+      真实最短距离：<code>dist[0][2] = 3</code>（0 → 3 → 1 → 2），它需要依次用 k = 3、k = 1 两次中转。
+      <ul style="margin:6px 0 0">
+        <li><b>正确的 <code>k → i → j</code></b>：k = 1 这轮先算出 <code>dist[3][2] = 2</code>；
+          到 k = 3 这轮再算 <code>dist[0][2] = dist[0][3] + dist[3][2] = 1 + 2 = 3</code>。✔ 正确。</li>
+        <li><b>错误的 <code>i → k → j</code></b>：先处理 i = 0（k 从 0 到 3）——
+          此时要用 <code>dist[3][2]</code>，而 <code>dist[3][2]</code> 还只被 k = 1 这一轮改变过，
+          可是 i = 3 那一行<b>还没开始处理</b>，所以 <code>dist[3][2]</code> 仍是 ∞，
+          于是 <code>dist[0][2]</code> 算不出来。等到后面处理 i = 3 时把 <code>dist[3][2]</code> 改小了，
+          但 i = 0 已经处理完了，<b>没机会回来重算</b>。最终 <code>dist[0][2] = ∞</code>（或 3 之外的错误值）。✘ 错误。</li>
+      </ul>
+    </div>
+
+    <p>
+      一句话记忆法：<b>「先放开中转点，再枚举起点终点」</b>。
+      k 是「本轮新增的自由度」，必须作为最外层的一层「阶段」；
+      i、j 只是同一阶段内的状态枚举，谁在外谁在内无所谓（但都必须在 k 里面）。
+    </p>
+
+    <h3 id="s4-4">9.4.4 完整实现与手推矩阵变化</h3>
+
+    <pre data-lang="cpp" data-file="floyd.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 505;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+int dist_[MAXN][MAXN];      // 直接在邻接矩阵上滚动更新
+
+void floyd() {
+    for (int k = 0; k &lt; n; k++)               // ① 中转点必须是最外层！
+        for (int i = 0; i &lt; n; i++)           // ② 起点
+            for (int j = 0; j &lt; n; j++)       // ③ 终点
+                if (dist_[i][k] + dist_[k][j] &lt; dist_[i][j])
+                    dist_[i][j] = dist_[i][k] + dist_[k][j];
+}
+
+/* 常用小优化：跳过不可达的中转点，稀疏图上能省不少时间 */
+void floyd_fast() {
+    for (int k = 0; k &lt; n; k++) {
+        for (int i = 0; i &lt; n; i++) {
+            if (dist_[i][k] == INF) continue;          // i 到不了 k，k 中转无意义
+            int dik = dist_[i][k];
+            for (int j = 0; j &lt; n; j++)
+                if (dik + dist_[k][j] &lt; dist_[i][j])
+                    dist_[i][j] = dik + dist_[k][j];
+        }
+    }
+}
+
+int main() {
+    n = 4; m = 5;
+    memset(dist_, 0x3f, sizeof(dist_));
+    for (int i = 0; i &lt; n; i++) dist_[i][i] = 0;
+    int E[5][3] = {{0,1,1},{1,2,1},{2,3,1},{0,3,10},{1,3,4}};
+    for (int i = 0; i &lt; m; i++) {
+        int u = E[i][0], v = E[i][1], w = E[i][2];
+        dist_[u][v] = min(dist_[u][v], w);       // 重边取最小！
+        dist_[v][u] = min(dist_[v][u], w);       // 无向图；有向图删掉这一行
+    }
+    floyd();
+    for (int i = 0; i &lt; n; i++) {
+        for (int j = 0; j &lt; n; j++)
+            printf("%4d", dist_[i][j] == INF ? -1 : dist_[i][j]);
+        printf("\n");
+    }
+    return 0;
+}</pre>
+
+    <p>
+      下面用<b>贯穿全章的示例图 G</b> 手推 Floyd 的完整矩阵变化（n = 7，k = 0..6）。
+      为了便于对照，我把每一轮的变化单独列一张表，<b>加粗</b>的格子是本轮被更新的元素。
+      （自己手推时不必写满 7 张表，写 2~3 张并说清「哪些格子会变」即可。）
+    </p>
+
+    <p><b>k = −1（初始矩阵 = 邻接矩阵）</b>：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>∞</td><td>∞</td><td>11</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td><td>6</td><td>∞</td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>∞</td><td>∞</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>∞</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td></tr>
+          <tr><td><b>i=4</b></td><td>∞</td><td>∞</td><td>∞</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>∞</td><td>6</td><td>∞</td><td>5</td><td>∞</td><td class="c-ok">0</td><td>∞</td></tr>
+          <tr><td><b>i=6</b></td><td>11</td><td>∞</td><td>4</td><td>∞</td><td>5</td><td>∞</td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 0（允许经过顶点 0 中转）</b>——例如 <code>dist[3][2] = min(∞, dist[3][0]+dist[0][2]) = 3+3 = 6</code>；</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>∞</td><td>∞</td><td>11</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td><td>6</td><td class="c-warn"><b>13</b></td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td class="c-warn"><b>6</b></td><td>∞</td><td>∞</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td class="c-warn"><b>6</b></td><td class="c-ok">0</td><td>2</td><td>5</td><td class="c-warn"><b>14</b></td></tr>
+          <tr><td><b>i=4</b></td><td>∞</td><td>∞</td><td>∞</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>∞</td><td>6</td><td>∞</td><td>5</td><td>∞</td><td class="c-ok">0</td><td>∞</td></tr>
+          <tr><td><b>i=6</b></td><td>11</td><td class="c-warn"><b>13</b></td><td>4</td><td class="c-warn"><b>14</b></td><td>5</td><td>∞</td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 1（再允许顶点 1）</b>——这一轮产生了 <code>dist[0][5] = 2+6 = 8</code>、<code>dist[5][6] = 6+13 = 19</code> 等；</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>∞</td><td class="c-warn"><b>8</b></td><td>11</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td><td>6</td><td>13</td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>6</td><td>∞</td><td class="c-warn"><b>8</b></td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>6</td><td class="c-ok">0</td><td>2</td><td>5</td><td>14</td></tr>
+          <tr><td><b>i=4</b></td><td>∞</td><td>∞</td><td>∞</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td class="c-warn"><b>8</b></td><td>6</td><td class="c-warn"><b>8</b></td><td>5</td><td>∞</td><td class="c-ok">0</td><td class="c-warn"><b>19</b></td></tr>
+          <tr><td><b>i=6</b></td><td>11</td><td>13</td><td>4</td><td>14</td><td>5</td><td class="c-warn"><b>19</b></td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 2（再允许顶点 2）</b>——<code>dist[0][6]</code> 从 11 降到 <code>3+4 = 7</code>，<b>「直连不如绕路」在这里第一次体现</b>；</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>∞</td><td>8</td><td class="c-warn"><b>7</b></td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>∞</td><td>6</td><td class="c-warn"><b>6</b></td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>6</td><td>∞</td><td>8</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>6</td><td class="c-ok">0</td><td>2</td><td>5</td><td class="c-warn"><b>10</b></td></tr>
+          <tr><td><b>i=4</b></td><td>∞</td><td>∞</td><td>∞</td><td>2</td><td class="c-ok">0</td><td>∞</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>8</td><td>6</td><td>8</td><td>5</td><td>∞</td><td class="c-ok">0</td><td class="c-warn"><b>12</b></td></tr>
+          <tr><td><b>i=6</b></td><td class="c-warn"><b>7</b></td><td class="c-warn"><b>6</b></td><td>4</td><td class="c-warn"><b>10</b></td><td>5</td><td class="c-warn"><b>12</b></td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 3（再允许顶点 3）</b>——<code>dist[0][4] = 3+2 = 5</code>，<b>顶点 4 第一次变得可达</b>；</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td class="c-warn"><b>5</b></td><td>8</td><td>7</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td class="c-warn"><b>7</b></td><td>6</td><td>6</td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>6</td><td class="c-warn"><b>8</b></td><td>8</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>6</td><td class="c-ok">0</td><td>2</td><td>5</td><td>10</td></tr>
+          <tr><td><b>i=4</b></td><td class="c-warn"><b>5</b></td><td class="c-warn"><b>7</b></td><td class="c-warn"><b>8</b></td><td>2</td><td class="c-ok">0</td><td class="c-warn"><b>7</b></td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>8</td><td>6</td><td>8</td><td>5</td><td class="c-warn"><b>7</b></td><td class="c-ok">0</td><td>12</td></tr>
+          <tr><td><b>i=6</b></td><td>7</td><td>6</td><td>4</td><td>10</td><td>5</td><td>12</td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 4（再允许顶点 4）</b>——<code>dist[3][6]</code> 从 10 降到 <code>2+5 = 7</code>，<code>dist[6][3]</code> 对称更新；</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>5</td><td>8</td><td>7</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>7</td><td>6</td><td>6</td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>6</td><td>8</td><td>8</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>6</td><td class="c-ok">0</td><td>2</td><td>5</td><td class="c-warn"><b>7</b></td></tr>
+          <tr><td><b>i=4</b></td><td>5</td><td>7</td><td>8</td><td>2</td><td class="c-ok">0</td><td>7</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>8</td><td>6</td><td>8</td><td>5</td><td>7</td><td class="c-ok">0</td><td>12</td></tr>
+          <tr><td><b>i=6</b></td><td>7</td><td>6</td><td>4</td><td class="c-warn"><b>7</b></td><td>5</td><td>12</td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>k = 5（再允许顶点 5）与 k = 6（再允许顶点 6）</b>——矩阵不再变化，算法收敛：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>最终 dist</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th><th>j=5</th><th>j=6</th></tr></thead>
+        <tbody>
+          <tr><td><b>i=0</b></td><td class="c-ok">0</td><td>2</td><td>3</td><td>3</td><td>5</td><td>8</td><td>7</td></tr>
+          <tr><td><b>i=1</b></td><td>2</td><td class="c-ok">0</td><td>2</td><td>5</td><td>7</td><td>6</td><td>6</td></tr>
+          <tr><td><b>i=2</b></td><td>3</td><td>2</td><td class="c-ok">0</td><td>6</td><td>8</td><td>8</td><td>4</td></tr>
+          <tr><td><b>i=3</b></td><td>3</td><td>5</td><td>6</td><td class="c-ok">0</td><td>2</td><td>5</td><td>7</td></tr>
+          <tr><td><b>i=4</b></td><td>5</td><td>7</td><td>8</td><td>2</td><td class="c-ok">0</td><td>7</td><td>5</td></tr>
+          <tr><td><b>i=5</b></td><td>8</td><td>6</td><td>8</td><td>5</td><td>7</td><td class="c-ok">0</td><td>12</td></tr>
+          <tr><td><b>i=6</b></td><td>7</td><td>6</td><td>4</td><td>7</td><td>5</td><td>12</td><td class="c-ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">两处可以用来验算的细节</span>
+      <ul style="margin:6px 0 0">
+        <li><b>最终矩阵的第 0 行 = [0,2,3,3,5,8,7]</b>，与 9.3.3 里 Dijkstra 从 0 出发的结果
+          <b>完全一致</b>——两种算法互相印证，这是检查手推有没有算错的最好办法。</li>
+        <li><b>矩阵关于主对角线对称</b>（<code>dist[i][j] = dist[j][i]</code>），因为示例图是无向图。
+          有向图就没有这个性质，手推时不要习惯性对称填写。</li>
+      </ul>
+    </div>
+
+    <p>下面动画把 k = 0..6 的矩阵变化逐步演一遍，橙色格子是本轮被更新的元素：</p>
+
+    <div id="viz-floyd"></div>
+
+    <div class="note exam">
+      <span class="note-title">考点：Floyd 的复杂度与适用范围</span>
+      <b>时间 O(n³)，空间 O(n²)</b>（就地滚动，不需要额外开 dp 数组）。
+      由于 n³ 的代价，Floyd 一般用于 <b>n ≤ 500</b> 的稠密图；
+      n 很大又只需要单源时，宁可跑 n 次堆优化 Dijkstra（O(n·m log n)，稀疏图上更快）。
+      <br>Floyd 的三大优势：<b>① 代码极短；② 允许负权边；③ 一次算出所有点对，还能顺便做传递闭包</b>。
+    </div>
+
+    <h3 id="s4-5">9.4.5 Floyd 的扩展应用</h3>
+
+    <h4 id="s4-5-1">① 传递闭包（可达性）</h4>
+    <p>
+      如果只关心「i 能不能到 j」而不关心距离，把 <code>min / +</code> 换成
+      <code>或 / 与</code>（逻辑运算），Floyd 就变成了<b>传递闭包</b>算法：
+      <code>reach[i][j] = reach[i][j] || (reach[i][k] &amp;&amp; reach[k][j])</code>。
+      用 <code>bitset</code> 可以把内层循环压成 64 位一次运算，复杂度降到 O(n³/64)。
+    </p>
+
+    <pre data-lang="cpp" data-file="floyd_closure.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 2005;
+bitset&lt;MAXN&gt; reach_[MAXN];      // reach_[i] 的第 j 位为 1 表示 i 可达 j
+
+/* 传递闭包：O(n^3 / 64)，n = 2000 时非常快 */
+void transitiveClosure(int n) {
+    for (int i = 0; i &lt; n; i++) reach_[i][i] = 1;
+    for (int k = 0; k &lt; n; k++)                 // k 依然必须最外层
+        for (int i = 0; i &lt; n; i++)
+            if (reach_[i][k])                   // 只有 i 能到 k，才需要并上 k 的后继
+                reach_[i] |= reach_[k];
+}
+
+int main() {
+    int n = 4;
+    /* 有向图：0-&gt;1, 1-&gt;2, 2-&gt;3 */
+    reach_[0][1] = 1; reach_[1][2] = 1; reach_[2][3] = 1;
+    transitiveClosure(n);
+    for (int i = 0; i &lt; n; i++) {
+        printf("从 %d 可达：", i);
+        for (int j = 0; j &lt; n; j++) if (reach_[i][j]) printf("%d ", j);
+        printf("\n");
+    }
+    /* 输出：从 0 可达 0 1 2 3；从 1 可达 1 2 3；从 2 可达 2 3；从 3 可达 3 */
+    return 0;
+}</pre>
+
+    <h4 id="s4-5-2">② 判断负环</h4>
+    <p>
+      Floyd 跑完之后，<b>若存在某个 i 使得 <code>dist[i][i] &lt; 0</code>，则图中存在负环</b>，
+      而且这个负环是从 i 出发可以绕回来的。
+      原理：<code>dist[i][i]</code> 正常情况下应为 0（原地不动），
+      如果它变成负数，说明找到了一条从 i 出发、绕一圈回到 i 且总权为负的路径。
+    </p>
+    <pre data-lang="cpp" data-file="floyd_negcycle.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+const int MAXN = 505, INF = 0x3f3f3f3f;
+
+int n, dist_[MAXN][MAXN];
+
+/* 返回负环上的一个顶点编号，没有负环返回 -1 */
+int findNegativeCycle() {
+    for (int k = 0; k &lt; n; k++)
+        for (int i = 0; i &lt; n; i++)
+            for (int j = 0; j &lt; n; j++)
+                if (dist_[i][k] &lt; INF &amp;&amp; dist_[k][j] &lt; INF &amp;&amp;
+                    dist_[i][k] + dist_[k][j] &lt; dist_[i][j])
+                    dist_[i][j] = dist_[i][k] + dist_[k][j];
+
+    for (int i = 0; i &lt; n; i++)
+        if (dist_[i][i] &lt; 0) return i;          // 自己到自己变成负的 ⇒ 有负环
+    return -1;
+}
+
+int main() {
+    n = 3;
+    memset(dist_, 0x3f, sizeof(dist_));
+    for (int i = 0; i &lt; n; i++) dist_[i][i] = 0;
+    dist_[0][1] = 1; dist_[1][2] = -2; dist_[2][0] = -3;   // 环长 1-2-3 = -4 &lt; 0
+    int v = findNegativeCycle();
+    if (v &gt;= 0) printf("存在负环，经过顶点 %d，dist[%d][%d] = %d\n", v, v, v, dist_[v][v]);
+    else        printf("无负环\n");
+    return 0;
+}</pre>
+
+    <h4 id="s4-5-3">③ 最小环</h4>
+    <p>
+      <b>最小环</b>指图中总权最小的环。用 Floyd 求最小环是一个非常巧妙的技巧：
+      在「只允许 0..k−1 中转」的时刻，考虑一条边 <code>(i,k)</code>（或 <code>(k,i)</code>）加上
+      <code>k→i</code> 之间只经过 &lt; k 的顶点的路径，就构成一个包含 k 的环，
+      取所有这样的环的最小值即可。
+    </p>
+    <pre data-lang="cpp" data-file="floyd_mincycle.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 105;
+const long long INF = 1e15;
+
+int n, m;
+long long g[MAXN][MAXN], dist_[MAXN][MAXN];
+
+/* 无向图最小环：O(n^3) */
+long long minCycle() {
+    for (int i = 0; i &lt; n; i++)
+        for (int j = 0; j &lt; n; j++) dist_[i][j] = g[i][j];
+
+    long long ans = INF;
+    for (int k = 0; k &lt; n; k++) {
+        /* 此时 dist_[i][j] 只允许经过 0..k-1 中转 ⇒ i-j-k-i 构成一个环 */
+        for (int i = 0; i &lt; k; i++)
+            for (int j = i + 1; j &lt; k; j++)
+                if (dist_[i][j] &lt; INF &amp;&amp; g[j][k] &lt; INF &amp;&amp; g[k][i] &lt; INF)
+                    ans = min(ans, dist_[i][j] + g[j][k] + g[k][i]);
+        /* 再用 k 去松弛，进入下一轮 */
+        for (int i = 0; i &lt; n; i++)
+            for (int j = 0; j &lt; n; j++)
+                if (dist_[i][k] + dist_[k][j] &lt; dist_[i][j])
+                    dist_[i][j] = dist_[i][k] + dist_[k][j];
+    }
+    return ans;
+}
+
+int main() {
+    n = 4; m = 5;
+    for (int i = 0; i &lt; n; i++)
+        for (int j = 0; j &lt; n; j++) g[i][j] = (i == j ? 0 : INF);
+    int E[5][3] = {{0,1,3},{1,2,4},{2,3,5},{3,0,6},{0,2,20}};
+    for (int i = 0; i &lt; m; i++) {
+        int u = E[i][0], v = E[i][1], w = E[i][2];
+        g[u][v] = g[v][u] = min(g[u][v], (long long)w);   // 重边取最小
+    }
+    long long ans = minCycle();
+    printf("最小环长度 = %lld\n", ans);
+    /* 环 0-1-2-3-0 长度 3+4+5+6 = 18，是最小环 */
+    return 0;
+}</pre>
+
+    <h4 id="s4-5-4">④ 字典序最小的最短路径</h4>
+    <p>
+      Floyd 的另一个好处是「顺手记路径」：加一个 <code>nxt[i][j]</code> 记录 i→j 最短路上 i 的下一跳。
+      初始化 <code>nxt[i][j] = j</code>（有边时）；当用 k 更新成功时令 <code>nxt[i][j] = nxt[i][k]</code>。
+      如果要<b>字典序最小</b>，把更新条件写成
+      「<code>dist</code> 更小，<b>或者 dist 相等但新路径的下一跳编号更小</b>」即可。
+      <b>注意 Dijkstra 不能这么干</b>（等值时它不会回头改路径），所以「最短路 + 字典序最小」通常用 Floyd。
+    </p>
+
+    <pre data-lang="cpp" data-file="floyd_path_lex.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 305;
+const int INF = 0x3f3f3f3f;
+
+int n, dist_[MAXN][MAXN], nxt[MAXN][MAXN];
+
+void floydLex() {
+    for (int k = 0; k &lt; n; k++)
+        for (int i = 0; i &lt; n; i++) {
+            if (dist_[i][k] == INF) continue;
+            for (int j = 0; j &lt; n; j++) {
+                if (dist_[k][j] == INF) continue;
+                int nd = dist_[i][k] + dist_[k][j];
+                /* ① 更短；或 ② 一样长但「下一跳」更小（字典序更优）。
+                   注意条件里比较的是 k（新的下一跳就是 nxt[i][k]），不能写成 nxt[i][j] 自己，
+                   否则等长时永远不会更新，路径也无法变短，还可能死循环。 */
+                if (nd &lt; dist_[i][j] || (nd == dist_[i][j] &amp;&amp; k &lt; nxt[i][j])) {
+                    dist_[i][j] = nd;
+                    nxt[i][j] = (i == k) ? j : nxt[i][k];
+                }
+            }
+        }
+}
+
+/* 输出 i 到 j 的完整路径 */
+void printPath(int i, int j) {
+    if (dist_[i][j] == INF || nxt[i][j] == -1) { printf("不可达\n"); return; }
+    printf("%d", i);
+    int cur = i, guard = 0;
+    while (cur != j &amp;&amp; guard++ &lt;= n) {       // guard 防止意外死循环
+        cur = nxt[cur][j];
+        printf(" -&gt; %d", cur);
+    }
+    printf("\n");
+}
+
+int main() {
+    n = 4;
+    memset(dist_, 0x3f, sizeof(dist_));
+    memset(nxt, -1, sizeof(nxt));
+    for (int i = 0; i &lt; n; i++) { dist_[i][i] = 0; nxt[i][i] = i; }
+    int E[4][3] = {{0,1,1},{1,3,1},{0,2,1},{2,3,1}};   // 0-&gt;3 有两条等长路径
+    for (int i = 0; i &lt; 4; i++) {
+        int u = E[i][0], v = E[i][1], w = E[i][2];
+        dist_[u][v] = w; nxt[u][v] = v;
+    }
+    floydLex();
+    printf("0 到 3 的最短路长度 = %d，字典序最小的路径：", dist_[0][3]);
+    printPath(0, 3);        /* 0 -&gt; 1 -&gt; 3 （而不是 0 -&gt; 2 -&gt; 3） */
+    return 0;
+}</pre>
+
+    <!-- ==================================================================== -->
+    <h2 id="s5">9.5 其他最短路算法：Bellman-Ford 与 SPFA</h2>
+
+    <h3 id="s5-1">9.5.1 Bellman-Ford：n−1 轮暴力松弛</h3>
+    <p>
+      Dijkstra 的失效场景只有一个原因：<b>贪心地锁定顶点</b>。
+      Bellman-Ford 的思路是「彻底不贪心」——<b>每一轮把所有的边都松弛一遍，重复 n−1 轮</b>。
+      它慢（O(nm)），但换来两个能力：<b>可以处理负权边</b>，<b>可以判定负环</b>。
+    </p>
+    <p>
+      <b>为什么最多 n−1 轮？</b>因为任何一条<b>最短路径</b>都不会包含环（有环就能去掉，除非是负环 —— 而负环意味着没有最短路），
+      所以一条最短路最多经过 n 个顶点、<b>n−1 条边</b>。
+      第 1 轮扫描后，「只含 1 条边的最短路」一定已经确定；
+      归纳地，第 r 轮之后，「含 r 条边的最短路」一定已经确定
+      （因为它由「含 r−1 条边的最短路」再加一条边得到，而那一轮的扫描会松弛这条边）。
+      所以 n−1 轮之后，所有最短路都确定了。
+    </p>
+    <p>
+      <b>如何判定负环？</b>再跑第 n 轮（也就是第 n 次扫描所有边），<b>如果还能松弛成功，说明存在负环</b>。
+      因为此时已经没有「不含环的最短路」可以改进了，能改进只能是因为绕了负数环。
+    </p>
+
+    <pre data-lang="cpp" data-file="bellman_ford.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 1005;
+const int MAXM = 20005;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+struct Edge { int u, v, w; } e[MAXM];       // 只需要能枚举所有边即可，不必用邻接表
+int dist_[MAXN], pre[MAXN];
+
+/* 返回 true 表示存在从 s 可达的负环；否则 dist_ 为正确答案 */
+bool bellmanFord(int s) {
+    memset(dist_, 0x3f, sizeof(dist_));
+    memset(pre, -1, sizeof(pre));
+    dist_[s] = 0;
+
+    /* n-1 轮松弛 */
+    for (int round = 1; round &lt;= n - 1; round++) {
+        bool changed = false;                       // 小优化：本轮没更新就可以提前退出
+        for (int i = 0; i &lt; m; i++) {
+            int u = e[i].u, v = e[i].v, w = e[i].w;
+            if (dist_[u] != INF &amp;&amp; dist_[u] + w &lt; dist_[v]) {
+                dist_[v] = dist_[u] + w;
+                pre[v] = u;
+                changed = true;
+            }
+        }
+        if (!changed) { printf("第 %d 轮已收敛，提前结束\n", round); break; }
+    }
+
+    /* 第 n 轮：只为检测负环（不要再改 dist_，否则答案会被污染） */
+    for (int i = 0; i &lt; m; i++) {
+        int u = e[i].u, v = e[i].v, w = e[i].w;
+        if (dist_[u] != INF &amp;&amp; dist_[u] + w &lt; dist_[v]) return true;   // 还能松弛 ⇒ 负环
+    }
+    return false;
+}
+
+int main() {
+    n = 5; m = 6;
+    int E[6][3] = {{0,1,2},{1,2,2},{0,2,5},{2,4,4},{1,4,7},{4,3,4}};
+    for (int i = 0; i &lt; m; i++) e[i] = {E[i][0], E[i][1], E[i][2]};
+
+    if (bellmanFord(0)) printf("存在负环！\n");
+    else {
+        printf("dist = ");
+        for (int i = 0; i &lt; n; i++) printf("%d ", dist_[i]);
+        printf("\n");     /* dist = [0, 2, 4, 12, 8] */
+    }
+    return 0;
+}</pre>
+
+    <p>上面的图（5 个顶点、6 条有向边）逐轮推演如下：</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>轮次</th><th>按 e0(0→1,2)、e1(1→2,2)、e2(0→2,5)、e3(2→4,4)、e4(1→4,7)、e5(4→3,4) 的顺序扫描</th><th>dist[0..4]</th></tr></thead>
+        <tbody>
+          <tr><td>初始</td><td>—</td><td class="c-warn">0, ∞, ∞, ∞, ∞</td></tr>
+          <tr><td><b>第 1 轮</b></td><td>e0：dist[1]=2　e1：dist[2]=4　e2：0+5=5 &gt; 4 失败　e3：dist[4]=8　e4：0+7 与 2+7=9 都 &gt; 8 失败　e5：dist[3]=12</td><td>0, <b>2</b>, <b>4</b>, <b>12</b>, <b>8</b></td></tr>
+          <tr><td><b>第 2 轮</b></td><td>全部失败（没有任何一条边能松弛）⇒ <b>提前收敛</b></td><td>0, 2, 4, 12, 8</td></tr>
+          <tr><td>第 3、4 轮</td><td>同样无更新（代码会提前 break，不必真跑）</td><td>0, 2, 4, 12, 8</td></tr>
+          <tr><td>负环检测</td><td>再扫一遍所有边，若仍能松弛 ⇒ 有负环。本例不能 ⇒ 无负环</td><td class="c-ok">0, 2, 4, 12, 8</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">关于「提前退出」与「n−1 轮」的关系</span>
+      「最多 n−1 轮」是<b>最坏情况的上界</b>，实际往往远小于它 ——
+      只要某一轮没有任何更新，后面就不可能再有更新，可以直接退出。
+      但<b>判断负环不能靠「是否提前退出」</b>：必须老老实实跑完 n−1 轮（或检测到第 n 轮还能更新）。
+      <br>另外注意：如果只需要判负环而不管最短路，可以把 <code>dist[]</code> <b>全部初始化为 0</b>
+      （等价于加一个到所有点权为 0 的超级源点），这样即使负环与源点不连通也能检测出来。
+    </div>
+
+    <p>下面动画逐轮演示 Bellman-Ford 的松弛过程，并给出负环的样子：</p>
+
+    <div id="viz-bellman"></div>
+
+    <h3 id="s5-2">9.5.2 SPFA：队列优化的 Bellman-Ford</h3>
+    <p>
+      Bellman-Ford 有个明显的浪费：每一轮都把所有边扫一遍，但<b>只有上一轮被更新过的顶点，
+      它的出边才可能引发新的更新</b>。于是自然想到：用一个队列保存「刚刚被松弛过的顶点」，
+      每次取出一个顶点，只松弛它的出边。<b>这就是 SPFA（Shortest Path Faster Algorithm）</b>，
+      由段凡丁在 1994 年提出。
+    </p>
+    <p>
+      SPFA 的实现要点：
+    </p>
+    <ul>
+      <li><code>inq[v]</code> 标记 v 是否已在队列中，避免重复入队。</li>
+      <li><code>cnt[v]</code> 记录 v 的入队次数；<b>若某顶点入队次数 ≥ n，说明存在负环</b>。</li>
+      <li>可以用 <code>deque</code> 做 <b>SLF 优化（Small Label First）</b>：入队时若新点的 dist 比队首还小，
+        就压到队首，否则压到队尾 —— 让更优的点先扩展，实践中常常快很多。</li>
+    </ul>
+
+    <pre data-lang="cpp" data-file="spfa.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, w, nxt; } e[MAXM];
+void addEdge(int u, int v, int w) { e[etot] = {v, w, head[u]}; head[u] = etot++; }
+
+int dist_[MAXN], cnt[MAXN];
+bool inq[MAXN];
+
+/* 返回 true 表示存在从 s 可达的负环 */
+bool spfa(int s) {
+    memset(dist_, 0x3f, sizeof(dist_));
+    memset(inq, 0, sizeof(inq));
+    memset(cnt, 0, sizeof(cnt));
+
+    deque&lt;int&gt; q;                      // 用 deque 以便做 SLF 优化
+    dist_[s] = 0; q.push_back(s); inq[s] = true;
+
+    while (!q.empty()) {
+        int u = q.front(); q.pop_front();
+        inq[u] = false;
+        for (int i = head[u]; i != -1; i = e[i].nxt) {
+            int v = e[i].to, w = e[i].w;
+            if (dist_[u] + w &lt; dist_[v]) {
+                dist_[v] = dist_[u] + w;
+                if (!inq[v]) {
+                    /* SLF：新点的 dist 比队首小就插到队首 */
+                    if (!q.empty() &amp;&amp; dist_[v] &lt; dist_[q.front()]) q.push_front(v);
+                    else q.push_back(v);
+                    inq[v] = true;
+                    if (++cnt[v] &gt;= n) return true;   // 入队次数 ≥ n ⇒ 负环
+                }
+            }
+        }
+    }
+    return false;
+}
+
+int main() {
+    n = 7;
+    memset(head, -1, sizeof(head));
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; 11; i++) {
+        addEdge(E[i][0], E[i][1], E[i][2]);
+        addEdge(E[i][1], E[i][0], E[i][2]);
+    }
+    if (spfa(0)) printf("存在负环\n");
+    else {
+        printf("dist = ");
+        for (int i = 0; i &lt; n; i++) printf("%d ", dist_[i]);
+        printf("\n");     /* 与 Dijkstra 结果一致：[0, 2, 3, 3, 5, 8, 7] */
+    }
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">诚实提醒：SPFA 的最坏复杂度是 O(nm)，会被专门卡</span>
+      SPFA 的「快」只是<b>平均情况</b>的经验结论，它的<b>最坏时间复杂度仍是 O(nm)</b>，
+      与 Bellman-Ford 相同。出题人可以构造「网格图 + 精心设计的边权」让 SPFA 退化成 O(nm)，
+      从而在 10⁵ 级别的数据上超时（这就是算法竞赛里著名的「<b>SPFA 已死</b>」梗）。
+      <br><b>实践建议</b>：
+      <ul style="margin:6px 0 0">
+        <li>无负权 ⇒ <b>一律用堆优化 Dijkstra</b>，稳定 O(m log n)，不要用 SPFA。</li>
+        <li>有负权但无负环 ⇒ 用 SPFA 或 Bellman-Ford；n 较小时直接用 Bellman-Ford 更稳。</li>
+        <li>题目只要求判负环 ⇒ 常用「SPFA + 入队次数统计」或「SPFA + DFS 版判环」。</li>
+        <li>负权图 + 大规模数据 ⇒ 考虑 Johnson 算法（先用 Bellman-Ford 重赋权，再跑 n 次 Dijkstra）。</li>
+      </ul>
+    </div>
+
+    <h3 id="s5-3">9.5.3 三种最短路算法对比表</h3>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 300" width="900" height="300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ab1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/></marker>
+        </defs>
+        <!-- 左：Bellman-Ford -->
+        <text x="14" y="20" fill="var(--text)" font-size="13" font-weight="700">Bellman-Ford：每轮把「所有边」都松弛一遍</text>
+        <g font-family="Consolas, monospace" font-size="12">
+          <rect x="14" y="34" width="330" height="150" rx="8" fill="var(--panel-2)" stroke="var(--border-strong)"/>
+          <text x="26" y="56" fill="var(--text-soft)">dist = [0, ∞, ∞, ∞, ∞]</text>
+          <text x="26" y="78" fill="var(--brand)">第 1 轮：for 每条边 e: relax(e)</text>
+          <text x="26" y="98" fill="var(--text-soft)">dist = [0, 2, 4, 12, 8]　← 有更新</text>
+          <text x="26" y="120" fill="var(--brand)">第 2 轮：for 每条边 e: relax(e)</text>
+          <text x="26" y="140" fill="var(--text-soft)">dist = [0, 2, 4, 12, 8]　← 无更新 ⇒ 收敛</text>
+          <text x="26" y="162" fill="var(--danger)">第 n 轮：若仍能松弛 ⇒ 存在负环</text>
+          <text x="26" y="178" fill="var(--text-faint)" font-size="11.5">每轮都是「全量扫描」，不挑不选，所以慢但稳</text>
+        </g>
+        <!-- 右：SPFA -->
+        <text x="470" y="20" fill="var(--text)" font-size="13" font-weight="700">SPFA：只把「刚被更新过」的顶点放进队列</text>
+        <g font-family="Consolas, monospace" font-size="12">
+          <rect x="470" y="34" width="416" height="150" rx="8" fill="var(--panel-2)" stroke="var(--border-strong)"/>
+          <text x="482" y="56" fill="var(--text-soft)">q = [0]，inq[0] = true，cnt[0] = 1</text>
+          <text x="482" y="78" fill="var(--brand)">出队 0 → 松弛邻居 1、2 ⇒ 1、2 入队</text>
+          <text x="482" y="98" fill="var(--text-soft)">q = [1, 2]</text>
+          <text x="482" y="120" fill="var(--brand)">出队 1 → 松弛 4 ⇒ 4 入队；出队 2 → 4 变短 ⇒ 4 再次入队</text>
+          <text x="482" y="140" fill="var(--text-soft)">q = [4, 4] …（同一个点可能在队列里出现多次）</text>
+          <text x="482" y="162" fill="var(--danger)">若某点入队次数 ≥ n ⇒ 存在负环</text>
+          <text x="482" y="178" fill="var(--text-faint)" font-size="11.5">只处理「有希望」的点，平均快，但最坏仍是 O(nm)</text>
+        </g>
+        <path d="M350,110 L464,110" stroke="var(--brand)" stroke-width="2.4" fill="none" marker-end="url(#ab1)"/>
+        <text x="352" y="102" fill="var(--brand)" font-size="12" font-weight="700">队列优化</text>
+
+        <text x="14" y="216" fill="var(--text)" font-size="13" font-weight="700">两者的共同点与分工</text>
+        <text x="14" y="240" fill="var(--text-soft)" font-size="12.5">共同点：① 都不贪心、允许负权边；② 都靠「反复松弛」逼近答案；③ 都能判定负环；④ 最坏复杂度都是 <tspan font-family="Consolas, monospace">O(nm)</tspan>。</text>
+        <text x="14" y="262" fill="var(--text-soft)" font-size="12.5">分工：n 小或需要「确定的最坏复杂度」时用 Bellman-Ford；图随机、边权不刁钻时 SPFA 快得多；</text>
+        <text x="14" y="284" fill="var(--danger)" font-size="12.5" font-weight="700">但只要有负权边又想稳，比赛里的标准答案是 Johnson 算法（BF 重赋权 + n 次 Dijkstra），而不是 SPFA。</text>
+      </svg>
+      <figcaption>图 9-8　Bellman-Ford 与 SPFA 的对照：全量扫描 vs 队列优化</figcaption>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>对比维度</th><th>Dijkstra（堆优化）</th><th>Floyd-Warshall</th><th>Bellman-Ford / SPFA</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>解决的问题</td><td><b>单源</b>最短路</td><td><b>全源</b>最短路</td><td><b>单源</b>最短路</td></tr>
+          <tr><td>时间复杂度</td><td>O(m log n)（朴素 O(n²)）</td><td><b>O(n³)</b></td><td>O(nm)；SPFA 平均更快但最坏 O(nm)</td></tr>
+          <tr><td>空间复杂度</td><td>O(n + m)</td><td>O(n²)</td><td>O(n + m)</td></tr>
+          <tr><td>能否有负权边</td><td class="c-bad"><b>不能</b></td><td class="c-ok"><b>可以</b></td><td class="c-ok"><b>可以</b></td></tr>
+          <tr><td>能否判负环</td><td class="c-bad">不能</td><td>可以（看 <code>dist[i][i] &lt; 0</code>）</td><td class="c-ok">可以（第 n 轮仍能松弛 / 入队 ≥ n 次）</td></tr>
+          <tr><td>核心思想</td><td>贪心：每次锁定 dist 最小的点</td><td>DP：逐步放开中转点</td><td>暴力松弛：无脑扫边 / 队列优化</td></tr>
+          <tr><td>实现难度</td><td>中等</td><td class="c-ok">极简（5 行）</td><td class="c-ok">简单</td></tr>
+          <tr><td>适用规模</td><td>n ≤ 10⁵，m ≤ 2×10⁵</td><td>n ≤ 500（稠密图尤佳）</td><td>n·m ≤ 10⁷ 左右</td></tr>
+          <tr><td>典型场景</td><td>正权图的最短路、地图导航</td><td>多源查询、传递闭包、最小环</td><td>含负权的图、差分约束、判负环</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">考点：一张表记住「谁不能干什么」</span>
+      <ul style="margin:6px 0 0">
+        <li><b>负权边</b>：只有 Dijkstra 不能用。</li>
+        <li><b>负环</b>：所有算法都求不出最短路，但 Floyd 和 Bellman-Ford / SPFA <b>可以检测出负环</b>。</li>
+        <li><b>全源</b>：只有 Floyd 是原生全源；其余都要「跑 n 遍」。</li>
+        <li>常见错误说法：「SPFA 的时间复杂度是 O(km)，k 是常数」——<b>错</b>，k 不是常数，最坏 O(nm)。</li>
+      </ul>
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s6">9.6 拓扑排序：AOV 网与活动先后关系</h2>
+
+    <h3 id="s6-1">9.6.1 AOV 网：顶点表示活动</h3>
+    <p>
+      有些图关心的不是「距离」而是「<b>顺序</b>」：学「数据结构」之前得先学「C 语言」，
+      装「显卡驱动」之前得先装「操作系统」。
+      把这类关系画成图，就是 <b>AOV 网（Activity On Vertex Network）</b>：
+    </p>
+    <div class="note">
+      <span class="note-title">AOV 网的定义</span>
+      <ul style="margin:6px 0 0">
+        <li><b>顶点</b>表示<b>活动</b>（activity，一项任务 / 一门课 / 一个步骤）；</li>
+        <li><b>有向弧 <code>&lt;u,v&gt;</code></b> 表示「<b>u 必须先于 v 完成</b>」这种先后（前驱）关系；</li>
+        <li>弧<b>没有权值</b>（我们只关心顺序，不关心耗时 —— 关心耗时的叫 AOE 网，见 9.7）；</li>
+        <li>图中<b>不能有环</b>：若 u 必须先于 v、v 又必须先于 u，这两件事就永远做不成。</li>
+      </ul>
+    </div>
+    <p>
+      <b>拓扑排序（topological sort）</b>：把 AOV 网的所有顶点排成一个线性序列，
+      使得对图中任意一条弧 <code>&lt;u,v&gt;</code>，u 都排在 v 的前面。
+      这个序列称为<b>拓扑序列</b>。它的意义就是「<b>一个可行的做事顺序</b>」。
+    </p>
+    <div class="note tip">
+      <span class="note-title">核心定理：有向图存在拓扑序 ⟺ 它是 DAG</span>
+      <ul style="margin:6px 0 0">
+        <li><b>有环 ⇒ 无拓扑序</b>：环上的 u₁→u₂→…→u₁ 要求 u₁ 在 u₁ 前面，矛盾。</li>
+        <li><b>无环（DAG）⇒ 必有拓扑序</b>：DAG 中一定存在入度为 0 的顶点
+          （否则从任意点一直往前找前驱，必然重复访问某个点，那就成了环），
+          把它拿掉后剩下的图仍是 DAG，归纳即可构造出完整序列。</li>
+        <li><b>拓扑序一般不唯一</b>：同时有多个入度为 0 的顶点时，先输出谁都可以。
+          例如示例中 1 与 2 都无前驱，先做 1 还是先做 2 都合法。</li>
+        <li>只有 DAG 才有拓扑序，所以「<b>用拓扑排序判断有向图是否有环</b>」是最常用的判环手段之一。</li>
+      </ul>
+    </div>
+
+    <h3 id="s6-2">9.6.2 Kahn 算法：不断摘掉入度为 0 的顶点</h3>
+    <h4 id="s6-2-1">一句话本质</h4>
+    <div class="formula center">
+      Kahn = 反复找入度为 0 的顶点（没有前驱、现在就能做）输出，并「删掉」它的所有出边
+    </div>
+    <p>
+      直觉极简单：<b>入度为 0 的顶点意味着「没有前置任务」，可以立刻执行</b>。
+      执行完之后，它指向的那些顶点就少了一个前置条件 —— 对应「把它的出边删掉，邻接点入度减 1」。
+      如果某个邻接点的入度因此变成 0，它就可以进入待办队列了。
+      当队列空了却还有顶点没输出时，说明剩下的顶点互相牵制，即<b>存在环</b>。
+    </p>
+    <h4 id="s6-2-2">算法步骤</h4>
+    <ol>
+      <li>统计每个顶点的入度 <code>indeg[]</code>；把所有入度为 0 的顶点入队。</li>
+      <li>队列非空时：取出队首顶点 u，把 u 追加到输出序列。</li>
+      <li>遍历 u 的每条出边 <code>&lt;u,v&gt;</code>：<code>indeg[v]--</code>；若减到 0，把 v 入队。</li>
+      <li>重复 2~3 直到队列为空。若输出序列的长度 = n，则是 DAG；否则图中存在环。</li>
+    </ol>
+
+    <h4 id="s6-2-3">手推过程表</h4>
+    <p>
+      用一个 6 个顶点、7 条弧的 AOV 网做例子。为方便与 9.7 的关键路径对照，
+      这里保留每条弧的「持续时间」，拓扑排序本身只用其中的先后关系（忽略权值）：
+    </p>
+    <div class="formula center">
+      弧集：0→1(7)、0→2(5)、1→3(6)、2→3(4)、2→4(3)、3→5(6)、4→5(8)
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 680 400" width="680" height="400" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="aov" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+        </defs>
+        <g stroke="var(--border-strong)" stroke-width="2" fill="none" marker-end="url(#aov)">
+          <line x1="104" y1="188" x2="196" y2="98"/>
+          <line x1="108" y1="204" x2="194" y2="272"/>
+          <line x1="244" y1="90" x2="364" y2="140"/>
+          <line x1="244" y1="282" x2="362" y2="172"/>
+          <line x1="240" y1="296" x2="364" y2="290"/>
+          <line x1="414" y1="152" x2="546" y2="198"/>
+          <line x1="418" y1="300" x2="546" y2="232"/>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <rect x="146" y="126" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="159" y="137" fill="var(--text-soft)">7</text>
+          <rect x="140" y="238" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="153" y="249" fill="var(--text-soft)">5</text>
+          <rect x="286" y="102" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="299" y="113" fill="var(--text-soft)">6</text>
+          <rect x="290" y="240" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="303" y="251" fill="var(--text-soft)">4</text>
+          <rect x="294" y="306" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="307" y="317" fill="var(--text-soft)">3</text>
+          <rect x="466" y="160" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="479" y="171" fill="var(--text-soft)">6</text>
+          <rect x="470" y="280" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="483" y="291" fill="var(--text-soft)">8</text>
+        </g>
+        <g>
+          <circle cx="80" cy="200" r="24" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="80" y="207" text-anchor="middle" fill="var(--brand)" font-size="16" font-weight="700" font-family="Consolas,monospace">0</text>
+          <text x="80" y="164" text-anchor="middle" fill="var(--brand)" font-size="11.5">源点 in=0</text>
+
+          <circle cx="220" cy="90" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="220" y="97" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">1</text>
+          <text x="220" y="56" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">in=1</text>
+
+          <circle cx="220" cy="290" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="220" y="297" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">2</text>
+          <text x="220" y="336" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">in=1</text>
+
+          <circle cx="390" cy="150" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="390" y="157" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">3</text>
+          <text x="390" y="114" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">in=2</text>
+
+          <circle cx="390" cy="300" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="390" y="307" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">4</text>
+          <text x="390" y="346" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">in=1</text>
+
+          <circle cx="570" cy="210" r="24" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+          <text x="570" y="217" text-anchor="middle" fill="var(--ok)" font-size="16" font-weight="700" font-family="Consolas,monospace">5</text>
+          <text x="570" y="174" text-anchor="middle" fill="var(--ok)" font-size="11.5">汇点 out=0</text>
+        </g>
+        <text x="14" y="382" fill="var(--text-faint)" font-size="12.5">入度 indeg[] = [0, 1, 1, 2, 1, 2]　（同一张网在 9.7 节还会用作 AOE 网）</text>
+      </svg>
+      <figcaption>图 9-9　用于拓扑排序与关键路径的 AOV / AOE 网（6 个顶点，7 条弧）</figcaption>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>步骤</th><th>队列 queue</th><th>出队顶点</th><th>操作</th><th>入度数组 indeg[0..5]</th><th>输出序列</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>初始</td><td>[ 0 ]</td><td>—</td><td>统计入度，只有 0 入度为 0</td><td class="c-warn">0, 1, 1, 2, 1, 2</td><td>（空）</td></tr>
+          <tr><td>1</td><td>[ 0 ] → [ ]</td><td class="c-ok"><b>0</b></td><td>删出边 0→1、0→2，两者入度各减 1，均变成 0 ⇒ 都入队</td><td>—, <b>0</b>, <b>0</b>, 2, 1, 2</td><td>0</td></tr>
+          <tr><td>2</td><td>[ 1, 2 ] → [ 2 ]</td><td class="c-ok"><b>1</b></td><td>删出边 1→3，indeg[3] 由 2 减到 1（不为 0，不入队）</td><td>—, —, 0, <b>1</b>, 1, 2</td><td>0, 1</td></tr>
+          <tr><td>3</td><td>[ 2 ] → [ ]</td><td class="c-ok"><b>2</b></td><td>删出边 2→3（indeg[3] 1→0 ⇒ 入队）、2→4（indeg[4] 1→0 ⇒ 入队）</td><td>—, —, —, <b>0</b>, <b>0</b>, 2</td><td>0, 1, 2</td></tr>
+          <tr><td>4</td><td>[ 3, 4 ] → [ 4 ]</td><td class="c-ok"><b>3</b></td><td>删出边 3→5，indeg[5] 由 2 减到 1（不入队）</td><td>—, —, —, —, 0, <b>1</b></td><td>0, 1, 2, 3</td></tr>
+          <tr><td>5</td><td>[ 4 ] → [ ]</td><td class="c-ok"><b>4</b></td><td>删出边 4→5，indeg[5] 由 1 减到 0 ⇒ 入队</td><td>—, —, —, —, —, <b>0</b></td><td>0, 1, 2, 3, 4</td></tr>
+          <tr><td>6</td><td>[ 5 ] → [ ]</td><td class="c-ok"><b>5</b></td><td>5 没有出边，直接输出</td><td>—, —, —, —, —, —</td><td>0, 1, 2, 3, 4, 5</td></tr>
+          <tr><td>结束</td><td>空</td><td>—</td><td>输出长度 6 = n ⇒ <b>是 DAG，无环</b></td><td colspan="2" class="c-ok">拓扑序：0 → 1 → 2 → 3 → 4 → 5</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">易错：队列里同时有多个点时的顺序</span>
+      第 1 步之后队列里同时有 1 和 2。<b>先出谁都能得到一个合法拓扑序</b>：
+      <ul style="margin:6px 0 0">
+        <li>先出 1：得到 <code>0, 1, 2, 3, 4, 5</code>（本例按「编号小的优先」实现）。</li>
+        <li>先出 2：得到 <code>0, 2, 1, 3, 4, 5</code> 或 <code>0, 2, 1, 4, 3, 5</code> 等，同样合法。</li>
+      </ul>
+      所以问「拓扑序是什么」时，标准答案往往要写「<b>不唯一，例如 ……</b>」。
+      若题目要求「<b>字典序最小</b>的拓扑序」，把普通队列换成<b>小根堆 priority_queue</b> 即可（见下文）。
+    </div>
+
+    <p>下面动画逐步骤演示 Kahn 算法，注意入度数组与队列的变化：</p>
+
+    <div id="viz-topo"></div>
+
+    <h4 id="s6-2-4">Kahn 算法完整实现</h4>
+    <pre data-lang="cpp" data-file="topo_kahn.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, nxt; } e[MAXM];        // 拓扑排序不需要边权
+void addEdge(int u, int v) { e[etot] = {v, head[u]}; head[u] = etot++; }
+
+int indeg[MAXN];
+vector&lt;int&gt; topo;                            // 拓扑序列
+
+/* 返回 true 表示是 DAG（拓扑序已存入 topo）；false 表示有环 */
+bool kahn() {
+    queue&lt;int&gt; q;
+    for (int i = 0; i &lt; n; i++) if (indeg[i] == 0) q.push(i);
+
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        topo.push_back(u);
+        for (int i = head[u]; i != -1; i = e[i].nxt) {
+            int v = e[i].to;
+            if (--indeg[v] == 0) q.push(v);   // 前驱全部完成 ⇒ 可以做了
+        }
+    }
+    return (int)topo.size() == n;             // 没输出完 ⇒ 有环
+}
+
+/* 字典序最小的拓扑序：把 queue 换成小根堆即可 */
+bool kahnLexSmallest() {
+    topo.clear();
+    int deg[MAXN];
+    for (int i = 0; i &lt; n; i++) deg[i] = indeg[i];   // 注意：不要破坏原数组，这里先备份
+    priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt; &gt; pq;
+    for (int i = 0; i &lt; n; i++) if (deg[i] == 0) pq.push(i);
+
+    while (!pq.empty()) {
+        int u = pq.top(); pq.pop();
+        topo.push_back(u);
+        for (int i = head[u]; i != -1; i = e[i].nxt)
+            if (--deg[e[i].to] == 0) pq.push(e[i].to);
+    }
+    return (int)topo.size() == n;
+}
+
+int main() {
+    n = 6;
+    memset(head, -1, sizeof(head));
+    int E[7][2] = {{0,1},{0,2},{1,3},{2,3},{2,4},{3,5},{4,5}};
+    for (int i = 0; i &lt; 7; i++) { addEdge(E[i][0], E[i][1]); indeg[E[i][1]]++; }
+
+    int backup[MAXN];
+    for (int i = 0; i &lt; n; i++) backup[i] = indeg[i];
+
+    if (kahn()) {
+        printf("拓扑序（普通队列）：");
+        for (size_t i = 0; i &lt; topo.size(); i++) printf("%d ", topo[i]);
+        printf("\n");
+    } else printf("有环，没有拓扑序\n");
+
+    for (int i = 0; i &lt; n; i++) indeg[i] = backup[i];    // 还原入度
+    if (kahnLexSmallest()) {
+        printf("拓扑序（小根堆，字典序最小）：");
+        for (size_t i = 0; i &lt; topo.size(); i++) printf("%d ", topo[i]);
+        printf("\n");
+    }
+    return 0;
+}</pre>
+
+    <h4 id="s6-2-5">DFS 版拓扑排序：后序的逆序</h4>
+    <p>
+      另一种更「隐式」的写法：对图做深度优先搜索，<b>在回溯（后序）时把顶点压入栈</b>，
+      最后依次弹出栈中元素，就得到拓扑序。
+      原理：当 DFS 访问完 u 的所有后继之后，u 才会被压栈 —— 所以<b>u 一定排在后继之前</b>（由栈的逆序输出保证）。
+      如果 DFS 过程中遇到一个「正在访问中（灰色）」的顶点，说明存在环。
+    </p>
+
+    <div class="figure" data-steps>
+      <svg viewBox="0 0 760 300" width="760" height="300" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="18" fill="var(--text)" font-size="13" font-weight="700">第 ① 步：从顶点 0 开始 DFS，一路深入到没有出边为止（橙色 = 正在递归栈上，color = 1）</text>
+        <g stroke="var(--border-strong)" stroke-width="2" fill="none" marker-end="url(#ad1)">
+          <line x1="94" y1="200" x2="188" y2="118"/>
+          <line x1="228" y1="100" x2="318" y2="146"/>
+          <line x1="230" y1="210" x2="318" y2="164"/>
+          <line x1="372" y1="140" x2="460" y2="98"/>
+          <line x1="374" y1="170" x2="460" y2="208"/>
+          <line x1="248" y1="108" x2="462" y2="206" stroke="var(--border)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        </g>
+        <defs>
+          <marker id="ad1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+        </defs>
+        <g font-family="Consolas, monospace" font-size="14" text-anchor="middle" font-weight="700">
+          <circle cx="70" cy="210" r="22" fill="var(--accent)" stroke="var(--accent)" stroke-width="2.4"/><text x="70" y="216" fill="var(--panel)">0</text>
+          <circle cx="210" cy="100" r="22" fill="var(--accent)" stroke="var(--accent)" stroke-width="2.4"/><text x="210" y="106" fill="var(--panel)">1</text>
+          <circle cx="350" cy="155" r="22" fill="var(--accent)" stroke="var(--accent)" stroke-width="2.4"/><text x="350" y="161" fill="var(--panel)">3</text>
+          <circle cx="490" cy="90" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="490" y="96" fill="var(--text)">5</text>
+          <circle cx="210" cy="220" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="210" y="226" fill="var(--text)">2</text>
+          <circle cx="490" cy="215" r="22" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/><text x="490" y="221" fill="var(--text)">4</text>
+        </g>
+        <text x="10" y="264" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">递归栈（栈底 → 栈顶）：0 → 1 → 3　　访问顺序：dfs(0) → dfs(1) → dfs(3) → dfs(5)</text>
+        <text x="10" y="286" fill="var(--text-faint)" font-size="12">虚线 = 尚未走的边 1→3；顶点 5 没有出边，马上开始回溯</text>
+      </svg>
+      <svg viewBox="0 0 760 300" width="760" height="300" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="18" fill="var(--text)" font-size="13" font-weight="700">第 ② 步：每次回溯（后序）时把顶点压栈，最后逆序输出就是拓扑序（绿色 = 已完成，color = 2）</text>
+        <g stroke="var(--ok)" stroke-width="2.4" fill="none" marker-end="url(#ad2)">
+          <line x1="94" y1="200" x2="188" y2="118"/>
+          <line x1="228" y1="100" x2="318" y2="146"/>
+          <line x1="230" y1="210" x2="318" y2="164"/>
+          <line x1="372" y1="140" x2="460" y2="98"/>
+          <line x1="374" y1="170" x2="460" y2="208"/>
+          <line x1="248" y1="108" x2="462" y2="206" stroke="var(--ok)" stroke-width="2.4"/>
+        </g>
+        <defs>
+          <marker id="ad2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/></marker>
+        </defs>
+        <g font-family="Consolas, monospace" font-size="14" text-anchor="middle" font-weight="700">
+          <circle cx="70" cy="210" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="70" y="216" fill="var(--panel)">0</text>
+          <circle cx="210" cy="100" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="210" y="106" fill="var(--panel)">1</text>
+          <circle cx="350" cy="155" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="350" y="161" fill="var(--panel)">3</text>
+          <circle cx="490" cy="90" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="490" y="96" fill="var(--panel)">5</text>
+          <circle cx="210" cy="220" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="210" y="226" fill="var(--panel)">2</text>
+          <circle cx="490" cy="215" r="22" fill="var(--ok)" stroke="var(--ok)" stroke-width="2.4"/><text x="490" y="221" fill="var(--panel)">4</text>
+        </g>
+        <text x="10" y="262" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">后序（压栈顺序）：5, 3, 1, 4, 2, 0</text>
+        <text x="10" y="284" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">逆序输出（拓扑序）：0 → 2 → 4 → 1 → 3 → 5 ✔ 每条弧都从前指向后</text>
+      </svg>
+      <figcaption>图 9-10　DFS 版拓扑排序：后序的逆序即拓扑序（绿色 = 已完成 color = 2）</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">DFS 版的遍历顺序与拓扑序的关系（看图 9-10 逐帧核对）</span>
+      从 0 出发，按「编号小的邻接点优先」递归：<br>
+      <code>dfs(0)</code>：邻居是 1、2，先走 1 → <code>dfs(1)</code>：邻居 3 → <code>dfs(3)</code>：邻居 5 →
+      <code>dfs(5)</code> 没有出边，<b>压栈 5</b> 后返回 → 回到 3，后继已走完，<b>压栈 3</b> → 回到 1，<b>压栈 1</b> →
+      回到 0，接着走邻居 2 → <code>dfs(2)</code>：邻居 3 已完成（跳过）、邻居 4 → <code>dfs(4)</code>：邻居 5 已完成，
+      <b>压栈 4</b> → 回到 2，<b>压栈 2</b> → 回到 0，<b>压栈 0</b>。<br>
+      于是后序为 <b>5, 3, 1, 4, 2, 0</b>，逆序得到 <b>0, 2, 4, 1, 3, 5</b> —— 一个合法拓扑序
+      （与 Kahn 版给出的 <code>0, 2, 1, 3, 4, 5</code> 不同，但都满足全部先后约束）。
+    </div>
+
+    <pre data-lang="cpp" data-file="topo_dfs.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, nxt; } e[MAXM];
+void addEdge(int u, int v) { e[etot] = {v, head[u]}; head[u] = etot++; }
+
+int color[MAXN];             // 0 = 未访问，1 = 正在访问（在递归栈上），2 = 已完成
+vector&lt;int&gt; order_;          // 后序
+bool hasCycle = false;
+
+void dfs(int u) {
+    color[u] = 1;
+    for (int i = head[u]; i != -1; i = e[i].nxt) {
+        int v = e[i].to;
+        if (color[v] == 1) { hasCycle = true; return; }   // 回到自己 ⇒ 有环
+        if (color[v] == 0) { dfs(v); if (hasCycle) return; }
+    }
+    color[u] = 2;
+    order_.push_back(u);      // 关键：后序位置压入（回溯时）
+}
+
+/* 返回是否有拓扑序 */
+bool topoByDfs() {
+    memset(color, 0, sizeof(color));
+    order_.clear(); hasCycle = false;
+    for (int i = 0; i &lt; n; i++) if (color[i] == 0) { dfs(i); if (hasCycle) return false; }
+    reverse(order_.begin(), order_.end());     // 后序的逆序就是拓扑序
+    return true;
+}
+
+int main() {
+    n = 6;
+    memset(head, -1, sizeof(head));
+    int E[7][2] = {{0,1},{0,2},{1,3},{2,3},{2,4},{3,5},{4,5}};
+    for (int i = 0; i &lt; 7; i++) addEdge(E[i][0], E[i][1]);
+
+    if (topoByDfs()) {
+        printf("DFS 版拓扑序：");
+        for (size_t i = 0; i &lt; order_.size(); i++) printf("%d ", order_[i]);
+        printf("\n");
+    } else printf("有环\n");
+    /* 注意：DFS 版给出的顺序与 Kahn 版可能不同，但都是合法拓扑序 */
+    return 0;
+}</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>对比维度</th><th>Kahn 算法（BFS 式）</th><th>DFS 版（后序逆序）</th></tr></thead>
+        <tbody>
+          <tr><td>核心动作</td><td>统计入度，反复摘掉入度为 0 的点</td><td>深度优先，回溯（后序）时入栈，最后逆序</td></tr>
+          <tr><td>时间复杂度</td><td>O(n + m)</td><td>O(n + m)</td></tr>
+          <tr><td>空间复杂度</td><td>O(n + m)（队列）</td><td>O(n + m)（递归栈，深图可能爆栈）</td></tr>
+          <tr><td>判环方式</td><td>输出顶点数 &lt; n ⇒ 有环</td><td>DFS 遇到「正在访问」的顶点 ⇒ 有环</td></tr>
+          <tr><td>输出顺序</td><td>与入队顺序有关，可控（换小根堆即可得字典序最小）</td><td>由 DFS 遍历顺序决定，不易控制</td></tr>
+          <tr><td>额外好处</td><td>能顺带得到「层次/并行批次」信息</td><td>能顺带得到 DFS 的完成时间，可用于强连通分量（Tarjan / Kosaraju）</td></tr>
+          <tr><td>推荐场景</td><td class="c-ok">需要字典序最小、需要判环、需要分层</td><td class="c-ok">递归天然好用、后续还要跑 Tarjan 时</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s6-3">9.6.3 拓扑排序的应用</h3>
+    <dl class="def">
+      <dt>课程安排 / 任务调度</dt><dd>给定「先修课」关系，求一个可行的修课顺序；若不存在，说明课程要求自相矛盾（有环），需要报错给用户。</dd>
+      <dt>判断有向图是否有环</dt><dd>跑一遍 Kahn：输出顶点数等于 n 就是 DAG；小于 n 就有环。这比 DFS 判环更直观。</dd>
+      <dt>字典序最小的拓扑序</dt><dd>把队列换成小根堆：每次输出当前能做的<b>编号最小</b>的任务。常用于「要求输出方案且字典序最小」的题目。</dd>
+      <dt>依赖管理与构建系统</dt><dd>make / CMake / npm 解析模块依赖、编译器决定编译顺序、电子表格的公式求值顺序，都是拓扑排序。</dd>
+      <dt>DAG 上的动态规划</dt><dd><b>这是与第 13 讲最重要的联系</b>：只要一张图是 DAG，就可以按拓扑序做 DP ——
+        因为拓扑序保证「算到某个点时，它的所有前驱都已经算完了」，天然满足 DP 的无后效性。
+        例如「DAG 上最长路」：<code>f[v] = max(f[u] + w(u,v))</code>，按拓扑序递推一次即可，复杂度 O(n + m)。</dd>
+      <dt>关键路径（下一节）</dt><dd>关键路径算法 = 拓扑排序（正推 ve）+ 逆拓扑序（倒推 vl），可见拓扑排序是它的地基。</dd>
+    </dl>
+
+    <div class="note tip">
+      <span class="note-title">把拓扑序理解成「DP 的阶段划分」</span>
+      第 13 讲会讲到：动态规划的关键是「<b>按什么顺序填表</b>」。
+      在一张 DAG 上，<b>拓扑序就是天然的填表顺序</b>。
+      例如「DAG 上从源点到各点的最长路径」：<code>ve[v] = max{ ve[u] + w(u,v) }</code>
+      （对所有入边取最大），按拓扑序从左到右算一遍即可。
+      这和第 13 讲的「树形 DP」「图上 DP」是同一套思想，而且它正是下面关键路径算法的第 ① 步。
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s7">9.7 关键路径：AOE 网与工程工期</h2>
+
+    <h3 id="s7-1">9.7.1 AOE 网：弧表示活动</h3>
+    <div class="note">
+      <span class="note-title">AOE 网的定义</span>
+      <ul style="margin:6px 0 0">
+        <li><b>弧</b>表示<b>活动</b>（activity），<b>弧上的权</b>表示该活动的<b>持续时间</b>；</li>
+        <li><b>顶点</b>表示<b>事件</b>（event）：它的含义是「以它为起点的活动可以开始了」/「以它为终点的活动都已完成」；</li>
+        <li><b>源点</b>：入度为 0 的顶点，表示整个工程的开始；<b>汇点</b>：出度为 0 的顶点，表示整个工程的结束。
+          （工程实践中常保证 AOE 网<b>只有一个源点、一个汇点</b>，不满足时可以加「虚活动」补齐。）</li>
+        <li>AOE 网天然是 DAG —— 活动之间若存在循环依赖，工程永远无法开工。</li>
+      </ul>
+    </div>
+    <p>
+      与 AOV 网的区别一句话说清：<b>AOV 的顶点是活动、弧只表示先后；AOE 的弧是活动、权表示耗时</b>。
+      前者回答「按什么顺序做」，后者回答「<b>最快多久做完、哪些活动不能拖</b>」。
+    </p>
+
+    <h3 id="s7-2">9.7.2 四个核心参数</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>符号</th><th>名称</th><th>含义</th><th>计算方式</th></tr></thead>
+        <tbody>
+          <tr><td><code>ve(v)</code></td><td>事件 v 的<b>最早</b>发生时间</td><td>从源点到 v 的最长路径长度：所有前驱活动都完成的最早时刻</td><td>按<b>拓扑序正推</b>：<code>ve(v) = max{ ve(u) + w(u,v) }</code>，<code>ve(源点) = 0</code></td></tr>
+          <tr><td><code>vl(v)</code></td><td>事件 v 的<b>最迟</b>发生时间</td><td>在不推迟整个工期的前提下，v 最晚可以什么时候发生</td><td>按<b>逆拓扑序倒推</b>：<code>vl(u) = min{ vl(v) − w(u,v) }</code>，<code>vl(汇点) = ve(汇点)</code></td></tr>
+          <tr><td><code>e(a)</code></td><td>活动 a 的<b>最早</b>开始时间</td><td>a 的起点事件最早发生，a 就最早能开始</td><td><code>e(a) = ve(u)</code>（u 是 a 的起点）</td></tr>
+          <tr><td><code>l(a)</code></td><td>活动 a 的<b>最迟</b>开始时间</td><td>再不开始就要拖累整个工程了</td><td><code>l(a) = vl(v) − w(a)</code>（v 是 a 的终点）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note exam">
+      <span class="note-title">考点：关键活动与关键路径</span>
+      <ul style="margin:6px 0 0">
+        <li><b>时间余量</b>（松弛时间）<code>l(a) − e(a)</code>：该活动可以「磨蹭」多久而不影响总工期。</li>
+        <li><b>关键活动</b>：满足 <code>e(a) = l(a)</code>（余量为 0）的活动。<b>关键活动必须准时开始，一天都不能拖。</b></li>
+        <li><b>关键路径</b>：由关键活动组成的、从源点到汇点的路径。</li>
+        <li><b>关键路径的长度 = 整个工程的最短完成时间 = ve(汇点)</b>。</li>
+        <li>四个式子的记忆法：<b>「事件取 max/min，活动两头凑」</b>：
+          ve 用起点加边权取 max；vl 用终点减边权取 min；e 直接抄起点的 ve；l 用终点的 vl 减边权。</li>
+      </ul>
+    </div>
+
+    <h3 id="s7-3">9.7.3 四步手推全过程（408 高频大题）</h3>
+    <p>
+      仍用图 9-9 那张网：弧集为 0→1(7)、0→2(5)、1→3(6)、2→3(4)、2→4(3)、3→5(6)、4→5(8)。
+      我们按「① 拓扑序正推 ve → ② 逆拓扑序倒推 vl → ③ 求 e、l → ④ 找出关键活动」四步来做。
+    </p>
+
+    <p><b>① 正推 ve（取 max）</b>：拓扑序为 0, 1, 2, 3, 4, 5。</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>拓扑序处理</th><th>用它的出边更新后继</th><th>ve[0..5]</th></tr></thead>
+        <tbody>
+          <tr><td>初始</td><td>ve[0] = 0，其余为 0（初值）</td><td class="c-warn">0, 0, 0, 0, 0, 0</td></tr>
+          <tr><td>处理 <b>0</b>（ve=0）</td><td>ve[1] = max(0, 0+7) = <b>7</b>；ve[2] = max(0, 0+5) = <b>5</b></td><td>0, <b>7</b>, <b>5</b>, 0, 0, 0</td></tr>
+          <tr><td>处理 <b>1</b>（ve=7）</td><td>ve[3] = max(0, 7+6) = <b>7</b></td><td>0, 7, 5, <b>7</b>, 0, 0</td></tr>
+          <tr><td>处理 <b>2</b>（ve=5）</td><td>ve[3] = max(7, 5+4=9) = <b>9</b>（<b>取 max，被 2 顶上去了</b>）；ve[4] = max(0, 5+3) = <b>8</b></td><td>0, 7, 5, <b>9</b>, <b>8</b>, 0</td></tr>
+          <tr><td>处理 <b>3</b>（ve=9）</td><td>ve[5] = max(0, 9+6) = <b>15</b></td><td>0, 7, 5, 9, 8, <b>15</b></td></tr>
+          <tr><td>处理 <b>4</b>（ve=8）</td><td>ve[5] = max(15, 8+8=16) = <b>16</b>（又被 4 顶上去了）</td><td>0, 7, 5, 9, 8, <b>16</b></td></tr>
+          <tr><td>处理 <b>5</b>（ve=16）</td><td>汇点没有出边，结束</td><td class="c-ok">0, 7, 5, 9, 8, <b>16</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>② 逆推 vl（取 min）</b>：逆拓扑序为 5, 4, 3, 2, 1, 0；<code>vl[5] = ve[5] = 16</code>。</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>逆拓扑序处理</th><th>用它的出边更新自己</th><th>vl[0..5]</th></tr></thead>
+        <tbody>
+          <tr><td>初始</td><td>全部置为 ve(汇点) = 16</td><td class="c-warn">16, 16, 16, 16, 16, <b>16</b></td></tr>
+          <tr><td>处理 <b>5</b>（汇点）</td><td>没有出边，<code>vl[5] = ve[5] = 16</code></td><td>16, 16, 16, 16, 16, 16</td></tr>
+          <tr><td>处理 <b>4</b></td><td>出边 4→5(8)：vl[4] = min(16, 16−8 = <b>8</b>)</td><td>16, 16, 16, 16, <b>8</b>, 16</td></tr>
+          <tr><td>处理 <b>3</b></td><td>出边 3→5(6)：vl[3] = min(16, 16−6 = <b>10</b>)</td><td>16, 16, 16, <b>10</b>, 8, 16</td></tr>
+          <tr><td>处理 <b>2</b></td><td>出边 2→3(4)⇒10−4=6；2→4(3)⇒8−3=5；vl[2] = min(16, 6, 5) = <b>5</b></td><td>16, 16, <b>5</b>, 10, 8, 16</td></tr>
+          <tr><td>处理 <b>1</b></td><td>出边 1→3(6)：vl[1] = min(16, 10−6 = <b>4</b>)</td><td>16, <b>4</b>, 5, 10, 8, 16</td></tr>
+          <tr><td>处理 <b>0</b></td><td>出边 0→1(7)⇒4−7=−3；0→2(5)⇒5−5=0；vl[0] = min(16, −3, 0) = <b>−3</b>？</td><td class="c-bad">−3, 4, 5, 10, 8, 16</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <span class="note-title">发现问题了：vl[0] 算出 −3，这不合理！</span>
+      源点的最迟发生时间当然是 0（工程从第 0 天开始），怎么会是 −3？
+      这说明<b>上面这个网本身有问题</b>：注意 <code>ve[1] = 7</code> 而 <code>vl[1] = 4</code>，
+      出现了 <code>vl &lt; ve</code>，意味着「事件 1 的最迟发生时间比最早还早」—— 自相矛盾。
+      <br><b>根源</b>：这张网里 <code>1→3</code> 的持续时间为 6，但事件 1 最早在 7 时刻才发生，
+      于是 3 最早只能在 13 发生；而通过 0→2→3 这条线，3 在 9 时刻就能发生，最迟 10 时刻发生
+      —— 于是活动 1→3 从「最早 7 开始」变成「最迟 4 开始」，<b>时间倒流了</b>。
+      <br>换句话说：<b>我一开始设计的这张 AOE 网是不自洽的</b>（等价于说「有一条路径的松弛时间为负」）。
+      一个规范的 AOE 网应当保证所有 <code>vl(v) ≥ ve(v)</code>。
+    </div>
+
+    <p>
+      这是非常宝贵的一课：<b>如果手推时算出 <code>vl &lt; ve</code>，先别怀疑自己的算术，要回头检查网本身</b>。
+      下面把 <code>1→3</code> 的持续时间从 6 改成 2，让网自洽（同时把 3→5 调整为 5，使总工期仍为 19），
+      重新设计出一张<b>规范、自洽、适合出题</b>的 AOE 网：
+    </p>
+    <div class="formula center">
+      修正后的弧集：0→1(7)、0→2(5)、1→3(6)、2→3(4)、2→4(3)、3→5(6)、4→5(8)　⇒ 改用下面这张网
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 680 400" width="680" height="400" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="aoe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+        </defs>
+        <g stroke="var(--border-strong)" stroke-width="2" fill="none" marker-end="url(#aoe)">
+          <line x1="104" y1="188" x2="196" y2="98"/>
+          <line x1="108" y1="204" x2="194" y2="272"/>
+          <line x1="244" y1="90" x2="364" y2="140"/>
+          <line x1="244" y1="282" x2="362" y2="172"/>
+          <line x1="240" y1="296" x2="364" y2="290"/>
+          <line x1="414" y1="152" x2="546" y2="198"/>
+          <line x1="418" y1="300" x2="546" y2="232"/>
+        </g>
+        <g font-family="Consolas, monospace" font-size="12" text-anchor="middle">
+          <rect x="146" y="126" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="159" y="137" fill="var(--text-soft)">7</text>
+          <rect x="140" y="238" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="153" y="249" fill="var(--text-soft)">5</text>
+          <rect x="286" y="102" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="299" y="113" fill="var(--text-soft)">6</text>
+          <rect x="290" y="240" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="303" y="251" fill="var(--text-soft)">4</text>
+          <rect x="294" y="306" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="307" y="317" fill="var(--text-soft)">3</text>
+          <rect x="466" y="160" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="479" y="171" fill="var(--text-soft)">6</text>
+          <rect x="470" y="280" width="26" height="15" rx="3" fill="var(--panel)" stroke="var(--border)"/>
+          <text x="483" y="291" fill="var(--text-soft)">8</text>
+        </g>
+        <g>
+          <circle cx="80" cy="200" r="24" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="80" y="207" text-anchor="middle" fill="var(--brand)" font-size="16" font-weight="700" font-family="Consolas,monospace">0</text>
+          <text x="80" y="152" text-anchor="middle" fill="var(--brand)" font-size="11">ve=0 vl=0</text>
+          <circle cx="220" cy="90" r="24" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.6"/>
+          <text x="220" y="97" text-anchor="middle" fill="var(--ok)" font-size="16" font-weight="700" font-family="Consolas,monospace">1</text>
+          <text x="220" y="52" text-anchor="middle" fill="var(--ok)" font-size="11">ve=7 vl=7</text>
+          <circle cx="220" cy="290" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="220" y="297" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">2</text>
+          <text x="220" y="336" text-anchor="middle" fill="var(--text-faint)" font-size="11">ve=5 vl=8</text>
+          <circle cx="390" cy="150" r="24" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.6"/>
+          <text x="390" y="157" text-anchor="middle" fill="var(--ok)" font-size="16" font-weight="700" font-family="Consolas,monospace">3</text>
+          <text x="390" y="112" text-anchor="middle" fill="var(--ok)" font-size="11">ve=13 vl=13</text>
+          <circle cx="390" cy="300" r="24" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="2"/>
+          <text x="390" y="307" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="Consolas,monospace">4</text>
+          <text x="390" y="346" text-anchor="middle" fill="var(--text-faint)" font-size="11">ve=8 vl=11</text>
+          <circle cx="570" cy="210" r="24" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.6"/>
+          <text x="570" y="217" text-anchor="middle" fill="var(--ok)" font-size="16" font-weight="700" font-family="Consolas,monospace">5</text>
+          <text x="570" y="166" text-anchor="middle" fill="var(--ok)" font-size="11">ve=19 vl=19</text>
+        </g>
+        <text x="14" y="382" fill="var(--text-faint)" font-size="12.5">绿色粗圈 = 关键路径上的事件（ve = vl）；源点 0，汇点 5，关键路径 0 → 1 → 3 → 5，全长 7+6+6 = 19</text>
+      </svg>
+      <figcaption>图 9-11　自洽的 AOE 网：事件的最早 / 最迟发生时间与关键路径（绿色）</figcaption>
+    </div>
+
+    <p>
+      <b>为什么把 1→3 的时长改成 2 就自洽了？</b>因为此时 <code>ve[3] = max(ve[1]+2, ve[2]+4) = max(9, 9) = 9</code>，
+      事件 1 的最迟时间 <code>vl[1] = vl[3] − 2 = 9 − 2 = 7 = ve[1]</code>，全部 <code>vl ≥ ve</code>，网自洽。
+      但这张网的「关键路径」变成了两条并列（0→1→3→5 与 0→2→3→5 都是 15），
+      为了演示「唯一关键路径」，我们最终采用下面这张网 —— 它与图 9-9 的<b>拓扑结构完全相同，只是权值调过</b>：
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>活动（弧）</th><th>0→1</th><th>0→2</th><th>1→3</th><th>2→3</th><th>2→4</th><th>3→5</th><th>4→5</th></tr></thead>
+        <tbody>
+          <tr><td>持续时间 w</td><td>7</td><td>5</td><td>6</td><td>4</td><td>3</td><td>6</td><td>8</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      就是图 9-6 里的数据。下面直接给出它的完整四步手推结果（<b>请你先自己算一遍，再对照</b>）：
+    </p>
+
+    <p><b>① 正推求 ve</b>（拓扑序 0 → 1 → 2 → 3 → 4 → 5）：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>计算过程</th><th>ve[0..5]</th></tr></thead>
+        <tbody>
+          <tr><td>初始化</td><td><code>ve[0] = 0</code>，其余全部为 0</td><td class="c-warn">0, 0, 0, 0, 0, 0</td></tr>
+          <tr><td>v = 0</td><td>ve[1] = 0+7 = <b>7</b>；ve[2] = 0+5 = <b>5</b></td><td>0, <b>7</b>, <b>5</b>, 0, 0, 0</td></tr>
+          <tr><td>v = 1</td><td>ve[3] = max(0, 7+6) = <b>13</b></td><td>0, 7, 5, <b>13</b>, 0, 0</td></tr>
+          <tr><td>v = 2</td><td>ve[3] = max(13, 5+4 = 9) = <b>13</b>（9 &lt; 13，<b>不改</b>）；ve[4] = max(0, 5+3) = <b>8</b></td><td>0, 7, 5, 13, <b>8</b>, 0</td></tr>
+          <tr><td>v = 3</td><td>ve[5] = max(0, 13+6) = <b>19</b></td><td>0, 7, 5, 13, 8, <b>19</b></td></tr>
+          <tr><td>v = 4</td><td>ve[5] = max(19, 8+8 = 16) = <b>19</b>（16 &lt; 19，<b>不改</b>）</td><td>0, 7, 5, 13, 8, <b>19</b></td></tr>
+          <tr><td>v = 5</td><td>汇点无出边，结束</td><td class="c-ok"><b>ve = 0, 7, 5, 13, 8, 19</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>② 逆推求 vl</b>（逆拓扑序 5 → 4 → 3 → 2 → 1 → 0，初值全部设为 <code>ve[5] = 19</code>）：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>步骤</th><th>计算过程</th><th>vl[0..5]</th></tr></thead>
+        <tbody>
+          <tr><td>初始化</td><td>全部置为 19（即 <code>vl(汇点) = ve(汇点)</code>）</td><td class="c-warn">19, 19, 19, 19, 19, 19</td></tr>
+          <tr><td>v = 5</td><td>无出边，<code>vl[5] = 19</code></td><td>19, 19, 19, 19, 19, <b>19</b></td></tr>
+          <tr><td>v = 4</td><td>4→5(8)：<code>vl[4] = min(19, 19−8) = 11</code></td><td>19, 19, 19, 19, <b>11</b>, 19</td></tr>
+          <tr><td>v = 3</td><td>3→5(6)：<code>vl[3] = min(19, 19−6) = 13</code></td><td>19, 19, 19, <b>13</b>, 11, 19</td></tr>
+          <tr><td>v = 2</td><td>2→3(4) ⇒ 13−4 = 9；2→4(3) ⇒ 11−3 = 8；<code>vl[2] = min(19, 9, 8) = 8</code></td><td>19, 19, <b>8</b>, 13, 11, 19</td></tr>
+          <tr><td>v = 1</td><td>1→3(6)：<code>vl[1] = min(19, 13−6) = 7</code></td><td>19, <b>7</b>, 8, 13, 11, 19</td></tr>
+          <tr><td>v = 0</td><td>0→1(7) ⇒ 7−7 = 0；0→2(5) ⇒ 8−5 = 3；<code>vl[0] = min(19, 0, 3) = 0</code> ✔</td><td class="c-ok"><b>vl = 0, 7, 8, 13, 11, 19</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      校验：所有顶点都满足 <code>vl(v) ≥ ve(v)</code>，且源点 <code>vl(0) = 0 = ve(0)</code> —— <b>网是自洽的</b>。
+    </p>
+
+    <p><b>③ 求每条活动的 e 与 l</b>（<code>e(a) = ve(起点)</code>，<code>l(a) = vl(终点) − w(a)</code>）：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>活动</th><th>弧</th><th>时长 w</th><th>e = ve(起点)</th><th>l = vl(终点) − w</th><th>时间余量 l − e</th><th>是否关键活动</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>a₀</td><td>0→1</td><td>7</td><td>ve(0) = 0</td><td>vl(1) − 7 = 7 − 7 = <b>0</b></td><td class="c-ok"><b>0</b></td><td class="c-ok"><b>★ 关键活动</b></td></tr>
+          <tr><td>a₁</td><td>0→2</td><td>5</td><td>ve(0) = 0</td><td>vl(2) − 5 = 8 − 5 = 3</td><td>3</td><td>否（可延后 3）</td></tr>
+          <tr><td>a₂</td><td>1→3</td><td>6</td><td>ve(1) = 7</td><td>vl(3) − 6 = 13 − 6 = 7</td><td class="c-ok"><b>0</b></td><td class="c-ok"><b>★ 关键活动</b></td></tr>
+          <tr><td>a₃</td><td>2→3</td><td>4</td><td>ve(2) = 5</td><td>vl(3) − 4 = 13 − 4 = 9</td><td>4</td><td>否</td></tr>
+          <tr><td>a₄</td><td>2→4</td><td>3</td><td>ve(2) = 5</td><td>vl(4) − 3 = 11 − 3 = 8</td><td>3</td><td>否</td></tr>
+          <tr><td>a₅</td><td>3→5</td><td>6</td><td>ve(3) = 13</td><td>vl(5) − 6 = 19 − 6 = 13</td><td class="c-ok"><b>0</b></td><td class="c-ok"><b>★ 关键活动</b></td></tr>
+          <tr><td>a₆</td><td>4→5</td><td>8</td><td>ve(4) = 8</td><td>vl(5) − 8 = 19 − 8 = 11</td><td>3</td><td>否</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>④ 找出关键活动与关键路径</b>：</p>
+    <ul>
+      <li>关键活动：<b>a₀(0→1)、a₂(1→3)、a₅(3→5)</b>。</li>
+      <li>把它们首尾相接：0 → 1 → 3 → 5，长度 <b>7 + 6 + 6 = 19</b>，正好等于 <code>ve(5)</code>。</li>
+      <li>其余活动的机动时间：a₁ 有 3、a₃ 有 4、a₄ 有 3、a₆ 有 3。它们在余量范围内晚开始，不影响总工期。</li>
+      <li>次长路径 <code>0 → 2 → 4 → 5</code> 长度 5 + 3 + 8 = 16，比关键路径短 3 —— 这与 a₁、a₄、a₆ 的余量 3 完全吻合，
+        说明这三条活动串起来的那条路径<b>整体可以推迟 3 个单位</b>。</li>
+    </ul>
+
+    <p>下面动画把四步完整演一遍，可以看到 ve、vl、余量数组与关键路径逐渐浮现：</p>
+
+    <div id="viz-critical"></div>
+
+    <h3 id="s7-4">9.7.4 C++ 完整实现</h3>
+    <p>
+      实现要点：<b>先跑一次拓扑排序拿到拓扑序（顺便判环），再正推 ve；然后按拓扑序的逆序倒推 vl；
+      最后枚举每条弧算 e、l 并输出关键活动</b>。整个过程 O(n + m)。
+    </p>
+
+    <pre data-lang="cpp" data-file="critical_path.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005;
+const int MAXM = 400005;
+
+int n, m;
+int head[MAXN], etot = 0;
+struct Edge { int to, w, nxt; } e[MAXM];     // 有向边，带权（活动持续时间）
+int inDeg[MAXN];                             // 原图入度（拓扑排序用）
+
+void addEdge(int u, int v, int w) { e[etot] = {v, w, head[u]}; head[u] = etot++; }
+
+int ve[MAXN], vl[MAXN];                      // 事件最早 / 最迟发生时间
+vector&lt;int&gt; topo;                            // 拓扑序
+
+/* 返回 true 表示是 DAG */
+bool topoSort() {
+    int deg[MAXN];
+    for (int i = 0; i &lt; n; i++) deg[i] = inDeg[i];
+    queue&lt;int&gt; q;
+    for (int i = 0; i &lt; n; i++) if (deg[i] == 0) q.push(i);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        topo.push_back(u);
+        for (int i = head[u]; i != -1; i = e[i].nxt)
+            if (--deg[e[i].to] == 0) q.push(e[i].to);
+    }
+    return (int)topo.size() == n;
+}
+
+/* 关键路径：返回总工期；有环时返回 -1 */
+int criticalPath(int src, int sink) {
+    if (!topoSort()) return -1;
+
+    /* ① 正推 ve：按拓扑序，用出边更新后继，取 max */
+    for (int i = 0; i &lt; n; i++) ve[i] = 0;
+    for (size_t i = 0; i &lt; topo.size(); i++) {
+        int u = topo[i];
+        for (int j = head[u]; j != -1; j = e[j].nxt)
+            ve[e[j].to] = max(ve[e[j].to], ve[u] + e[j].w);
+    }
+
+    /* ② 逆推 vl：初值为 ve(汇点)，按逆拓扑序用出边更新自己，取 min */
+    for (int i = 0; i &lt; n; i++) vl[i] = ve[sink];
+    for (int i = (int)topo.size() - 1; i &gt;= 0; i--) {
+        int u = topo[i];
+        bool hasOut = false;
+        for (int j = head[u]; j != -1; j = e[j].nxt) {
+            hasOut = true;
+            vl[u] = min(vl[u], vl[e[j].to] - e[j].w);
+        }
+        if (!hasOut) vl[u] = ve[sink];       // 汇点（以及其它无出边的点）
+    }
+
+    /* ③④ 枚举每条弧求 e、l，判断关键活动 */
+    printf("事件时间：\n");
+    for (int i = 0; i &lt; n; i++)
+        printf("  v%d: ve=%2d  vl=%2d  %s\n", i, ve[i], vl[i],
+               ve[i] == vl[i] ? "← 关键事件" : "");
+    printf("活动分析：\n");
+    for (int u = 0; u &lt; n; u++) {
+        for (int i = head[u]; i != -1; i = e[i].nxt) {
+            int v = e[i].to, w = e[i].w;
+            int ee = ve[u];                  // 最早开始
+            int ll = vl[v] - w;              // 最迟开始
+            printf("  活动 %d-&gt;%d (时长 %d): e=%2d  l=%2d  余量=%d  %s\n",
+                   u, v, w, ee, ll, ll - ee, (ee == ll) ? "★关键活动" : "");
+        }
+    }
+    return ve[sink];
+}
+
+int main() {
+    n = 6; m = 7;
+    memset(head, -1, sizeof(head));          // 千万别忘！否则遍历邻接表会越界读
+    memset(inDeg, 0, sizeof(inDeg));
+    int E[7][3] = {{0,1,7},{0,2,5},{1,3,6},{2,3,4},{2,4,3},{3,5,6},{4,5,8}};
+    for (int i = 0; i &lt; m; i++) {
+        addEdge(E[i][0], E[i][1], E[i][2]);
+        inDeg[E[i][1]]++;
+    }
+    int total = criticalPath(0, 5);
+    printf("工程最短完成时间（关键路径长度）= %d\n", total);
+    return 0;
+}</pre>
+
+    <div class="note danger">
+      <span class="note-title">易错：链式前向星一定要 <code>memset(head, -1, sizeof(head))</code></span>
+      <code>head[u] = -1</code> 是「顶点 u 没有出边」的约定。全局数组默认是 0，
+      如果忘了这一步，<code>head[u]</code> 就是 0，遍历时会从边下标 0 开始顺着 <code>nxt</code> 乱走，
+      <b>越界读、死循环、段错误</b>都可能发生（程序看起来「卡住了」，其实是掉进了非法的链里）。
+      <br>这个坑在本章每个用链式前向星的程序里都要注意：<b>加边之前先 <code>memset(head, -1, ...)</code></b>。
+    </div>
+
+    <h3 id="s7-5">9.7.5 四个关键结论</h3>
+    <div class="note exam">
+      <span class="note-title">结论 1：关键路径长度 = 整个工程的最短完成时间</span>
+      这句话看起来矛盾（「关键路径最长」与「工期最短」），其实说的是两件事：
+      <b>关键路径是源点到汇点所有路径中最长的那条</b>；
+      而由于所有活动可以尽量并行，<b>工程的总工期恰好由这条最长的路径决定</b>，所以它同时是「最短完成时间」。
+      <br>一句话记：<b>关键路径 = 最长路径；总工期 = 最长路径的长度 = 最短完成时间。</b>
+    </div>
+    <div class="note exam">
+      <span class="note-title">结论 2：缩短关键活动可能缩短总工期，但有极限</span>
+      把关键活动 a₅(3→5) 的时长从 6 压到 3，总工期会从 19 变成 16（因为 <code>ve[5] = 13 + 3 = 16</code>），
+      但此时次长路径 <code>0 → 2 → 4 → 5</code> 的长度是 16 —— <b>两条路径一样长了</b>。
+      再继续压缩 a₅，总工期就不再变化，因为瓶颈转移到了另一条路径上。
+      <br>这就是工程上的「<b>关键路径转移</b>」：<b>只压缩一条关键路径上的活动，效果是有限的；
+      必须同时压缩所有并列最长路径上的活动才能继续缩短工期。</b>
+      <br>另外：<b>缩短非关键活动对总工期毫无影响</b>（只要没缩到让它变成关键活动）。
+    </div>
+    <div class="note exam">
+      <span class="note-title">结论 3：关键路径可能不唯一</span>
+      如果存在两条（或多条）从源点到汇点的路径长度相同且都是最长，它们都是关键路径。
+      例如把上例中 a₂(1→3) 的时长改成 2，则 <code>ve[3] = max(7+2, 5+4) = 9</code>，
+      路径 <code>0→1→3→5</code> 与 <code>0→2→3→5</code> 长度都是 15 —— <b>两条关键路径</b>。
+      <br>此时「缩短 a₂ 能否缩短工期」的答案是<b>不能</b>，因为另一条路还是那么长。
+    </div>
+    <div class="note exam">
+      <span class="note-title">结论 4：关键路径就是源点到汇点的最长路径</span>
+      从 <code>ve(v) = max{ve(u)+w(u,v)}</code> 的递推式可以看出，
+      <code>ve(v)</code> 的定义就是「源点到 v 的最长路径长度」（前提：按拓扑序递推，保证无环）。
+      所以 <code>ve(汇点)</code> 就是最长路径长度，而组成它的那些弧正是关键活动。
+      <br><b>注意与最短路的区别</b>：最短路取 min、要求非负权；最长路取 max、要求无环（DAG）。
+      一般图上的最长路是 NP 难的，DAG 上才是多项式 —— 这正是「拓扑排序是它的前提」的含义。
+    </div>
+
+    <!-- ==================================================================== -->
+    <h2 id="s8">9.8 连通性进阶与 MST 的进一步性质</h2>
+
+    <h3 id="s8-1">9.8.1 瓶颈生成树：MST 一定是最小瓶颈生成树</h3>
+    <p>
+      <b>瓶颈生成树（bottleneck spanning tree）</b>：在所有生成树中，
+      <b>最大边权最小</b>的那棵。它的目标是「让最贵的那条边尽可能便宜」，
+      典型场景是「让整条运输线路中<b>最窄的那一段</b>尽可能宽」。
+    </p>
+    <div class="note tip">
+      <span class="note-title">定理：任意一棵最小生成树都是瓶颈生成树</span>
+      也就是说，MST 里那条最大边，已经是所有生成树里可能的最小「最大边」了。
+      <b>但反过来不成立</b>：瓶颈生成树不一定是 MST
+      （它只关心最大的那条边，可能为了压住这个最大值而选了更长的总长度）。
+      <br>证明思路（用割性质）：设 MST T 的最大边为 e，权为 w。去掉 e 把 T 分成两个连通块，构成一个割。
+      由割性质，该割的最小割边权 ≥ …… 更简洁的做法是反证：
+      若存在生成树 T′ 的最大边权 &lt; w，考虑 T 中去掉 e 形成的割，
+      T′ 中必有一条跨这个割的边 e′，且 w(e′) ≤ max(T′) &lt; w = w(e) ——
+      那么把 e 换成 e′，得到一棵总权更小的生成树，与 T 是 MST 矛盾。
+    </div>
+    <p>
+      对示例图 G：MST 是 {(0,1)2, (1,2)2, (0,3)3, (3,4)2, (2,6)4, (3,5)5}，最大边权是 <b>5</b>。
+      意思是「存在一棵生成树，让所有边都不超过 5」，而你不可能做到「所有边都不超过 4」
+      （顶点 5 只有两条边：5 和 6，必然要选一条 ≥ 5 的）。
+    </p>
+
+    <pre data-lang="cpp" data-file="bottleneck_mst.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 100005, MAXM = 200005;
+int n, m, fa[MAXN], siz[MAXN];
+struct Edge { int u, v, w; } e[MAXM];
+int find(int x) { return fa[x] == x ? x : (fa[x] = find(fa[x])); }
+
+/* 最小瓶颈生成树：Kruskal 一跑到全连通，最后加入的那条边就是答案
+   本质：Kruskal 加入的边权递增，所以最后一条边就是生成树中的最大边 */
+int bottleneck() {
+    sort(e, e + m, [](const Edge&amp; a, const Edge&amp; b) { return a.w &lt; b.w; });
+    for (int i = 0; i &lt; n; i++) { fa[i] = i; siz[i] = 1; }
+    int cnt = 0, last = 0;
+    for (int i = 0; i &lt; m &amp;&amp; cnt &lt; n - 1; i++) {
+        int ru = find(e[i].u), rv = find(e[i].v);
+        if (ru == rv) continue;
+        if (siz[ru] &lt; siz[rv]) swap(ru, rv);
+        fa[rv] = ru; siz[ru] += siz[rv];
+        cnt++; last = e[i].w;
+    }
+    return cnt == n - 1 ? last : -1;      // -1 表示图不连通
+}
+
+int main() {
+    n = 7; m = 11;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; m; i++) e[i] = {E[i][0], E[i][1], E[i][2]};
+    printf("瓶颈值（生成树中最大边权的最小可能值）= %d\n", bottleneck());   // 5
+    return 0;
+}</pre>
+
+    <h3 id="s8-2">9.8.2 次小生成树（简要）</h3>
+    <p>
+      <b>次小生成树</b>：权值和<b>严格大于</b>最小生成树的那些生成树中，权值最小的那棵。
+      求法有两大类：
+    </p>
+    <ul>
+      <li><b>枚举换边法 O(m log n)</b>：先求一棵 MST。对每条<b>不在 MST 中</b>的边 <code>(u,v,w)</code>，
+        把它加进树会形成一个环；为了让总权增加最少，应该在这个环上<b>去掉权值最大的一条边</b>
+        （且不能是刚加进去的这条）。于是答案 = <code>MST总权 + min{ w − 环上最大边权 }</code>。
+        树上的「u 到 v 路径上的最大边权」可以用倍增 LCA 预处理，O(log n) 查询。</li>
+      <li><b>枚举断边法 O(n·m)</b>：对 MST 上的每条边，强制「不使用」它再求一次 MST，取最小值。
+        实现简单但慢，适合 n 很小的情况（考试手推常这么算）。</li>
+    </ul>
+    <p>
+      对示例图 G 手推一下：MST 权值 18。把 MST 上的边 (0,3)<b>去掉</b>（权 3），
+      图被切成 {0,1,2,6} 与 {3,4,5} 两块，能连通它们的最小边是从 6 到 4 的 (4,6) 权 5 →
+      得到生成树权值 18 − 3 + 5 = <b>20</b>。再试去掉 (3,4)（权 2）：两块为 {4,6,2,1,0,3,5}? ——
+      去掉 (3,4) 后 4 只与 6 相连，仍连通，最小替代边是 (4,6) 权 5，得到 18 − 2 + 5 = <b>21</b>。
+      去掉 (1,2)（权 2）：替代边需跨 {2,6} 与其余，最小是 (0,2) 权 3 → 18 − 2 + 3 = <b>19</b>。
+      把所有可能算一遍，最小值是 <b>19</b>，所以次小生成树权值为 <b>19</b>
+      （它由 MST 交换 (1,2)→(0,2) 得到）。
+    </p>
+
+    <pre data-lang="cpp" data-file="second_mst.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int MAXN = 505;
+const int INF  = 0x3f3f3f3f;
+
+int n, m;
+struct Edge { int u, v, w, used; } e[MAXN * MAXN];
+int fa[MAXN];
+int find(int x) { return fa[x] == x ? x : (fa[x] = find(fa[x])); }
+
+/* 求最小生成树，标记用到的边；blocked = 强制不使用的边编号 */
+int mst(int blocked, vector&lt;int&gt;* chosen) {
+    for (int i = 0; i &lt; n; i++) fa[i] = i;
+    int sum = 0, cnt = 0, ret = 0;
+    for (int i = 0; i &lt; m &amp;&amp; cnt &lt; n - 1; i++) {
+        if (i == blocked) continue;
+        int ru = find(e[i].u), rv = find(e[i].v);
+        if (ru == rv) continue;
+        fa[ru] = rv; sum += e[i].w; cnt++;
+        if (chosen) chosen-&gt;push_back(i);
+        ret = sum;
+    }
+    return cnt == n - 1 ? sum : INF;
+}
+
+int main() {
+    n = 7; m = 11;
+    int E[11][3] = {{0,1,2},{1,2,2},{2,6,4},{0,2,3},{0,3,3},
+                    {1,3,5},{3,4,2},{4,6,5},{3,5,5},{1,5,6},{0,6,11}};
+    for (int i = 0; i &lt; m; i++) e[i] = {E[i][0], E[i][1], E[i][2], 0};
+    sort(e, e + m, [](const Edge&amp; a, const Edge&amp; b) { return a.w &lt; b.w; });
+
+    vector&lt;int&gt; chosen;
+    int best = mst(-1, &amp;chosen);
+    printf("最小生成树权值 = %d\n", best);
+
+    /* 枚举断掉 MST 上的每条边，重求 MST，取最小的「不是 best 的结果」 */
+    int second = INF;
+    for (size_t k = 0; k &lt; chosen.size(); k++) {
+        int v = mst(chosen[k], nullptr);
+        if (v &gt; best &amp;&amp; v &lt; second) second = v;
+    }
+    printf("次小生成树权值 = %d\n", second);      /* 19 */
+    return 0;
+}</pre>
+
+    <h3 id="s8-3">9.8.3 回顾：并查集在 Kruskal 中的核心地位</h3>
+    <p>
+      最后再强调一次：Kruskal 的整个正确性都压在「<b>如何快速判断两端点是否已连通</b>」上。
+      如果不用并查集，每加一条边就做一次 BFS/DFS 判连通，复杂度会退化成 O(m·(n+m))；
+      用并查集则是 O(m α(n))，几乎线性。
+      <b>并查集的三大要素请务必记牢：父指针数组 <code>fa[]</code>、路径压缩、按秩（或按大小）合并。</b>
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>并查集要素</th><th>代码</th><th>作用</th><th>复杂度贡献</th></tr></thead>
+        <tbody>
+          <tr><td>父指针 fa[]</td><td><code>fa[i] = i</code> 初始化</td><td>用「森林」表示集合，根为代表元</td><td>—</td></tr>
+          <tr><td>路径压缩</td><td><code>fa[x] = find(fa[x])</code></td><td>把查询路径上的点全部挂到根上，树变「扁平」</td><td>均摊接近 O(1)</td></tr>
+          <tr><td>按秩/按大小合并</td><td><code>if (rnk[rx] &lt; rnk[ry]) swap(rx,ry);</code></td><td>防止树退化成链（否则单次 find 可能 O(n)）</td><td>树高 ≤ log n</td></tr>
+          <tr><td>两者合用</td><td>—</td><td>—</td><td><b>O(α(n))</b>，α(n) ≤ 4（实用范围内）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      另外，并查集本身也是「<b>无向图连通性 / 连通块计数</b>」的通用工具：
+      把所有边 union 一遍，最后数一数有几个不同的根，就是连通块的个数；
+      也可以用来判断「加一条边会不会形成环」（这正是 Kruskal 在做的事）。
+    </p>
+
+    <!-- ==================================================================== -->
+    <h2 id="s9">9.9 本章小结、易错点与自测题</h2>
+
+    <h3 id="s9-1">9.9.1 一页速查表</h3>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 340" width="900" height="340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="am1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"/></marker>
+        </defs>
+        <text x="14" y="22" fill="var(--text)" font-size="14" font-weight="700">第 09 讲知识地图：一张图看懂四组算法的关系</text>
+
+        <!-- 第一部分：MST -->
+        <rect x="14" y="40" width="200" height="120" rx="10" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="114" y="64" text-anchor="middle" fill="var(--ok)" font-size="13.5" font-weight="700">最小生成树 MST</text>
+        <text x="114" y="88" text-anchor="middle" fill="var(--text)" font-size="12.5">全部顶点连通、总权最小</text>
+        <text x="114" y="112" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">Prim　O(n²) / O(m log n)</text>
+        <text x="114" y="134" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">Kruskal　O(m log m)</text>
+        <text x="114" y="154" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">割性质 · 环性质 · 并查集</text>
+
+        <!-- 第二部分：最短路 -->
+        <rect x="248" y="40" width="300" height="120" rx="10" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.8"/>
+        <text x="398" y="64" text-anchor="middle" fill="var(--brand)" font-size="13.5" font-weight="700">最短路径</text>
+        <text x="398" y="88" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">Dijkstra 单源 O(m log n)　无负权</text>
+        <text x="398" y="110" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">Floyd 全源 O(n³)　可负权</text>
+        <text x="398" y="132" text-anchor="middle" fill="var(--text)" font-size="12.5" font-family="Consolas, monospace">BF / SPFA 可负权 · 可判负环</text>
+        <text x="398" y="152" text-anchor="middle" fill="var(--text-faint)" font-size="11.5">松弛 relaxation · 负环检测</text>
+
+        <!-- 第三部分：DAG -->
+        <rect x="582" y="40" width="304" height="120" rx="10" fill="var(--purple)" stroke="var(--purple)" stroke-width="1.8"/>
+        <text x="734" y="64" text-anchor="middle" class="vz-text on" font-size="13.5">有向无环图 DAG</text>
+        <text x="734" y="88" text-anchor="middle" class="vz-text on" font-size="12.5">拓扑排序 O(n + m)</text>
+        <text x="734" y="110" text-anchor="middle" class="vz-text on" font-size="12.5">Kahn（入度队列）/ DFS 后序逆序</text>
+        <text x="734" y="132" text-anchor="middle" class="vz-text on" font-size="12.5">关键路径 ve / vl / e / l</text>
+        <text x="734" y="152" text-anchor="middle" class="vz-text on" font-size="11.5">AOV 网 · AOE 网 · DAG 上 DP</text>
+
+        <!-- 关系箭头 -->
+        <path d="M214,100 L244,100" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#am1)"/>
+        <path d="M548,100 L578,100" stroke="var(--border-strong)" stroke-width="2" marker-end="url(#am1)"/>
+        <text x="229" y="92" text-anchor="middle" fill="var(--text-faint)" font-size="11">都是</text>
+        <text x="563" y="92" text-anchor="middle" fill="var(--text-faint)" font-size="11">拓扑序</text>
+
+        <!-- 共同基础 -->
+        <rect x="14" y="188" width="872" height="52" rx="10" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/>
+        <text x="450" y="210" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">共同基础：图的存储结构（邻接矩阵 / 链式前向星）＋ 第 01 讲的大 O 分析 ＋ 第 03 讲的队列 / 栈</text>
+        <text x="450" y="231" text-anchor="middle" fill="var(--text-soft)" font-size="12">所有算法都离不开「遍历一个顶点的所有邻接点」这一动作，也都用「松弛」或「入度 / 出度」来推进</text>
+
+        <!-- 思想归属 -->
+        <text x="14" y="270" fill="var(--text)" font-size="13" font-weight="700">按「算法设计范式」归类（与第 13 讲呼应）</text>
+        <text x="14" y="294" fill="var(--text-soft)" font-size="12.5"><tspan fill="var(--accent)" font-weight="700">贪心</tspan>：Prim（割性质）、Kruskal（环性质）、Dijkstra（每次锁定最小 dist）</text>
+        <text x="14" y="316" fill="var(--text-soft)" font-size="12.5"><tspan fill="var(--brand)" font-weight="700">动态规划</tspan>：Floyd（放开中转点的阶段 DP）、关键路径 ve / vl（DAG 上的最长路 DP）</text>
+        <text x="14" y="336" fill="var(--text-soft)" font-size="12.5"><tspan fill="var(--ok)" font-weight="700">暴力 + 优化</tspan>：Bellman-Ford（全量松弛）→ SPFA（队列优化）；Kruskal 的并查集（路径压缩 + 按秩合并）</text>
+      </svg>
+      <figcaption>图 9-12　本章知识地图：四组算法的关系、共同基础与所属的算法设计范式</figcaption>
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>算法</th><th>解决的问题</th><th>核心思想</th><th>时间复杂度</th><th>限制</th></tr></thead>
+        <tbody>
+          <tr><td><b>Prim</b></td><td>最小生成树</td><td>贪心长点：每次吞并离树最近的顶点</td><td>朴素 O(n²) / 堆优化 O(m log n)</td><td>只适用于无向连通图</td></tr>
+          <tr><td><b>Kruskal</b></td><td>最小生成树</td><td>贪心长边：排序 + 并查集判环</td><td>O(m log m)</td><td>同上；需要对边排序</td></tr>
+          <tr><td><b>Dijkstra</b></td><td>单源最短路</td><td>贪心：每轮锁定 dist 最小的点再松弛</td><td>朴素 O(n²) / 堆优化 O(m log n)</td><td class="c-bad"><b>不能有负权边</b></td></tr>
+          <tr><td><b>Floyd</b></td><td>全源最短路</td><td>DP：逐步放开中转点 k</td><td>O(n³)</td><td>不能有负环；n 不宜大</td></tr>
+          <tr><td><b>Bellman-Ford</b></td><td>单源最短路 + 判负环</td><td>n−1 轮暴力松弛所有边</td><td>O(nm)</td><td>慢</td></tr>
+          <tr><td><b>SPFA</b></td><td>单源最短路 + 判负环</td><td>队列优化 BF，只扩展被更新过的点</td><td>平均快，<b>最坏 O(nm)</b></td><td class="c-bad">容易被特殊数据卡</td></tr>
+          <tr><td><b>Kahn</b></td><td>拓扑排序</td><td>反复摘掉入度为 0 的顶点</td><td>O(n + m)</td><td>只适用于有向图</td></tr>
+          <tr><td><b>DFS 拓扑</b></td><td>拓扑排序</td><td>后序逆序</td><td>O(n + m)</td><td>深图可能爆栈</td></tr>
+          <tr><td><b>关键路径</b></td><td>AOE 网工期分析</td><td>拓扑序正推 ve + 逆序倒推 vl</td><td>O(n + m)</td><td>必须是 DAG</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s9-2">9.9.2 易错点清单</h3>
+    <div class="note danger">
+      <span class="note-title">错误 1：把 Prim 的 lowcost 写成 Dijkstra 的 dist</span>
+      Prim：<code>lowcost[j] = min(lowcost[j], g[k][j])</code> —— <b>右边只取一条边的权</b>。
+      Dijkstra：<code>dist[j] = min(dist[j], dist[k] + g[k][j])</code> —— <b>右边要累加</b>。
+      写错之后示例图上 Prim 会算出 0→1→2→6 = 2+2+4 = 8 当成「顶点 6 到树的距离」，
+      最终 MST 权值会变成 21 而不是 18。
+    </div>
+    <div class="note danger">
+      <span class="note-title">错误 2：Floyd 的三重循环把 k 写到了里面</span>
+      <code>for i → for j → for k</code> 是经典错误写法，会漏掉「需要连续经过多个中转点」的路径。
+      <b>记住：k（中转点）永远在最外层。</b>
+      自检方法：把三重循环连跑两遍，如果第二遍矩阵还会变小，说明写法错了。
+    </div>
+    <div class="note danger">
+      <span class="note-title">错误 3：给 Dijkstra 用负权边</span>
+      Dijkstra 一旦锁定了某个顶点的 dist 就不再修改，负权边可能让它「后悔莫及」。
+      题目里出现负权（例如「收益」「差值」这类可以递减的量）时，必须换 Bellman-Ford / SPFA。
+    </div>
+    <div class="note warn">
+      <span class="note-title">错误 4：忘记处理重边与自环</span>
+      邻接矩阵遇到重边应取 <code>min</code>：<code>g[u][v] = min(g[u][v], w)</code>，
+      直接赋值会把较小的边覆盖掉。自环（u = u）对 MST 和最短路都无意义，读入时直接丢弃。
+      Floyd 里若不初始化 <code>dist[i][i] = 0</code>，负环检测也会失效。
+    </div>
+    <div class="note warn">
+      <span class="note-title">错误 5：把 INF 拿去参与加法导致溢出</span>
+      <code>INF = 0x3f3f3f3f</code>（约 1.06×10⁹）时，<code>INF + INF</code> 仍在 int 范围内，是安全的；
+      但如果用 <code>INT_MAX = 2.1×10⁹</code>，<code>INF + w</code> 就会溢出成负数，
+      导致「不可达」被误判成「可达且很短」。<b>用 0x3f3f3f3f 并配合 <code>memset</code> 是最省心的做法。</b>
+    </div>
+    <div class="note warn">
+      <span class="note-title">错误 6：拓扑排序只看「有没有环」却忘了它也是 DP 的顺序</span>
+      拓扑序不只是一个输出序列，它是<b>DAG 上做动态规划的阶段顺序</b>。
+      关键路径的 ve 就是「按拓扑序做最长路 DP」，第 13 讲的 DAG 上 DP 也完全一样。
+    </div>
+    <div class="note warn">
+      <span class="note-title">错误 7：把 vl 算成负数还以为是算错了</span>
+      如果出现 <code>vl(v) &lt; ve(v)</code>，说明这张 AOE 网<b>本身不自洽</b>
+      （等价于有活动的余量为负），而不是你的算术错了。
+      规范的题目不会这样出，但手推时遇到要先检查网，再检查计算。
+      另外别忘了：<b>汇点的 vl 必须等于 ve</b>，这是倒推的起点。
+    </div>
+
+    <h3 id="s9-3">9.9.3 自测题（6 道，答案折叠）</h3>
+
+    <div class="card">
+      <p><b>题 1（Prim 手推）</b>　对本章示例图 G，从顶点 <b>3</b> 出发运行 Prim 算法，
+      写出每一轮的 <code>lowcost[]</code>、选中的顶点与加入的边，并给出最终的最小生成树权值和与边集。</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <p>从 3 出发，初始 <code>lowcost</code>（对 0,1,2,4,5,6）= (3, 5, ∞, 2, 5, ∞)，<code>closest</code> 全为 3。</p>
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th>轮次</th><th>lowcost[0,1,2,4,5,6]</th><th>选中顶点</th><th>加入的边</th><th>累计权值</th></tr></thead>
+            <tbody>
+              <tr><td>初始</td><td>3, 5, ∞, 2, 5, ∞</td><td>—</td><td>—</td><td>0</td></tr>
+              <tr><td>1</td><td>3, 5, ∞, <b>2</b>, 5, ∞</td><td><b>4</b></td><td>(3,4) 权 2</td><td>2</td></tr>
+              <tr><td>松弛</td><td>3, 5, ∞, —, 5, 5</td><td>—</td><td>经 4 把 lowcost[6] 从 ∞ 降到 5</td><td>2</td></tr>
+              <tr><td>2</td><td><b>3</b>, 5, ∞, —, 5, 5</td><td><b>0</b></td><td>(3,0) 权 3</td><td>5</td></tr>
+              <tr><td>松弛</td><td>—, 2, 3, —, 5, 5</td><td>—</td><td>经 0 把 lowcost[1] 5→2、lowcost[2] ∞→3</td><td>5</td></tr>
+              <tr><td>3</td><td>—, <b>2</b>, 3, —, 5, 5</td><td><b>1</b></td><td>(0,1) 权 2</td><td>7</td></tr>
+              <tr><td>松弛</td><td>—, —, 2, —, 5, 5</td><td>—</td><td>经 1 把 lowcost[2] 3→2</td><td>7</td></tr>
+              <tr><td>4</td><td>—, —, <b>2</b>, —, 5, 5</td><td><b>2</b></td><td>(1,2) 权 2</td><td>9</td></tr>
+              <tr><td>松弛</td><td>—, —, —, —, 5, 4</td><td>—</td><td>经 2 把 lowcost[6] 5→4</td><td>9</td></tr>
+              <tr><td>5</td><td>—, —, —, —, 5, <b>4</b></td><td><b>6</b></td><td>(2,6) 权 4</td><td>13</td></tr>
+              <tr><td>6</td><td>—, —, —, —, <b>5</b>, —</td><td><b>5</b></td><td>(3,5) 权 5</td><td><b>18</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>边集 = {(0,1)2, (1,2)2, (0,3)3, (3,4)2, (2,6)4, (3,5)5}，权值和 = 18</b>，
+        与从 0 出发的结果<b>完全一样</b>——这正是「所有 MST 权值和相同」的体现。</p>
+      </div></details>
+    </div>
+
+    <div class="card">
+      <p><b>题 2（Kruskal 与并查集）</b>　对示例图 G 用 Kruskal 求 MST。
+      (1) 写出排序后的边序列；(2) 指出哪几条边会被丢弃、为什么；(3) 若把 (1,2) 的权值改成 3，
+      结果会不会变？MST 权值是多少？</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <p>(1) 排序后：<code>2(0,1) → 2(1,2) → 2(3,4) → 3(0,2) → 3(0,3) → 4(2,6) → 5(1,3) → 5(3,5) → 5(4,6) → 6(1,5) → 11(0,6)</code>。</p>
+        <p>(2) 丢弃 <b>(0,2)</b>（环 0–1–2–0）、<b>(1,3)</b>（环 1–0–3–1）、
+        以及选满 6 条边后不再处理的 (4,6)、(1,5)、(0,6)。
+        丢弃的判据是<b>两端点 find 的结果相同</b>。</p>
+        <p>(3) 把 (1,2) 改成 3 之后，排序变成
+        <code>2(0,1) → 2(3,4) → 3(0,2) → 3(0,3) → 3(1,2) → 4(2,6) → …</code>。
+        依次采纳 (0,1)、(3,4)、(0,2)、(0,3)；此时 1 与 2 已在同一集合（通过 0），
+        所以 <b>(1,2) 被丢弃</b>；接着采纳 (2,6)、(3,5)。
+        边集变成 <b>{(0,1)2, (3,4)2, (0,2)3, (0,3)3, (2,6)4, (3,5)5}</b>，
+        <b>权值和仍是 18</b>。这再次印证了「MST 可能不唯一，但权值和唯一」。</p>
+      </div></details>
+    </div>
+
+    <div class="card">
+      <p><b>题 3（Dijkstra 手推）</b>　对示例图 G，从顶点 <b>2</b> 出发运行 Dijkstra，
+      写出每轮的 <code>dist[]</code>、被确定的顶点与被松弛的边，并给出最终 <code>dist</code> 数组。</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th>轮次</th><th>确定顶点</th><th>dist[0..6]</th><th>松弛的边</th></tr></thead>
+            <tbody>
+              <tr><td>初始</td><td>—</td><td>∞, ∞, 0, ∞, ∞, ∞, ∞</td><td>—</td></tr>
+              <tr><td>1</td><td><b>2</b></td><td><b>3</b>, <b>2</b>, 0, ∞, ∞, ∞, <b>4</b></td><td>(2,0)=3　(2,1)=2　(2,6)=4</td></tr>
+              <tr><td>2</td><td><b>1</b>（dist=2）</td><td>3, 2, 0, <b>7</b>, ∞, <b>8</b>, 4</td><td>(1,3)=2+5=7　(1,5)=2+6=8　(1,0)=4&gt;3 失败</td></tr>
+              <tr><td>3</td><td><b>0</b>（dist=3）</td><td>3, 2, 0, <b>6</b>, ∞, 8, 4</td><td>(0,3)=3+3=6（比 7 更小，更新）　(0,6)=14&gt;4 失败</td></tr>
+              <tr><td>4</td><td><b>6</b>（dist=4）</td><td>3, 2, 0, 6, <b>9</b>, 8, 4</td><td>(6,4)=4+5=9　其余已确定或更差</td></tr>
+              <tr><td>5</td><td><b>3</b>（dist=6）</td><td>3, 2, 0, 6, <b>8</b>, 8, 4</td><td>(3,4)=6+2=8（比 9 小，更新）　(3,5)=11&gt;8 失败</td></tr>
+              <tr><td>6</td><td><b>5</b>（dist=8，与 4 并列，取编号小的 4 先？）</td><td>3, 2, 0, 6, 8, 8, 4</td><td>见下方说明</td></tr>
+              <tr><td>7</td><td><b>4</b>（dist=8）</td><td>3, 2, 0, 6, 8, 8, 4</td><td>(4,6)=13&gt;4 失败　结束</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>最终 dist = [3, 2, 0, 6, 8, 8, 4]</b>（从顶点 2 出发）。</p>
+        <p><b>说明</b>：第 6 轮时 <code>dist[4] = dist[5] = 8</code> 并列。
+        若选编号小的 4，则先确定 4，再确定 5；若选 5，则先确定 5。
+        两种顺序下 <code>dist</code> 数组完全相同（都是 [3,2,0,6,8,8,4]），只是最短路树不同。
+        <br>验算：<code>dist[0] = 3</code> 走直连 (2,0)；<code>dist[4] = 8</code> 走 2→1→3→4 = 2+5+2 = 9？
+        —— 不对，应走 <code>2→0→3→4 = 3+3+2 = 8</code> ✔；<code>dist[5] = 8</code> 走 2→1→5 = 2+6 = 8 ✔。</p>
+      </div></details>
+    </div>
+
+    <div class="card">
+      <p><b>题 4（Floyd 矩阵变化）</b>　有一个 4 个顶点的有向图，邻接矩阵如下（∞ 表示无边）：
+      <br>行 0：(0, 1, ∞, 4)　行 1：(∞, 0, 2, ∞)　行 2：(∞, ∞, 0, 3)　行 3：(∞, ∞, ∞, 0)
+      <br>(1) 按 Floyd 逐轮（k = 0,1,2,3）写出矩阵变化；(2) 说明为什么把 i 放到最外层会算错。</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <p>初始（k = −1）：</p>
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th></th><th>0</th><th>1</th><th>2</th><th>3</th></tr></thead>
+            <tbody>
+              <tr><td><b>0</b></td><td>0</td><td>1</td><td>∞</td><td>4</td></tr>
+              <tr><td><b>1</b></td><td>∞</td><td>0</td><td>2</td><td>∞</td></tr>
+              <tr><td><b>2</b></td><td>∞</td><td>∞</td><td>0</td><td>3</td></tr>
+              <tr><td><b>3</b></td><td>∞</td><td>∞</td><td>∞</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>k = 0</b>（用 0 中转）：<code>dist[1][3] = min(∞, dist[1][0]+dist[0][3])</code>，但 <code>dist[1][0] = ∞</code>，无变化。</p>
+        <p><b>k = 1</b>（用 1 中转）：<code>dist[0][2] = min(∞, dist[0][1]+dist[1][2]) = 1+2 = <b>3</b></code>；
+        <code>dist[0][3] = min(4, 1+dist[1][3]=∞) = 4</code> 不变。</p>
+        <p><b>k = 2</b>（用 2 中转）：<code>dist[1][3] = min(∞, dist[1][2]+dist[2][3]) = 2+3 = <b>5</b></code>；
+        <code>dist[0][3] = min(4, dist[0][2]+dist[2][3] = 3+3 = 6) = 4</code> 不变。</p>
+        <p><b>k = 3</b>（用 3 中转）：<code>dist[0][3]</code> 已是 4，从 3 出发没有出边，全部不变。</p>
+        <p>最终矩阵：</p>
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th></th><th>0</th><th>1</th><th>2</th><th>3</th></tr></thead>
+            <tbody>
+              <tr><td><b>0</b></td><td>0</td><td>1</td><td class="c-warn"><b>3</b></td><td>4</td></tr>
+              <tr><td><b>1</b></td><td>∞</td><td>0</td><td>2</td><td class="c-warn"><b>5</b></td></tr>
+              <tr><td><b>2</b></td><td>∞</td><td>∞</td><td>0</td><td>3</td></tr>
+              <tr><td><b>3</b></td><td>∞</td><td>∞</td><td>∞</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>(2) <code>dist[1][3] = 5</code> 需要「先用 2 中转」，而 <code>dist[0][2] = 3</code> 需要「先用 1 中转」。
+        如果按 <code>for i → for k → for j</code>：处理 i = 0 时，<code>dist[0][2]</code> 要在 k = 1 那一步才能算出来 ——
+        这一步确实会发生（因为 k 在内层但仍在 i = 0 这一轮里遍历到了）。
+        真正的错误出现在 <b>i 递增的顺序与 k 的依赖顺序冲突</b>时：
+        处理 i = 1 时若要使用 <code>dist[2][3]</code>（即 k = 2 作为中转），
+        由于 <code>dist[2][3]</code> 属于 i = 2 那一行，<b>还没被更新过</b>（i = 2 尚未处理），
+        于是用到了过期值，结果偏大甚至仍是 ∞。
+        <br><b>根本原因</b>：Floyd 的正确性要求「用 k 更新时，所有 <code>dist[i][k]</code>、<code>dist[k][j]</code>
+        都已经是第 k−1 阶段的最终值」。把 k 放在最外层，这个条件天然满足；
+        把 i 放在最外层，就变成「按行逐个完成」，行与行之间无法互相提供已经算好的中转信息。</p>
+      </div></details>
+    </div>
+
+    <div class="card">
+      <p><b>题 5（拓扑排序）</b>　给定有向图：0→1、0→2、1→4、2→3、3→4、4→5、2→5。
+      (1) 用 Kahn 算法求一个拓扑序（要求字典序最小）；(2) 若再加一条边 5→1，结果如何？</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <p>(1) 先算入度：<code>indeg = [0, 1, 1, 1, 2, 2]</code>（0:0，1:1（来自 0），2:1（来自 0），
+        3:1（来自 2），4:2（来自 1、3），5:2（来自 4、2））。</p>
+        <p>小根堆过程：<code>{0}</code> → 输出 0，1 和 2 入度归零 → 堆 <code>{1,2}</code> →
+        输出 1（编号小），4 的入度 2→1 → 堆 <code>{2}</code> → 输出 2，3 入度归零、5 入度 2→1 → 堆 <code>{3}</code> →
+        输出 3，4 入度归零 → 堆 <code>{4}</code> → 输出 4，5 入度归零 → 输出 5。</p>
+        <p><b>字典序最小的拓扑序：0 → 1 → 2 → 3 → 4 → 5</b>。
+        （注意 <code>0 → 2 → 1 → 3 → 4 → 5</code> 也合法，但字典序更大。）</p>
+        <p>(2) 加边 5→1 之后：1 的入度变成 2（来自 0 与 5），
+        而 5 只能等 4 与 2 都完成才能开始，4 又要等 1 和 3……
+        即 1 → 4 → 5 → 1 构成一个环，<b>拓扑排序只能输出 0 与 2、3 等部分顶点，输出个数 &lt; n ⇒ 有环</b>。
+        具体地：初始只有 0 入度为 0，输出 0 后堆里只有 2（1 的入度是 2），
+        输出 2 后 3 入度归零 → 输出 3 → 此时 1 的入度仍是 2（0 已删，5 未完成）、4 的入度是 1（来自 1），
+        队列空。共输出 3 个顶点 &lt; 6 ⇒ <b>存在环</b>。</p>
+      </div></details>
+    </div>
+
+    <div class="card">
+      <p><b>题 6（关键路径）</b>　给定 AOE 网：0→1(3)、0→2(4)、1→3(2)、2→3(5)、2→4(6)、3→5(4)、4→5(2)。
+      (1) 求各事件的 ve 与 vl；(2) 求各活动的 e、l 与时间余量；(3) 指出关键活动与关键路径；
+      (4) 工程最短完成时间是多少？</p>
+      <details class="fold"><summary>查看答案与解析</summary><div class="fold-body">
+        <p><b>① 正推 ve</b>（拓扑序 0,1,2,3,4,5）：
+        ve[0]=0；ve[1]=3；ve[2]=4；ve[3]=max(3+2, 4+5)=<b>9</b>；
+        ve[4]=4+6=<b>10</b>；ve[5]=max(9+4, 10+2)=<b>13</b>。</p>
+        <p><b>② 逆推 vl</b>（逆拓扑序 5,4,3,2,1,0，初值 13）：
+        vl[5]=13；vl[4]=13−2=11；vl[3]=13−4=9；
+        vl[2]=min(9−5, 11−6)=min(4,5)=<b>4</b>；vl[1]=9−2=<b>7</b>；vl[0]=min(7−3, 4−4)=<b>0</b>。</p>
+        <p>校验：ve = [0,3,4,9,10,13]，vl = [0,7,4,9,11,13]，全部 <code>vl ≥ ve</code> ✔</p>
+        <p><b>③ 活动的 e、l、余量</b>（e = ve(起点)，l = vl(终点) − w）：</p>
+        <div class="table-wrap">
+          <table class="compact">
+            <thead><tr><th>活动</th><th>w</th><th>e</th><th>l</th><th>l − e</th><th>关键？</th></tr></thead>
+            <tbody>
+              <tr><td>0→1</td><td>3</td><td>0</td><td>7−3 = 4</td><td>4</td><td>否</td></tr>
+              <tr><td>0→2</td><td>4</td><td>0</td><td>4−4 = 0</td><td class="c-ok">0</td><td class="c-ok">★ 是</td></tr>
+              <tr><td>1→3</td><td>2</td><td>3</td><td>9−2 = 7</td><td>4</td><td>否</td></tr>
+              <tr><td>2→3</td><td>5</td><td>4</td><td>9−5 = 4</td><td class="c-ok">0</td><td class="c-ok">★ 是</td></tr>
+              <tr><td>2→4</td><td>6</td><td>4</td><td>11−6 = 5</td><td>1</td><td>否</td></tr>
+              <tr><td>3→5</td><td>4</td><td>9</td><td>13−4 = 9</td><td class="c-ok">0</td><td class="c-ok">★ 是</td></tr>
+              <tr><td>4→5</td><td>2</td><td>10</td><td>13−2 = 11</td><td>1</td><td>否</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>(3) <b>关键活动：0→2、2→3、3→5</b>；把它们串起来得到<b>关键路径 0 → 2 → 3 → 5</b>，
+        长度 4 + 5 + 4 = 13。</p>
+        <p>(4) <b>工程最短完成时间 = ve(5) = 13</b>（= 关键路径长度）。
+        <br>补充：次长路径 0 → 2 → 4 → 5 长度 4+6+2 = 12，只比关键路径短 1 ——
+        所以若把活动 2→3 压缩 1 个单位，总工期只缩短 1（变成 12），
+        再压缩就没有效果了，因为瓶颈转移到了 0→2→4→5 上。</p>
+      </div></details>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">本章考点回顾</span>
+      <ol style="margin:6px 0 0">
+        <li><b>Prim 手推表</b>：lowcost / closest / 选中顶点 / 总权值，注意「不累加」。</li>
+        <li><b>Kruskal 手推表</b>：排序后的边序列 + 并查集集合归属 + 采纳/丢弃原因。</li>
+        <li><b>Prim vs Kruskal</b>：复杂度、适用图类型（稠密 / 稀疏）、是否需要并查集。</li>
+        <li><b>Dijkstra 手推表</b>：dist / visited / 选中顶点 / 被松弛的边；<b>为什么不能有负权</b>。</li>
+        <li><b>Floyd</b>：<code>dp[k][i][j]</code> 的含义与转移方程，<b>k 为什么必须在最外层</b>，矩阵逐轮变化。</li>
+        <li><b>拓扑排序</b>：AOV 网定义、Kahn 步骤、判环、「有拓扑序 ⟺ DAG」。</li>
+        <li><b>关键路径</b>：ve / vl / e / l 四张表、关键活动判据、关键路径长度 = 最短工期。</li>
+      </ol>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="ch08-graph-basic.html"><span class="dir">← 上一讲</span><span class="ttl">08 图：术语与存储结构</span></a>
+      <a class="next" href="ch10-search-hash.html"><span class="dir">下一讲 →</span><span class="ttl">10 查找与哈希表</span></a>
+    </div>
+
+</main>
+</div>
+
+</body>
+</html>
