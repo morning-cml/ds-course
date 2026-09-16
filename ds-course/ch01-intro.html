@@ -735,51 +735,44 @@
     </p>
 
     <pre data-lang="cpp" data-file="seqlist_access.cpp">// seqlist_access.cpp —— 顺序存储：逻辑相邻 ⇒ 物理相邻，按位查找 O(1)
-#include &lt;iostream&gt;
-#include &lt;stdexcept&gt;
+//
+// 为什么顺序表能「一步到位」？因为第 i 个元素的地址可以直接算出来：
+//     LOC(a_i) = LOC(a_1) + (i - 1) * sizeof(int)
+// 一次乘法 + 一次访存，跟表长 n 毫无关系 —— 这就是随机存取 O(1)。
+// 代价藏在插入里：为了保持物理相邻，位序 i 及其后的元素必须整体后移。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-template &lt;typename T&gt;
-class SeqList {
-public:
-    explicit SeqList(int cap = 16)
-        : data(new T[cap]), len(0), capacity(cap) {}
-    ~SeqList() { delete[] data; }
+const int MAXN = 100005;              // 容量：这类题 n 一般 &lt;= 1e5，一次开够，不做扩容
+int a[MAXN];                          // 数据就放在这段连续空间里：下标相邻 = 物理相邻
+int len = 0;                          // 元素个数
 
-    // 按位查找：一次地址计算 + 一次访存，与 i 和 len 都无关
-    T&amp; at(int i) {
-        if (i &lt; 0 || i &gt;= len) throw std::out_of_range("index out of range");
-        return data[i];
-    }
+// 按位查找（GetElem）：与 i 和 len 都无关
+int getElem(int i) {                  // i 是位序，从 1 开始
+    if (i &lt; 1 || i &gt; len) return -1;  // 越界返回 -1，竞赛里不抛异常
+    return a[i - 1];                  // 一次地址计算：&amp;a[i-1] = &amp;a[0] + (i-1)*sizeof(int)
+}
 
-    // 插入：把下标 i 及其后的元素整体后移一位 → 最坏 O(n)
-    void insert(int i, const T&amp; v) {
-        if (len == capacity) grow();
-        for (int k = len; k &gt; i; --k) data[k] = data[k - 1];
-        data[i] = v;
-        ++len;
-    }
-
-    int size() const { return len; }
-
-private:
-    void grow() {                       // 扩容：重新申请 + 整体拷贝 O(n)
-        capacity *= 2;
-        T* nd = new T[capacity];
-        for (int k = 0; k &lt; len; ++k) nd[k] = data[k];
-        delete[] data;
-        data = nd;
-    }
-    T* data;
-    int len;
-    int capacity;
-};
+// 插入（ListInsert）：位序 i 及其后的元素整体后移一位 → 最坏 O(n)
+// 长度为 n 时有 n+1 个可插入位置，插在第 i 个位置要搬 n-i+1 个元素，
+// 等概率下平均搬移 (n + (n-1) + ... + 0) / (n+1) = n/2 个 —— 仍是 O(n)
+// 返回本次搬移的元素个数（-1 表示位置非法），方便亲手数一数代价
+int insertAt(int i, int x) {
+    if (i &lt; 1 || i &gt; len + 1 || len == MAXN) return -1;
+    int moved = 0;
+    for (int k = len; k &gt;= i; --k) { a[k] = a[k - 1]; ++moved; }
+    a[i - 1] = x;
+    ++len;
+    return moved;
+}
 
 int main() {
-    SeqList&lt;int&gt; L;
-    for (int i = 0; i &lt; 5; ++i) L.insert(L.size(), i * 10);
-    std::cout &lt;&lt; L.at(3) &lt;&lt; '\n';   // 30：一步到位，O(1)
-    L.insert(0, 999);                // 头部插入要搬移 5 个元素，O(n)
-    std::cout &lt;&lt; L.at(0) &lt;&lt; '\n';   // 999
+    for (int i = 1; i &lt;= 5; ++i) insertAt(len + 1, i * 10);   // 尾插：10 20 30 40 50
+    printf("第 4 个元素 a[3] = %d（算一次地址就取到，O(1)）\n", getElem(4));
+    printf("地址公式实测：&amp;a[3] - &amp;a[0] = %lld 字节 = 3 * sizeof(int)\n",
+           (long long)&amp;a[3] - (long long)&amp;a[0]);
+    printf("头部插 999 要搬 %d 个元素（最坏 O(n)）\n", insertAt(1, 999));
+    printf("现在第 1 个元素 = %d，表长 = %d\n", getElem(1), len);
     return 0;
 }
 </pre>
@@ -891,111 +884,209 @@ int main() {
       但绝不告诉你红外编码怎么发、功放电路怎么调。你也不需要知道。
     </p>
     <p>
-      在 C++ 里，ADT 通常用<b>类（class）</b>来落地：用 <code>public</code> 成员函数描述基本操作（接口），
-      用 <code>private</code> 成员描述内部实现（数据与细节）。而当我们希望「同一个抽象接口有多种实现」时，
-      就再加上<b>模板（template）</b>支持泛型，用<b>纯虚函数</b>定义接口契约。
+      在 C++ 里，ADT 可以用<b>类（class）</b>来落地：用 <code>public</code> 成员函数描述基本操作（接口），
+      用 <code>private</code> 成员描述内部实现（数据与细节）；教材还常配上<b>模板（template）</b>支持泛型、
+      用<b>纯虚函数</b>定义接口契约。但请记住一句话：<b>类只是表达 ADT 的一种语法外壳</b>。
+      ADT 真正规定的是「有哪些操作、每个操作是什么语义」，至于这些操作用成员函数写还是用普通函数写，
+      ADT 并不关心。竞赛代码里没有类、没有模板、没有虚函数，我们直接用
+      <b>「全局数组 + 一组自由函数」</b>表达同一个 ADT：函数名与教材 ADT 里的操作一一对应。
     </p>
 
-    <h3 id="s5-2">1.5.2 泛型线性表的 ADT 接口（C++）</h3>
+    <h3 id="s5-2">1.5.2 线性表 ADT 的接口约定（C++）</h3>
     <p>
-      下面这份头文件就是「线性表」这个 ADT 的完整规格说明。请注意注释里那段用伪码写的形式化描述，
-      它是教材里描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P。
+      下面这段代码就是「线性表」这个 ADT 的完整规格说明。开头注释里那段用伪码写的形式化描述，
+      是教材里描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P；紧接着的每一个自由函数，
+      就是这份约定里的一个基本操作。
     </p>
 
-    <pre data-lang="cpp" data-file="list_adt.h">// list_adt.h —— 线性表的抽象数据类型（ADT）接口
+    <pre data-lang="cpp" data-file="list_adt.cpp">// list_adt.cpp —— 线性表的抽象数据类型（ADT）：先把「有哪些操作」定下来
 //
+// ── 教材描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P ──────────
 // ADT List {
 //   数据对象：D = { a_i | a_i 属于 ElemSet, i = 1, 2, ..., n, n &gt;= 0 }
 //   数据关系：R = { &lt;a_(i-1), a_i&gt; | a_(i-1), a_i 属于 D, i = 2, ..., n }
 //   基本操作：
-//     InitList(&amp;L)          初始化，构造一个空的线性表
-//     DestroyList(&amp;L)       销毁线性表，释放全部空间
-//     ListEmpty(L)          判空：空返回 true
-//     ListLength(L)         求长度：返回元素个数
-//     GetElem(L, i, &amp;e)     取值：用 e 返回第 i 个元素
-//     LocateElem(L, e)      查找：返回第一个与 e 满足关系的元素位序
+//     InitList(&amp;L)             初始化，构造一个空的线性表
+//     DestroyList(&amp;L)          销毁线性表，释放全部空间
+//     ListEmpty(L)             判空：空返回 true
+//     ListLength(L)            求长度：返回元素个数
+//     GetElem(L, i, &amp;e)        取值：用 e 返回第 i 个元素
+//     LocateElem(L, e)         查找：返回第一个与 e 满足关系的元素位序
 //     PriorElem(L, cur, &amp;pre)  求前驱
 //     NextElem(L, cur, &amp;next)  求后继
-//     ListInsert(&amp;L, i, e)   插入：在第 i 个位置前插入 e
-//     ListDelete(&amp;L, i, &amp;e)  删除：删除第 i 个元素并用 e 返回其值
-//     ListTraverse(L, visit) 遍历：对每个元素调用 visit
+//     ListInsert(&amp;L, i, e)     插入：在第 i 个位置前插入 e
+//     ListDelete(&amp;L, i, &amp;e)    删除：删除第 i 个元素并用 e 返回其值
+//     ListTraverse(L, visit)   遍历：对每个元素调用 visit
 // } ADT List
 //
-// 注意：ADT 只规定「做什么」，不规定「怎么做」——
-//       用数组还是链表、要不要扩容、地址怎么算，全部由实现者决定。
-#pragma once
-#include &lt;cstddef&gt;
+// ── 怎么读这份 ADT ───────────────────────────────────────────────────────
+// · ADT 关心的是「有哪些操作、每个操作是什么语义（做什么）」，不关心「怎么做」：
+//   数据放数组还是链表、容量怎么扩、地址怎么算，全部交给实现者决定。
+// · 它跟「用类还是用函数」没有关系：教材习惯用类把数据和操作封在一个类型里，
+//   竞赛里不用类、不用模板、不用虚函数，直接「全局数组 + 自由函数」——
+//   一个函数就是 ADT 里的一个基本操作，函数名和上面 P 里的操作一一对应。
+//   两种写法表达的是同一个 ADT，区别只在语法外壳。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-template &lt;typename T&gt;
-class List {
-public:
-    virtual ~List() {}
+const int MAXN = 100005;   // 容量：这类题 n 一般 &lt;= 1e5，一次开够就不必扩容
+int a[MAXN];               // 数据对象 D：所有元素都放在这个全局数组里
+int len = 0;               // 数据关系 R：a[0..len-1] 按下标排成一对一的前驱后继
 
-    virtual bool empty() const = 0;                    // 判空
-    virtual int  size()  const = 0;                    // 求长度
-    virtual T&amp;   at(int i) = 0;                        // 取值（第 i 个，从 0 开始）
-    virtual int  locate(const T&amp; v) const = 0;         // 按值查找，失败返回 -1
-    virtual bool insert(int i, const T&amp; v) = 0;        // 在第 i 个位置前插入
-    virtual bool erase(int i) = 0;                     // 删除第 i 个元素
-    virtual void traverse(void (*visit)(const T&amp;)) const = 0;   // 遍历
-};
+// ── 基本操作 P 的竞赛写法：函数名照抄 ADT，语义与上面的约定完全一致 ──────
+void initList() { len = 0; }                  // InitList：O(1)
+bool listEmpty() { return len == 0; }         // ListEmpty：O(1)
+int  listLength() { return len; }             // ListLength：O(1)
+// （DestroyList 在竞赛里通常不写：程序一结束，系统就把空间全收回了）
+
+// GetElem：取第 i 个元素（i 是位序，从 1 开始）—— 随机存取 O(1)
+// 地址公式 LOC(a_i) = LOC(a_1) + (i - 1) * sizeof(int)，与表长 len 无关
+bool getElem(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; len) return false;       // 竞赛里用返回值报错，不抛异常
+    e = a[i - 1];
+    return true;
+}
+
+// LocateElem：按值查找，返回位序（从 1 开始），找不到返回 0 —— 逐个比较 O(n)
+int locateElem(int e) {
+    for (int i = 0; i &lt; len; ++i) if (a[i] == e) return i + 1;
+    return 0;
+}
+
+// ListInsert：在第 i 个位置前插入 e —— 后继元素整体后移，
+// 最坏 O(n)，等概率下平均搬移 n/2 个元素
+bool listInsert(int i, int e) {
+    if (i &lt; 1 || i &gt; len + 1 || len == MAXN) return false;
+    for (int k = len; k &gt;= i; --k) a[k] = a[k - 1];
+    a[i - 1] = e;
+    ++len;
+    return true;
+}
+
+// ListDelete：删除第 i 个元素，并用 e 带回它的值 —— 后继元素整体前移，
+// 最坏 O(n)，等概率下平均搬移 (n-1)/2 个元素
+bool listDelete(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; len) return false;
+    e = a[i - 1];
+    for (int k = i - 1; k &lt; len - 1; ++k) a[k] = a[k + 1];
+    --len;
+    return true;
+}
+
+// ListTraverse：ADT 只说「对每个元素做一遍 visit」，至于写成回调函数
+// 还是直接打印，由实现者自己挑 —— 这里直接打印最省事。
+void listTraverse() {
+    for (int i = 0; i &lt; len; ++i) printf("%d%c", a[i], i + 1 == len ? '\n' : ' ');
+}
+
+int main() {
+    initList();
+    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * 10);   // 尾插 10 20 30 40 50
+    int e = 0;
+    getElem(3, e);
+    printf("第 3 个元素 = %d，长度 = %d，判空 = %d\n", e, listLength(), (int)listEmpty());
+    printf("值 40 的位序 = %d（找不到才返回 0）\n", locateElem(40));
+    listDelete(1, e);
+    printf("删除的元素 = %d，剩下：", e);
+    listTraverse();
+    return 0;
+}
 </pre>
 
     <p>
-      接口一旦定下来，实现就可以有很多份。下面这份是顺序表的实现（完整版留给第 02 讲），
-      注意它对外提供的仍然是上面那 7 个操作，一个不多一个不少。
+      约定一旦定下来，实现就可以有很多份。下面这份是顺序表（数组）的实现（完整版留给第 02 讲），
+      注意它对外提供的仍然是上面约定的那一组操作，一个不多一个不少；至于内部是开一个固定的大数组，
+      还是按需扩容，那属于实现者的自由。
     </p>
 
-    <pre data-lang="cpp" data-file="seqlist_impl.cpp">// seqlist_impl.cpp —— 线性表 ADT 的一种实现：顺序表
-#include "list_adt.h"
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="seqlist_array.cpp">// seqlist_array.cpp —— 线性表 ADT 的一种实现：顺序表（全局数组 + 自由函数）
+//
+// 上一段把 ADT 的操作定成了「一组函数」；这里逐个实现出来，一个不多一个不少。
+// 换成链式实现时，只要操作名和语义不变，调用方的代码一行都不用改。
+// 顺序表最要紧的三件事都在这段里：
+//   ① 地址能直接算 → 随机存取 O(1)；② 插删要搬元素 → O(n)；③ 满了要扩容 → 均摊 O(1)。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-template &lt;typename T&gt;
-class SeqList : public List&lt;T&gt; {
-public:
-    explicit SeqList(int cap = 16) : data_(new T[cap]), len_(0), cap_(cap) {}
-    ~SeqList() override { delete[] data_; }
+int *a = nullptr;    // 数据区：动态申请，装不下就按 2 倍扩容
+int len = 0;         // 元素个数
+int cap = 0;         // 当前容量
 
-    bool empty() const override { return len_ == 0; }
-    int  size()  const override { return len_; }
+// 扩容：重新申请一块更大的空间 + 整体拷贝 O(len)。
+// 单次最坏 O(n)，但容量按 2 倍增长，均摊到每次尾插只有 O(1)。
+void grow() {
+    cap = cap ? cap * 2 : 16;
+    int *na = new int[cap];
+    for (int i = 0; i &lt; len; ++i) na[i] = a[i];
+    delete[] a;      // 竞赛里也可以整个不管（程序结束系统就回收），这里换新块顺手回收旧的
+    a = na;
+}
 
-    T&amp; at(int i) override {                      // O(1)：地址可直接计算
-        if (i &lt; 0 || i &gt;= len_) throw std::out_of_range("bad index");
-        return data_[i];
-    }
-    int locate(const T&amp; v) const override {      // O(n)：必须逐个比较
-        for (int i = 0; i &lt; len_; ++i) if (data_[i] == v) return i;
-        return -1;
-    }
-    bool insert(int i, const T&amp; v) override {    // O(n)：后继元素整体后移
-        if (i &lt; 0 || i &gt; len_) return false;
-        if (len_ == cap_) grow();
-        for (int k = len_; k &gt; i; --k) data_[k] = data_[k - 1];
-        data_[i] = v; ++len_;
-        return true;
-    }
-    bool erase(int i) override {                 // O(n)：后继元素整体前移
-        if (i &lt; 0 || i &gt;= len_) return false;
-        for (int k = i; k &lt; len_ - 1; ++k) data_[k] = data_[k + 1];
-        --len_;
-        return true;
-    }
-    void traverse(void (*visit)(const T&amp;)) const override {
-        for (int i = 0; i &lt; len_; ++i) visit(data_[i]);
-    }
+// InitList：重置为空表（教材里的 DestroyList 也顺手并在这里了）
+void initList() { delete[] a; len = 0; cap = 0; a = nullptr; }
+bool listEmpty() { return len == 0; }                  // ListEmpty
+int  listLength() { return len; }                      // ListLength
 
-private:
-    void grow() {
-        cap_ *= 2;
-        T* nd = new T[cap_];
-        for (int k = 0; k &lt; len_; ++k) nd[k] = data_[k];
-        delete[] data_;
-        data_ = nd;
+// GetElem：地址 = 首地址 + (i-1) * sizeof(int)，与表长无关 → 随机存取 O(1)
+int getElem(int i) {
+    if (i &lt; 1 || i &gt; len) return -1;
+    return a[i - 1];
+}
+
+// LocateElem：逐个比较 → O(n)，找不到返回 0
+int locateElem(int x) {
+    for (int i = 0; i &lt; len; ++i) if (a[i] == x) return i + 1;
+    return 0;
+}
+
+// ListInsert：在第 i 个位置前插入 x，返回这次搬移的元素个数（-1 表示位置非法）。
+// 长度 n 时有 n+1 个可插入位置，插在第 i 个位置要搬 n-i+1 个，
+// 等概率下平均搬移 n/2 个 → 时间 O(n)
+int listInsert(int i, int x) {
+    if (i &lt; 1 || i &gt; len + 1) return -1;
+    if (len == cap) grow();
+    int moved = 0;
+    for (int k = len; k &gt;= i; --k) { a[k] = a[k - 1]; ++moved; }
+    a[i - 1] = x;
+    ++len;
+    return moved;
+}
+
+// ListDelete：删掉第 i 个元素并用 e 带回它的值。后继元素整体前移，
+// 等概率下平均搬移 (n-1)/2 个 → 时间 O(n)
+bool listDelete(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; len) return false;
+    e = a[i - 1];
+    for (int k = i - 1; k &lt; len - 1; ++k) a[k] = a[k + 1];
+    --len;
+    return true;
+}
+
+void listTraverse() {                                  // ListTraverse：依次打印
+    for (int i = 0; i &lt; len; ++i) printf("%d%c", a[i], i + 1 == len ? '\n' : ' ');
+}
+
+int main() {
+    initList();
+    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * i);   // 1 4 9 16 25
+    printf("长度 = %d，判空 = %d，第 4 个 = %d，值 9 的位序 = %d\n",
+           listLength(), (int)listEmpty(), getElem(4), locateElem(9));
+    int e = 0;
+    listDelete(1, e);
+    printf("删除 %d 后剩下：", e);
+    listTraverse();
+
+    // 亲手数一遍「插入平均搬多少」：长度 n = 8 的表，9 个插入位置各试一次
+    int n = 8, total = 0;
+    for (int i = 1; i &lt;= n + 1; ++i) {
+        initList();                                    // 重新建一个长度 8 的表
+        for (int k = 1; k &lt;= n; ++k) listInsert(listLength() + 1, k);
+        total += listInsert(i, 0);
     }
-    T*  data_;
-    int len_;
-    int cap_;
-};
+    printf("n = %d：%d 个插入位置共搬 %d 个元素，平均 %.0f 个 = n/2\n",
+           n, n + 1, total, (double)total / (n + 1));
+    return 0;
+}
 </pre>
 
     <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
@@ -1004,24 +1095,90 @@ private:
       如果一行都不用改，说明抽象是干净的；如果要改十处，那说明调用方偷偷依赖了实现细节。
     </p>
 
-    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 调用方只认识 ADT 接口，不认识任何实现细节
-#include "list_adt.h"
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 调用方只认识 ADT 约定的那组操作，不认识任何实现细节
+//
+// 前面说过：ADT 只管「有哪些操作、各自什么语义」，不管「用数组还是链表、用类还是函数」。
+// 这里把同一组操作名（init / size / insert / erase / traverse）用两种存储结构各实现一份，
+// 调用方 report() 只按操作名去用 —— 换实现时，report() 和 main() 一行都不用改。
+// 竞赛里表达「同一组操作」最省事的办法是「命名空间 + 别名」，而不是类加虚函数。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-// 这个函数只依赖 List&lt;T&gt; 抽象接口：
-// 传顺序表它能跑，传链表它也能跑，将来传静态链表、跳表照样能跑。
-template &lt;typename T&gt;
-void report(const List&lt;T&gt;&amp; L) {
-    std::cout &lt;&lt; "元素个数 = " &lt;&lt; L.size() &lt;&lt; "，内容：";
-    L.traverse([](const T&amp; v) { std::cout &lt;&lt; v &lt;&lt; ' '; });
-    std::cout &lt;&lt; '\n';
+namespace seqImpl {              // 实现一：顺序存储（全局数组）
+    const int MAXN = 1005;       // 演示用，最多 1000 个元素足够
+    int a[MAXN], n = 0;
+
+    void init() { n = 0; }                                   // InitList
+    int  size() { return n; }                                // ListLength
+    bool insert(int i, int x) {                              // ListInsert：后继后移 O(n)
+        if (i &lt; 1 || i &gt; n + 1 || n == MAXN) return false;
+        for (int k = n; k &gt;= i; --k) a[k] = a[k - 1];
+        a[i - 1] = x; ++n;
+        return true;
+    }
+    bool erase(int i) {                                      // ListDelete：后继前移 O(n)
+        if (i &lt; 1 || i &gt; n) return false;
+        for (int k = i - 1; k &lt; n - 1; ++k) a[k] = a[k + 1];
+        --n;
+        return true;
+    }
+    void traverse() {                                        // ListTraverse
+        for (int i = 0; i &lt; n; ++i) printf("%d%c", a[i], i + 1 == n ? '\n' : ' ');
+    }
+}
+
+namespace linkImpl {             // 实现二：链式存储（带头结点的单链表），操作名与语义完全相同
+    struct Node { int val; Node *nxt; };
+    Node *head = nullptr;
+
+    void init() { head = new Node{0, nullptr}; }              // 哨兵头结点，省掉大量判空
+    int  size() {
+        int c = 0;
+        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c;         // 只能一个个数过去 O(n)
+        return c;
+    }
+    bool insert(int i, int x) {                               // 找第 i-1 个结点后插：改两条指针 O(1)
+        if (i &lt; 1) return false;
+        Node *p = head;
+        for (int k = 1; k &lt; i &amp;&amp; p; ++k) p = p-&gt;nxt;            // 找位置还是要 O(n)
+        if (!p) return false;
+        p-&gt;nxt = new Node{x, p-&gt;nxt};
+        return true;
+    }
+    bool erase(int i) {                                       // 摘掉第 i 个结点；竞赛里不 delete
+        if (i &lt; 1) return false;
+        Node *p = head;
+        for (int k = 1; k &lt; i &amp;&amp; p-&gt;nxt; ++k) p = p-&gt;nxt;
+        if (!p-&gt;nxt) return false;
+        p-&gt;nxt = p-&gt;nxt-&gt;nxt;
+        return true;
+    }
+    void traverse() {
+        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt)
+            printf("%d%c", p-&gt;val, p-&gt;nxt ? ' ' : '\n');
+    }
+}
+
+// 换实现只要改这一行：namespace impl = linkImpl; —— 下面所有调用一行都不用动
+namespace impl = seqImpl;
+
+void report() {                  // 调用方：只认操作名和语义，不认存储方式
+    printf("元素个数 = %d，内容：", impl::size());
+    impl::traverse();
 }
 
 int main() {
-    SeqList&lt;int&gt; L;                 // 唯一的「实现相关」一行，只出现在这里
-    for (int i = 0; i &lt; 5; ++i) L.insert(L.size(), i * i);
-    L.erase(0);                     // 删掉 0
-    report(L);                      // 这里完全不关心底层是数组还是链表
+    impl::init();
+    for (int i = 1; i &lt;= 5; ++i) impl::insert(i, i * i);   // 在第 i 个位置插入 i*i
+    impl::erase(1);                                        // 删掉第 1 个元素
+    report();                                              // 输出：元素个数 = 4，内容：4 9 16 25
+
+    // 同样的调用序列，换成链表实现（把上面的 impl 换成 linkImpl 的名字）结果一模一样
+    linkImpl::init();
+    for (int i = 1; i &lt;= 5; ++i) linkImpl::insert(i, i * i);
+    linkImpl::erase(1);
+    printf("链表实现：元素个数 = %d，内容：", linkImpl::size());
+    linkImpl::traverse();
     return 0;
 }
 </pre>
@@ -1030,22 +1187,24 @@ int main() {
       <div class="card">
         <h3 id="s5-4" style="margin-top:0">抽象之一：隐藏表示</h3>
         <p style="margin-bottom:0">
-          调用方看不到 <code>data_</code> 指针，也不知道容量怎么翻倍。表示的改变被隔离在类内部，
-          不会像涟漪一样扩散到全工程。
+          调用方只会调用那几个操作函数，看不到内部的数组 <code>a</code>、<code>len</code>、<code>cap</code>，
+          也不知道容量怎么翻倍。表示的改变被隔离在实现里，不会像涟漪一样扩散到全工程。
         </p>
       </div>
       <div class="card">
-        <h3 id="s5-5" style="margin-top:0">抽象之二：泛化元素类型</h3>
+        <h3 id="s5-5" style="margin-top:0">抽象之二：定下数据对象</h3>
         <p style="margin-bottom:0">
-          <code>template &lt;typename T&gt;</code> 把「元素是什么类型」也抽象掉了。
-          一套代码同时服务 <code>int</code>、<code>string</code>、自定义的 <code>Student</code>。
+          ADT 的第一部分「数据对象」规定了这个类型里能放哪些数据。教材用
+          <code>template &lt;typename T&gt;</code> 把它做成泛型，一套代码同时服务
+          <code>int</code>、<code>string</code>、自定义的 <code>Student</code>；竞赛里题目只考一种元素类型，
+          直接写 <code>int</code> / <code>long long</code> 就够了——这层抽象由题面替你定死。
         </p>
       </div>
       <div class="card">
         <h3 id="s5-6" style="margin-top:0">抽象之三：分离语义与代价</h3>
         <p style="margin-bottom:0">
           ADT 规定了操作的<b>语义</b>（做什么），而<b>代价</b>（多快）交给实现。
-          于是「同一个 <code>at(i)</code> 在顺序表里是 O(1)、在链表里是 O(n)」，
+          于是「同一个 <code>GetElem(i)</code> 在顺序表里是 O(1)、在链表里是 O(n)」，
           这正是第 1.4 节的结论。
         </p>
       </div>
@@ -2527,7 +2686,7 @@ int main() {
       <dd>一个数学模型以及定义在该模型上的一组操作，只规定「做什么」不规定「怎么做」，由数据对象、数据关系、基本操作三部分组成。</dd>
 
       <dt>封装<br><span class="en">encapsulation</span></dt>
-      <dd>把数据表示与操作实现隐藏在模块内部，只暴露接口。ADT 在 C++ 中通过 class 的 public / private 实现。</dd>
+      <dd>把数据表示与操作实现隐藏在模块内部，只暴露接口。ADT 在 C++ 中常用 class 的 public / private 实现，用一组自由函数表达同一个 ADT 也可以。</dd>
 
       <dt>算法<br><span class="en">algorithm</span></dt>
       <dd>对特定问题求解步骤的描述，是指令的有限序列；具备有穷性、确定性、可行性、输入、输出五大特性。</dd>
@@ -2731,7 +2890,7 @@ int main() {
       <ul style="margin-bottom:0">
         <li>抽象数据类型 ADT = 数据对象 + 数据关系 + 基本操作，只规定「做什么」；</li>
         <li>ADT 使逻辑结构与存储结构解耦：换实现不改调用方代码；</li>
-        <li>同一个 <code>at(i)</code>，顺序表是 O(1)、链表是 O(n)——语义相同，代价不同。</li>
+        <li>同一个 <code>GetElem(i)</code>，顺序表是 O(1)、链表是 O(n)——语义相同，代价不同。</li>
       </ul>
     </div>
 

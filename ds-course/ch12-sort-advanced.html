@@ -2169,120 +2169,115 @@ int main() {
 
     <p>下面这份代码是一个<b>可以直接编译运行</b>的 introsort 实现，把三道保险都写全了：</p>
 
-    <pre data-lang="cpp" data-file="introsort.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
-#include &lt;cmath&gt;
+    <pre data-lang="cpp" data-file="introsort.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
    自己实现 introsort（内省排序）= 快速排序 + 插入排序 + 堆排序
+   竞赛写法：全局数组 + 自由函数，区间统一用 [lo, hi) 左闭右开
      · 主干：三数取中选枢轴的快速排序
      · 小区间（len &lt;= 16）：改用插入排序收尾
      · 递归深度 &gt; 2*floor(log2(n))：改用堆排序，保证最坏 O(n log n)
    平均 O(n log n)，最坏 O(n log n)，空间 O(log n)，不稳定
+   数组大小依据：MAXN = 3e5 + 5，够放 3e5 个元素
    ============================================================ */
-namespace my {
 
+const int MAXN = 300005;
 const int INSERTION_THRESHOLD = 16;
 
+int a[MAXN];
+int n = 0;
+
 /* ---------- 插入排序：只处理 [lo, hi) ---------- */
-template &lt;class It&gt;
-void insertionSort(It lo, It hi) {
-    for (It i = lo + 1; i &lt; hi; ++i) {
-        auto key = *i;
-        It j = i;
-        while (j &gt; lo &amp;&amp; *(j - 1) &gt; key) { *j = *(j - 1); --j; }
-        *j = key;
+void insertionSort(int lo, int hi) {
+    for (int i = lo + 1; i &lt; hi; ++i) {
+        int key = a[i], j = i;
+        while (j &gt; lo &amp;&amp; a[j - 1] &gt; key) { a[j] = a[j - 1]; --j; }
+        a[j] = key;
     }
 }
 
-/* ---------- 下沉：把 [lo, lo+len) 看成堆，调整根结点 ---------- */
-template &lt;class It&gt;
-void siftDown(It lo, int len, int root) {
+/* ---------- 下沉：把 a[lo .. lo+len-1] 看成堆，调整下标 root ---------- */
+void siftDown(int lo, int len, int root) {
     while (true) {
         int child = 2 * root + 1;
         if (child &gt;= len) break;
-        if (child + 1 &lt; len &amp;&amp; *(lo + child) &lt; *(lo + child + 1)) ++child;   // 取较大的孩子
-        if (*(lo + root) &lt; *(lo + child)) {
-            swap(*(lo + root), *(lo + child));
+        if (child + 1 &lt; len &amp;&amp; a[lo + child] &lt; a[lo + child + 1]) ++child;   // 取较大的孩子
+        if (a[lo + root] &lt; a[lo + child]) {
+            swap(a[lo + root], a[lo + child]);
             root = child;
         } else break;
     }
 }
 
-/* ---------- 堆排序：只处理 [lo, hi) ---------- */
-template &lt;class It&gt;
-void heapSort(It lo, It hi) {
-    int len = (int)(hi - lo);
+/* ---------- 堆排序：只处理 [lo, hi)，最坏也是 O(n log n) ---------- */
+void heapSort(int lo, int hi) {
+    int len = hi - lo;
     for (int i = len / 2 - 1; i &gt;= 0; --i) siftDown(lo, len, i);      // 建大顶堆
     for (int end = len - 1; end &gt; 0; --end) {
-        swap(*(lo + 0), *(lo + end));                                 // 最大值换到末尾
+        swap(a[lo], a[lo + end]);                                     // 最大值换到末尾
         siftDown(lo, end, 0);                                         // 剩余部分重新成堆
     }
 }
 
-/* ---------- 三数取中：把中位数换到 hi-1 位置并返回该位置 ---------- */
-template &lt;class It&gt;
-It medianOfThree(It lo, It hi) {
-    It mid = lo + (hi - lo) / 2;
-    --hi;                                            // 指向最后一个有效元素
-    if (*mid &lt; *lo) swap(*mid, *lo);
-    if (*hi &lt; *lo) swap(*hi, *lo);
-    if (*hi &lt; *mid) swap(*hi, *mid);
-    /* 此时 *lo &lt;= *mid &lt;= *hi，把 mid 换到 hi-1 作为枢轴哨兵 */
-    swap(*mid, *(hi - 1));
+/* ---------- 三数取中：把中位数换到 hi-2 位置并返回该下标 ---------- */
+int medianOfThree(int lo, int hi) {          // [lo, hi)
+    int mid = lo + (hi - lo) / 2;
+    --hi;                                    // 指向最后一个有效元素
+    if (a[mid] &lt; a[lo]) swap(a[mid], a[lo]);
+    if (a[hi] &lt; a[lo])  swap(a[hi], a[lo]);
+    if (a[hi] &lt; a[mid]) swap(a[hi], a[mid]);
+    /* 此时 a[lo] &lt;= a[mid] &lt;= a[hi]，把 mid 换到 hi-1 当枢轴，a[hi] 留作右端哨兵 */
+    swap(a[mid], a[hi - 1]);
     return hi - 1;
 }
 
 /* ---------- 核心：带深度限制的快排 ---------- */
-template &lt;class It&gt;
-void introsortLoop(It lo, It hi, int depthLimit) {
+void introsortLoop(int lo, int hi, int depthLimit) {   // [lo, hi)
     while (hi - lo &gt; INSERTION_THRESHOLD) {
         if (depthLimit == 0) { heapSort(lo, hi); return; }   // ① 深度用尽 → 堆排兜底
         --depthLimit;
-        It pivot = medianOfThree(lo, hi);                    // ② 三数取中
-        It i = lo, j = hi - 1;
+        int pivot = medianOfThree(lo, hi);                   // ② 三数取中
+        int i = lo, j = hi - 1;
         while (true) {
-            while (*(++i) &lt; *pivot) {}
-            while (*pivot &lt; *(--j)) {}
-            if (i &lt; j) swap(*i, *j); else break;
+            while (a[++i] &lt; a[pivot]) {}
+            while (a[pivot] &lt; a[--j]) {}
+            if (i &lt; j) swap(a[i], a[j]); else break;
         }
-        swap(*i, *(hi - 2));                                 // 枢轴归位
-        introsortLoop(i + 1, hi, depthLimit);                // 递归处理右半（尾递归可优化）
-        hi = i;                                              // 左半用循环继续处理
+        swap(a[i], a[pivot]);                                // 枢轴归位
+        introsortLoop(i + 1, hi, depthLimit);                // 递归处理右半
+        hi = i;                                              // 左半用循环继续处理（尾递归优化）
     }
-    /* ③ 最后对整个区间做一次插入排序，把小区间的收尾一次做完 */
+    /* ③ 小区间直接退出，最后对整个区间做一次插入排序收尾 */
 }
 
-template &lt;class It&gt;
-void sort(It lo, It hi) {
+void introSort(int lo, int hi) {             // [lo, hi)
     if (hi - lo &lt; 2) return;
-    int n = (int)(hi - lo);
-    int depthLimit = 2 * (int)(std::log2((double)n));        // 2 * floor(log2 n)
+    int depthLimit = 2 * (int)log2((double)(hi - lo));       // 2 * floor(log2 n)
     introsortLoop(lo, hi, depthLimit);
     insertionSort(lo, hi);                                   // 小区间收尾
 }
 
-}  // namespace my
-
 int main() {
-    vector&lt;int&gt; a;
-    for (int i = 0; i &lt; 40; ++i) a.push_back((i * 17 + 5) % 40);
-    my::sort(a.begin(), a.end());
-    for (int x : a) cout &lt;&lt; x &lt;&lt; ' ';
-    cout &lt;&lt; "\n";
+    n = 40;
+    for (int i = 0; i &lt; n; ++i) a[i] = (i * 17 + 5) % 40;
+    introSort(0, n);
+    for (int i = 0; i &lt; n; ++i) printf("%d ", a[i]);
+    printf("\n");
 
     /* 和标准库结果比对 */
-    vector&lt;int&gt; b = a;
-    std::sort(b.begin(), b.end());
-    cout &lt;&lt; "与 std::sort 结果一致：" &lt;&lt; (a == b ? "是" : "否") &lt;&lt; "\n";
+    int b[40];
+    for (int i = 0; i &lt; n; ++i) b[i] = a[i];
+    sort(b, b + n);
+    bool same = true;
+    for (int i = 0; i &lt; n; ++i) if (a[i] != b[i]) same = false;
+    printf("与 std::sort 结果一致：%s\n", same ? "是" : "否");
 
     /* 已经有序的输入（快排的经典最坏场景）也不再退化 */
-    vector&lt;int&gt; c(100000);
-    for (int i = 0; i &lt; 100000; ++i) c[i] = i;
-    my::sort(c.begin(), c.end());
-    cout &lt;&lt; "10 万条已排序数据 introsort 完成，首尾 = " &lt;&lt; c.front() &lt;&lt; " " &lt;&lt; c.back() &lt;&lt; "\n";
+    n = 100000;
+    for (int i = 0; i &lt; n; ++i) a[i] = i;
+    introSort(0, n);
+    printf("10 万条已排序数据 introsort 完成，首尾 = %d %d\n", a[0], a[n - 1]);
     return 0;
 }</pre>
 
@@ -2447,90 +2442,110 @@ int main() {
       你就能亲眼看到「函数指针 vs 编译期内联」的差距有多大。
     </p>
 
-    <pre data-lang="cpp" data-file="sort_benchmark.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
-#include &lt;cstdlib&gt;
-#include &lt;chrono&gt;
-#include &lt;random&gt;
+    <pre data-lang="cpp" data-file="sort_benchmark.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
-using Clock = chrono::high_resolution_clock;
+using Clock = chrono::steady_clock;
 
 /* ============================================================
    排序性能对照实验：std::sort vs qsort vs stable_sort vs 手写快排
+   竞赛写法：全局数组 + 自由函数，计时用 &lt;chrono&gt; 的 steady_clock
    结论预期：std::sort 通常最快；qsort 因为「函数指针无法内联」而明显偏慢
    （具体倍数与编译器、优化级别、数据类型有关，本程序只做量级演示）
+   数组大小依据：N = 3e5，量级差别看得清，跑起来也就一两秒
    ============================================================ */
 
+const int N = 300000;
+
+int baseArr[N];        // 原始随机数据（只读，不参与排序）
+int work[N];           // 每次计时前从这里复制一份，保证四种排序面对同一份数据
+
+/* 把 baseArr 复制到 work（复制不计入计时） */
+void copyBase() {
+    for (int i = 0; i &lt; N; ++i) work[i] = baseArr[i];
+}
+
+/* 两个时间点之间隔了多少毫秒 */
+double msBetween(Clock::time_point t0, Clock::time_point t1) {
+    return chrono::duration&lt;double, milli&gt;(t1 - t0).count();
+}
+
 /* ---- qsort 需要的 C 风格比较函数（函数指针 → 无法内联） ---- */
-int cmpInt(const void* a, const void* b) {
-    int x = *(const int*)a, y = *(const int*)b;
+int cmpInt(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
     return (x &gt; y) - (x &lt; y);
 }
 
 /* ---- 手写朴素快排：取首元素为枢轴。它无法应对已排序输入，
-       下面用「比较次数计数器」代替跑完全程（否则 n=20 万要等到天荒地老） ---- */
+       所以下面用「比较次数计数器」代替跑完全程（否则 n = 20 万要等到天荒地老） ---- */
 long long naiveQuickCmps = 0;
-void naiveQuick(vector&lt;int&gt;&amp; a, int lo, int hi, int depthCap) {
+
+void naiveQuick(int lo, int hi, int depthCap) {
     if (lo &gt;= hi) return;
     if (depthCap &lt;= 0) return;                     // 演示用：到了极深就停手，避免爆栈
-    int pivot = a[lo], i = lo, j = hi;
+    int pivot = work[lo], i = lo, j = hi;
     while (i &lt; j) {
-        while (i &lt; j) { ++naiveQuickCmps; if (a[j] &lt; pivot) break; --j; }
-        a[i] = a[j];
-        while (i &lt; j) { ++naiveQuickCmps; if (a[i] &gt; pivot) break; ++i; }
-        a[j] = a[i];
+        while (i &lt; j) { ++naiveQuickCmps; if (work[j] &lt; pivot) break; --j; }
+        work[i] = work[j];
+        while (i &lt; j) { ++naiveQuickCmps; if (work[i] &gt; pivot) break; ++i; }
+        work[j] = work[i];
     }
-    a[i] = pivot;
-    naiveQuick(a, lo, i - 1, depthCap - 1);
-    naiveQuick(a, i + 1, hi, depthCap - 1);
-}
-
-template &lt;class F&gt;
-double timeIt(F f, vector&lt;int&gt; data) {          // 按值传参，复制一份避免互相干扰
-    auto t0 = Clock::now();
-    f(data);
-    auto t1 = Clock::now();
-    return chrono::duration&lt;double, milli&gt;(t1 - t0).count();
+    work[i] = pivot;
+    naiveQuick(lo, i - 1, depthCap - 1);
+    naiveQuick(i + 1, hi, depthCap - 1);
 }
 
 int main() {
-    const int N = 300000;
     mt19937 rng(12345);
-    vector&lt;int&gt; base(N);
-    for (int i = 0; i &lt; N; ++i) base[i] = (int)(rng() % 1000000);
+    for (int i = 0; i &lt; N; ++i) baseArr[i] = (int)(rng() % 1000000);
 
     /* 四种方式：注意都在同一份随机数据上比较 */
-    double tStd = timeIt([](vector&lt;int&gt; v) { std::sort(v.begin(), v.end()); }, base);
-    double tQs  = timeIt([](vector&lt;int&gt; v) { qsort(v.data(), v.size(), sizeof(int), cmpInt); }, base);
-    double tSt  = timeIt([](vector&lt;int&gt; v) { std::stable_sort(v.begin(), v.end()); }, base);
-    double tNv  = timeIt([](vector&lt;int&gt; v) { if (!v.empty()) naiveQuick(v, 0, (int)v.size() - 1, 200); }, base);
+    copyBase();
+    Clock::time_point t0 = Clock::now();
+    sort(work, work + N);                                  // ① std::sort（内省排序）
+    Clock::time_point t1 = Clock::now();
 
-    cout &lt;&lt; "n = " &lt;&lt; N &lt;&lt; "，随机数据（单位 ms，越小越好）\n";
-    cout &lt;&lt; "  std::sort        : " &lt;&lt; tStd &lt;&lt; "\n";
-    cout &lt;&lt; "  qsort            : " &lt;&lt; tQs  &lt;&lt; "   （约为 std::sort 的 "
-         &lt;&lt; (tStd &gt; 0 ? tQs / tStd : 0) &lt;&lt; " 倍）\n";
-    cout &lt;&lt; "  std::stable_sort : " &lt;&lt; tSt  &lt;&lt; "   （稳定，代价是额外空间与常数）\n";
-    cout &lt;&lt; "  手写朴素快排     : " &lt;&lt; tNv  &lt;&lt; "   （取首元素为枢轴）\n";
+    copyBase();
+    Clock::time_point t2 = Clock::now();
+    qsort(work, N, sizeof(int), cmpInt);                   // ② C 的 qsort：比较器是函数指针
+    Clock::time_point t3 = Clock::now();
+
+    copyBase();
+    Clock::time_point t4 = Clock::now();
+    stable_sort(work, work + N);                           // ③ std::stable_sort：稳定但有额外空间
+    Clock::time_point t5 = Clock::now();
+
+    copyBase();
+    Clock::time_point t6 = Clock::now();
+    naiveQuick(0, N - 1, 200);                             // ④ 手写朴素快排
+    Clock::time_point t7 = Clock::now();
+
+    double tStd = msBetween(t0, t1), tQs = msBetween(t2, t3);
+    double tSt = msBetween(t4, t5), tNv = msBetween(t6, t7);
+
+    printf("n = %d，随机数据（单位 ms，越小越好）\n", N);
+    printf("  std::sort        : %.1f\n", tStd);
+    printf("  qsort            : %.1f   （约为 std::sort 的 %.1f 倍）\n",
+           tQs, tStd &gt; 0 ? tQs / tStd : 0.0);
+    printf("  std::stable_sort : %.1f   （稳定，代价是额外空间与常数）\n", tSt);
+    printf("  手写朴素快排     : %.1f   （取首元素为枢轴）\n", tNv);
 
     /* ---- 最坏输入：已经完全有序。这里不跑朴素快排（那是 O(n^2)），
             而是直接数它的比较次数，用数字说明「退化」有多可怕 ---- */
     const int M = 4096;                            // 只统计规模 M 的比较次数，再外推
-    vector&lt;int&gt; sorted_(M);
-    for (int i = 0; i &lt; M; ++i) sorted_[i] = i;
+    for (int i = 0; i &lt; M; ++i) work[i] = i;
     naiveQuickCmps = 0;
-    naiveQuick(sorted_, 0, M - 1, M + 10);
-    cout &lt;&lt; "\n已排序输入上「取首元素为枢轴」的朴素快排（n = " &lt;&lt; M &lt;&lt; "）：\n";
-    cout &lt;&lt; "  比较次数 = " &lt;&lt; naiveQuickCmps
-         &lt;&lt; "，而 n(n-1)/2 = " &lt;&lt; (long long)M * (M - 1) / 2
-         &lt;&lt; "  → 完全退化为 O(n^2)\n";
+    naiveQuick(0, M - 1, M + 10);
+    printf("\n已排序输入上「取首元素为枢轴」的朴素快排（n = %d）：\n", M);
+    printf("  比较次数 = %lld，而 n(n-1)/2 = %lld  → 完全退化为 O(n^2)\n",
+           naiveQuickCmps, (long long)M * (M - 1) / 2);
 
-    vector&lt;int&gt; sortedBig(N);
-    for (int i = 0; i &lt; N; ++i) sortedBig[i] = i;
-    double wStd = timeIt([](vector&lt;int&gt; v) { std::sort(v.begin(), v.end()); }, sortedBig);
-    cout &lt;&lt; "  而 std::sort（内省排序）在 n = " &lt;&lt; N &lt;&lt; " 的已排序输入上只用 "
-         &lt;&lt; wStd &lt;&lt; " ms —— 三数取中 + 堆排兜底让它不退化\n";
-    cout &lt;&lt; "  结论：这就是内省排序存在的意义。\n";
+    for (int i = 0; i &lt; N; ++i) work[i] = i;       // n = 3e5 的已排序输入
+    Clock::time_point t8 = Clock::now();
+    sort(work, work + N);
+    Clock::time_point t9 = Clock::now();
+    printf("  而 std::sort（内省排序）在 n = %d 的已排序输入上只用 %.1f ms —— 三数取中 + 堆排兜底让它不退化\n",
+           N, msBetween(t8, t9));
+    printf("  结论：这就是内省排序存在的意义。\n");
     return 0;
 }</pre>
 

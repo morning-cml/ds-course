@@ -241,28 +241,56 @@
       换实现不用改一行调用代码——这正是「面向接口编程」在数据结构课上的第一次亮相。
     </p>
 
-    <pre data-lang="cpp" data-file="list_adt.h">// list_adt.h —— 线性表的抽象基类：把 ADT 用 C++ 的纯虚函数表达出来
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="list_adt.h">
+/* ==========================================================================
+   顺序表的抽象数据类型（ADT）—— 先想清楚「有哪些操作」，再谈怎么实现
+   --------------------------------------------------------------------------
+   数据结构 = 逻辑结构 + 存储结构 + 运算。
+   「运算」这一层只规定**做什么**（语义），不规定**怎么做**（实现）——
+   这就是抽象数据类型 ADT 的含义。
+
+   竞赛里不需要用 class 来表达 ADT：直接开全局数组 + 写几个自由函数就行，
+   又快又好调试。下面先把「顺序表的运算清单」列出来（这就是 ADT），
+   具体实现见后面的 seqlist.cpp。
+
+   约定（全课件统一）：位序从 1 开始，第 i 个元素存在 a[i-1]。
+     · InitList()              建空表
+     · Length()                求表长 n
+     · GetElem(i, e)           按位取值：取第 i 个元素，1 &lt;= i &lt;= n
+     · LocateElem(e)           按值查找：返回位序 1..n，找不到返回 0
+     · ListInsert(i, e)        在位序 i 处插入 e，1 &lt;= i &lt;= n+1
+     · ListDelete(i, e)        删除位序 i 的元素并用 e 带回，1 &lt;= i &lt;= n
+     · PrintList()             遍历打印
+     · DestroyList()           销毁整表
+
+   为什么找不到时返回 0 而不是 -1？
+   因为位序从 1 开始，0 是天然不会被占用的「哨兵值」，
+   和 C 标准库里 strchr 返回 NULL、string::find 返回 npos 是同一种思路。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class List {                       // 抽象基类：只声明「能做什么」，不回答「怎么做」
-public:
-    virtual ~List() {}                                  // 虚析构：保证 delete 基类指针时能回收派生类资源
+const int N = 100005;       // 顺序表最大长度
+int a[N];                   // 数据存在 a[0..n-1]，逻辑位序 = 下标 + 1
+int n = 0;                  // 当前表长
 
-    virtual void InitList() = 0;                        // 建空表
-    virtual int  Length() const = 0;                    // 求表长 n
-    virtual int  LocateElem(const T&amp; e) const = 0;      // 按值查找：返回位序 1..n，找不到返回 0
-    virtual bool GetElem(int i, T&amp; e) const = 0;        // 按位取值：把第 i 个元素拷贝给 e
-    virtual bool ListInsert(int i, const T&amp; e) = 0;     // 在位序 i 处插入 e，1 &lt;= i &lt;= n+1
-    virtual bool ListDelete(int i, T&amp; e) = 0;           // 删除位序 i 的元素，用 e 带回，1 &lt;= i &lt;= n
-    virtual void PrintList() const = 0;                 // 遍历打印
-    virtual void DestroyList() = 0;                     // 销毁整表，归还内存
-};
+void InitList() { n = 0; }
+int  Length()   { return n; }
 
-/* 为什么 LocateElem 用「返回 0」表示失败？
-   因为位序从 1 开始，0 是一个天然不会被占用的「哨兵值」。
-   这与 C 标准库 strchr 返回 NULL、find 返回 npos 是同一种设计思路。 */
+/* 下面给出各操作的「空壳」，真正实现在 seqlist.cpp；
+   这里只为了让这段代码能单独编译运行，直接把实现写进来也可以。 */
+void PrintList() {
+    for (int i = 0; i &lt; n; ++i) printf("%d ", a[i]);
+    printf("\n");
+}
+
+int main() {
+    InitList();
+    a[n++] = 10; a[n++] = 20; a[n++] = 30;   // 直接往表尾放三个元素
+    printf("表长 = %d\n", Length());          // 3
+    PrintList();                              // 10 20 30
+    return 0;
+}
 </pre>
 
     <p>
@@ -392,62 +420,95 @@ public:
       </div>
     </div>
 
-    <pre data-lang="cpp" data-file="seqlist.h">// seqlist.h —— 顺序表：动态数组实现，容量不够时按 2 倍自动扩容
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="seqlist.h">
+/* ==========================================================================
+   顺序表 —— 算法竞赛写法：全局数组 + 自由函数
+   --------------------------------------------------------------------------
+   顺序表 = 用一段连续内存依次存放元素，逻辑上相邻的两个元素物理上也相邻。
+   它的两个基本事实（考点）：
+     · 按下标访问是 O(1)：第 i 个元素就在 a[i-1]，一步算出来，不用找
+     · 插入/删除是 O(n)：为了保持「连续」，平均要搬动一半元素
+
+   为方便讲解和手写，下面用静态数组（比赛里最常见）。
+   如果数据量超过数组上限，就把 N 开大或换成 vector&lt;int&gt; a; 用 push_back。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class SeqList {
-private:
-    T*  data;        // 指向连续内存块的首地址
-    int len;         // 表长 size：实际元素个数
-    int cap;         // 容量 capacity：底层数组能装多少个
+const int N = 100005;      // 顺序表的最大长度（按要求开够，比赛时按题目数据范围定）
+int a[N];                  // 元素存 a[0..n-1]：逻辑位序 i 对应下标 i-1
+int n = 0;                 // 表长
 
-    void grow() {                                  // 私有扩容函数
-        int nc = (cap == 0) ? 4 : cap * 2;         // 按 2 倍增长（不要写成 cap + 1）
-        T* nd = new T[nc];                         // 1) 申请更大的新块
-        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];   // 2) 整体拷贝（O(len)）
-        delete[] data;                             // 3) 释放旧块，漏掉这句就是内存泄漏
-        data = nd;                                 // 4) 指针改指向新块
-        cap  = nc;
-    }
+void InitList() { n = 0; }
+int  Length()   { return n; }
+bool Empty()    { return n == 0; }
 
-public:
-    SeqList() : data(nullptr), len(0), cap(0) {}
-    ~SeqList() { delete[] data; data = nullptr; }
+/* ---------- 按位取「值」：O(1)（顺序表的看家本领） ---------- */
+bool GetElem(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; n) return false;   // 位序合法范围是 1..n，不是 0..n-1
+    e = a[i - 1];                       // 位序 → 下标：减 1，一步到位
+    return true;
+}
 
-    // 必须自己写深拷贝：否则两个对象共用同一块内存，析构时 double free 直接崩溃
-    SeqList(const SeqList&amp; o) : data(nullptr), len(o.len), cap(o.cap) {
-        if (cap &gt; 0) {
-            data = new T[cap];
-            for (int i = 0; i &lt; len; ++i) data[i] = o.data[i];
-        }
-    }
-    SeqList&amp; operator=(const SeqList&amp; o) {
-        if (this == &amp;o) return *this;              // 自赋值保护
-        T* nd = nullptr;
-        if (o.cap &gt; 0) {
-            nd = new T[o.cap];
-            for (int i = 0; i &lt; o.len; ++i) nd[i] = o.data[i];
-        }
-        delete[] data;                             // 先准备好新的，再释放旧的，异常安全
-        data = nd; len = o.len; cap = o.cap;
-        return *this;
-    }
+/* ---------- 按值查找：O(n)，只能从头挨个比 ---------- */
+int LocateElem(int e) {
+    for (int k = 0; k &lt; n; ++k)
+        if (a[k] == e) return k + 1;    // 返回「位序」，所以是 k+1
+    return 0;                           // 0 是哨兵：位序从 1 起，0 不会被占用
+}
 
-    int  size()     const { return len; }
-    int  capacity() const { return cap; }
-    bool empty()    const { return len == 0; }
-    void InitList()       { len = 0; }             // 逻辑清空，不归还内存
+/* ---------- 插入：在位序 i 处插入 e，1 &lt;= i &lt;= n+1 → O(n) ----------
+   从后往前依次后移一位，腾出 a[i-1] 这个位置，再放新元素。
+   关键点：必须「从后往前」倒着搬，正着搬会把后面的元素覆盖掉。 */
+bool ListInsert(int i, int e) {
+    if (i &lt; 1 || i &gt; n + 1) return false;   // i = n+1 表示插到表尾，是合法的
+    if (n == N) return false;               // 表满
+    for (int k = n - 1; k &gt;= i - 1; --k) a[k + 1] = a[k];
+    a[i - 1] = e;
+    ++n;
+    return true;
+}
 
-    /* 其余操作见后面的代码块 */
-    bool GetElem(int i, T&amp; e) const;
-    int  LocateElem(const T&amp; e) const;
-    bool ListInsert(int i, const T&amp; e);
-    bool ListDelete(int i, T&amp; e);
-    void PrintList() const;
-    void DestroyList() { delete[] data; data = nullptr; len = cap = 0; }
-};
+/* ---------- 删除位序 i 的元素，用 e 带回，1 &lt;= i &lt;= n → O(n) ----------
+   从前往后依次前移一位，把空洞填掉。 */
+bool ListDelete(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; n) return false;
+    e = a[i - 1];
+    for (int k = i - 1; k &lt; n - 1; ++k) a[k] = a[k + 1];
+    --n;
+    return true;
+}
+
+void PrintList() {
+    for (int k = 0; k &lt; n; ++k) printf("%d ", a[k]);
+    printf("（表长 %d）\n", n);
+}
+
+int main() {
+    InitList();
+    for (int x : {12, 5, 33, 7, 20}) ListInsert(n + 1, x);   // 依次插到表尾建表
+    PrintList();                                     // 12 5 33 7 20（表长 5）
+
+    ListInsert(1, 99);                               // 插到最前面：后面 5 个元素全要后移
+    PrintList();                                     // 99 12 5 33 7 20（表长 6）
+
+    int e;
+    ListDelete(3, e);
+    printf("删掉的是 %d\n", e);                       // 5
+    PrintList();                                     // 99 12 33 7 20（表长 5）
+
+    GetElem(2, e);
+    printf("第 2 个元素是 %d\n", e);                  // 12
+    printf("值 33 的位序是 %d\n", LocateElem(33));    // 3
+    printf("值 404 的位序是 %d（0 表示没找到）\n", LocateElem(404));
+
+    /* ---------- 复杂度小结 ----------
+       按位取值 O(1) ｜ 按值查找 O(n) ｜ 插入 O(n) ｜ 删除 O(n)
+       插入平均搬动 n/2 个元素，删除平均搬动 (n-1)/2 个：
+       插入位置等概率取 1..n+1，搬动次数分别是 n, n-1, ..., 1, 0，
+       平均 = (0+1+...+n)/(n+1) = n/2；删除同理得 (n-1)/2。 */
+    return 0;
+}
 </pre>
 
     <h3 id="s2-3">2.2.3 按位查找：O(1) 的随机存取</h3>
@@ -459,79 +520,65 @@ public:
       可能读到垃圾值，也可能直接把程序搞崩。
     </p>
 
-    <pre data-lang="cpp" data-file="seqlist_get.cpp">// seqlist_get.cpp —— 顺序表的三种「读」操作：按位取值、按值查找、遍历打印
-#include &lt;iostream&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="seqlist_get.cpp">
+/* ==========================================================================
+   顺序表的三种「读」操作：按位取值、按值查找、遍历打印
+   --------------------------------------------------------------------------
+   竞赛写法：依然是「全局数组 + 自由函数」，和上一段 seqlist.cpp 完全一致。
+
+   这里最值得记住的一句话：
+       按位取值是 O(1)，因为可以「算」出地址；按值查找是 O(n)，因为只能「比」。
+   这就是顺序表被称为「随机存取结构」的原因。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class SeqList {
-private:
-    T*  data;
-    int len, cap;
-    void grow() {                              // 扩容：容量不足时按 2 倍增长
-        int nc = (cap == 0) ? 4 : cap * 2;
-        T* nd = new T[nc];
-        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];
-        delete[] data;                         // 别忘了释放旧块，否则内存泄漏
-        data = nd; cap = nc;
-    }
-public:
-    SeqList() : data(nullptr), len(0), cap(0) {}
-    ~SeqList() { delete[] data; }
-    int  size() const { return len; }
-    bool ListInsert(int i, const T&amp; e);
-    bool GetElem(int i, T&amp; e) const;
-    int  LocateElem(const T&amp; e) const;
-    void PrintList() const;
-};
+const int N = 100005;
+int a[N];
+int n = 0;
 
-/* 按位查找 GetElem：位序 i -> 下标 i-1，一步到位，时间 O(1) */
-template &lt;typename T&gt;
-bool SeqList&lt;T&gt;::GetElem(int i, T&amp; e) const {
-    if (i &lt; 1 || i &gt; len) return false;   // 位序范围 1..len，注意不是 0..len-1
-    e = data[i - 1];                      // 位序 -> 下标：减 1
+/* ---------- 1) 按位取值 GetElem：位序 i → 下标 i-1，一步到位，O(1) ---------- */
+bool GetElem(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; n) return false;   // 位序范围 1..n，注意不是 0..n-1
+    e = a[i - 1];                       // 位序 → 下标：减 1
     return true;
 }
 
-// 按值查找 LocateElem：只能从头挨个比，时间 O(n)
-template &lt;typename T&gt;
-int SeqList&lt;T&gt;::LocateElem(const T&amp; e) const {
-    for (int k = 0; k &lt; len; ++k)
-        if (data[k] == e) return k + 1;   // 返回「位序」，所以是 k+1
-    return 0;                             // 0 是约定的「没找到」哨兵
+/* 顺便看一眼「地址」是怎么算出来的：
+   设首元素地址为 LOC(a[0])，每个元素占 L 字节，则
+       LOC(a[i]) = LOC(a[0]) + i * L
+   所以给定下标就能直接算出地址，不需要从头走一遍 —— 这就是 O(1) 的来源。 */
+
+/* ---------- 2) 按值查找 LocateElem：只能从头挨个比，O(n) ---------- */
+int LocateElem(int e) {
+    for (int k = 0; k &lt; n; ++k)
+        if (a[k] == e) return k + 1;    // 返回位序，所以是 k+1
+    return 0;                           // 0 = 没找到（位序从 1 起，0 不会被占用）
 }
 
-// 打印整表：既是调试工具，也是遍历的样板
-template &lt;typename T&gt;
-void SeqList&lt;T&gt;::PrintList() const {
-    cout &lt;&lt; "[ ";
-    for (int k = 0; k &lt; len; ++k) cout &lt;&lt; data[k] &lt;&lt; " ";
-    cout &lt;&lt; "]  len=" &lt;&lt; len &lt;&lt; " cap=" &lt;&lt; cap &lt;&lt; endl;
-}
+/* 平均查找长度 ASL：等概率下每个位置被查到的概率是 1/n，
+   比较次数分别是 1, 2, ..., n，所以 ASL = (1+2+...+n)/n = (n+1)/2。 */
 
-// 表尾追加（内部复用扩容逻辑，供 main 造数据用）
-template &lt;typename T&gt;
-bool SeqList&lt;T&gt;::ListInsert(int i, const T&amp; e) {
-    if (i &lt; 1 || i &gt; len + 1) return false;
-    if (len == cap) grow();
-    for (int k = len; k &gt;= i; --k) data[k] = data[k - 1];
-    data[i - 1] = e;
-    ++len;
-    return true;
+/* ---------- 3) 遍历打印 PrintList：逐个访问，O(n) ---------- */
+void PrintList() {
+    for (int k = 0; k &lt; n; ++k) printf("%d ", a[k]);
+    printf("（表长 %d）\n", n);
 }
 
 int main() {
-    SeqList&lt;int&gt; L;
-    int a[] = {21, 32, 45, 58, 66, 79};
-    for (int k = 0; k &lt; 6; ++k) L.ListInsert(L.size() + 1, a[k]);
-    L.PrintList();                                   // [ 21 32 45 58 66 79 ]  len=6 cap=8
+    for (int x : {12, 5, 33, 7, 20}) a[n++] = x;    // 直接往表尾放，建表 O(n)
 
-    int v = 0;
-    cout &lt;&lt; "GetElem(4)  = " &lt;&lt; (L.GetElem(4, v)  ? to_string(v) : "越界") &lt;&lt; endl;  // 58
-    cout &lt;&lt; "GetElem(99) = " &lt;&lt; (L.GetElem(99, v) ? to_string(v) : "越界") &lt;&lt; endl;  // 越界
-    cout &lt;&lt; "LocateElem(66)  = " &lt;&lt; L.LocateElem(66)  &lt;&lt; endl;   // 5（位序，不是下标 4）
-    cout &lt;&lt; "LocateElem(999) = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl;   // 0（约定表示没找到）
+    PrintList();                        // 12 5 33 7 20（表长 5）
+
+    int e;
+    if (GetElem(3, e)) printf("第 3 个元素 = %d\n", e);          // 33
+    printf("GetElem(9) 返回 %d（false 表示越界）\n", (int)GetElem(9, e));
+
+    printf("第一个 7 的位序 = %d\n", LocateElem(7));              // 4
+    printf("404 的位序 = %d（0 表示没找到）\n", LocateElem(404));
+
+    /* ---------- 复杂度小结 ----------
+       按位取值 O(1) ｜ 按值查找 O(n)（成功时 ASL=(n+1)/2）｜ 遍历 O(n) */
     return 0;
 }
 </pre>
@@ -720,97 +767,82 @@ int main() {
       考试若不给等概率假设，默认按等概率算。
     </div>
 
-    <pre data-lang="cpp" data-file="seqlist_insert_delete.cpp">// seqlist_insert_delete.cpp —— 顺序表的插入与删除：移动方向、边界与复杂度
-#include &lt;iostream&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="seqlist_insert_delete.cpp">
+/* ==========================================================================
+   顺序表的插入与删除：移动方向、边界条件与复杂度
+   --------------------------------------------------------------------------
+   顺序表的插入/删除之所以慢，不是因为它「不会做」，而是因为要保持
+   「逻辑相邻 = 物理相邻」这条规矩：一旦中间腾出一个空位或留下一个空洞，
+   就必须把后面的元素整体搬一搬。
+
+   两个必须记牢的方向：
+      插入 —— 从后往前搬（不然会把还没搬的元素覆盖掉）
+      删除 —— 从前往后搬（把空洞后面的元素依次补上来）
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class SeqList {
-private:
-    T*  data;
-    int len, cap;
-    void grow() {
-        int nc = (cap == 0) ? 4 : cap * 2;
-        T* nd = new T[nc];
-        for (int i = 0; i &lt; len; ++i) nd[i] = data[i];
-        delete[] data; data = nd; cap = nc;
-    }
-public:
-    SeqList() : data(nullptr), len(0), cap(0) {}
-    ~SeqList() { delete[] data; }
-    int  size()     const { return len; }
-    int  capacity() const { return cap; }
-    bool ListInsert(int i, const T&amp; e);
-    bool ListDelete(int i, T&amp; e);
-    bool GetElem(int i, T&amp; e) const;
-    int  LocateElem(const T&amp; e) const;
-    void PrintList() const;
-};
+const int N = 100005;
+int a[N];
+int n = 0;
 
-/* 插入：位序 i 合法范围 1..len+1；平均移动 n/2 次，时间 O(n) */
-template &lt;typename T&gt;
-bool SeqList&lt;T&gt;::ListInsert(int i, const T&amp; e) {
-    if (i &lt; 1 || i &gt; len + 1) return false;   // 注意是 len+1，不是 len
-    if (len == cap) grow();                   // 空间不够先扩容（均摊 O(1)）
-    for (int k = len; k &gt;= i; --k)            // 从后往前搬，腾出下标 i-1
-        data[k] = data[k - 1];                // 若反过来从前往后搬，数据会被自己覆盖
-    data[i - 1] = e;                          // 位序 i -> 下标 i-1
-    ++len;
+void PrintList() {
+    for (int k = 0; k &lt; n; ++k) printf("%d ", a[k]);
+    printf("（表长 %d）\n", n);
+}
+
+/* ---------- 插入：在位序 i 处插入 e，合法范围 1 &lt;= i &lt;= n+1 ----------
+   i = n+1 表示插到表尾（不用搬元素）；i = 1 表示插到表头（要搬 n 个）。
+   搬动次数 = n - i + 1，所以最坏 O(n)。 */
+bool ListInsert(int i, int e) {
+    if (i &lt; 1 || i &gt; n + 1) return false;      // 越界：注意上界是 n+1 不是 n
+    if (n == N) return false;                  // 表满（静态数组才需要判，vector 会自动扩容）
+    for (int k = n - 1; k &gt;= i - 1; --k)       // 从后往前：a[n-1] → a[n]，依次后移
+        a[k + 1] = a[k];
+    a[i - 1] = e;
+    ++n;
     return true;
 }
 
-// 删除：位序 i 合法范围 1..len；平均移动 (n-1)/2 次，时间 O(n)
-template &lt;typename T&gt;
-bool SeqList&lt;T&gt;::ListDelete(int i, T&amp; e) {
-    if (i &lt; 1 || i &gt; len) return false;       // 注意是 len，不是 len+1
-    e = data[i - 1];                          // 先把被删元素交给调用者
-    for (int k = i; k &lt; len; ++k)             // 从前往后搬，填掉下标 i-1 的空洞
-        data[k - 1] = data[k];
-    --len;                                    // 只改表长，不归还内存
+/* ---------- 删除：删掉位序 i 的元素，用 e 带回，合法范围 1 &lt;= i &lt;= n ----------
+   搬动次数 = n - i，所以最坏 O(n)。
+   注意：删除后「表长减一」，最后那个位置虽然还留着旧值，但已经不属��表内了。 */
+bool ListDelete(int i, int &amp;e) {
+    if (i &lt; 1 || i &gt; n) return false;
+    e = a[i - 1];
+    for (int k = i - 1; k &lt; n - 1; ++k)        // 从前往后：把后面的元素依次往前补
+        a[k] = a[k + 1];
+    --n;
     return true;
-}
-
-// 供 main 打印结果用的两个只读操作
-template &lt;typename T&gt;
-bool SeqList&lt;T&gt;::GetElem(int i, T&amp; e) const {
-    if (i &lt; 1 || i &gt; len) return false;       // 位序 1..len
-    e = data[i - 1];
-    return true;
-}
-template &lt;typename T&gt;
-int SeqList&lt;T&gt;::LocateElem(const T&amp; e) const {
-    for (int k = 0; k &lt; len; ++k) if (data[k] == e) return k + 1;   // 返回位序
-    return 0;                                 // 0 表示未找到
-}
-template &lt;typename T&gt;
-void SeqList&lt;T&gt;::PrintList() const {
-    cout &lt;&lt; "[ ";
-    for (int k = 0; k &lt; len; ++k) cout &lt;&lt; data[k] &lt;&lt; " ";
-    cout &lt;&lt; "]  len=" &lt;&lt; len &lt;&lt; " cap=" &lt;&lt; cap &lt;&lt; endl;
 }
 
 int main() {
-    SeqList&lt;int&gt; L;
-    int a[] = {21, 32, 45, 58, 66, 79};
-    for (int k = 0; k &lt; 6; ++k) L.ListInsert(L.size() + 1, a[k]);  // 逐个追加到表尾
-    L.PrintList();                            // [ 21 32 45 58 66 79 ]  len=6 cap=8
+    for (int x : {12, 5, 33, 7, 20}) ListInsert(n + 1, x);   // 全都插到表尾，建表 O(n)
+    PrintList();                     // 12 5 33 7 20（表长 5）
 
-    L.ListInsert(4, 50);                      // 在位序 4 插入 50，移动 3 次
-    L.PrintList();                            // [ 21 32 45 50 58 66 79 ]  len=7 cap=8
+    ListInsert(1, 99);               // 插到表头：5 个元素全部后移一格
+    PrintList();                     // 99 12 5 33 7 20（表长 6）
 
-    L.ListInsert(1, 7);                       // 表头插入，移动 7 次（最坏情况）
-    L.PrintList();
+    ListInsert(n + 1, 88);           // 插到表尾：一次搬动都不需要
+    PrintList();                     // 99 12 5 33 7 20 88（表长 7）
 
-    int del = 0;
-    L.ListDelete(2, del);                     // 删除位序 2，移动 6 次
-    cout &lt;&lt; "删除的元素是 " &lt;&lt; del &lt;&lt; endl;
-    L.PrintList();
+    int e;
+    ListDelete(3, e);
+    printf("删掉位序 3 的元素：%d\n", e);      // 5
+    PrintList();                     // 99 12 33 7 20 88（表长 6）
 
-    int v = 0;
-    cout &lt;&lt; "GetElem(3) = " &lt;&lt; (L.GetElem(3, v) ? to_string(v) : "越界") &lt;&lt; endl;
-    cout &lt;&lt; "LocateElem(66) = " &lt;&lt; L.LocateElem(66) &lt;&lt; endl;   // 返回位序
-    cout &lt;&lt; "LocateElem(999) = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl; // 返回 0 表示未找到
+    printf("越界删除 ListDelete(99) 返回 %d\n", (int)ListDelete(99, e));   // 0
+
+    /* ---------- 复杂度分析（考点） ----------
+       插入：位序 i 处插入要后移 n-i+1 个元素；
+             等概率取 i = 1..n+1，平均搬动
+             (n + (n-1) + ... + 1 + 0) / (n+1) = n/2 个 → O(n)
+       删除：位序 i 处删除要前移 n-i 个元素；
+             等概率取 i = 1..n，平均搬动
+             ((n-1) + (n-2) + ... + 1 + 0) / n = (n-1)/2 个 → O(n)
+
+       一句话记忆：顺序表「查得快、改得慢」——
+       按位取值 O(1)，插入删除平均要搬一半元素。 */
     return 0;
 }
 </pre>
@@ -1019,62 +1051,85 @@ int main() {
       它们的差别不只是顺序，还有是否需要额外的尾指针。
     </p>
 
-    <pre data-lang="cpp" data-file="singlylist_create.cpp">// singlylist_create.cpp —— 单链表的结点定义与两种建表法
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="singlylist_create.cpp">
+/* ==========================================================================
+   单链表的建立 —— 头插法与尾插法（算法竞赛写法）
+   --------------------------------------------------------------------------
+   竞赛里写链表的标准姿势：
+       · 用 struct 描述「结点长什么样」（数据域 + 指针域），这是知识点本身
+       · 用全局指针存表头，操作写成自由函数（不做类封装）
+       · 需要临时结点时直接 new，程序结束就回收，比赛里不用手动 delete
+
+   两个必须区分的概念（高频易错点）：
+       头指针 head —— 指向链表的第一个结点，它本身不是结点，是「入口」
+       首元结点    —— 链表中真正存第一个数据元素的那个结点
+       头结点      —— 为了简化操作，在首元结点前面附加的一个「哑结点」，
+                      它不存数据，next 指向首元结点。空表时 head-&gt;next == NULL。
+   下面用「带头结点」的版本：插入删除时不用特判「在表头操作」这种边界。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct Node {
-    int   data;                                     // 数据域
-    Node* next;                                     // 指针域：指向下一个结点
-    Node(int d = 0, Node* n = nullptr) : data(d), next(n) {}
+struct Node {               // 结点：数据域 + 指针域
+    int val;
+    Node *nxt;
+    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
 };
 
-class SinglyList {
-public:
-    Node* head;                                     // 头指针：永远指向头结点（哑结点）
-    int   len;                                      // 表长，不含头结点
+Node *head = nullptr;       // 头指针：指向头结点（哑结点）
 
-    SinglyList() : head(new Node()), len(0) {}      // 构造即建好头结点 => 空表
-    ~SinglyList() { Clear(); delete head; head = nullptr; }
+/* ---------- 建表：只要头结点，链表就是空表 ---------- */
+void InitList() {
+    head = new Node();      // 头结点不存数据
+}
 
-    void Clear();                                   // 只留头结点，见后文
+/* ---------- 头插法：每次插在首元结点前面，O(1) ----------
+   顺序会反过来！输入 1 2 3，链表里是 3 2 1。 */
+void PushFront(int x) {
+    Node *p = new Node(x);              // 1) 造新结点
+    p-&gt;nxt = head-&gt;nxt;                 // 2) 先连：新结点接上原来的首元结点
+    head-&gt;nxt = p;                      // 3) 后断：头结点改指向新结点
+    /* 这两句的顺序不能反！先写 head-&gt;nxt = p 就把原来的链表弄丢了 */
+}
 
-    /* ---------- 建表法一：头插法 O(n)，结果与输入顺序相反 ---------- */
-    void CreateHead(const int a[], int n) {
-        Clear();
-        for (int i = 0; i &lt; n; ++i) {
-            Node* s = new Node(a[i]);               // 新结点
-            s-&gt;next = head-&gt;next;                    // ① 新结点接管原来的首元结点
-            head-&gt;next = s;                         // ② 头结点指向新结点
-            ++len;
-        }
-    }   // 输入 21 32 45 58 66 79，得到 79 66 58 45 32 21
+/* ---------- 尾插法：维护一个尾指针 tail，插到表尾也是 O(1) ----------
+   顺序和输入一致，这是做题时更常用的建表方式。 */
+Node *tail = nullptr;
+void PushBack(int x) {
+    Node *p = new Node(x);
+    tail-&gt;nxt = p;                      // 接到尾巴后面
+    tail = p;                           // 更新尾指针
+}
 
-    /* ---------- 建表法二：尾插法 O(n)，需要一个尾指针 r ---------- */
-    void CreateTail(const int a[], int n) {
-        Clear();
-        Node* r = head;                             // r 始终指向当前尾结点，初始是头结点
-        for (int i = 0; i &lt; n; ++i) {
-            Node* s = new Node(a[i]);
-            r-&gt;next = s;                            // 挂到尾部：O(1)，因为不用再找尾
-            r = s;                                  // 尾指针后移
-            ++len;
-        }
-        r-&gt;next = nullptr;                          // 收尾：尾结点 next 置空（别漏，否则尾指针是野的）
-    }   // 输入 21 32 45 58 66 79，得到 21 32 45 58 66 79
+void InitListWithTail() {
+    head = new Node();
+    tail = head;                        // 空表时尾指针也指向头结点
+}
 
-    void PrintList() const {
-        cout &lt;&lt; "head";
-        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
-        cout &lt;&lt; " -&gt; NULL   (len=" &lt;&lt; len &lt;&lt; ")" &lt;&lt; endl;
-    }
-};
+void PrintList(const char *title) {
+    printf("%s：", title);
+    for (Node *p = head-&gt;nxt; p != nullptr; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL（不含头结点）\n");
+}
 
 int main() {
-    int a[] = {21, 32, 45, 58, 66, 79};
-    SinglyList L1, L2;
-    L1.CreateHead(a, 6);  L1.PrintList();   // head -&gt; 79 -&gt; 66 -&gt; 58 -&gt; 45 -&gt; 32 -&gt; 21 -&gt; NULL
-    L2.CreateTail(a, 6);  L2.PrintList();   // head -&gt; 21 -&gt; 32 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; NULL
+    /* ---------- 头插法 ---------- */
+    InitList();
+    for (int x : {1, 2, 3, 4, 5}) PushFront(x);
+    PrintList("头插 1..5");               // 5 -&gt; 4 -&gt; 3 -&gt; 2 -&gt; 1 -&gt; NULL
+
+    /* ---------- 尾插法 ---------- */
+    InitListWithTail();
+    for (int x : {1, 2, 3, 4, 5}) PushBack(x);
+    PrintList("尾插 1..5");               // 1 -&gt; 2 -&gt; 3 -&gt; 4 -&gt; 5 -&gt; NULL
+
+    /* ---------- 复杂度与对比 ----------
+       头插 O(1)、尾插（带尾指针）O(1)、建立长度为 n 的表整体 O(n)。
+       对比顺序表：建表也是 O(n)，但顺序表插入要搬元素，链表只改指针。
+
+       竞赛里什么时候用链表？
+       很少直接用！多数题目用「数组模拟链表」（见第 02 讲静态链表一节）
+       或链式前向星（第 08 讲），因为 new 慢、指针跳转还会让 cache 命中率变差。 */
     return 0;
 }
 </pre>
@@ -1098,61 +1153,88 @@ int main() {
       常数因子更大，实际跑起来更慢（还有缓存不友好的问题）。
     </p>
 
-    <pre data-lang="cpp" data-file="singlylist_find.cpp">// singlylist_find.cpp —— 按位查找、按值查找、按位插入
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="singlylist_find.cpp">
+/* ==========================================================================
+   单链表的查找：按位查找 与 按值查找
+   --------------------------------------------------------------------------
+   链表和顺序表最大的差别就在查找上：
+       顺序表按位取值 O(1)（能直接算出地址）
+       链表按位取值 O(n)（只能顺着指针一个个走，因为结点散落在内存各处）
+
+   所以「随机存取」这个词只属于顺序存储结构，链表是「顺序存取」。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
-
-class SinglyList {
-public:
-    Node* head; int len;
-    SinglyList() : head(new Node()), len(0) {}
-    ~SinglyList() { Node* p = head; while (p) { Node* q = p-&gt;next; delete p; p = q; } }
-
-    /* 按位查找：返回第 i 个结点的指针（不含头结点）；i 越界返回 nullptr。时间 O(n) */
-    Node* GetElem(int i) const {
-        if (i &lt; 1) return nullptr;
-        Node* p = head-&gt;next;                       // p 指向首元结点，即位序 1
-        int k = 1;
-        while (p &amp;&amp; k &lt; i) { p = p-&gt;next; ++k; }     // 走 i-1 步
-        return p;
-    }
-
-    /* 按值查找：返回第一个 data == e 的结点指针；找不到返回 nullptr。时间 O(n) */
-    Node* LocateElem(int e) const {
-        Node* p = head-&gt;next;
-        while (p &amp;&amp; p-&gt;data != e) p = p-&gt;next;
-        return p;
-    }
-
-    /* 在位序 i 处插入 e，合法范围 1..len+1。找前驱 O(n) + 改指针 O(1) = O(n) */
-    bool ListInsert(int i, int e) {
-        if (i &lt; 1 || i &gt; len + 1) return false;     // 插入能到 len+1
-        Node* p = head;                             // 从头结点出发，走 i-1 步停在第 i-1 个结点
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;    // i = 1 时不进循环，p 就是头结点
-        Node* s = new Node(e);
-        s-&gt;next = p-&gt;next;                          // ① 先连：新结点接管后继
-        p-&gt;next = s;                                // ② 后断：前驱改指新结点
-        ++len;
-        return true;
-    }
-
-    void PushBack(int e) { ListInsert(len + 1, e); }  // 表尾追加（注意这是 O(n)，因为没有尾指针）
+struct Node {
+    int val;
+    Node *nxt;
+    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
 };
 
-int main() {
-    SinglyList L;
-    int a[] = {21, 32, 45, 58, 66, 79};
-    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
+Node *head;                 // 头指针（指向头结点）
 
-    Node* p = L.GetElem(3);
-    cout &lt;&lt; "第 3 个元素是 " &lt;&lt; (p ? to_string(p-&gt;data) : "越界") &lt;&lt; endl;      // 45
-    p = L.LocateElem(66);
-    cout &lt;&lt; "值 66 " &lt;&lt; (p ? "找到了" : "没找到") &lt;&lt; endl;                       // 找到了
-    L.ListInsert(4, 50);                            // 位序 4 插入 50
-    for (Node* q = L.head-&gt;next; q; q = q-&gt;next) cout &lt;&lt; q-&gt;data &lt;&lt; " ";
-    cout &lt;&lt; endl;                                   // 21 32 45 50 58 66 79
+void InitList() { head = new Node(); }
+
+void PushBack(int x) {      // 尾插建表
+    Node *p = head;
+    while (p-&gt;nxt) p = p-&gt;nxt;          // 这里为了代码短，每次从头找尾：O(n)
+    p-&gt;nxt = new Node(x);
+}
+
+/* ---------- 按位查找 GetElem：返回第 i 个结点的指针，O(n) ----------
+   约定：i 从 1 开始。i 越界返回 nullptr。
+   注意 p 从 head-&gt;nxt 起步 —— 跳过头结点，因为它不算「第 1 个元素」。 */
+Node *GetElem(int i) {
+    if (i &lt; 1) return nullptr;
+    Node *p = head-&gt;nxt;                // p 指向首元结点
+    int j = 1;
+    while (p &amp;&amp; j &lt; i) { p = p-&gt;nxt; ++j; }
+    return p;                           // 走到第 i 个就返回；中途变 NULL 说明 i 越界
+}
+
+/* ---------- 按值查找 LocateElem：返回第一个值为 e 的结点指针 ---------- */
+Node *LocateElem(int e) {
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt)
+        if (p-&gt;val == e) return p;
+    return nullptr;
+}
+
+/* ---------- 求表长：O(n)。若经常用，可以额外维护一个 len 变量变成 O(1) ---------- */
+int Length() {
+    int n = 0;
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++n;
+    return n;
+}
+
+void PrintList(const char *title = "") {
+    printf("%s：", title);
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL\n");
+}
+
+int main() {
+    InitList();
+    for (int x : {12, 5, 33, 7, 20}) PushBack(x);
+    PrintList("链表");                    // 12 -&gt; 5 -&gt; 33 -&gt; 7 -&gt; 20 -&gt; NULL
+
+    printf("表长 = %d\n", Length());       // 5
+
+    Node *p = GetElem(3);
+    printf("第 3 个结点 = %s\n", p ? to_string(p-&gt;val).c_str() : "越界");   // 33
+
+    p = GetElem(9);
+    printf("第 9 个结点 = %s\n", p ? to_string(p-&gt;val).c_str() : "越界（返回 nullptr）");
+
+    p = LocateElem(7);
+    printf("值 7 的结点 = %s\n", p ? to_string(p-&gt;val).c_str() : "没找到");  // 7
+
+    p = LocateElem(404);
+    printf("值 404 的结点 = %s\n", p ? to_string(p-&gt;val).c_str() : "没找到（返回 nullptr）");
+
+    /* ---------- 结论 ----------
+       按位查找 O(n)、按值查找 O(n)、求表长 O(n)（可优化到 O(1)）。
+       链表唯一「快」的地方是：已知某个结点时插入删除是 O(1)，因为它不用搬元素。 */
     return 0;
 }
 </pre>
@@ -1334,76 +1416,118 @@ int main() {
 
     <div id="viz-singly-delete"></div>
 
-    <pre data-lang="cpp" data-file="singlylist_delete.cpp">// singlylist_delete.cpp —— 删除第 i 个结点 / 按值删除 / 整表删除
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="singlylist_delete.cpp">
+/* ==========================================================================
+   单链表的删除 —— 为什么删除必须知道「前驱」
+   --------------------------------------------------------------------------
+   要在链表中摘掉结点 p，得让 p 的前驱直接指向 p 的后继：
+       pre-&gt;nxt = p-&gt;nxt;   // 绕开 p
+   也就是说：**插入/删除都要动前驱的指针**，所以「找到前驱」是关键。
+
+   竞赛里必备的一个技巧：如果只给了要删的结点 p、没给前驱，怎么办？
+       —— 把后继的数据「复制」到 p 上，再删掉后继（下一段代码演示）。
+       这个方法不适用于「删除尾结点」（尾结点没有后继），要特判。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
-
-class SinglyList {
-public:
-    Node* head; int len;
-    SinglyList() : head(new Node()), len(0) {}
-    ~SinglyList() { Clear(); delete head; head = nullptr; }
-    void PushBack(int e) {                       // 无尾指针，O(n) 追加（演示用）
-        Node* p = head;
-        while (p-&gt;next) p = p-&gt;next;
-        p-&gt;next = new Node(e);
-        ++len;
-    }
-
-    /* 删除位序 i 的结点，值用 e 带回。找前驱 O(n) + 摘链 O(1) = O(n) */
-    bool ListDelete(int i, int&amp; e) {
-        if (i &lt; 1 || i &gt; len) return false;       // 删除只能到 len，不能到 len+1
-        Node* p = head;                          // p 最终停在第 i-1 个结点
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;
-        Node* q = p-&gt;next;                       // ① 先保存待删结点，否则下面一改就再也找不到它
-        e = q-&gt;data;                             // ② 把值交给调用者
-        p-&gt;next = q-&gt;next;                       // ③ 让前驱跨过 q
-        delete q;                                // ④ 释放内存（漏掉 = 内存泄漏）
-        q = nullptr;                             // ⑤ 置空，防野指针
-        --len;
-        return true;
-    }
-
-    /* 按值删除：删掉第一个 data == e 的结点 */
-    bool DeleteValue(int e) {
-        Node* p = head;                          // 同样需要前驱
-        while (p-&gt;next &amp;&amp; p-&gt;next-&gt;data != e) p = p-&gt;next;
-        if (!p-&gt;next) return false;              // 走到尾都没找到
-        Node* q = p-&gt;next;
-        p-&gt;next = q-&gt;next;
-        delete q;
-        --len;
-        return true;
-    }
-
-    /* 整表删除：只保留头结点。必须「先存 next 再 delete」 */
-    void Clear() {
-        Node* p = head-&gt;next;
-        while (p) {
-            Node* q = p-&gt;next;                   // 先记住下一个
-            delete p;                            // 再释放当前
-            p = q;                               // 顺着记忆往前走
-        }
-        head-&gt;next = nullptr;
-        len = 0;
-    }
+struct Node {
+    int val;
+    Node *nxt;
+    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
 };
 
-int main() {
-    SinglyList L;
-    int a[] = {21, 32, 45, 58, 66, 79};
-    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
+Node *head;
 
-    int del = 0;
-    L.ListDelete(3, del);
-    cout &lt;&lt; "删掉了 " &lt;&lt; del &lt;&lt; endl;              // 45
-    L.DeleteValue(79);                            // 删表尾元素，同样要先找前驱
-    for (Node* p = L.head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " ";
-    cout &lt;&lt; endl;                                 // 21 32 58 66
-    L.Clear();                                    // 整表清空，只留头结点
-    cout &lt;&lt; "clear 后 len = " &lt;&lt; L.len &lt;&lt; endl;    // 0
+void InitList() { head = new Node(); }
+
+void PushBack(int x) {
+    Node *p = head;
+    while (p-&gt;nxt) p = p-&gt;nxt;
+    p-&gt;nxt = new Node(x);
+}
+
+/* ---------- 取第 i 个结点（i 从 1 起），越界返回 nullptr ---------- */
+Node *GetElem(int i) {
+    if (i &lt; 1) return nullptr;
+    Node *p = head-&gt;nxt;
+    for (int j = 1; p &amp;&amp; j &lt; i; ++j) p = p-&gt;nxt;
+    return p;
+}
+
+/* ---------- 删除第 i 个结点：先找第 i-1 个（前驱），再摘下第 i 个 ----------
+   用 e 带回被删的值，返回是否成功。O(n)（时间花在找前驱上）。 */
+bool ListDelete(int i, int &amp;e) {
+    Node *pre = head;                       // 从「头结点」开始找前驱，这样 i=1 也能统一处理
+    for (int j = 1; j &lt; i &amp;&amp; pre-&gt;nxt; ++j) pre = pre-&gt;nxt;
+    if (pre-&gt;nxt == nullptr) return false;  // i 超过表长
+    Node *p = pre-&gt;nxt;
+    e = p-&gt;val;
+    pre-&gt;nxt = p-&gt;nxt;                      // 摘掉 p：前驱跨过 p
+    delete p;                               // 释放这个结点（竞赛里也可以不写）
+    return true;
+}
+
+/* ---------- 删除「值为 x」的第一个结点：同样要找前驱 ---------- */
+bool DeleteValue(int x) {
+    for (Node *pre = head; pre-&gt;nxt; pre = pre-&gt;nxt) {
+        if (pre-&gt;nxt-&gt;val == x) {
+            Node *p = pre-&gt;nxt;
+            pre-&gt;nxt = p-&gt;nxt;
+            delete p;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* ---------- 进阶：只给结点 p（不给前驱），O(1) 删掉它 ----------
+   思路：把 p 的后继「搬」到 p 身上，然后删掉后继。
+   限制：p 不能是尾结点（尾结点没有后继可搬）。 */
+bool DeleteNodeSelf(Node *p) {
+    if (p == nullptr || p-&gt;nxt == nullptr) return false;   // 尾结点不适用
+    Node *q = p-&gt;nxt;
+    p-&gt;val = q-&gt;val;                        // 后继的值复制过来
+    p-&gt;nxt = q-&gt;nxt;                        // 跨过后继
+    delete q;
+    return true;
+}
+
+void PrintList(const char *title = "") {
+    printf("%s", title);
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL\n");
+}
+
+int main() {
+    InitList();
+    for (int x : {12, 5, 33, 7, 20}) PushBack(x);
+    PrintList("原链表 ");                 // 12 -&gt; 5 -&gt; 33 -&gt; 7 -&gt; 20 -&gt; NULL
+
+    int e;
+    ListDelete(1, e);
+    printf("删掉第 1 个：%d\n", e);        // 12（删表头也要走「找前驱」这条路，头结点帮了大忙）
+    PrintList("现在   ");                 // 5 -&gt; 33 -&gt; 7 -&gt; 20 -&gt; NULL
+
+    ListDelete(3, e);
+    printf("删掉第 3 个：%d\n", e);        // 7
+    PrintList("现在   ");                 // 5 -&gt; 33 -&gt; 20 -&gt; NULL
+
+    printf("DeleteValue(33) 返回 %d\n", (int)DeleteValue(33));
+    PrintList("现在   ");                 // 5 -&gt; 20 -&gt; NULL
+
+    printf("ListDelete(9) 返回 %d\n", (int)ListDelete(9, e));   // 0（越界）
+
+    /* ---- 演示 O(1) 删除：只给结点指针，不给前驱 ---- */
+    InitList();
+    for (int x : {1, 2, 3, 4, 5}) PushBack(x);
+    Node *p = GetElem(3);                 // 拿到第 3 个结点（值 3）
+    DeleteNodeSelf(p);
+    PrintList("O(1) 删掉第 3 个后 ");      // 1 -&gt; 2 -&gt; 4 -&gt; 5 -&gt; NULL
+
+    /* ---------- 结论 ----------
+       删除第 i 个结点 O(n)（找前驱），已给前驱时 O(1)。
+       对比顺序表删除平均搬 (n-1)/2 个元素：链表只改两个指针，这是它唯一的优势。 */
     return 0;
 }
 </pre>
@@ -1416,115 +1540,151 @@ int main() {
       建议把这段代码抄进 IDE 单步走一遍，尤其是 <code>ListInsert</code> 与 <code>Clear</code>。
     </p>
 
-    <pre data-lang="cpp" data-file="singlylist_full.cpp">// singlylist_full.cpp —— 带头结点 + 尾指针的完整单链表实现
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="singlylist_full.cpp">
+/* ==========================================================================
+   单链表完整实现 —— 一份可以直接抄去比赛的模板
+   --------------------------------------------------------------------------
+   把前面几段的东西合起来：建表、求长、按位/按值查找、插入、删除、反转、打印。
+   全部用「全局头指针 + 自由函数」的竞赛写法，不用类。
+
+   约定（全课件统一）：
+       · 带头结点（哑结点），空表时 head-&gt;nxt == NULL
+       · 位序 i 从 1 开始，对应链表中的第 i 个数据结点（不含头结点）
+       · 函数返回 bool 表示成败，越界就是 false，不抛异常
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct Node {
-    int   data;
-    Node* next;
-    Node(int d = 0, Node* n = nullptr) : data(d), next(n) {}
+    int val;
+    Node *nxt;
+    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
 };
 
-class SinglyList {
-private:
-    Node* head;      // 头指针 -> 头结点（哑结点）
-    Node* tail;      // 尾指针 -> 尾结点，使表尾追加为 O(1)
-    int   len;       // 表长（不含头结点）
+Node *head;                  // 头指针
 
-public:
-    SinglyList() : head(new Node()), tail(head), len(0) {}
-    ~SinglyList() { DestroyList(); }
+/* ==================== 基本操作 ==================== */
 
-    int  Length() const { return len; }
-    bool Empty()  const { return len == 0; }
+void InitList() { head = new Node(); }
 
-    void InitList() {                       // 置为空表
-        DestroyList();
-        head = new Node();
-        tail = head;
-        len  = 0;
+int Length() {
+    int n = 0;
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++n;
+    return n;
+}
+
+void PushFront(int x) {                  // 头插 O(1)
+    head-&gt;nxt = new Node(x, head-&gt;nxt);
+}
+
+void PushBack(int x) {                   // 尾插 O(n)（没维护尾指针）
+    Node *p = head;
+    while (p-&gt;nxt) p = p-&gt;nxt;
+    p-&gt;nxt = new Node(x);
+}
+
+Node *GetElem(int i) {                   // 按位查找 O(n)，i 从 1 起
+    if (i &lt; 1) return nullptr;
+    Node *p = head-&gt;nxt;
+    for (int j = 1; p &amp;&amp; j &lt; i; ++j) p = p-&gt;nxt;
+    return p;
+}
+
+Node *LocateElem(int e) {                // 按值查找 O(n)
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt)
+        if (p-&gt;val == e) return p;
+    return nullptr;
+}
+
+bool ListInsert(int i, int e) {          // 在位序 i 处插入：先找前驱 O(n)
+    Node *pre = head;
+    for (int j = 1; j &lt; i &amp;&amp; pre-&gt;nxt; ++j) pre = pre-&gt;nxt;
+    if (i &lt; 1 || (i &gt; 1 &amp;&amp; pre-&gt;nxt == nullptr)) return false;   // i 越界
+    pre-&gt;nxt = new Node(e, pre-&gt;nxt);    // 新结点接上后继，前驱再接新结点
+    return true;
+}
+
+bool ListDelete(int i, int &amp;e) {         // 删除位序 i：先找前驱 O(n)
+    Node *pre = head;
+    for (int j = 1; j &lt; i &amp;&amp; pre-&gt;nxt; ++j) pre = pre-&gt;nxt;
+    if (pre-&gt;nxt == nullptr) return false;
+    Node *p = pre-&gt;nxt;
+    e = p-&gt;val;
+    pre-&gt;nxt = p-&gt;nxt;
+    delete p;
+    return true;
+}
+
+/* ==================== 竞赛常考的链表操作 ==================== */
+
+/* 1) 反转链表（迭代版）：pre / cur / nxt 三个指针依次翻转，O(n)、O(1) 空间 */
+void Reverse() {
+    Node *pre = nullptr, *cur = head-&gt;nxt;
+    while (cur) {
+        Node *nxt = cur-&gt;nxt;            // 先存下后继，否则翻完就找不到了
+        cur-&gt;nxt = pre;                  // 翻转指针
+        pre = cur;                       // 三个指针整体后移
+        cur = nxt;
     }
+    head-&gt;nxt = pre;                     // 头结点指向新的首元结点
+}
 
-    void DestroyList() {                    // 整表销毁（含头结点）
-        Node* p = head;
-        while (p) { Node* q = p-&gt;next; delete p; p = q; }
-        head = tail = nullptr;
-        len = 0;
-    }
+/* 2) 找中间结点（快慢指针）：slow 走 1 步、fast 走 2 步，fast 到头时 slow 在中间 */
+Node *Middle() {
+    Node *slow = head-&gt;nxt, *fast = head-&gt;nxt;
+    while (fast &amp;&amp; fast-&gt;nxt) { slow = slow-&gt;nxt; fast = fast-&gt;nxt-&gt;nxt; }
+    return slow;                         // 偶数个结点时返回「中间偏右」那个
+}
 
-    void PushBack(int e) {                  // 表尾追加：O(1)，因为有 tail
-        Node* s = new Node(e);
-        tail-&gt;next = s;
-        tail = s;
-        ++len;
+/* 3) 判断是否有环（Floyd 判环），返回相遇点；无环返回 nullptr */
+Node *HasCycle() {
+    Node *slow = head-&gt;nxt, *fast = head-&gt;nxt;
+    while (fast &amp;&amp; fast-&gt;nxt) {
+        slow = slow-&gt;nxt;
+        fast = fast-&gt;nxt-&gt;nxt;
+        if (slow == fast) return slow;
     }
+    return nullptr;
+}
 
-    Node* GetElem(int i) const {            // 按位查找：O(n)
-        if (i &lt; 1) return nullptr;
-        Node* p = head-&gt;next;
-        for (int k = 1; p &amp;&amp; k &lt; i; ++k) p = p-&gt;next;
-        return p;
-    }
-
-    int LocateElem(int e) const {           // 按值查找：返回位序，0 表示失败
-        int k = 1;
-        for (Node* p = head-&gt;next; p; p = p-&gt;next, ++k)
-            if (p-&gt;data == e) return k;
-        return 0;
-    }
-
-    bool ListInsert(int i, int e) {         // 位序 i 插入：1..len+1
-        if (i &lt; 1 || i &gt; len + 1) return false;
-        Node* p = head;
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;   // 走到第 i-1 个结点
-        Node* s = new Node(e);
-        s-&gt;next = p-&gt;next;                  // 先连
-        p-&gt;next = s;                        // 后断
-        if (p == tail) tail = s;            // 关键：插在表尾时别忘了维护尾指针
-        ++len;
-        return true;
-    }
-
-    bool ListDelete(int i, int&amp; e) {        // 删除位序 i：1..len
-        if (i &lt; 1 || i &gt; len) return false;
-        Node* p = head;
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;
-        Node* q = p-&gt;next;
-        e = q-&gt;data;
-        p-&gt;next = q-&gt;next;
-        if (q == tail) tail = p;            // 删掉尾结点时尾指针要回退到前驱
-        delete q;
-        --len;
-        return true;
-    }
-
-    void PrintList() const {
-        cout &lt;&lt; "head";
-        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
-        cout &lt;&lt; " -&gt; NULL   (len=" &lt;&lt; len &lt;&lt; ")" &lt;&lt; endl;
-    }
-};
+void PrintList(const char *title = "") {
+    printf("%s：", title);
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL（长度 %d）\n", Length());
+}
 
 int main() {
-    SinglyList L;
-    int a[] = {21, 32, 45, 58, 66, 79};
-    for (int k = 0; k &lt; 6; ++k) L.PushBack(a[k]);
-    L.PrintList();                                  // head -&gt; 21 -&gt; 32 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; NULL
+    InitList();
+    for (int x : {1, 2, 3, 4, 5, 6}) PushBack(x);
+    PrintList("初始");
 
-    L.ListInsert(1, 7);                             // 表头插入（有了头结点，无需特判）
-    L.ListInsert(L.Length() + 1, 99);               // 表尾插入，尾指针被正确维护
-    L.ListInsert(4, 50);
-    L.PrintList();                                  // head -&gt; 7 -&gt; 21 -&gt; 32 -&gt; 50 -&gt; 45 -&gt; 58 -&gt; 66 -&gt; 79 -&gt; 99 -&gt; NULL
+    ListInsert(1, 0);                 // 插到表头
+    ListInsert(4, 99);                // 插到中间
+    PrintList("插入 0 到表头、99 到第 4 位");
 
-    int del = 0;
-    L.ListDelete(1, del);   cout &lt;&lt; "删除表头: " &lt;&lt; del &lt;&lt; endl;
-    L.ListDelete(L.Length(), del); cout &lt;&lt; "删除表尾: " &lt;&lt; del &lt;&lt; endl;
-    L.PrintList();
+    int e;
+    ListDelete(4, e);
+    printf("删掉 %d\n", e);
+    PrintList("删除后");
 
-    cout &lt;&lt; "第 3 个元素 = " &lt;&lt; L.GetElem(3)-&gt;data &lt;&lt; endl;
-    cout &lt;&lt; "66 的位序 = " &lt;&lt; L.LocateElem(66) &lt;&lt; endl;
-    cout &lt;&lt; "999 的位序 = " &lt;&lt; L.LocateElem(999) &lt;&lt; endl;
+    printf("表长 = %d，中间结点 = %d\n", Length(), Middle()-&gt;val);
+
+    Reverse();
+    PrintList("反转后");
+
+    printf("是否有环：%s\n", HasCycle() ? "有" : "无");
+
+    /* 人为造一个环：把尾结点指回第 3 个结点 */
+    Node *tail = head-&gt;nxt;
+    while (tail-&gt;nxt) tail = tail-&gt;nxt;
+    tail-&gt;nxt = GetElem(3);
+    printf("造环后再判：%s\n", HasCycle() ? "有环（快慢指针相遇）" : "无环");
+
+    /* ---------- 复杂度汇总（考点） ----------
+       建表 O(n) ｜ 求长 O(n) ｜ 按位查找 O(n) ｜ 按值查找 O(n)
+       已知前驱时插入/删除 O(1) ｜ 否则 O(n)（时间花在找前驱）
+       反转 O(n) 时间、O(1) 空间 ｜ 判环 O(n) 时间、O(1) 空间
+       对比顺序表：链表牺牲了随机存取（O(1) → O(n)），换来插入删除不用搬元素。 */
     return 0;
 }
 </pre>
@@ -2179,112 +2339,114 @@ int main() {
 
     <h3 id="s4-2">2.4.2 双向链表完整实现 DLinkList</h3>
 
-    <pre data-lang="cpp" data-file="dlinklist.h">// dlinklist.h —— 带头结点的双向链表：插入、删除、正向 / 反向遍历
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="dlinklist.h">
+/* ==========================================================================
+   双向链表 —— 每个结点多一个「前驱指针」，插入删除就不用找前驱了
+   --------------------------------------------------------------------------
+   结点结构：
+       struct Node { int val; Node *pre, *nxt; };
+                      数据域   前驱     后继
+
+   和单链表比，它多花的代价是「每个结点多一个指针域」；
+   换来的是三件事：
+       ① 删除某个结点不用先找前驱 —— 直接靠 p-&gt;pre 就能拿到，O(1)
+       ② 可以反向遍历
+       ③ 能在某个结点「前面」插入，也是 O(1)
+
+   竞赛里什么时候用？主要是需要「双向删除」的场景，例如 LRU 缓存、双端队列的实现。
+   日常做题用数组模拟双向链表更常见（int pre[N], nxt[N]），速度更快。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct DNode {
-    int    data;
-    DNode* prior;                     // 前驱指针
-    DNode* next;                      // 后继指针
-    DNode(int d = 0, DNode* p = nullptr, DNode* n = nullptr)
-        : data(d), prior(p), next(n) {}
+struct Node {
+    int val;
+    Node *pre, *nxt;                     // 前驱 + 后继
+    Node(int v = 0, Node *p = nullptr, Node *n = nullptr) : val(v), pre(p), nxt(n) {}
 };
 
-class DLinkList {
-private:
-    DNode* head;                      // 头结点：head->prior 恒为 nullptr
-    int    len;
+Node *head;                              // 头结点（哑结点）
+Node *tail;                              // 尾结点（哑结点），这样两端插入都 O(1)
 
-public:
-    DLinkList() : head(new DNode()), len(0) {}
-    ~DLinkList() { DestroyList(); delete head; head = nullptr; }
+void InitList() {
+    head = new Node();
+    tail = new Node();
+    head-&gt;nxt = tail;                    // 空表：head &lt;-&gt; tail
+    tail-&gt;pre = head;
+}
 
-    int  Length() const { return len; }
-    bool Empty()  const { return len == 0; }
+bool Empty() { return head-&gt;nxt == tail; }
 
-    DNode* GetElem(int i) const {     // 按位查找：O(n)，双向链表也无法随机存取
-        if (i &lt; 1) return nullptr;
-        DNode* p = head-&gt;next;
-        for (int k = 1; p &amp;&amp; k &lt; i; ++k) p = p-&gt;next;
-        return p;
-    }
+/* ---------- 在结点 p 的「后面」插入 x：改四条指针，O(1) ----------
+   顺序要点：先把新结点的两个指针接好，再改邻居的指针。
+   （先改邻居也不会错，但要保证每一步引用的结点都还有效） */
+void InsertAfter(Node *p, int x) {
+    Node *q = new Node(x, p, p-&gt;nxt);    // 新结点：前驱=p，后继=p 原来的后继
+    p-&gt;nxt-&gt;pre = q;                     // 原来的后继，前驱改成新结点
+    p-&gt;nxt = q;                          // p 的后继改成新结点
+}
 
-    /* 在位序 i 处插入 e：先走 i-1 步找到前驱 p，再改四条指针 */
-    bool ListInsert(int i, int e) {
-        if (i &lt; 1 || i &gt; len + 1) return false;
-        DNode* p = head;
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;next;   // p 停在第 i-1 个结点
-        DNode* s = new DNode(e);
-        s-&gt;prior = p;                              // ① 新结点的前驱
-        s-&gt;next  = p-&gt;next;                        // ② 新结点的后继（此时 p->next 还是原后继）
-        if (p-&gt;next) p-&gt;next-&gt;prior = s;            // ③ 原后继回头指向 s；p 是尾结点时 p->next 为 NULL
-        p-&gt;next = s;                               // ④ 最后才断开旧链
-        ++len;
-        return true;
-    }
+/* ---------- 在结点 p 的「前面」插入 x：O(1)（这是双链表独有的便利） ---------- */
+void InsertBefore(Node *p, int x) {
+    InsertAfter(p-&gt;pre, x);              // 在「p 的前驱」后面插入 = 在 p 前面插入
+}
 
-    /* 删除位序 i 的结点：注意 q->prior 一定存在（至少是头结点），所以 ① 不用判空 */
-    bool ListDelete(int i, int&amp; e) {
-        if (i &lt; 1 || i &gt; len) return false;
-        DNode* q = GetElem(i);
-        if (!q) return false;
-        e = q-&gt;data;
-        q-&gt;prior-&gt;next = q-&gt;next;                  // ① 前驱跨过后继
-        if (q-&gt;next) q-&gt;next-&gt;prior = q-&gt;prior;     // ② 后继回指前驱；q 是尾结点时要判空
-        delete q;
-        --len;
-        return true;
-    }
+/* ---------- 删除结点 p：两条指针，O(1)，不需要找前驱 ---------- */
+void Erase(Node *p) {
+    p-&gt;pre-&gt;nxt = p-&gt;nxt;
+    p-&gt;nxt-&gt;pre = p-&gt;pre;
+    delete p;
+}
 
-    /* 交换 p 与它的后继结点（只改指针，不搬数据）—— 双向链表的经典考题 */
-    bool SwapWithNext(DNode* p) {
-        DNode* q = p-&gt;next;
-        if (!q) return false;                      // p 是尾结点，没有后继
-        p-&gt;next = q-&gt;next;
-        if (q-&gt;next) q-&gt;next-&gt;prior = p;
-        q-&gt;prior = p-&gt;prior;
-        p-&gt;prior-&gt;next = q;
-        q-&gt;next = p;
-        p-&gt;prior = q;
-        return true;
-    }
+void PushBack(int x) { InsertBefore(tail, x); }    // 插到尾结点前面 = 表尾
+void PushFront(int x) { InsertAfter(head, x); }    // 插到头结点后面 = 表头
 
-    void PrintForward() const {                    // 正向遍历：靠 next
-        cout &lt;&lt; "NULL &lt;=&gt; ";
-        for (DNode* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " &lt;=&gt; ";
-        cout &lt;&lt; "NULL" &lt;&lt; endl;
-    }
+Node *GetElem(int i) {                   // 按位查找，O(n)
+    if (i &lt; 1) return nullptr;
+    Node *p = head-&gt;nxt;
+    for (int j = 1; p != tail &amp;&amp; j &lt; i; ++j) p = p-&gt;nxt;
+    return (p == tail) ? nullptr : p;    // 走到尾结点说明越界
+}
 
-    void PrintBackward() const {                   // 反向遍历：先走到尾，再靠 prior 回头
-        DNode* p = head-&gt;next;
-        cout &lt;&lt; "反向: ";
-        if (!p) { cout &lt;&lt; "(空表)" &lt;&lt; endl; return; }
-        while (p-&gt;next) p = p-&gt;next;               // 一路走到尾结点
-        for (; p != head; p = p-&gt;prior) cout &lt;&lt; p-&gt;data &lt;&lt; " ";
-        cout &lt;&lt; endl;
-    }
+void PrintForward(const char *title = "") {
+    printf("%s正向：", title);
+    for (Node *p = head-&gt;nxt; p != tail; p = p-&gt;nxt) printf("%d ", p-&gt;val);
+    printf("\n");
+}
 
-    void DestroyList() {                           // 整表删除
-        DNode* p = head-&gt;next;
-        while (p) { DNode* q = p-&gt;next; delete p; p = q; }
-        head-&gt;next = nullptr;
-        len = 0;
-    }
-};
+void PrintBackward(const char *title = "") {     // 双链表才能这么干
+    printf("%s反向：", title);
+    for (Node *p = tail-&gt;pre; p != head; p = p-&gt;pre) printf("%d ", p-&gt;val);
+    printf("\n");
+}
 
 int main() {
-    DLinkList L;
-    for (int k = 1; k &lt;= 5; ++k) L.ListInsert(L.Length() + 1, k * 10);  // 10 20 30 40 50
-    L.ListInsert(3, 25);          // 10 20 25 30 40 50
-    L.PrintForward();
-    L.PrintBackward();            // 反向遍历验证 prior 链是否正确：50 40 30 25 20 10
+    InitList();
+    for (int x : {1, 2, 3, 4, 5}) PushBack(x);
+    PrintForward("尾插 1..5  ");
+    PrintBackward("尾插 1..5  ");        // 顺序是反的：5 4 3 2 1
 
-    int del = 0;
-    L.ListDelete(1, del);   cout &lt;&lt; "删除表头: " &lt;&lt; del &lt;&lt; endl;
-    L.ListDelete(L.Length(), del); cout &lt;&lt; "删除表尾: " &lt;&lt; del &lt;&lt; endl;
-    L.PrintForward();
-    L.PrintBackward();
+    PushFront(0);
+    PrintForward("头插 0 后  ");          // 0 1 2 3 4 5
+
+    Node *p = GetElem(3);                 // 第 3 个结点（值 2）
+    InsertBefore(p, 99);                  // 在它前面插入 —— 单链表做不到 O(1)
+    PrintForward("在 2 前面插 99 ");       // 0 1 99 2 3 4 5
+
+    Erase(p);                             // 只给结点指针就删掉它，O(1)
+    PrintForward("删掉 2 后  ");          // 0 1 99 3 4 5
+
+    printf("空表吗：%s\n", Empty() ? "是" : "否");
+
+    /* ---------- 与单链表对比（考点） ----------
+       维度            单链表          双向链表
+       每结点指针域     1 个            2 个
+       删除已知结点     O(n)（要找前驱）  O(1)
+       在结点前插入     O(n)            O(1)
+       反向遍历         不行            可以
+       空间开销         小              每结点多 8 字节
+
+       记忆点：双向链表是用「空间」换「删除便利」，典型应用是 LRU 缓存与双端队列。 */
     return 0;
 }
 </pre>
@@ -2413,81 +2575,98 @@ int main() {
       队列需要「队尾入队 + 队头出队」，用只设尾指针的循环链表，两个操作都是 O(1)。
     </p>
 
-    <pre data-lang="cpp" data-file="circular_list.cpp">// circular_list.cpp —— 只设尾指针的循环单链表：头插 / 尾插都是 O(1)
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="circular_list.cpp">
+/* ==========================================================================
+   循环链表 —— 尾结点的 next 指回头结点，整个表连成一个环
+   --------------------------------------------------------------------------
+   和普通单链表的唯一区别：
+       普通单链表走到尾结点时 p-&gt;nxt == NULL（这是遍历结束的条件）
+       循环链表没有 NULL，遍历结束的条件是「p-&gt;nxt == head」（回到起点）
+
+   ⚠️ 高频易错点：把循环链表当普通链表写，判断 p != NULL 会死循环！
+
+   循环链表最实用的一招：**只设尾指针 rear（不设头指针）**
+       · 表头结点 = rear-&gt;nxt-&gt;nxt（跳过哑结点）
+       · 在表头插入、在表尾插入都是 O(1)
+       普通单链表想在表尾插入必须从头走一遍（O(n)），这是循环链表的优势。
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct Node { int data; Node* next; Node(int d = 0, Node* n = nullptr) : data(d), next(n) {} };
-
-class CircList {
-private:
-    Node* rear;                       // 尾指针：rear->next 就是头结点
-    int   len;
-
-public:
-    CircList() : len(0) {
-        rear = new Node();            // 建头结点
-        rear-&gt;next = rear;            // 空循环链表：头结点指向自己
-    }
-    ~CircList() { Clear(); delete rear; rear = nullptr; }
-
-    bool Empty() const { return rear-&gt;next == rear; }   // 注意：不是 == nullptr
-    int  Length() const { return len; }
-    Node* First() const { return rear-&gt;next-&gt;next; }    // 首元结点 = 头结点->next
-
-    void PushFront(int e) {           // 表头插入 O(1)，无需遍历
-        Node* s = new Node(e);
-        s-&gt;next = rear-&gt;next-&gt;next;    // ① 新结点接管原首元结点（表空时就是头结点自己）
-        rear-&gt;next-&gt;next = s;         // ② 头结点指向新结点
-        ++len;
-    }
-
-    void PushBack(int e) {            // 表尾插入 O(1)，因为有 rear
-        Node* s = new Node(e);
-        s-&gt;next = rear-&gt;next;         // ① 新结点接管头结点（成环的关键）
-        rear-&gt;next = s;               // ② 原尾结点指向新结点
-        rear = s;                     // ③ 尾指针后移
-        ++len;
-    }
-
-    bool PopFront(int&amp; e) {           // 表头删除 O(1)
-        if (Empty()) return false;
-        Node* q = rear-&gt;next-&gt;next;   // 首元结点
-        e = q-&gt;data;
-        rear-&gt;next-&gt;next = q-&gt;next;   // 头结点跨过 q（表里只剩一个结点时，正好指回头结点）
-        delete q;
-        --len;
-        return true;
-    }
-
-    void PrintList() const {          // 遍历结束条件：p != rear->next（回到头结点）
-        Node* head = rear-&gt;next;
-        cout &lt;&lt; "head";
-        for (Node* p = head-&gt;next; p != head; p = p-&gt;next) cout &lt;&lt; " -&gt; " &lt;&lt; p-&gt;data;
-        cout &lt;&lt; " -&gt; (回到 head)　len=" &lt;&lt; len &lt;&lt; endl;
-    }
-
-    void Clear() {
-        Node* head = rear-&gt;next;
-        Node* p = head-&gt;next;
-        while (p != head) { Node* q = p-&gt;next; delete p; p = q; }
-        head-&gt;next = head;            // 恢复成空循环链表
-        rear = head;
-        len = 0;
-    }
+struct Node {
+    int val;
+    Node *nxt;
+    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
 };
 
+Node *head;                  // 头结点（哑结点），head-&gt;nxt 是首元结点
+
+void InitList() {
+    head = new Node();
+    head-&gt;nxt = head;        // 空表：自己指自己，形成只有哑结点的环
+}
+
+bool Empty() { return head-&gt;nxt == head; }
+
+/* ---------- 尾插：先找到尾结点（p-&gt;nxt == head 就是尾），再接到后面 ---------- */
+void PushBack(int x) {
+    Node *p = head;
+    while (p-&gt;nxt != head) p = p-&gt;nxt;     // 注意终止条件是回到 head，不是 NULL
+    Node *q = new Node(x, head);           // 新结点的 next 指向头结点，闭环
+    p-&gt;nxt = q;
+}
+
+/* ---------- 头插：插在首元结点前面，O(1) ---------- */
+void PushFront(int x) {
+    head-&gt;nxt = new Node(x, head-&gt;nxt);
+}
+
+/* ---------- 遍历：从头结点后面出发，走回 head 就停 ---------- */
+void PrintList(const char *title = "") {
+    printf("%s：", title);
+    if (Empty()) { printf("（空表）\n"); return; }
+    for (Node *p = head-&gt;nxt; p != head; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("回到头结点\n");
+}
+
 int main() {
-    CircList L;
-    L.PushBack(12);  L.PushBack(34);  L.PushBack(56);   // 12 34 56
-    L.PushFront(7);                                      // 7 12 34 56
-    L.PrintList();
-    int e = 0;
-    L.PopFront(e);  cout &lt;&lt; "队头出队: " &lt;&lt; e &lt;&lt; endl;       // 7
-    L.PushBack(99);                                      // 12 34 56 99
-    L.PrintList();
-    L.Clear();
-    cout &lt;&lt; "清空后 Empty() = " &lt;&lt; (L.Empty() ? "true" : "false") &lt;&lt; endl;
+    InitList();
+    printf("刚建好是空表吗：%s\n", Empty() ? "是" : "否");
+    PrintList("空表");
+
+    for (int x : {1, 2, 3, 4, 5}) PushBack(x);
+    PrintList("尾插 1..5");
+
+    PushFront(0);
+    PrintList("头插 0");
+
+    /* ---------- 只设尾指针的版本：两端插入都是 O(1) ---------- */
+    puts("\n---- 只设尾指针 rear 的循环链表 ----");
+    Node *rear = new Node();          // 只用一个哑结点当尾指针
+    rear-&gt;nxt = rear;                 // 空表
+    auto pushBackFast = [&amp;](int x) {  // 表尾插入 O(1)
+        Node *q = new Node(x, rear-&gt;nxt);
+        rear-&gt;nxt = q;
+        rear = q;
+    };
+    auto pushFrontFast = [&amp;](int x) { // 表头插入 O(1)
+        Node *first = rear-&gt;nxt;      // 首元结点
+        rear-&gt;nxt = new Node(x, first);
+    };
+    for (int x = 1; x &lt;= 3; ++x) pushBackFast(x * 10);
+    pushFrontFast(5);                 // 插到最前面
+    pushBackFast(40);                 // 插到最后面
+    printf("从首元结点开始打印：");
+    for (Node *p = rear-&gt;nxt; ; p = p-&gt;nxt) {
+        printf("%d ", p-&gt;val);
+        if (p == rear) break;         // 走到尾指针就停
+    }
+    printf("\n");
+
+    /* ---------- 结论（考点） ----------
+       ① 遍历终止条件：p != head（或回到起点），不是 p != NULL
+       ② 只设尾指针时：表头插入 O(1)、表尾插入 O(1)
+       ③ 典型应用：约瑟夫环（Josephus）问题——下面 static_list 段之后还有专门一段 */
     return 0;
 }
 </pre>
@@ -2633,89 +2812,108 @@ int main() {
       <code>std::list</code> 底层就是一个<b>带哨兵结点的循环双链表</b>。
     </p>
 
-    <pre data-lang="cpp" data-file="circular_dlink.cpp">// circular_dlink.cpp —— 循环双链表：插入 / 删除任意结点都是 O(1)，且无需判空
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="circular_dlink.cpp">
+/* ==========================================================================
+   循环双链表 —— 环形 + 双向，插入删除最"对称"的结构
+   --------------------------------------------------------------------------
+   结点：struct Node { int val; Node *pre, *nxt; };
+   空表状态：head-&gt;nxt = head-&gt;pre = head（自己指自己）
+
+   它的好处是：不需要头结点/尾结点两个哑结点，一个 head 就能两端操作，
+   插入删除的指针修改是对称的：
+       在 p 后面插入 q： q-&gt;nxt = p-&gt;nxt; q-&gt;pre = p;
+                        p-&gt;nxt-&gt;pre = q;  p-&gt;nxt = q;
+       删除 p：        p-&gt;pre-&gt;nxt = p-&gt;nxt;  p-&gt;nxt-&gt;pre = p-&gt;pre;
+   （只有环形的结构里，p-&gt;pre 永远存在，不需要判空指针，代码最干净。）
+   ========================================================================== */
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct DNode {
-    int    data;
-    DNode* prior;
-    DNode* next;
-    DNode(int d = 0, DNode* p = nullptr, DNode* n = nullptr)
-        : data(d), prior(p), next(n) {}
+struct Node {
+    int val;
+    Node *pre, *nxt;
+    Node(int v = 0) : val(v), pre(this), nxt(this) {}   // 自己指自己 = 只有一个元素的环
 };
 
-class CircDLink {
-private:
-    DNode* head;                       // 哨兵头结点：head->prior 是尾结点，head->next 是首元结点
-    int    len;
+Node *head;
 
-public:
-    CircDLink() : len(0) {
-        head = new DNode();            // 空表时两个指针都指向自己
-        head-&gt;prior = head;
-        head-&gt;next  = head;
-    }
-    ~CircDLink() { while (!Empty()) PopFront(); delete head; head = nullptr; }
+void InitList() {
+    head = new Node();               // 头结点自己成环
+}
 
-    bool Empty() const { return head-&gt;next == head; }
-    int  Length() const { return len; }
+bool Empty() { return head-&gt;nxt == head; }
 
-    /* 在 p 之后插入结点 s。四步，且 p->next 永远非空 ⇒ 不需要任何判空 */
-    void InsertAfter(DNode* p, int e) {
-        DNode* s = new DNode(e);
-        s-&gt;prior = p;                  // ①
-        s-&gt;next  = p-&gt;next;            // ②
-        p-&gt;next-&gt;prior = s;            // ③ 循环双链表里 p->next 一定存在，直接写，无需 if
-        p-&gt;next = s;                   // ④
-        ++len;
-    }
+/* ---------- 把 q 接在 p 的后面（q 必须是一个「孤立」结点） ---------- */
+void Link(Node *p, Node *q) {
+    q-&gt;nxt = p-&gt;nxt;
+    q-&gt;pre = p;
+    p-&gt;nxt-&gt;pre = q;
+    p-&gt;nxt = q;
+}
 
-    /* 删除结点 p 本身：只改两根指针。这是循环双链表最优雅的地方 */
-    void DeleteNode(DNode* p) {
-        if (!p || p == head) return;   // 保护：不允许删掉哨兵
-        p-&gt;prior-&gt;next = p-&gt;next;      // ① 前驱跨过自己
-        p-&gt;next-&gt;prior = p-&gt;prior;     // ② 后继回指前驱
-        delete p;                      // ③ 释放。没有 NULL 需要判断
-        --len;
-    }
+/* ---------- 从环里摘掉 p ---------- */
+void Unlink(Node *p) {
+    p-&gt;pre-&gt;nxt = p-&gt;nxt;
+    p-&gt;nxt-&gt;pre = p-&gt;pre;
+    p-&gt;nxt = p-&gt;pre = p;             // 让它自己成环，避免野指针
+}
 
-    void PushBack(int e) { InsertAfter(head-&gt;prior, e); }   // 尾插：在尾结点之后插
-    void PushFront(int e) { InsertAfter(head, e); }         // 头插：在头结点之后插
-    bool PopFront() {
-        if (Empty()) return false;
-        DeleteNode(head-&gt;next);
-        return true;
-    }
+void PushBack(int x)  { Link(head-&gt;pre, new Node(x)); }   // 接在尾结点后面
+void PushFront(int x) { Link(head, new Node(x)); }        // 接在头结点后面
 
-    void PrintForward() const {
-        cout &lt;&lt; "(head)";
-        for (DNode* p = head-&gt;next; p != head; p = p-&gt;next) cout &lt;&lt; " &lt;=&gt; " &lt;&lt; p-&gt;data;
-        cout &lt;&lt; " &lt;=&gt; (head)" &lt;&lt; endl;
-    }
-    void PrintBackward() const {
-        cout &lt;&lt; "反向: (head)";
-        for (DNode* p = head-&gt;prior; p != head; p = p-&gt;prior) cout &lt;&lt; " &lt;=&gt; " &lt;&lt; p-&gt;data;
-        cout &lt;&lt; " &lt;=&gt; (head)" &lt;&lt; endl;
-    }
-};
+int Length() {
+    int n = 0;
+    for (Node *p = head-&gt;nxt; p != head; p = p-&gt;nxt) ++n;
+    return n;
+}
+
+Node *GetElem(int i) {
+    if (i &lt; 1) return nullptr;
+    Node *p = head-&gt;nxt;
+    for (int j = 1; p != head &amp;&amp; j &lt; i; ++j) p = p-&gt;nxt;
+    return (p == head) ? nullptr : p;
+}
+
+void PrintForward(const char *title = "") {
+    printf("%s正向：", title);
+    for (Node *p = head-&gt;nxt; p != head; p = p-&gt;nxt) printf("%d ", p-&gt;val);
+    printf("\n");
+}
+void PrintBackward(const char *title = "") {
+    printf("%s反向：", title);
+    for (Node *p = head-&gt;pre; p != head; p = p-&gt;pre) printf("%d ", p-&gt;val);
+    printf("\n");
+}
 
 int main() {
-    CircDLink L;
-    L.PushBack(12);  L.PushBack(34);  L.PushBack(56);
-    L.PushFront(7);                      // 7 12 34 56
-    L.PrintForward();
-    L.PrintBackward();                   // 56 34 12 7（验证 prior 链）
+    InitList();
+    printf("空表吗：%s，长度 %d\n", Empty() ? "是" : "否", Length());   // 是，0
 
-    DNode* p = L.Empty() ? nullptr : nullptr;
-    L.DeleteNode(nullptr);               // 安全：传入空指针直接被挡回
-    L.PopFront();                        // 删掉 7
-    L.PrintForward();
-    cout &lt;&lt; "len = " &lt;&lt; L.Length() &lt;&lt; endl;
+    for (int x : {1, 2, 3}) PushBack(x);
+    for (int x : {0, -1}) PushFront(x);
+    PrintForward("插入后 ");        // -1 0 1 2 3
+    PrintBackward("插入后 ");       // 3 2 1 0 -1
+    printf("长度 = %d\n", Length()); // 5
+
+    /* 删掉中间那个结点：只给指针，O(1) */
+    Node *p = GetElem(3);           // 值 1
+    Unlink(p);
+    PrintForward("删掉 1 后 ");      // -1 0 2 3
+
+    /* 在它前面插一个（利用 p-&gt;pre，不需要找前驱） */
+    Link(GetElem(2)-&gt;pre, new Node(88));   // 在 0 前面插 88
+    PrintForward("0 前面插 88 ");    // -1 88 0 2 3
+    PrintBackward("反向看   ");      // 3 2 0 88 -1
+
+    /* ---------- 对比小结 ----------
+       循环链表：尾结点的 next 回头结点 → 遍历判据是回到起点
+       双向链表：多了 pre 指针 → 删除/前插 O(1)
+       循环双链表：两者结合 → 类里最"对称"、判空指针最少，但每个结点两个指针域
+
+       竞赛实战：需要频繁在两端增删时，优先用 std::list（它就是循环双链表）
+       或直接用数组模拟，比手写指针更不容易出错。 */
     return 0;
 }
-/* 说明：把 head 当作哨兵后，「在表头插入」「在表尾删除」都不再是特例，
-   这与 std::list 的内部实现思路一致（std::list 就是带哨兵的循环双链表）。 */
 </pre>
 
     <!-- ============================================================ 2.6 -->

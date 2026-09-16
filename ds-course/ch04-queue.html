@@ -48,7 +48,7 @@
       <ul style="margin:6px 0 0">
         <li><b>概念层</b>：队列的定义、FIFO 特性、队头 front / 队尾 rear、ADT 五个基本操作，以及队列与栈的对照。</li>
         <li><b>存储层</b>：顺序队列的「假溢出」是怎么来的 → 循环队列取模 <code>(rear+1)%MaxSize</code> 的原理 → 三种判满方案的取舍。</li>
-        <li><b>实现层</b>：完整可编译的 <code>CircularQueue&lt;T&gt;</code> 与 <code>LinkQueue&lt;T&gt;</code> 模板类，含单元素出队的经典坑。</li>
+        <li><b>实现层</b>：完整可编译的循环队列与链队列（全局数组 / <code>struct</code> 结点 + <code>head</code>、<code>tail</code> + 自由函数），含单元素出队的经典坑。</li>
         <li><b>扩展层</b>：双端队列 deque、受限双端队列，以及「栈和队列都是双端队列的特例」这一统一视角。</li>
         <li><b>应用层</b>：银行排队模拟（重点）、杨辉三角、二叉树层序遍历、迷宫最短路、单调队列滑动窗口、图的 BFS 与消息队列。</li>
         <li><b>工具层</b>：STL 的 <code>std::queue</code> / <code>std::deque</code> / <code>std::priority_queue</code> 速查与常见坑。</li>
@@ -763,116 +763,96 @@ int main() {
       因为「满」的状态永远不会让 <code>front == rear</code>（此时 <code>(rear+1)%M == front</code>）。
     </div>
 
-    <h3 id="s3-class">4.3.4 完整模板类 <code>CircularQueue&lt;T&gt;</code></h3>
+    <h3 id="s3-code">4.3.4 循环队列的完整实现（竞赛写法）</h3>
 
-    <p>把方案一封进一个模板类，支持任意元素类型，并补齐 <code>GetHead</code>、<code>Length</code>、<code>Clear</code> 与遍历打印。
-      这里用<b>动态分配</b>的数组，容量由构造函数传入，比写死 <code>MaxSize</code> 更实用；
-      同时按「三法则」补上了析构函数、拷贝构造与拷贝赋值，避免浅拷贝导致的 double free。</p>
+    <p>把方案一写成<b>竞赛写法</b>：一个全局数组 <code>int q[M]</code>，两个全局下标 <code>head</code> / <code>tail</code>，
+      再加 <code>empty()</code>、<code>full()</code>、<code>size()</code>、<code>push()</code>、<code>pop()</code> 这些自由函数 ——
+      不写 <code>class</code>、不写模板，所有结论一眼可见，抄到考卷上也最快。
+      三种判满方案各自的判空判满条件，一并写进了代码开头的注释里。</p>
 
-    <pre data-lang="cpp" data-file="circular_queue_template.cpp">// circular_queue_template.cpp —— 完整的循环队列模板类（方案一判满）
-#include &lt;iostream&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="circular_queue.cpp">
+// circular_queue.cpp —— 循环队列的竞赛写法：全局数组 + 自由函数（方案一判满）
+//
+// 【三种判满方案，考试三种都考，结论先摆在这里】
+//   方案一（本文件采用）：牺牲一个存储单元
+//       full : (tail + 1) % M == head        empty : head == tail
+//       容量为 M 的数组最多存 M-1 个元素；不额外开变量、判断最短，408 考研的默认方案。
+//   方案二：另外维护一个计数器 cnt
+//       full : cnt == M                      empty : cnt == 0
+//       一个格子都不浪费，cnt 还能直接当成"元素个数"返回；代价是每次出入队都要同步维护它。
+//   方案三：另外维护一个标志位 tag（最近一次操作：入队 1 / 出队 0）
+//       full : head == tail &amp;&amp; tag == 1      empty : head == tail &amp;&amp; tag == 0
+//       同样零浪费，但判空判满的条件最长，最容易写错。
+//   三种方案共用的两条结论（本文件的 push / pop 就是照这个写的）：
+//     * 入队 tail = (tail + 1) % M，出队 head = (head + 1) % M —— 下标必须取模才能"绕回来"；
+//       不取模就是 4.2 节那个会假溢出的朴素顺序队列。
+//     * 元素个数 = (tail - head + M) % M —— 先加 M 再取模，保证被除数非负
+//       （C++ 的 % 是截断取余，(2-6)%8 会得到 -4 而不是 4）。
+//
+// 【命名对照】竞赛里习惯写 head / tail，教材里写 front / rear，它们是同一对下标：
+//   head = front（指向队头元素），tail = rear（指向队尾元素的下一个空位）。
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class CircularQueue {
-public:
-    // capacity 是数组容量，实际最多存 capacity-1 个元素
-    // 注意：成员初始化顺序由声明顺序决定，所以下面 private 区把 cap 声明在 data 之前，
-    // 否则 data(new T[cap]) 会用到尚未初始化的 cap，属于未定义行为。
-    explicit CircularQueue(int capacity = 8)
-        : cap(capacity &gt; 1 ? capacity : 2), data(new T[cap]), front(0), rear(0) {}
+const int M = 6;        // 数组容量：方案一牺牲一格，实际最多存 M-1 = 5 个元素
+int q[M];               // q[0..M-1] 就是那个被"掰弯"的数组
+int head = 0;           // head 指向队头元素
+int tail = 0;           // tail 指向队尾元素的下一个空位（下一个新元素要落下的位置）
 
-    CircularQueue(const CircularQueue&amp; o)                 // 拷贝构造：深拷贝
-        : cap(o.cap), data(new T[o.cap]), front(o.front), rear(o.rear) {
-        for (int i = 0; i &lt; cap; ++i) data[i] = o.data[i];
-    }
-    CircularQueue&amp; operator=(const CircularQueue&amp; o) {    // 拷贝赋值：先复制再释放
-        if (this == &amp;o) return *this;
-        T* nd = new T[o.cap];
-        for (int i = 0; i &lt; o.cap; ++i) nd[i] = o.data[i];
-        delete[] data;
-        data = nd; cap = o.cap; front = o.front; rear = o.rear;
-        return *this;
-    }
-    ~CircularQueue() { delete[] data; }
+bool empty() { return head == tail; }             // 判空：初始 head == tail == 0
+bool full()  { return (tail + 1) % M == head; }   // ★ 判满：tail 再走一步就撞上 head
+int  size()  { return (tail - head + M) % M; }    // ★ 元素个数：先加 M 再取模
+int  cap()   { return M - 1; }                    // 方案一下的真实可用容量
 
-    void Clear()       { front = rear = 0; }
-    bool Empty() const { return front == rear; }
-    bool Full()  const { return (rear + 1) % cap == front; }
-    int  Size()  const { return (rear - front + cap) % cap; }
-    int  Capacity() const { return cap - 1; }              // 可用容量（牺牲一格）
+bool push(int x) {              // 入队 O(1)：一次赋值 + 一次取模
+    if (full()) return false;
+    q[tail] = x;
+    tail = (tail + 1) % M;      // 前进一格，走到 M 就绕回 0
+    return true;
+}
 
-    bool Push(const T&amp; x) {                                // 入队
-        if (Full()) return false;
-        data[rear] = x;
-        rear = (rear + 1) % cap;
-        return true;
-    }
-    bool Pop(T&amp; out) {                                     // 出队（带回元素值）
-        if (Empty()) return false;
-        out = data[front];
-        front = (front + 1) % cap;
-        return true;
-    }
-    bool Front(T&amp; out) const {                             // 取队头，不删除
-        if (Empty()) return false;
-        out = data[front];
-        return true;
-    }
-    bool Back(T&amp; out) const {                              // 取队尾（rear 的前一格）
-        if (Empty()) return false;
-        out = data[(rear - 1 + cap) % cap];
-        return true;
-    }
+int pop() {                     // 出队 O(1)：只动 head，一个元素都不搬移
+    if (empty()) return -1;     // 竞赛约定：元素都是非负时，用 -1 表示"队列为空"
+    int v = q[head];
+    head = (head + 1) % M;      // 一样要取模
+    return v;
+}
 
-    // 遍历：从队头开始按逻辑顺序打印（注意不是从下标 0 开始）
-    void Print(const string&amp; tag = "") const {
-        if (!tag.empty()) cout &lt;&lt; tag &lt;&lt; " ";
-        cout &lt;&lt; "[size=" &lt;&lt; Size() &lt;&lt; "/" &lt;&lt; Capacity()
-             &lt;&lt; " front=" &lt;&lt; front &lt;&lt; " rear=" &lt;&lt; rear &lt;&lt; "] ";
-        if (Empty()) { cout &lt;&lt; "(空)\n"; return; }
-        for (int i = 0, k = front; i &lt; Size(); ++i, k = (k + 1) % cap)
-            cout &lt;&lt; data[k] &lt;&lt; (i + 1 == Size() ? "" : " -&gt; ");
-        cout &lt;&lt; "\n";
-    }
+int front() { return q[head]; }                  // 取队头（调用前自己保证非空）
+int back()  { return q[(tail - 1 + M) % M]; }    // 队尾就是 tail 的前一格，也要 +M 防负数
 
-private:
-    int cap;      // 数组容量（必须声明在 data 之前，保证初始化顺序正确）
-    T*  data;
-    int front;    // 队头下标
-    int rear;     // 队尾元素的下一个位置
-};
+void print(const char *tag) {
+    printf("%s  [size=%d/%d head=%d tail=%d] ", tag, size(), cap(), head, tail);
+    if (empty()) { printf("(空)\n"); return; }
+    // ★ 遍历循环队列不能写 for (i = head; i &lt; tail; ++i)：绕过圈时 tail &lt; head，一次都不执行。
+    //   正确姿势是"先算个数，再走环"：
+    for (int i = 0, k = head; i &lt; size(); ++i, k = (k + 1) % M)
+        printf("%d%s", q[k], i + 1 == size() ? "" : " -&gt; ");
+    printf("\n");
+}
 
 int main() {
-    CircularQueue&lt;int&gt; q(6);            // 容量 6，最多存 5 个
-    q.Print("初始");
-    for (int i = 1; i &lt;= 5; ++i) q.Push(i * i);
-    q.Print("入队 1,4,9,16,25");
+    print("初始");
+    for (int i = 1; i &lt;= 5; ++i) push(i * i);
+    print("入队 1,4,9,16,25");
 
-    cout &lt;&lt; "再入队 36 结果: " &lt;&lt; (q.Push(36) ? "成功" : "失败(队满)") &lt;&lt; "\n";
+    printf("再入队 36 结果: %s\n", push(36) ? "成功" : "失败(队满)");
 
-    int v;
-    q.Pop(v); q.Pop(v);
-    q.Print("出队两次");
+    printf("出队 -&gt; %d\n", pop());
+    printf("出队 -&gt; %d\n", pop());
+    print("出队两次");
 
-    q.Push(36); q.Push(49);             // 绕回数组头部
-    q.Print("再入队 36,49");
+    push(36); push(49);                         // tail 从 5 绕回 0，亲眼看一下取模
+    print("再入队 36,49");
 
-    q.Front(v); cout &lt;&lt; "队头 = " &lt;&lt; v &lt;&lt; "\n";
-    q.Back(v);  cout &lt;&lt; "队尾 = " &lt;&lt; v &lt;&lt; "\n";
+    printf("队头 = %d，队尾 = %d\n", front(), back());
 
-    CircularQueue&lt;string&gt; sq(4);        // 元素类型换成 string 也能用
-    sq.Push("队列"); sq.Push("真"); sq.Push("好用");
-    sq.Print("字符串队列");
+    printf("全部出队: ");
+    while (!empty()) printf("%d ", pop());
+    printf("\n清空后 empty=%s\n", empty() ? "true" : "false");
 
-    CircularQueue&lt;int&gt; copy = q;        // 验证深拷贝
-    copy.Pop(v);
-    copy.Print("拷贝后出队一个");
-    q.Print("原队列不受影响");
-
-    while (q.Pop(v)) cout &lt;&lt; v &lt;&lt; " ";
-    cout &lt;&lt; "\n清空后 Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    for (int i = 1; i &lt;= 3; ++i) push(i * 100); // 绕圈之后再入队，验证下标依然正确
+    print("再入队 100,200,300");
     return 0;
 }
 </pre>
@@ -1033,117 +1013,107 @@ int main() {
       记住一句话：<b>哨兵不解决算法问题，它只消灭 if 分支。</b>
     </div>
 
-    <h3 id="s4-class">4.4.2 完整模板类 <code>LinkQueue&lt;T&gt;</code></h3>
+    <h3 id="s4-code">4.4.2 带头结点链队列的完整实现（竞赛写法）</h3>
 
-    <pre data-lang="cpp" data-file="link_queue_template.cpp">// link_queue_template.cpp —— 带头结点的链队列模板类（含 size 优化与深拷贝）
-#include &lt;iostream&gt;
-#include &lt;string&gt;
+    <p>竞赛写法同样只有三样东西：<code>struct Node</code> 描述结点长什么样，两个全局指针 <code>head</code> / <code>tail</code>
+      （就是上面说的 <code>front</code> / <code>rear</code>，竞赛里更习惯这么写），
+      再加 <code>push()</code> / <code>pop()</code> 两个自由函数。
+      特别注意 <code>pop()</code> 里标了 ★★ 的那一行 —— 出队后队列变空时 <code>tail</code> 必须指回头结点。</p>
+
+    <pre data-lang="cpp" data-file="link_queue.cpp">
+// link_queue.cpp —— 带头结点的链队列：struct Node + 全局 head/tail + 自由函数
+//
+// 先把约定记牢，代码就是这四句话的直译：
+//   * head 始终指向头结点（哨兵，不存有效数据），真正的队头元素是 head-&gt;nxt；
+//   * tail 始终指向队尾结点，也就是最后一个真正的数据结点；
+//   * 空队列 ⇔ head == tail，此时两者都指向头结点，且头结点的 nxt 为 NULL；
+//   * 元素个数额外用 cnt 维护，把求长度从 O(n) 降到 O(1)。
+//
+// 【命名对照】竞赛里习惯写 head / tail，教材里写 front / rear，指的是同一对指针：
+//   head = front（指向头结点），tail = rear（指向队尾结点）。
+//
+// 为什么入队、出队都是 O(1)？（对比第 02 讲的单链表：那里插入删除要先按位查找前驱）
+//   * 入队只改 tail-&gt;nxt 和 tail 两个指针，tail 是现成的，不用从头遍历找尾 → O(1)；
+//   * 出队只改 head-&gt;nxt，head 也是现成的，不用遍历找前驱 → O(1)。
+//   一句话：用两个指针（head/tail）换掉了单链表里的两次遍历。
+//
+// 竞赛里不写析构、不回收结点：程序结束操作系统一并回收（本文件只为讲清指针动作）。
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class LinkQueue {
-public:
-    LinkQueue() {                       // 构造：创建头结点，front 与 rear 都指向它
-        head = new Node();
-        front = rear = head;
-        count = 0;
-    }
-    LinkQueue(const LinkQueue&amp; o) : LinkQueue() {          // 拷贝构造
-        for (Node* p = o.head-&gt;next; p; p = p-&gt;next) Push(p-&gt;data);
-    }
-    LinkQueue&amp; operator=(const LinkQueue&amp; o) {             // 拷贝赋值
-        if (this == &amp;o) return *this;
-        Clear();
-        for (Node* p = o.head-&gt;next; p; p = p-&gt;next) Push(p-&gt;data);
-        return *this;
-    }
-    ~LinkQueue() { Clear(); delete head; }                 // 先删数据结点，再删头结点
-
-    bool Empty() const { return front == rear; }           // 或 head-&gt;next == nullptr
-    int  Size()  const { return count; }
-
-    void Clear() {                                          // 保留头结点，释放所有数据结点
-        Node* p = head-&gt;next;
-        while (p) { Node* q = p-&gt;next; delete p; p = q; }
-        head-&gt;next = nullptr;
-        front = rear = head;
-        count = 0;
-    }
-
-    void Push(const T&amp; x) {                                 // 入队：只在尾部接一个新结点
-        Node* s = new Node(x);
-        rear-&gt;next = s;                                     // 原尾结点的 next 指向新结点
-        rear = s;                                           // rear 后移成为新队尾
-        ++count;
-    }
-
-    bool Pop(T&amp; out) {                                      // 出队：摘掉 front-&gt;next
-        if (Empty()) return false;
-        Node* p = front-&gt;next;                              // p 是真正的队头结点
-        out = p-&gt;data;
-        front-&gt;next = p-&gt;next;                              // 跨过 p
-        if (rear == p) rear = front;                        // ★ 队列被取空：rear 必须回到头结点
-        delete p;
-        --count;
-        return true;
-    }
-
-    bool Front(T&amp; out) const {
-        if (Empty()) return false;
-        out = front-&gt;next-&gt;data;
-        return true;
-    }
-    bool Back(T&amp; out) const {
-        if (Empty()) return false;
-        out = rear-&gt;data;
-        return true;
-    }
-
-    void Print(const string&amp; tag = "") const {
-        if (!tag.empty()) cout &lt;&lt; tag &lt;&lt; " ";
-        cout &lt;&lt; "[size=" &lt;&lt; count &lt;&lt; "] front -&gt; ";
-        for (Node* p = head-&gt;next; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
-        cout &lt;&lt; "NULL\n";
-    }
-
-private:
-    struct Node {
-        T     data;
-        Node* next;
-        Node() : next(nullptr) {}
-        explicit Node(const T&amp; d) : data(d), next(nullptr) {}
-    };
-    Node* head;   // 头结点
-    Node* front;  // 指向头结点
-    Node* rear;   // 指向队尾结点
-    int   count;  // 元素个数，把 Length 从 O(n) 降到 O(1)
+struct Node {                 // 结点：数据域 + 指针域
+    int   val;
+    Node *nxt;
+    Node(int v = 0, Node *n = nullptr) : val(v), nxt(n) {}   // 构造函数可留可去
 };
 
-int main() {
-    LinkQueue&lt;int&gt; q;
-    q.Print("空队列");
+Node *head;    // 头结点（哨兵）
+Node *tail;    // 队尾结点
+int   cnt;     // 元素个数
 
-    for (int i = 1; i &lt;= 5; ++i) { q.Push(i * 10); }
-    q.Print("入队 10..50");
+void initQueue() {             // 初始化：head 与 tail 同时指向新造的头结点
+    head = new Node();         // 头结点不存数据，只用来把"空队列"与"非空队列"两条路径合并成一条
+    tail = head;
+    cnt  = 0;
+}
+
+bool empty() { return head == tail; }     // 也可以写 head-&gt;nxt == nullptr，两者等价
+int  size()  { return cnt; }
+
+void push(int x) {             // 入队：接在队尾，两步指针操作
+    Node *s = new Node(x);
+    tail-&gt;nxt = s;             // ① 原尾结点的 nxt 指向新结点
+    tail = s;                  // ② tail 后移，成为新的队尾
+    ++cnt;
+    // 空队列入队走的是同一条路径：head-&gt;nxt 原本是 nullptr，接上 s 即可，
+    // 全程不需要动 head —— 这就是头结点"消灭 if 分支"的价值。
+}
+
+bool pop(int &amp;out) {           // 出队：摘掉 head-&gt;nxt，两步指针操作
+    if (empty()) return false; // 出队前必判空，否则 head-&gt;nxt-&gt;val 就是空指针解引用
+    Node *p = head-&gt;nxt;       // p 才是真正的队头结点
+    out = p-&gt;val;
+    head-&gt;nxt = p-&gt;nxt;        // 跨过 p —— 必须先摘链，再 delete p，顺序不能颠倒
+    if (tail == p) tail = head;   // ★★ 经典坑：出队后队列变空，tail 必须指回头结点！
+                                  //    漏了这一行，tail 就悬空（指向刚被 delete 的内存），
+                                  //    下一次 push 里的 tail-&gt;nxt = s 就是 use-after-free。
+    delete p;
+    --cnt;
+    return true;
+}
+
+int front() { return head-&gt;nxt-&gt;val; }   // 取队头：只读不删（调用前自己保证非空）
+int back()  { return tail-&gt;val; }        // 取队尾：tail 就指着它
+
+void print(const char *tag) {
+    printf("%s  [size=%d] head -&gt; ", tag, cnt);
+    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL\n");
+}
+
+int main() {
+    initQueue();
+    print("空队列");
+
+    for (int i = 1; i &lt;= 5; ++i) push(i * 10);
+    print("入队 10..50");
+    printf("队头 = %d，队尾 = %d\n", front(), back());
 
     int v;
-    q.Front(v); cout &lt;&lt; "队头 = " &lt;&lt; v &lt;&lt; "\n";
-    q.Back(v);  cout &lt;&lt; "队尾 = " &lt;&lt; v &lt;&lt; "\n";
+    pop(v); printf("出队 %d\n", v); print("出队一次");
+    pop(v); printf("出队 %d\n", v); print("出队两次");
 
-    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n"; q.Print("出队一次");
-    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n"; q.Print("出队两次");
+    printf("全部出队: ");
+    while (!empty()) { pop(v); printf("%d ", v); }
+    printf("\n清空后 empty=%s，head == tail ? %s\n",
+           empty() ? "true" : "false", head == tail ? "是（tail 已归位）" : "否");
+    print("空队列的样子");
 
-    LinkQueue&lt;string&gt; sq;
-    sq.Push("链"); sq.Push("队"); sq.Push("列");
-    sq.Print("字符串链队列");
-
-    LinkQueue&lt;int&gt; copy = q;            // 深拷贝验证
-    copy.Pop(v); copy.Print("拷贝后出队");
-    q.Print("原队列不受影响");
-
-    cout &lt;&lt; "全部出队: ";
-    while (q.Pop(v)) cout &lt;&lt; v &lt;&lt; " ";
-    cout &lt;&lt; "\n清空后 Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    // 空队列再入队：验证刚才出队清空时 tail 已经归位，这里不会踩悬空指针
+    push(999);
+    print("清空后再入队 999");
+    pop(v);
+    printf("再出队 %d，程序正常结束（没有悬空指针）\n", v);
     return 0;
 }
 </pre>
@@ -1315,83 +1285,78 @@ int main() {
       </table>
     </div>
 
-    <pre data-lang="cpp" data-file="link_queue_no_head.cpp">// link_queue_no_head.cpp —— 不带头结点的链队列，注意两处特判
-#include &lt;iostream&gt;
+    <pre data-lang="cpp" data-file="link_queue_no_head.cpp">
+// link_queue_no_head.cpp —— 不带头结点的链队列：两处特判一个都不能少
+// 和 link_queue.cpp（带头结点）对比着看最清楚：
+//   省下了 1 个头结点的空间，代价是 push / pop 里各多出一条 if 分支。
+//   这正是"哨兵不解决算法问题，它只消灭 if 分支"的反面例证。
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-template &lt;typename T&gt;
-class LinkQueueNoHead {
-public:
-    LinkQueueNoHead() : front(nullptr), rear(nullptr), count(0) {}
-    ~LinkQueueNoHead() {
-        while (front) { Node* p = front; front = front-&gt;next; delete p; }
-    }
-    bool Empty() const { return front == nullptr; }     // 也可写 rear == nullptr
-    int  Size()  const { return count; }
-
-    void Push(const T&amp; x) {
-        Node* s = new Node(x);
-        if (Empty()) {                                  // ★ 特判一：空队列入队
-            front = rear = s;                           //   front 也要一起修改
-        } else {
-            rear-&gt;next = s;
-            rear = s;
-        }
-        ++count;
-    }
-
-    bool Pop(T&amp; out) {
-        if (Empty()) return false;
-        Node* p = front;                                // 队头就是 front 自己
-        out = p-&gt;data;
-        if (front == rear) {                            // ★ 特判二：只剩一个元素
-            front = rear = nullptr;                     //   两个指针一起置空
-        } else {
-            front = front-&gt;next;                        //   否则只需 front 后移
-        }
-        delete p;
-        --count;
-        return true;
-    }
-
-    bool Front(T&amp; out) const {
-        if (Empty()) return false;
-        out = front-&gt;data;
-        return true;
-    }
-
-    void Print(const char* tag = "") const {
-        if (tag &amp;&amp; *tag) cout &lt;&lt; tag &lt;&lt; " ";
-        cout &lt;&lt; "[size=" &lt;&lt; count &lt;&lt; "] ";
-        if (Empty()) { cout &lt;&lt; "(空)\n"; return; }
-        for (Node* p = front; p; p = p-&gt;next) cout &lt;&lt; p-&gt;data &lt;&lt; " -&gt; ";
-        cout &lt;&lt; "NULL\n";
-    }
-
-private:
-    struct Node {
-        T     data;
-        Node* next;
-        explicit Node(const T&amp; d) : data(d), next(nullptr) {}
-    };
-    Node* front;
-    Node* rear;
-    int   count;
+struct Node {                 // 结点：数据域 + 指针域
+    int   val;
+    Node *nxt;
+    Node(int v = 0, Node *n = nullptr) : val(v), nxt(n) {}
 };
 
+Node *head = nullptr;   // 没有哨兵，head 直接指向队头元素
+Node *tail = nullptr;   // tail 直接指向队尾元素
+int   cnt  = 0;         // 元素个数，免得求长度时还要遍历
+
+bool empty() { return head == nullptr; }   // 也可以写 tail == nullptr：两者同进同退
+int  size()  { return cnt; }
+
+void push(int x) {          // 入队：空 / 非空两条路径
+    Node *s = new Node(x);
+    if (empty()) {          // ★ 特判一：往空队列里入队，两个指针都要改
+        head = tail = s;
+    } else {                //   非空时才是常规的"接在队尾"
+        tail-&gt;nxt = s;
+        tail = s;
+    }
+    ++cnt;
+}
+
+bool pop(int &amp;out) {        // 出队：只剩一个元素时要特判
+    if (empty()) return false;
+    Node *p = head;         // 不带头结点，队头结点就是 head 自己
+    out = p-&gt;val;
+    if (head == tail) {     // ★ 特判二：队列里只剩一个元素，出队后队列就空了
+        head = tail = nullptr;   //   两个指针必须同时置空；
+                                 //   只把 head 后移（变成 nullptr）而不管 tail，tail 就悬空了
+    } else {
+        head = head-&gt;nxt;   //   还有多个元素，只需 head 后移
+    }
+    delete p;
+    --cnt;
+    return true;
+}
+
+int front() { return head-&gt;val; }   // 取队头，只读不删（调用前自己保证非空）
+
+void print(const char *tag) {
+    printf("%s  [size=%d] ", tag, cnt);
+    if (empty()) { printf("(空)\n"); return; }
+    for (Node *p = head; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    printf("NULL\n");
+}
+
 int main() {
-    LinkQueueNoHead&lt;int&gt; q;
-    q.Print("空队列");
-    q.Push(1);  q.Print("入队 1");      // 走的是"空队列入队"分支
-    q.Push(2);  q.Print("入队 2");      // 走的是普通分支
+    print("空队列");
+    push(1); print("入队 1");       // 走的是"空队列入队"的特判分支
+    push(2); print("入队 2");       // 走的是常规分支
 
     int v;
-    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n";  q.Print("出队一次");
-    q.Pop(v); cout &lt;&lt; "出队 " &lt;&lt; v &lt;&lt; "\n";  q.Print("出队两次（已空）");
+    pop(v); printf("出队 %d\n", v); print("出队一次");
+    pop(v); printf("出队 %d\n", v); print("出队两次（已空）");
+    printf("出队后 head == nullptr &amp;&amp; tail == nullptr ? %s\n",
+           (head == nullptr &amp;&amp; tail == nullptr) ? "是（两指针同时置空，tail 没悬空）"
+                                               : "否（tail 悬空了！）");
 
-    cout &lt;&lt; "空队列再入队 8：";
-    q.Push(8); q.Print("");
-    q.Pop(v); cout &lt;&lt; "出队 -&gt; " &lt;&lt; v &lt;&lt; "，Empty=" &lt;&lt; (q.Empty() ? "true" : "false") &lt;&lt; "\n";
+    printf("空队列再入队 8：\n");
+    push(8); print("");             // 出队清空后再入队，验证特判一依旧正确
+    pop(v);
+    printf("出队 -&gt; %d，empty=%s\n", v, empty() ? "true" : "false");
     return 0;
 }
 </pre>
@@ -1965,148 +1930,144 @@ int main() {
 
     <p>版本 A 用的是 STL。但考试要你自己写，工程上也常需要把队列控制在自己手里
       （比如要统计队列最大长度、要不加锁、要固定内存）。
-      下面这份程序把我们自己写的 <code>CircularQueue&lt;T&gt;</code> 塞进模拟器，
+      下面这份程序把我们自己写的循环队列（全局数组 + <code>head</code>/<code>tail</code> + 自由函数）塞进模拟器，
       并且顺便把「窗口数」做成参数 —— 于是它同时也是一个<b>多窗口模拟器</b>。</p>
 
-    <pre data-lang="cpp" data-file="bank_sim_circular.cpp">// bank_sim_circular.cpp —— 自写循环队列版银行排队模拟（支持 1~N 个窗口）
-#include &lt;iostream&gt;
-#include &lt;random&gt;
-#include &lt;vector&gt;
-#include &lt;string&gt;
-#include &lt;iomanip&gt;
-#include &lt;algorithm&gt;
+    <pre data-lang="cpp" data-file="bank_sim_circular.cpp">
+// bank_sim_circular.cpp —— 自写循环队列版银行排队模拟（1~N 个窗口）
+// 竞赛写法：全局状态 + 自由函数，没有 class / template；
+//           队列就是"全局数组 + head/tail 取模"，与 circular_queue.cpp 完全一致。
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ---------- 1. 自写的循环队列（方案一：牺牲一个存储单元判满） ---------- */
-template &lt;typename T&gt;
-class CircularQueue {
-public:
-    explicit CircularQueue(int capacity = 1024)
-        : cap(capacity &gt; 1 ? capacity : 2), data(new T[cap]), front(0), rear(0), count(0) {}
-    ~CircularQueue() { delete[] data; }
+const int QM = 4096;              // 队列容量：真实最多排 QM-1 = 4095 人
 
-    bool Empty() const { return count == 0; }
-    bool Full()  const { return count == cap - 1; }     // 牺牲一格
-    int  Size()  const { return count; }
-
-    bool Push(const T&amp; x) {
-        if (Full()) return false;
-        data[rear] = x;
-        rear = (rear + 1) % cap;
-        ++count;
-        return true;
-    }
-    bool Pop(T&amp; out) {
-        if (Empty()) return false;
-        out = data[front];
-        front = (front + 1) % cap;
-        --count;
-        return true;
-    }
-private:
-    int cap;
-    T*  data;
-    int front, rear, count;
-};
-
-/* ---------- 2. 顾客与统计 ---------- */
-struct Customer {
+struct Customer {                 // 一位顾客：编号、到达、服务时长、开始服务、离开
     int id, arrive, serve, start, leave;
-    int wait() const { return start - arrive; }
 };
 
-struct Report {
-    double avgWait = 0;     // 平均等待时间
-    int    maxWait = 0;     // 最大等待时间
-    int    maxQueue = 0;    // 队列最大长度
-    int    totalTime = 0;   // 全部服务完的总耗时
-    double busyRate = 0;    // 窗口平均占用率
-};
+Customer q[QM];
+int qHead = 0, qTail = 0;         // qHead 指向队头元素，qTail 指向队尾的下一个空位
+
+bool qEmpty() { return qHead == qTail; }              // 判空
+bool qFull()  { return (qTail + 1) % QM == qHead; }   // ★ 判满：qTail 再走一步就撞上 qHead
+int  qSize()  { return (qTail - qHead + QM) % QM; }   // ★ 元素个数：先加 QM 再取模
+
+bool qPush(const Customer &amp;c) {   // 入队 O(1)
+    if (qFull()) return false;
+    q[qTail] = c;
+    qTail = (qTail + 1) % QM;     // 取模推进，走到 QM 就绕回 0
+    return true;
+}
+bool qPop(Customer &amp;out) {        // 出队 O(1)
+    if (qEmpty()) return false;
+    out = q[qHead];
+    qHead = (qHead + 1) % QM;
+    return true;
+}
+void qClear() { qHead = qTail = 0; }
+
+int waitOf(const Customer &amp;c) { return c.start - c.arrive; }   // 等待 = 开始 - 到达
+
+/* ---------- 2. 全局统计量：模拟过程中一路累加 ---------- */
+double totalWait, totalIdle;      // 累计等待时间 / 累计窗口空闲时间
+int    maxWait, maxQueue;         // 最大单人等待 / 队列长度峰值
+int    served, rejected;          // 已服务人数 / 因队满被拒人数
+int    finishTime;                // 全部服务完的总耗时
+
+const int MAXW = 16;              // 最多支持 16 个窗口
+int freeAt[MAXW];                 // 每个窗口下一次空闲的时刻
 
 /* ---------- 3. 模拟器：windows 个窗口，共享一条等待队列 ---------- */
-Report simulate(int n, unsigned seed, int windows, bool verbose = false) {
-    mt19937 gen(seed);
-    uniform_int_distribution&lt;int&gt; arriveGap(1, 6);    // 到达间隔 1~6 分钟
-    uniform_int_distribution&lt;int&gt; serveTime(2, 8);    // 服务时长 2~8 分钟
+void simulate(int n, unsigned seed, int windows, bool verbose) {
+    if (windows &gt; MAXW) windows = MAXW;
 
-    CircularQueue&lt;Customer&gt; q(4096);                  // ★ 本章的主角：等待队列
-    vector&lt;int&gt; freeAt(windows, 0);                   // 每个窗口下一次空闲的时刻
-    Report rep;
+    // ---- 先把全局状态清零，保证多次调用互不影响 ----
+    qClear();
+    totalWait = totalIdle = 0;
+    maxWait = maxQueue = served = rejected = 0;
+    for (int k = 0; k &lt; windows; ++k) freeAt[k] = 0;
 
-    double totalWait = 0, totalIdle = 0;
+    mt19937 gen(seed);                                 // 固定种子 → 结果可复现，方便对答案
+    uniform_int_distribution&lt;int&gt; arriveGap(1, 6);     // 到达间隔 1~6 分钟
+    uniform_int_distribution&lt;int&gt; serveTime(2, 8);     // 服务时长 2~8 分钟
+
     int clock = 0, nextArrive = arriveGap(gen);
 
     for (int i = 1; i &lt;= n; ++i) {
-        clock = nextArrive;
+        clock = nextArrive;                            // 时间推进到下一位顾客到达
         Customer c{i, clock, serveTime(gen), 0, 0};
-        if (!q.Push(c)) { cout &lt;&lt; "队列已满，顾客 " &lt;&lt; i &lt;&lt; " 被拒绝\n"; continue; }
-        if (q.Size() &gt; rep.maxQueue) rep.maxQueue = q.Size();   // ★ 队列峰值在入队后统计
+        if (!qPush(c)) {                               // ★ 循环队列满了就拒绝服务
+            ++rejected;
+            if (verbose) printf("队列已满，顾客 %d 被拒绝\n", i);
+            continue;
+        }
+        // ★ 队列峰值必须在"入队之后"统计：队伍只会在两次到达之间变短，出队时统计会漏掉峰值
+        if (qSize() &gt; maxQueue) maxQueue = qSize();
 
         // 有空闲窗口就持续叫号：每次挑"最早空闲"的那个窗口，保证负载均衡
-        while (!q.Empty()) {
+        while (!qEmpty()) {
             int best = -1;
             for (int k = 0; k &lt; windows; ++k)
                 if (freeAt[k] &lt;= clock &amp;&amp; (best == -1 || freeAt[k] &lt; freeAt[best])) best = k;
             if (best == -1) break;                     // 所有窗口都忙 → 继续排队
 
-            Customer w; q.Pop(w);
-            w.start = max(w.arrive, freeAt[best]);     // ★ 核心公式
-            if (w.start &gt; freeAt[best]) totalIdle += w.start - freeAt[best];
-            w.leave  = w.start + w.serve;
-            freeAt[best] = w.leave;
-            totalWait += w.wait();
-            if (w.wait() &gt; rep.maxWait) rep.maxWait = w.wait();
+            Customer w;
+            qPop(w);
+            w.start = max(w.arrive, freeAt[best]);     // ★★ 核心公式：开始 = max(到达, 窗口空闲)
+            if (w.start &gt; freeAt[best]) totalIdle += w.start - freeAt[best];   // 窗口白等了一段
+            w.leave = w.start + w.serve;               // 离开 = 开始 + 服务时长
+            freeAt[best] = w.leave;                    // 该窗口下一次空闲的时刻
+            totalWait += waitOf(w);                    // 等待 = 开始 - 到达（不是"离开 - 到达"）
+            if (waitOf(w) &gt; maxWait) maxWait = waitOf(w);
+            ++served;
 
             if (verbose)
-                cout &lt;&lt; "顾客" &lt;&lt; setw(3) &lt;&lt; w.id &lt;&lt; "  窗口" &lt;&lt; best + 1
-                     &lt;&lt; "  到达 " &lt;&lt; setw(3) &lt;&lt; w.arrive
-                     &lt;&lt; "  开始 " &lt;&lt; setw(3) &lt;&lt; w.start
-                     &lt;&lt; "  等待 " &lt;&lt; setw(3) &lt;&lt; w.wait()
-                     &lt;&lt; "  离开 " &lt;&lt; setw(3) &lt;&lt; w.leave &lt;&lt; "\n";
+                printf("顾客%3d  窗口%d  到达 %3d  开始 %3d  等待 %3d  离开 %3d\n",
+                       w.id, best + 1, w.arrive, w.start, waitOf(w), w.leave);
         }
-        nextArrive = clock + arriveGap(gen);
+        nextArrive = clock + arriveGap(gen);           // 下一位顾客的到达时刻
     }
 
-    // 收尾：把所有还在排队的人服务完
-    while (!q.Empty()) {
+    // 收尾：不会再有新顾客了，把队列里剩下的人依次服务完
+    while (!qEmpty()) {
         int best = 0;
         for (int k = 1; k &lt; windows; ++k) if (freeAt[k] &lt; freeAt[best]) best = k;
-        Customer w; q.Pop(w);
+        Customer w;
+        qPop(w);
         w.start = max(w.arrive, freeAt[best]);
         if (w.start &gt; freeAt[best]) totalIdle += w.start - freeAt[best];
         w.leave = w.start + w.serve;
         freeAt[best] = w.leave;
-        totalWait += w.wait();
-        if (w.wait() &gt; rep.maxWait) rep.maxWait = w.wait();
+        totalWait += waitOf(w);
+        if (waitOf(w) &gt; maxWait) maxWait = waitOf(w);
+        ++served;
     }
 
-    rep.totalTime = *max_element(freeAt.begin(), freeAt.end());
-    rep.avgWait   = n ? totalWait / n : 0.0;
-    rep.busyRate  = rep.totalTime ? 100.0 * (windows * rep.totalTime - totalIdle)
-                                                / (windows * rep.totalTime) : 0.0;
-    return rep;
+    finishTime = 0;
+    for (int k = 0; k &lt; windows; ++k) finishTime = max(finishTime, freeAt[k]);
 }
 
 int main() {
-    cout &lt;&lt; fixed &lt;&lt; setprecision(2);
-    cout &lt;&lt; "=========== 单窗口详细过程（前 15 位顾客）===========\n";
+    printf("=========== 单窗口详细过程（前 15 位顾客）===========\n");
     simulate(15, 20240501u, 1, true);
 
-    cout &lt;&lt; "\n=========== 单窗口 vs 多窗口：各模拟 300 位顾客 ===========\n";
-    cout &lt;&lt; setw(8) &lt;&lt; "窗口数" &lt;&lt; setw(14) &lt;&lt; "平均等待(分)"
-         &lt;&lt; setw(14) &lt;&lt; "最大等待(分)" &lt;&lt; setw(14) &lt;&lt; "队列最大长度"
-         &lt;&lt; setw(14) &lt;&lt; "总耗时(分)" &lt;&lt; setw(12) &lt;&lt; "占用率(%)\n";
+    printf("\n=========== 单窗口 vs 多窗口：各模拟 300 位顾客 ===========\n");
+    printf("窗口数   平均等待(分)   最大等待(分)   队列峰值   总耗时(分)   占用率(%%)\n");
     for (int w = 1; w &lt;= 4; ++w) {
-        Report r = simulate(300, 20240501u, w);
-        cout &lt;&lt; setw(8) &lt;&lt; w &lt;&lt; setw(14) &lt;&lt; r.avgWait &lt;&lt; setw(14) &lt;&lt; r.maxWait
-             &lt;&lt; setw(14) &lt;&lt; r.maxQueue &lt;&lt; setw(14) &lt;&lt; r.totalTime
-             &lt;&lt; setw(12) &lt;&lt; r.busyRate &lt;&lt; "\n";
+        simulate(300, 20240501u, w, false);
+        double busy = finishTime
+                    ? 100.0 * (w * (double)finishTime - totalIdle) / (w * (double)finishTime)
+                    : 0.0;
+        printf("%4d %14.2f %14d %11d %12d %12.2f\n",
+               w, served ? totalWait / served : 0.0, maxWait, maxQueue, finishTime, busy);
     }
 
-    cout &lt;&lt; "\n结论：\n";
-    cout &lt;&lt; "  1) 窗口越多，平均等待与最大等待下降得非常快（近似成反比）；\n";
-    cout &lt;&lt; "  2) 但窗口占用率同时下降 —— 加到一定数量后，再加窗口就是浪费人力；\n";
-    cout &lt;&lt; "  3) 用这个模拟器反复调整参数，就能找到「等待可接受 &amp;&amp; 占用率不过低」的平衡点。\n";
+    printf("\n结论：\n");
+    printf("  1) 窗口越多，平均等待与最大等待下降得非常快（近似成反比）；\n");
+    printf("  2) 但窗口占用率同时下降 —— 加到一定数量后，再加窗口就是浪费人力；\n");
+    printf("  3) 用这个模拟器反复调整参数，就能找到「等待可接受 &amp;&amp; 占用率不过低」的平衡点。\n");
     return 0;
 }
 </pre>

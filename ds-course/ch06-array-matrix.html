@@ -1148,19 +1148,20 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s4-4">6.4.4 C++ 实现：SymmetricMatrix 类</h3>
+    <h3 id="s4-4">6.4.4 C++ 实现：全局数组 + 下标映射函数</h3>
     <p>
-      把公式写进代码只有两行的事，但要封装成一个<b>好用、安全</b>的类，还需要注意：
-      下标越界检查、<code>set</code> 一次自动管两个位置、以及把「下标映射函数」暴露出来便于对照手算结果。
+      把公式写进代码只有两行的事。竞赛里的写法非常直接：<b>开一个全局数组
+      <code>sa[]</code>，再写一个 <code>idx(i, j)</code> 把二维下标映射成一维下标</b>，
+      存取各写一个自由函数就行——不封类、不模板、不抛异常，代码能在考场上三分钟敲完。
+      要注意的只有两点：<b>下标越界的检查</b>（越界只提示、不崩溃）和
+      <b>映射函数要单独写出来</b>，方便和手算的 <code>k</code> 对照。
     </p>
 
-    <pre data-lang="cpp" data-file="symmetric_matrix.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="symmetric_matrix.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   对称矩阵的压缩存储
+   对称矩阵的压缩存储（竞赛写法：全局数组 + 下标映射函数）
    定义：n 阶方阵 A 满足 a[i][j] == a[j][i]，只需存下三角（含对角线）。
 
    按行优先把下三角压进一维数组 sa[0 .. n(n+1)/2 - 1]：
@@ -1168,75 +1169,81 @@ using namespace std;
        i &lt;  j （上三角）：k = j*(j+1)/2 + i     （利用 a[i][j] = a[j][i]）
 
    存储长度 1 + 2 + ... + n = n(n+1)/2，比原来的 n^2 省了近一半。
+   例如 n = 5：长度 15，a[3][1] 与 a[1][3] 都映射到 k = 7，共用同一个单元。
    ============================================================ */
 
-class SymmetricMatrix {
-public:
-    explicit SymmetricMatrix(int n) : n_(n), sa_(1LL * n * (n + 1) / 2, 0) {}
+const int N  = 1005;                  /* 最大阶数 */
+const int SA = N * (N + 1) / 2;       /* 一维数组长度：n(n+1)/2 个单元 */
+int sa[SA];                           /* 压缩数组：行优先存下三角（含对角线） */
+int n;                                /* 矩阵阶数 */
 
-    int size() const { return n_; }
-    int storageSize() const { return (int)sa_.size(); }
+/* 下标映射函数：把二维下标 (i, j) 映射成一维下标 k
+   下三角：前面有 i 整行共 1+2+...+i = i(i+1)/2 个元素，本行再走 j 格
+   上三角：换成对称位置 (j, i) 套同一个公式 —— 「对称性免费」就是这么来的 */
+inline int idx(int i, int j) {
+    return (i &gt;= j) ? (i * (i + 1) / 2 + j)      /* 下三角 */
+                    : (j * (j + 1) / 2 + i);     /* 上三角 */
+}
 
-    void set(int i, int j, int v) {
-        check(i, j);
-        sa_[index(i, j)] = v;          /* 只需写一次，对称位置"自动"也是 v */
-    }
-    int get(int i, int j) const {
-        check(i, j);
-        return sa_[index(i, j)];
-    }
+/* 边界检查：竞赛里不抛异常，越界就打印提示并拒绝这次操作 */
+bool inRange(int i, int j) {
+    if (0 &lt;= i &amp;&amp; i &lt; n &amp;&amp; 0 &lt;= j &amp;&amp; j &lt; n) return true;
+    printf("  [warn] (%d, %d) out of range\n", i, j);
+    return false;
+}
 
-    /* 下标映射函数：把二维下标 (i, j) 映射成一维下标 k */
-    static int index(int i, int j) {
-        return (i &gt;= j) ? (i * (i + 1) / 2 + j)      /* 下三角：前面有 i 整行，本行再走 j 格 */
-                        : (j * (j + 1) / 2 + i);     /* 上三角：转成对称的下三角位置 */
-    }
+/* 存：只需写一次，对称位置「自动」也是同一个值 */
+void setVal(int i, int j, int v) {
+    if (!inRange(i, j)) return;
+    sa[idx(i, j)] = v;
+}
 
-    void dump() const {
-        for (size_t k = 0; k &lt; sa_.size(); ++k)
-            cout &lt;&lt; sa_[k] &lt;&lt; (k + 1 == sa_.size() ? '\n' : ' ');
-    }
+/* 取：上、下三角走同一套映射，O(1)（一次乘法 + 一次加法） */
+int getVal(int i, int j) {
+    if (!inRange(i, j)) return 0;
+    return sa[idx(i, j)];
+}
 
-private:
-    int n_;
-    vector&lt;int&gt; sa_;
-    void check(int i, int j) const {
-        if (i &lt; 0 || i &gt;= n_ || j &lt; 0 || j &gt;= n_)
-            throw out_of_range("index out of range");
-    }
-};
+/* 打印整个一维数组，方便与手算结果对照 */
+void dump() {
+    int len = n * (n + 1) / 2;
+    for (int k = 0; k &lt; len; ++k) printf("%d%c", sa[k], k + 1 == len ? '\n' : ' ');
+}
+
+/* 函数名为什么叫 setVal 而不是 set？
+   using namespace std 之后，自由函数 set 会和 std::set 撞名，
+   g++ 直接报 "reference to 'set' is ambiguous"，所以换个名字。 */
 
 int main() {
-    const int n = 5;
-    SymmetricMatrix A(n);
-    cout &lt;&lt; "n = " &lt;&lt; n &lt;&lt; ", storage size = " &lt;&lt; A.storageSize()
-         &lt;&lt; " (n(n+1)/2 = " &lt;&lt; n * (n + 1) / 2 &lt;&lt; ")\n";          /* 15 */
+    n = 5;
+    printf("n = %d, storage size = %d (n(n+1)/2 = %d)\n",
+           n, n * (n + 1) / 2, n * (n + 1) / 2);          /* 15 */
 
     /* 手算例题：n = 5 时 a[3][1] 与 a[1][3] 存在哪个位置？ */
-    cout &lt;&lt; "a[3][1] -&gt; k = " &lt;&lt; SymmetricMatrix::index(3, 1) &lt;&lt; "\n";   /* 3*4/2+1 = 7 */
-    cout &lt;&lt; "a[1][3] -&gt; k = " &lt;&lt; SymmetricMatrix::index(1, 3) &lt;&lt; "\n";   /* 3*4/2+1 = 7 */
+    printf("a[3][1] -&gt; k = %d\n", idx(3, 1));             /* 3*4/2+1 = 7 */
+    printf("a[1][3] -&gt; k = %d\n", idx(1, 3));             /* 3*4/2+1 = 7 */
 
     /* 按下三角的行优先顺序填入 1,2,3,...，再打印一维数组对照 */
     int val = 0;
     for (int i = 0; i &lt; n; ++i)
         for (int j = 0; j &lt;= i; ++j)
-            A.set(i, j, ++val);
-    cout &lt;&lt; "sa[] = ";
-    A.dump();                                     /* 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 */
+            setVal(i, j, ++val);
+    printf("sa[] = ");
+    dump();                                               /* 1 2 3 ... 15 */
 
-    /* 验证对称性：任意 (i,j) 都有 get(i,j) == get(j,i) */
+    /* 验证对称性：任意 (i,j) 都有 getVal(i,j) == getVal(j,i) */
     bool ok = true;
     for (int i = 0; i &lt; n; ++i)
         for (int j = 0; j &lt; n; ++j)
-            if (A.get(i, j) != A.get(j, i)) ok = false;
-    cout &lt;&lt; "symmetry check: " &lt;&lt; (ok ? "PASS" : "FAIL") &lt;&lt; "\n";
+            if (getVal(i, j) != getVal(j, i)) ok = false;
+    printf("symmetry check: %s\n", ok ? "PASS" : "FAIL");
 
-    /* 边界检查 */
-    try {
-        A.get(5, 0);
-    } catch (const exception&amp; e) {
-        cout &lt;&lt; "out-of-range caught: " &lt;&lt; e.what() &lt;&lt; "\n";
-    }
+    /* 写一次 a[3][1]，读 a[1][3] 也是同一个值：两次访问命中同一个内存单元 */
+    setVal(3, 1, 41);
+    printf("set a[3][1] = 41, then a[1][3] = %d\n", getVal(1, 3));   /* 41 */
+
+    /* 边界检查：越界只提示、不崩溃 */
+    printf("a[5][0] = %d  (out of range)\n", getVal(5, 0));
     return 0;
 }</pre>
 
@@ -1245,18 +1252,24 @@ int main() {
     </p>
     <ul>
       <li>
-        <code>index(i, j)</code> 用 <code>(i &gt;= j) ? ... : ...</code> 一次搞定上下三角，
-        这就是公式的直接翻译。<b>它只需要一次乘法和一次加法，所以 <code>get</code>/<code>set</code> 是
+        <code>idx(i, j)</code> 用 <code>(i &gt;= j) ? ... : ...</code> 一次搞定上下三角，
+        这就是公式的直接翻译。<b>它只需要一次乘法和一次加法，所以 <code>getVal</code>/<code>setVal</code> 是
         <code>O(1)</code></b>——对称矩阵压缩后随机存取能力完好无损。
       </li>
       <li>
-        <code>set(3,1,41)</code> 之后 <code>get(1,3)</code> 也是 41，这不是巧合，
-        而是因为 <code>index(3,1)</code> 与 <code>index(1,3)</code> 都等于 7，
+        <code>setVal(3,1,41)</code> 之后 <code>getVal(1,3)</code> 也是 41，这不是巧合，
+        而是因为 <code>idx(3,1)</code> 与 <code>idx(1,3)</code> 都等于 7，
         两次访问命中同一个内存单元。<b>「对称性」在压缩存储里是免费的</b>。
       </li>
       <li>
-        存储用 <code>vector&lt;int&gt;</code> 而不是裸数组，是为了避免手写 <code>new/delete</code>；
-        长度 <code>n(n+1)/2</code> 在构造函数里一次算好。
+        数组开成全局的 <code>sa[N*(N+1)/2]</code>：竞赛里数组开够就不再动态申请内存，
+        程序结束由操作系统统一回收，不写 <code>new/delete</code>，也不写析构函数。
+        代价是长度上限写死在 <code>N</code> 里，做题时按题目数据范围开即可。
+      </li>
+      <li>
+        写函数时别取名 <code>set</code>：<code>using namespace std</code> 之后它会和
+        <code>std::set</code> 撞名，g++ 直接报 <code>reference to 'set' is ambiguous</code>，
+        所以这里叫 <code>setVal</code>（同理 <code>getVal</code>，避免和 <code>std::get</code> 混淆）。
       </li>
     </ul>
 
@@ -1566,141 +1579,148 @@ int main() {
       <br>记忆方法：<b>「上三角每行起步晚，要减掉起步的 i」</b>。
     </div>
 
-    <h3 id="s5-5">6.5.5 C++ 实现：两个类与边界检查</h3>
+    <h3 id="s5-5">6.5.5 C++ 实现：两套映射函数与边界检查</h3>
     <p>
-      下面把下三角与上三角各封装成一个类。除了公式，请重点看<b>边界检查</b>是怎么做的：
-      下标越界要抛异常；往常数区写一个不等于 <code>c</code> 的值，也要立刻报错——
-      因为那说明调用者的逻辑已经错了，静默接受只会让 bug 藏得更深。
+      下三角与上三角各给一套映射函数（<code>lowIdx</code> / <code>upIdx</code>）和两个数组
+      （<code>saL[]</code> / <code>saU[]</code>）。除了公式本身，请重点看<b>边界检查</b>是怎么做的：
+      下标越界要提示；往常数区写一个不等于 <code>c</code> 的值，也要立刻报错（这里用返回
+      <code>false</code> 表示拒绝）——因为那说明调用者的逻辑已经错了，静默接受只会让 bug 藏得更深。
+      <b>竞赛代码不抛异常</b>，用返回值或打印提示来表达「这次操作不合法」，一样能起到暴露错误的作用。
     </p>
 
-    <pre data-lang="cpp" data-file="triangular_matrix.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="triangular_matrix.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   三角矩阵的压缩存储
+   三角矩阵的压缩存储（竞赛写法：两套映射函数 + 常数单元单独存）
    ------------------------------------------------------------
    下三角矩阵：主对角线以上（不含对角线）的元素全是同一个常数 c
-       存法：sa[0 .. n(n+1)/2 - 1] 按下三角行优先存；
-             sa[n(n+1)/2] 单独存常数 c。
+       存法：saL[0 .. n(n+1)/2 - 1] 按下三角行优先存；
+             saL[n(n+1)/2] 单独存常数 c。
        i &gt;= j : k = i*(i+1)/2 + j
-       i &lt;  j : k = n(n+1)/2            （常数单元）
+       i &lt;  j : k = n(n+1)/2             （常数单元）
        数组长度 n(n+1)/2 + 1
 
    上三角矩阵：主对角线以下（不含对角线）的元素全是同一个常数 c
-       存法：按行优先存上三角，第 i 行存 j = i .. n-1，共 n-i 个元素。
-       前 i 行共 sum_{t=0}^{i-1}(n-t) = i*n - i(i-1)/2 = i(2n-i+1)/2 个元素。
+       存法：按行优先存上三角，第 i 行存 j = i .. n-1，共 n-i 个元素；
+             前 i 行共 sum_{t=0}^{i-1}(n-t) = i*n - i(i-1)/2 = i(2n-i+1)/2 个元素。
+             注意第 i 行是从列 i 开始存的，所以行内偏移是 (j-i) 而不是 j。
        i &lt;= j : k = i*(2n-i+1)/2 + (j-i)
        i &gt;  j : k = n(n+1)/2
        数组长度同样 n(n+1)/2 + 1
    ============================================================ */
 
-class LowerTriangular {
-public:
-    LowerTriangular(int n, int c) : n_(n), c_(c), sa_(1LL * n * (n + 1) / 2 + 1, c) {}
+const int N  = 1005;                  /* 最大阶数 */
+const int SA = N * (N + 1) / 2 + 1;   /* 长度：n(n+1)/2 个真实数据 + 1 个常数单元 */
+int saL[SA];                          /* 下三角矩阵的压缩数组 */
+int saU[SA];                          /* 上三角矩阵的压缩数组 */
+int n;                                /* 阶数 */
+int cst;                              /* 常数 c */
 
-    void set(int i, int j, int v) {
-        check(i, j);
-        if (i &gt;= j) sa_[k(i, j)] = v;
-        else if (v != c_) throw invalid_argument("upper part must equal the constant c");
+/* 常数单元的下标：下三角、上三角都是 n(n+1)/2 这一格 */
+inline int constIdx() { return n * (n + 1) / 2; }
+
+/* 下三角映射（i &gt;= j 时有效）：k = i*(i+1)/2 + j */
+inline int lowIdx(int i, int j) { return i * (i + 1) / 2 + j; }
+
+/* 上三角映射（i &lt;= j 时有效）：k = i*(2n-i+1)/2 + (j-i) */
+inline int upIdx(int i, int j) { return i * (2 * n - i + 1) / 2 + (j - i); }
+
+/* 边界检查：竞赛里不抛异常，越界就返回 false 让调用者自己处理 */
+bool inRange(int i, int j) {
+    if (0 &lt;= i &amp;&amp; i &lt; n &amp;&amp; 0 &lt;= j &amp;&amp; j &lt; n) return true;
+    printf("  [warn] (%d, %d) out of range\n", i, j);
+    return false;
+}
+
+/* 初始化：把两个数组的常数单元都预置成 c，
+   这样即使从没写过常数区，读出来的也是正确的 c */
+void init(int nn, int c) {
+    n = nn; cst = c;
+    for (int k = 0; k &lt;= constIdx(); ++k) { saL[k] = c; saU[k] = c; }
+}
+
+/* ---------- 下三角 ---------- */
+/* 存：i &gt;= j 写真实位置；i &lt; j 落在常数区，只允许写 c */
+bool lowSet(int i, int j, int v) {
+    if (!inRange(i, j)) return false;
+    if (i &lt; j) {                     /* 这一类位置压缩后根本没有独立存储单元 */
+        if (v != cst) {
+            printf("  [warn] a[%d][%d] 在常数区，只能写 c = %d\n", i, j, cst);
+            return false;            /* 静默接受只会让 bug 藏得更深 */
+        }
+        return true;                 /* 写的就是 c，等于没写 */
     }
-    int get(int i, int j) const {
-        check(i, j);
-        return i &gt;= j ? sa_[k(i, j)] : sa_[n_ * (n_ + 1) / 2];
+    saL[lowIdx(i, j)] = v;
+    return true;
+}
+int lowGet(int i, int j) {
+    if (!inRange(i, j)) return 0;
+    return i &gt;= j ? saL[lowIdx(i, j)] : saL[constIdx()];
+}
+
+/* ---------- 上三角 ---------- */
+bool upSet(int i, int j, int v) {
+    if (!inRange(i, j)) return false;
+    if (i &gt; j) {                     /* 常数区 */
+        if (v != cst) {
+            printf("  [warn] a[%d][%d] 在常数区，只能写 c = %d\n", i, j, cst);
+            return false;
+        }
+        return true;
     }
-    int storageSize() const { return (int)sa_.size(); }
-
-    /* 下标映射函数（i &gt;= j 时有效） */
-    static int k(int i, int j) { return i * (i + 1) / 2 + j; }
-
-private:
-    int n_, c_;
-    vector&lt;int&gt; sa_;
-    void check(int i, int j) const {
-        if (i &lt; 0 || i &gt;= n_ || j &lt; 0 || j &gt;= n_)
-            throw out_of_range("index out of range");
-    }
-};
-
-class UpperTriangular {
-public:
-    UpperTriangular(int n, int c) : n_(n), c_(c), sa_(1LL * n * (n + 1) / 2 + 1, c) {}
-
-    void set(int i, int j, int v) {
-        check(i, j);
-        if (i &lt;= j) sa_[k(i, j)] = v;
-        else if (v != c_) throw invalid_argument("lower part must equal the constant c");
-    }
-    int get(int i, int j) const {
-        check(i, j);
-        return i &lt;= j ? sa_[k(i, j)] : sa_[n_ * (n_ + 1) / 2];
-    }
-    int storageSize() const { return (int)sa_.size(); }
-
-    /* 下标映射函数（i &lt;= j 时有效）：k = i*(2n-i+1)/2 + (j-i) */
-    int k(int i, int j) const { return i * (2 * n_ - i + 1) / 2 + (j - i); }
-    static int kOf(int n, int i, int j) { return i * (2 * n - i + 1) / 2 + (j - i); }
-
-private:
-    int n_, c_;
-    vector&lt;int&gt; sa_;
-    void check(int i, int j) const {
-        if (i &lt; 0 || i &gt;= n_ || j &lt; 0 || j &gt;= n_)
-            throw out_of_range("index out of range");
-    }
-};
+    saU[upIdx(i, j)] = v;
+    return true;
+}
+int upGet(int i, int j) {
+    if (!inRange(i, j)) return 0;
+    return i &lt;= j ? saU[upIdx(i, j)] : saU[constIdx()];
+}
 
 int main() {
-    const int n = 5;
-    LowerTriangular L(n, 0);
-    UpperTriangular U(n, 0);
+    init(5, 0);                                            /* n = 5，常数 c = 0 */
 
-    L.set(3, 2, 7);
-    L.set(4, 4, 9);
-    cout &lt;&lt; "lower triangular, n = 5\n";
-    cout &lt;&lt; "  a[3][2] = " &lt;&lt; L.get(3, 2) &lt;&lt; ", k = " &lt;&lt; LowerTriangular::k(3, 2)
-         &lt;&lt; "   (3*4/2 + 2 = 8)\n";
-    cout &lt;&lt; "  a[4][4] = " &lt;&lt; L.get(4, 4) &lt;&lt; ", k = " &lt;&lt; LowerTriangular::k(4, 4)
-         &lt;&lt; "  (4*5/2 + 4 = 14)\n";
-    cout &lt;&lt; "  a[0][4] = " &lt;&lt; L.get(0, 4) &lt;&lt; ", k = " &lt;&lt; n * (n + 1) / 2
-         &lt;&lt; "  (constant cell)\n";
-    cout &lt;&lt; "  storage size = " &lt;&lt; L.storageSize() &lt;&lt; " = n(n+1)/2 + 1 = "
-         &lt;&lt; n * (n + 1) / 2 + 1 &lt;&lt; "\n";
+    lowSet(3, 2, 7);
+    lowSet(4, 4, 9);
+    printf("lower triangular, n = %d\n", n);
+    printf("  a[3][2] = %d, k = %d   (3*4/2 + 2 = 8)\n", lowGet(3, 2), lowIdx(3, 2));
+    printf("  a[4][4] = %d, k = %d  (4*5/2 + 4 = 14)\n", lowGet(4, 4), lowIdx(4, 4));
+    printf("  a[0][4] = %d, k = %d  (constant cell)\n", lowGet(0, 4), constIdx());
+    printf("  storage size = %d = n(n+1)/2 + 1 = %d\n",
+           constIdx() + 1, n * (n + 1) / 2 + 1);           /* 16 */
 
-    U.set(1, 3, 5);
-    U.set(0, 4, 6);
-    cout &lt;&lt; "upper triangular, n = 5\n";
-    cout &lt;&lt; "  a[1][3] = " &lt;&lt; U.get(1, 3) &lt;&lt; ", k = " &lt;&lt; UpperTriangular::kOf(n, 1, 3)
-         &lt;&lt; "   (1*(10-1+1)/2 + 2 = 7)\n";
-    cout &lt;&lt; "  a[0][4] = " &lt;&lt; U.get(0, 4) &lt;&lt; ", k = " &lt;&lt; UpperTriangular::kOf(n, 0, 4)
-         &lt;&lt; "   (0*11/2 + 4 = 4)\n";
-    cout &lt;&lt; "  a[4][4] = " &lt;&lt; U.get(4, 4) &lt;&lt; ", k = " &lt;&lt; UpperTriangular::kOf(n, 4, 4)
-         &lt;&lt; "  (4*(10-4+1)/2 + 0 = 14)\n";
-    cout &lt;&lt; "  a[4][0] = " &lt;&lt; U.get(4, 0) &lt;&lt; "  (constant cell)\n";
-    cout &lt;&lt; "  storage size = " &lt;&lt; U.storageSize() &lt;&lt; "\n";
+    upSet(1, 3, 5);
+    upSet(0, 4, 6);
+    printf("upper triangular, n = %d\n", n);
+    printf("  a[1][3] = %d, k = %d   (1*(10-1+1)/2 + 2 = 7)\n", upGet(1, 3), upIdx(1, 3));
+    printf("  a[0][4] = %d, k = %d   (0*11/2 + 4 = 4)\n", upGet(0, 4), upIdx(0, 4));
+    printf("  a[4][4] = %d, k = %d  (4*(10-4+1)/2 + 0 = 14)\n", upGet(4, 4), upIdx(4, 4));
+    printf("  a[4][0] = %d  (constant cell)\n", upGet(4, 0));
+    printf("  storage size = %d\n", constIdx() + 1);
 
-    /* 边界检查：越界、以及"往常数区写非 c 值"都应该被拦住 */
-    try { L.get(5, 0); } catch (const exception&amp; e) { cout &lt;&lt; "caught: " &lt;&lt; e.what() &lt;&lt; "\n"; }
-    try { L.set(0, 4, 1); } catch (const exception&amp; e) { cout &lt;&lt; "caught: " &lt;&lt; e.what() &lt;&lt; "\n"; }
+    /* 边界检查：越界、以及「往常数区写非 c 值」都应该被拦住 */
+    printf("lowGet(5, 0)      -&gt; %d\n", lowGet(5, 0));
+    printf("lowSet(0, 4, 1)   -&gt; %s\n", lowSet(0, 4, 1) ? "true" : "false");
     return 0;
 }</pre>
 
     <p>三个要点：</p>
     <ul>
       <li>
-        <code>check(i, j)</code> 用 <code>throw std::out_of_range</code> 而不是
-        <code>assert</code> 或返回错误码。理由是：矩阵下标越界属于<b>调用者的编程错误</b>，
-        必须立刻暴露；而 <code>assert</code> 在 Release 版本里会被去掉，等于没检查。
+        <code>inRange(i, j)</code> 负责越界检查。竞赛里不用 <code>throw std::out_of_range</code>
+        那套异常机制（考场上没人写 <code>try/catch</code>），而是<b>打印一行提示并拒绝这次操作</b>：
+        越界属于<b>调用者的编程错误</b>，必须立刻看得见；打印出来的 warning 就是最直接的暴露方式。
       </li>
       <li>
-        <code>LowerTriangular::set(i, j, v)</code> 在 <code>i &lt; j</code> 时
-        如果 <code>v != c</code> 直接抛 <code>invalid_argument</code>：
+        <code>lowSet(i, j, v)</code> 在 <code>i &lt; j</code>（下三角的常数区）时，
+        如果 <code>v != cst</code> 直接返回 <code>false</code>：
         这一类位置在压缩后<b>根本没有独立的存储单元</b>，允许写入不同值会让数据结构自相矛盾。
       </li>
       <li>
-        构造函数里 <code>vector&lt;int&gt;(n(n+1)/2 + 1, c)</code> 把常数单元预置成 <code>c</code>，
-        这样即使调用者从没写过常数区，读出来的也是正确的 <code>c</code>。
+        <code>init(n, c)</code> 把两个数组的常数单元都预置成 <code>c</code>
+        （位置就是 <code>saL[n(n+1)/2]</code> / <code>saU[n(n+1)/2]</code>），
+        这样即使从没写过常数区，读出来的也是正确的 <code>c</code>——
+        这就是「三角矩阵要比对称矩阵多存一个单元」的那一格。
       </li>
     </ul>
 
@@ -1943,86 +1963,94 @@ int main() {
 
     <h3 id="s6-4">6.6.4 C++ 实现，以及「为什么还能 O(1)」</h3>
 
-    <pre data-lang="cpp" data-file="tridiagonal_matrix.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;cstdlib&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="tridiagonal_matrix.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   三对角（带状）矩阵的压缩存储
+   三对角（带状）矩阵的压缩存储（竞赛写法：全局数组 + 映射函数）
    定义：|i - j| &lt;= 1 的元素才可能非零，其余全为 0。
-       第 0 行 2 个元素，第 1 .. n-2 行各 3 个，第 n-1 行 2 个，
-       总长度 = 2 + 3(n-2) + 2 = 3n - 2。
+        第 0 行 2 个元素，第 1 .. n-2 行各 3 个，第 n-1 行 2 个，
+        总长度 = 2 + 3(n-2) + 2 = 3n - 2。
+   （若题目改成「按对角线存进 3×n 的数组」，长度就是 3n，看清题面）
 
    按行优先压进 sa[0 .. 3n-3]：
-       i = 0    : k = j                     （j = 0, 1）
-       i &gt;= 1   : k = 3i - 1 + (j - i + 1)  （前 i 行共 2 + 3(i-1) = 3i-1 个元素，
-                                             本行内偏移是 j - (i-1)）
+       i = 0  : k = j                     （j = 0, 1）
+       i &gt;= 1 : k = 3i - 1 + (j - i + 1)  （前 i 行共 2 + 3(i-1) = 3i-1 个元素，
+                                            本行内偏移是 j - (i-1)）
    两个式子可以统一写成：k = 2i + j   （在 |i - j| &lt;= 1 的前提下）
+   反向公式：i = floor((k+1)/3)，j = k - 2i
    ============================================================ */
 
-class Tridiagonal {
-public:
-    explicit Tridiagonal(int n) : n_(n), sa_(3 * n - 2, 0) {}
+const int N = 1005;            /* 最大阶数 */
+int sa[3 * N];                 /* 压缩数组，长度 3n - 2（开 3N 个单元够用） */
+int n;                         /* 矩阵阶数 */
 
-    void set(int i, int j, int v) {
-        check(i, j);
-        if (abs(i - j) &gt; 1) {
-            if (v != 0) throw invalid_argument("out of band, must be 0");
-            return;                              /* 带外的 0 根本不存储 */
+/* 一维下标公式：k = 2i + j，只要求 |i-j| &lt;= 1 */
+inline int idx(int i, int j) { return 2 * i + j; }
+
+/* 带内判断：|i - j| &gt; 1 的位置压缩后根本没存，逻辑上恒为 0 */
+inline bool inBand(int i, int j) { return abs(i - j) &lt;= 1; }
+
+/* 反向映射：已知一维下标 k，反求它在矩阵中的位置 (i, j) */
+inline void decode(int k, int &amp;i, int &amp;j) { i = (k + 1) / 3; j = k - 2 * i; }
+
+/* 边界检查：竞赛里不抛异常，越界就打印提示 */
+bool inRange(int i, int j) {
+    if (0 &lt;= i &amp;&amp; i &lt; n &amp;&amp; 0 &lt;= j &amp;&amp; j &lt; n) return true;
+    printf("  [warn] (%d, %d) out of range\n", i, j);
+    return false;
+}
+
+/* 存：带外的位置不存储，只允许写 0（写别的值说明调用者的逻辑已经错了） */
+bool setVal(int i, int j, int v) {
+    if (!inRange(i, j)) return false;
+    if (!inBand(i, j)) {
+        if (v != 0) {
+            printf("  [warn] a[%d][%d] 在带外，必须是 0\n", i, j);
+            return false;
         }
-        sa_[k(i, j)] = v;
+        return true;                     /* 带外的 0 根本不存储 */
     }
-    int get(int i, int j) const {
-        check(i, j);
-        if (abs(i - j) &gt; 1) return 0;            /* 带外一律是 0 */
-        return sa_[k(i, j)];
-    }
+    sa[idx(i, j)] = v;
+    return true;
+}
 
-    /* 一维下标公式：k = 2i + j（|i-j| &lt;= 1） */
-    static int k(int i, int j) { return 2 * i + j; }
+/* 取：带外一律是 0，这个判断同样是 O(1) */
+int getVal(int i, int j) {
+    if (!inRange(i, j)) return 0;
+    return inBand(i, j) ? sa[idx(i, j)] : 0;
+}
 
-    /* 反过来：已知 k，求 (i, j)。i = (k+1)/3 向下取整，j = k - 2i */
-    static void decode(int k, int&amp; i, int&amp; j) { i = (k + 1) / 3; j = k - 2 * i; }
-
-    int storageSize() const { return (int)sa_.size(); }
-    void dump() const {
-        for (size_t p = 0; p &lt; sa_.size(); ++p)
-            cout &lt;&lt; sa_[p] &lt;&lt; (p + 1 == sa_.size() ? '\n' : ' ');
-    }
-
-private:
-    int n_;
-    vector&lt;int&gt; sa_;
-    void check(int i, int j) const {
-        if (i &lt; 0 || i &gt;= n_ || j &lt; 0 || j &gt;= n_)
-            throw out_of_range("index out of range");
-    }
-};
+/* 打印整个一维数组，方便与手算结果对照 */
+void dump() {
+    int len = 3 * n - 2;
+    for (int k = 0; k &lt; len; ++k) printf("%d%c", sa[k], k + 1 == len ? '\n' : ' ');
+}
 
 int main() {
-    const int n = 5;
-    Tridiagonal T(n);
+    n = 5;
     for (int i = 0; i &lt; n; ++i)
         for (int j = 0; j &lt; n; ++j)
-            if (abs(i - j) &lt;= 1) T.set(i, j, i * 10 + j);   /* a[i][j] = i*10 + j */
+            if (inBand(i, j)) setVal(i, j, i * 10 + j);   /* a[i][j] = i*10 + j */
 
-    cout &lt;&lt; "n = 5, storage size = " &lt;&lt; T.storageSize()
-         &lt;&lt; " (3n - 2 = " &lt;&lt; 3 * n - 2 &lt;&lt; ")\n";
-    cout &lt;&lt; "a[0][1] = " &lt;&lt; T.get(0, 1) &lt;&lt; ", k = " &lt;&lt; Tridiagonal::k(0, 1) &lt;&lt; "\n";   /* 1, 1 */
-    cout &lt;&lt; "a[2][2] = " &lt;&lt; T.get(2, 2) &lt;&lt; ", k = " &lt;&lt; Tridiagonal::k(2, 2) &lt;&lt; "\n";   /* 22, 6 */
-    cout &lt;&lt; "a[4][3] = " &lt;&lt; T.get(4, 3) &lt;&lt; ", k = " &lt;&lt; Tridiagonal::k(4, 3) &lt;&lt; "\n";   /* 43, 11 */
-    cout &lt;&lt; "a[3][0] = " &lt;&lt; T.get(3, 0) &lt;&lt; "  (out of band -&gt; 0, not stored)\n";
-    cout &lt;&lt; "sa[] = ";
-    T.dump();                       /* 0 1 10 11 12 21 22 23 32 33 34 43 44 */
+    printf("n = 5, storage size = %d (3n - 2 = %d)\n", 3 * n - 2, 3 * n - 2);  /* 13 */
+    printf("a[0][1] = %d, k = %d\n", getVal(0, 1), idx(0, 1));   /* 1, 1 */
+    printf("a[2][2] = %d, k = %d\n", getVal(2, 2), idx(2, 2));   /* 22, 6 */
+    printf("a[4][3] = %d, k = %d\n", getVal(4, 3), idx(4, 3));   /* 43, 11 */
+    printf("a[3][0] = %d  (out of band -&gt; 0, not stored)\n", getVal(3, 0));
+    printf("sa[] = ");
+    dump();                       /* 0 1 10 11 12 21 22 23 32 33 34 43 44 */
 
-    cout &lt;&lt; "reverse mapping k -&gt; (i, j):\n  ";
-    for (int k = 0; k &lt; T.storageSize(); ++k) {
-        int i, j; Tridiagonal::decode(k, i, j);
-        cout &lt;&lt; "k" &lt;&lt; k &lt;&lt; "=a[" &lt;&lt; i &lt;&lt; "][" &lt;&lt; j &lt;&lt; "]  ";
+    printf("reverse mapping k -&gt; (i, j):\n  ");
+    for (int k = 0; k &lt; 3 * n - 2; ++k) {
+        int i, j;
+        decode(k, i, j);
+        printf("k%d=a[%d][%d]  ", k, i, j);
     }
-    cout &lt;&lt; "\n";
+    printf("\n");
+
+    /* 带外写非 0 值会被拦住 */
+    printf("setVal(3, 0, 99) -&gt; %s\n", setVal(3, 0, 99) ? "true" : "false");
     return 0;
 }</pre>
 
@@ -2038,7 +2066,7 @@ int main() {
       </li>
       <li>
         <b>带外的元素不需要「找」，逻辑上直接是 0。</b>压缩存储的前提就是
-        「没存的位置就是 0」，所以 <code>get</code> 只要先判断 <code>|i−j| ≤ 1</code>，
+        「没存的位置就是 0」，所以 <code>getVal</code> 只要先判断 <code>|i−j| ≤ 1</code>，
         不满足就 <code>return 0</code>。这个判断也是 <code>O(1)</code>。
       </li>
       <li>
@@ -2768,12 +2796,11 @@ int main() {
       下面的代码同时演示了「按行列有序插入」和「同一位置重复插入时累加」两个细节：
     </p>
 
-    <pre data-lang="cpp" data-file="sparse_orthogonal_list.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="sparse_orthogonal_list.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   十字链表（Orthogonal List）—— 稀疏矩阵的链式存储
+   十字链表（Orthogonal List）—— 稀疏矩阵的链式存储（竞赛写法）
    每个非零元是一个含 5 个域的结点：
        row, col, value, down, right
    right 把同一行的非零元串成链表（按列号升序）；
@@ -2781,92 +2808,94 @@ using namespace std;
    另外用两个指针数组作为表头：rhead[mu]（行）、chead[nu]（列）。
 
    优点：插入 / 删除非零元不用像顺序表那样成片搬移元素，
-         而且"按行"和"按列"两条访问路径都是 O(1) 起步。
+         而且「按行」和「按列」两条访问路径都是 O(1) 起步。
+   代价：每个结点多两个指针域；按下标 (i,j) 随机取值退化成沿链查找。
    ============================================================ */
 
-struct OLNode {
-    int row, col, value;
-    OLNode* right;
-    OLNode* down;
-    OLNode(int r, int c, int v) : row(r), col(c), value(v), right(nullptr), down(nullptr) {}
+const int N = 1005;                 /* 行数、列数上限 */
+struct OLNode {                     /* 结点：5 个域 */
+    int r, c, v;                    /* 行号、列号、值 */
+    OLNode *down, *right;           /* down = 同列下一个，right = 同行下一个 */
 };
 
-class OrthogonalList {
-public:
-    OrthogonalList(int m, int n)
-        : mu_(m), nu_(n), tu_(0), rhead_(m, nullptr), chead_(n, nullptr) {}
+OLNode *rhead[N], *chead[N];        /* 行 / 列表头指针数组 */
+int mu, nu, tu;                     /* 行数、列数、非零元个数 */
 
-    ~OrthogonalList() {
-        for (int i = 0; i &lt; mu_; ++i) {
-            OLNode* p = rhead_[i];
-            while (p) { OLNode* nx = p-&gt;right; delete p; p = nx; }
-        }
+/* 初始化成 mu 行 nu 列的空矩阵：表头全部置空 */
+void initMatrix(int m, int n) {
+    mu = m; nu = n; tu = 0;
+    for (int i = 0; i &lt; mu; ++i) rhead[i] = nullptr;
+    for (int j = 0; j &lt; nu; ++j) chead[j] = nullptr;
+}
+
+/* 新建结点；竞赛里干脆不写 delete，程序结束内存就还给操作系统了 */
+OLNode* newNode(int r, int c, int v) {
+    OLNode* p = new OLNode;
+    p-&gt;r = r; p-&gt;c = c; p-&gt;v = v;
+    p-&gt;down = p-&gt;right = nullptr;
+    return p;
+}
+
+/* 插入（或累加）一个非零元，保持行、列两条链表都有序 */
+void insertNode(int r, int c, int v) {
+    if (v == 0) return;                        /* 0 不是非零元，不入表 */
+
+    /* ① 先在第 r 行的行链表里找插入点（按列号升序）
+          「用指针的指针找插入点」：不必区分插在头部还是中间，
+          一路往后走，最后 *rp = node 一句就搞定 */
+    OLNode** rp = &amp;rhead[r];
+    while (*rp &amp;&amp; (*rp)-&gt;c &lt; c) rp = &amp;(*rp)-&gt;right;
+    if (*rp &amp;&amp; (*rp)-&gt;c == c) {                /* 该位置已经有结点了 → 只累加值 */
+        (*rp)-&gt;v += v;                         /* 列链表里挂的是同一个结点，不用再动 */
+        return;
     }
+    OLNode* node = newNode(r, c, v);
+    node-&gt;right = *rp;                         /* 先接后面，再改前面，顺序不能反 */
+    *rp = node;
 
-    /* 插入（或累加）一个非零元，保持行、列两条链表有序 */
-    void insert(int r, int c, int v) {
-        if (v == 0) return;
-        OLNode* node = new OLNode(r, c, v);
+    /* ② 再挂到第 c 列的列链表（按行号升序） */
+    OLNode** cp = &amp;chead[c];
+    while (*cp &amp;&amp; (*cp)-&gt;r &lt; r) cp = &amp;(*cp)-&gt;down;
+    node-&gt;down = *cp;
+    *cp = node;
 
-        /* ① 挂到第 r 行的行链表（按列号升序）：用"指针的指针"找到插入点 */
-        OLNode** rp = &amp;rhead_[r];
-        while (*rp &amp;&amp; (*rp)-&gt;col &lt; c) rp = &amp;(*rp)-&gt;right;
-        if (*rp &amp;&amp; (*rp)-&gt;col == c) {                 /* 该位置已存在 → 累加，不新建结点 */
-            (*rp)-&gt;value += v;
-            delete node;
-            return;
-        }
-        node-&gt;right = *rp;
-        *rp = node;
+    ++tu;
+}
 
-        /* ② 挂到第 c 列的列链表（按行号升序） */
-        OLNode** cp = &amp;chead_[c];
-        while (*cp &amp;&amp; (*cp)-&gt;row &lt; r) cp = &amp;(*cp)-&gt;down;
-        node-&gt;down = *cp;
-        *cp = node;
-
-        ++tu_;
+void printByRow() {
+    printf("by row:\n");
+    for (int i = 0; i &lt; mu; ++i) {
+        printf("  row %d :", i);
+        for (OLNode* p = rhead[i]; p; p = p-&gt;right)
+            printf("  (%d,%d,%d)", p-&gt;r, p-&gt;c, p-&gt;v);
+        printf("\n");
     }
-
-    void printByRow() const {
-        cout &lt;&lt; "by row:\n";
-        for (int i = 0; i &lt; mu_; ++i) {
-            cout &lt;&lt; "  row " &lt;&lt; i &lt;&lt; " :";
-            for (OLNode* p = rhead_[i]; p; p = p-&gt;right)
-                cout &lt;&lt; "  (" &lt;&lt; p-&gt;row &lt;&lt; "," &lt;&lt; p-&gt;col &lt;&lt; "," &lt;&lt; p-&gt;value &lt;&lt; ")";
-            cout &lt;&lt; "\n";
-        }
+}
+void printByCol() {
+    printf("by col:\n");
+    for (int j = 0; j &lt; nu; ++j) {
+        printf("  col %d :", j);
+        for (OLNode* p = chead[j]; p; p = p-&gt;down)
+            printf("  (%d,%d,%d)", p-&gt;r, p-&gt;c, p-&gt;v);
+        printf("\n");
     }
-    void printByCol() const {
-        cout &lt;&lt; "by col:\n";
-        for (int j = 0; j &lt; nu_; ++j) {
-            cout &lt;&lt; "  col " &lt;&lt; j &lt;&lt; " :";
-            for (OLNode* p = chead_[j]; p; p = p-&gt;down)
-                cout &lt;&lt; "  (" &lt;&lt; p-&gt;row &lt;&lt; "," &lt;&lt; p-&gt;col &lt;&lt; "," &lt;&lt; p-&gt;value &lt;&lt; ")";
-            cout &lt;&lt; "\n";
-        }
-    }
-    int nonzeros() const { return tu_; }
-
-private:
-    int mu_, nu_, tu_;
-    vector&lt;OLNode*&gt; rhead_, chead_;
-};
+}
+int nonzeros() { return tu; }
 
 int main() {
-    OrthogonalList M(4, 5);
-    M.insert(0, 1, 3);
-    M.insert(0, 4, 7);
-    M.insert(1, 2, 5);
-    M.insert(2, 0, 4);
-    M.insert(2, 3, 6);
-    M.insert(3, 1, 2);
-    M.insert(0, 1, 10);          /* 同一位置的再次插入 → 值累加为 13 */
-    M.insert(1, 1, 1);           /* 插在已存在的列链表中间，链式结构无需搬移 */
+    initMatrix(4, 5);
+    insertNode(0, 1, 3);
+    insertNode(0, 4, 7);
+    insertNode(1, 2, 5);
+    insertNode(2, 0, 4);
+    insertNode(2, 3, 6);
+    insertNode(3, 1, 2);
+    insertNode(0, 1, 10);          /* 同一位置的再次插入 → 值累加为 13 */
+    insertNode(1, 1, 1);           /* 插在已存在的列链表中间，链式结构无需搬移 */
 
-    cout &lt;&lt; "nonzeros = " &lt;&lt; M.nonzeros() &lt;&lt; "\n";
-    M.printByRow();
-    M.printByCol();
+    printf("nonzeros = %d\n", nonzeros());
+    printByRow();
+    printByCol();
     return 0;
 }</pre>
 
@@ -3538,18 +3567,21 @@ int main() {
           </tr>
           <tr>
             <td>练习 3</td>
-            <td>实现 <code>SymmetricMatrix</code>，并随机生成一个对称矩阵验证
-              <code>get(i,j) == get(j,i)</code>，统计压缩率</td>
+            <td>实现对称矩阵的 <code>idx(i,j)</code> 映射与 <code>getVal</code> / <code>setVal</code>，
+              并随机生成一个对称矩阵验证
+              <code>getVal(i,j) == getVal(j,i)</code>，统计压缩率</td>
             <td>再写一个「由 k 反求 (i, j)」的函数，与正向公式交叉验证 10 万次</td>
           </tr>
           <tr>
             <td>练习 4</td>
-            <td>实现上 / 下三角矩阵两个类，要求越界和「往常数区写非 c 值」都抛异常</td>
-            <td>写单元测试覆盖四个角：<code>(0,0)、(0,n−1)、(n−1,0)、(n−1,n−1)</code></td>
+            <td>实现上 / 下三角矩阵的映射函数（<code>upIdx</code> / <code>lowIdx</code>）与常数单元，
+              越界和「往常数区写非 c 值」都要被拦住（返回 <code>false</code> 并提示）</td>
+            <td>写自测覆盖四个角：<code>(0,0)、(0,n−1)、(n−1,0)、(n−1,n−1)</code></td>
           </tr>
           <tr>
             <td>练习 5</td>
-            <td>实现三对角矩阵类，并用它写「追赶法（Thomas 算法）」解三对角方程组</td>
+            <td>实现三对角矩阵的映射函数 <code>idx(i,j) = 2i + j</code> 与反向 <code>decode(k)</code>，
+              并用它写「追赶法（Thomas 算法）」解三对角方程组</td>
             <td>复杂度必须是 <code>O(n)</code>；用 <code>n = 1000</code> 的随机方程组与
               高斯消元的结果对比</td>
           </tr>

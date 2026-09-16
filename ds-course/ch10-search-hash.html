@@ -1446,81 +1446,92 @@ int main() {
     </div>
 
     <h3 id="s5-4">10.5.4 完整 C++ 实现</h3>
-    <pre data-lang="cpp" data-file="fibonacci_search.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="fibonacci_search.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   斐波那契查找
-   1) 求出满足 F[k] - 1 &gt;= n 的最小 F[k]
+   斐波那契查找（Fibonacci search）—— 竞赛写法：全局数组 + 自由函数
+   1) 预处理斐波那契数列，找最小的 k 使 F[k] - 1 &gt;= n
    2) 把数组补齐到 F[k] - 1，多出的位置填原数组最后一个元素
-   3) mid = low + F[k-1] - 1；往左 k-=1，往右 k-=2
+   3) mid = low + F[k-1] - 1；往左 k -= 1，往右 k -= 2（关键！不是 k -= 1）
    前提：有序 + 顺序存储。平均性能略优于折半查找，最坏同为 O(log n)。
+   数组大小依据：MAXN = 1e5 + 5 够放 1e5 个元素；F[45] 已是 11 亿，MAXF 取 64 绰绰有余
    ===================================================================== */
-class FibSearch {
-public:
-    vector&lt;int&gt; F;                 // 斐波那契数列，F[0]=0, F[1]=1, ...
 
-    explicit FibSearch(int maxN = 1000) { buildF(maxN); }
+const int MAXN = 100005;      // 主表容量（按题目 n &lt;= 1e5 开）
+const int MAXF = 64;          // 斐波那契表容量
 
-    void buildF(int maxN) {
-        F.assign(2, 1);
-        F[0] = 0;
-        while (F.back() &lt; maxN) {
-            int sz = (int)F.size();
-            F.push_back(F[sz - 1] + F[sz - 2]);
-        }
+int a[MAXN];                  // 待查找的有序表，元素在 a[0..n-1]
+int F[MAXF];                  // F[0]=0, F[1]=1, F[2]=1, F[3]=2, F[4]=3, ...
+int fsz = 0;                  // 斐波那契表实际长度
+
+/* ---------- 预处理斐波那契数列，直到最后一项 &gt;= maxN ---------- */
+void buildFib(int maxN) {
+    F[0] = 0; F[1] = 1; fsz = 2;
+    while (F[fsz - 1] &lt; maxN &amp;&amp; fsz &lt; MAXF - 1) {
+        F[fsz] = F[fsz - 1] + F[fsz - 2];
+        ++fsz;
     }
+}
 
-    /* 返回 key 在原始数组中的下标，找不到返回 -1；cmpCnt 输出比较次数 */
-    int search(const vector&lt;int&gt;&amp; a, int key, int* cmpCnt = nullptr) const {
-        int n = (int)a.size();
-        if (n == 0) { if (cmpCnt) *cmpCnt = 0; return -1; }
+/* ---------- 斐波那契查找：返回下标，找不到返回 -1；cmpCnt 输出比较次数 ---------- */
+int fibSearch(int n, int key, int *cmpCnt = nullptr) {
+    if (cmpCnt) *cmpCnt = 0;
+    if (n == 0) return -1;
 
-        /* ---- 第 1 步：找最小的 k 使 F[k] - 1 &gt;= n ---- */
-        int k = 2;
-        while (k &lt; (int)F.size() &amp;&amp; F[k] - 1 &lt; n) ++k;
-        if (k &gt;= (int)F.size()) return -1;              // 斐波那契表不够大
+    /* ---- 第 1 步：找最小的 k 使 F[k] - 1 &gt;= n ---- */
+    int k = 2;
+    while (k &lt; fsz &amp;&amp; F[k] - 1 &lt; n) ++k;
+    if (k &gt;= fsz || F[k] - 1 &gt; MAXN) return -1;          // 斐波那契表 / 数组不够大
 
-        /* ---- 第 2 步：补齐数组，多出来的位置复制最后一个元素 ---- */
-        vector&lt;int&gt; t(a);
-        t.resize(F[k] - 1, a.back());                    // 有序性不受影响
+    /* ---- 第 2 步：补齐到 F[k] - 1，多出来的位置复制最后一个元素 ---- */
+    static int t[MAXN];
+    int len = F[k] - 1;
+    for (int i = 0; i &lt; n; ++i) t[i] = a[i];
+    for (int i = n; i &lt; len; ++i) t[i] = a[n - 1];       // 有序性不受影响
 
-        int low = 0, high = n - 1, cnt = 0;              // high 始终是"原数组"的右界
-        while (low &lt;= high) {
-            int mid = low + F[k - 1] - 1;
-            if (mid &gt;= (int)t.size()) mid = (int)t.size() - 1;   // 兜底，正常不会触发
-            ++cnt;
-            if (key &lt; t[mid]) {
-                high = mid - 1;
-                k -= 1;                                  // 左块：长度 F[k-1]-1
-            } else if (key &gt; t[mid]) {
-                low = mid + 1;
-                k -= 2;                                  // 右块：长度 F[k-2]-1（关键！）
-            } else {
-                if (cmpCnt) *cmpCnt = cnt;
-                return mid &lt; n ? mid : n - 1;            // 落在补齐区 → 映射回最后一个元素
-            }
-            if (k &lt; 1) break;                            // 防越界
+    int low = 0, high = n - 1, cnt = 0;                  // high 始终是"原数组"的右界
+    while (low &lt;= high) {
+        int mid = low + F[k - 1] - 1;                    // 核心公式：左边恰好留 F[k-1]-1 个
+        if (mid &gt;= len) mid = len - 1;                   // 兜底，正常不会触发
+        ++cnt;
+        if (key &lt; t[mid]) {
+            high = mid - 1;
+            k -= 1;                                      // 左块：长度 F[k-1]-1
+        } else if (key &gt; t[mid]) {
+            low = mid + 1;
+            k -= 2;                                      // 右块：长度 F[k-2]-1（关键！）
+        } else {
+            if (cmpCnt) *cmpCnt = cnt;
+            return mid &lt; n ? mid : n - 1;                // 落在补齐区 → 映射回最后一个元素
         }
-        if (cmpCnt) *cmpCnt = cnt;
-        return -1;
+        if (k &lt; 1) break;                                // 防越界
     }
-};
+    if (cmpCnt) *cmpCnt = cnt;
+    return -1;
+}
 
 int main() {
-    FibSearch fs(2000);
-    cout &lt;&lt; "F = ";
-    for (int i = 1; i &lt;= 10; ++i) cout &lt;&lt; fs.F[i] &lt;&lt; " ";   // 1 1 2 3 5 8 13 21 34 55
-    cout &lt;&lt; "\n";
+    buildFib(2000);
+    printf("F = ");
+    for (int i = 1; i &lt;= 10; ++i) printf("%d ", F[i]);   // 1 1 2 3 5 8 13 21 34 55
+    printf("\n");
 
-    vector&lt;int&gt; a = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110};   // n = 11
-    int c = 0;
-    cout &lt;&lt; "查 10  → 下标 " &lt;&lt; fs.search(a, 10, &amp;c)  &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";  // 0
-    cout &lt;&lt; "查 70  → 下标 " &lt;&lt; fs.search(a, 70, &amp;c)  &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";  // 6，第 1 次就命中
-    cout &lt;&lt; "查 110 → 下标 " &lt;&lt; fs.search(a, 110, &amp;c) &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";  // 10
-    cout &lt;&lt; "查 75  → 下标 " &lt;&lt; fs.search(a, 75, &amp;c)  &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";  // -1
-    cout &lt;&lt; "查 5   → 下标 " &lt;&lt; fs.search(a, 5, &amp;c)   &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";  // -1
+    int init[11] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110};   // n = 11
+    int n = 11;
+    for (int i = 0; i &lt; n; ++i) a[i] = init[i];
+
+    int c = 0, pos = 0;
+    pos = fibSearch(11, 10, &amp;c);
+    printf("查 10  → 下标 %d，比较 %d 次\n", pos, c);
+    pos = fibSearch(11, 70, &amp;c);
+    printf("查 70  → 下标 %d，比较 %d 次\n", pos, c);
+    pos = fibSearch(11, 110, &amp;c);
+    printf("查 110 → 下标 %d，比较 %d 次\n", pos, c);
+    pos = fibSearch(11, 75, &amp;c);
+    printf("查 75  → 下标 %d，比较 %d 次\n", pos, c);
+    pos = fibSearch(11, 5, &amp;c);
+    printf("查 5   → 下标 %d，比较 %d 次\n", pos, c);
     return 0;
 }</pre>
 
@@ -1646,109 +1657,117 @@ int main() {
     </div>
 
     <h3 id="s6-3">10.6.3 C++ 实现：索引表 + 块内顺序 / 折半查找</h3>
-    <pre data-lang="cpp" data-file="block_search.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
+    <pre data-lang="cpp" data-file="block_search.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   分块查找（索引顺序查找）
+   分块查找（索引顺序查找）—— 竞赛写法：全局数组 + 自由函数
    - 主表分成 b 块，每块 s 个元素；块间有序（后一块的最小值 &gt; 前一块的最大值）
    - 块内无序 → 块内只能顺序查找；若块内也有序，可把 findInBlock 换成折半
-   - 索引表存每块的最大关键字与起始下标
-   返回 (块号, 块内下标)，失败返回 (-1, -1)
+   - 索引表存每块的最大关键字 idxMax[] 与起始下标 idxStart[]
+   - 核心结论：ASL = ASL索引 + ASL块内；
+     顺序查找索引时最优块长 s = √n，此时 ASL ≈ √n + 1（两段各 √n/2 与 s/2 相加取最小）
+   返回 (块号, 块内偏移)，失败返回 (-1, -1)
+   数组大小依据：MAXN = 1e5 + 5 放主表；MAXB = 1005 够放 √(1e5) ≈ 317 个块
    ===================================================================== */
-struct BlockIndex {
-    int maxKey;        // 该块的最大关键字
-    int start;         // 该块在主表中的起始下标
-};
 
-class BlockSearch {
-public:
-    vector&lt;int&gt; data;                 // 主表
-    vector&lt;BlockIndex&gt; idx;           // 索引表（按 maxKey 递增）
-    int blockSize;
+const int MAXN = 100005;   // 主表容量
+const int MAXB = 1005;     // 索引表（块数）容量
 
-    void build(const vector&lt;vector&lt;int&gt;&gt;&amp; blocks) {
-        data.clear();
-        idx.clear();
-        blockSize = 0;
-        for (int bi = 0; bi &lt; (int)blocks.size(); ++bi) {
-            BlockIndex bi2;
-            bi2.start  = (int)data.size();
-            bi2.maxKey = *max_element(blocks[bi].begin(), blocks[bi].end());
-            /* 块间有序的校验（工程代码里应当 assert） */
-            if (bi &gt; 0 &amp;&amp; bi2.maxKey &lt; idx[bi - 1].maxKey)
-                cout &lt;&lt; "警告：块 " &lt;&lt; bi &lt;&lt; " 破坏了块间有序！\n";
-            idx.push_back(bi2);
-            for (int x : blocks[bi]) data.push_back(x);
-            blockSize = max(blockSize, (int)blocks[bi].size());
-        }
-    }
+int dat[MAXN];             // 主表：各块首尾相接拼在一起
+int idxMax[MAXB];          // 索引表：第 i 块的最大关键字
+int idxStart[MAXB];        // 索引表：第 i 块在主表中的起始下标
+int blen[MAXB];            // 第 i 块的实际长度
+int bcnt = 0;              // 块数 b
+int n = 0;                 // 主表元素个数 n
 
-    /* ① 索引表用顺序查找：ASL_index = (b+1)/2 */
-    int locateSeq(int key) const {
-        for (int i = 0; i &lt; (int)idx.size(); ++i)
-            if (key &lt;= idx[i].maxKey) return i;         // 第一个"能吃下"key 的块
-        return -1;
+/* ---------- 建索引表：把 dat[0..n-1] 每 s 个切成一块 ---------- */
+void buildBlocks(int s) {
+    bcnt = 0;
+    for (int st = 0; st &lt; n; st += s) {
+        int len = min(s, n - st);                 // 最后一块可能不满
+        int mx = dat[st];
+        for (int i = st + 1; i &lt; st + len; ++i) mx = max(mx, dat[i]);
+        idxStart[bcnt] = st;
+        blen[bcnt] = len;
+        idxMax[bcnt] = mx;                        // 索引项 = 该块最大关键字
+        /* 块间有序的校验：第 i 块的最大值必须小于第 i+1 块的最小值 */
+        if (bcnt &gt; 0 &amp;&amp; idxMax[bcnt] &lt; idxMax[bcnt - 1])
+            printf("警告：块 %d 破坏了块间有序！\n", bcnt);
+        ++bcnt;
     }
+}
 
-    /* ② 索引表用折半查找（lower_bound）：ASL_index = ⌈log2(b+1)⌉ */
-    int locateBinary(int key) const {
-        int lo = 0, hi = (int)idx.size() - 1, ans = -1;
-        while (lo &lt;= hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (idx[mid].maxKey &gt;= key) { ans = mid; hi = mid - 1; }   // 记录并继续往左找
-            else lo = mid + 1;
-        }
-        return ans;
-    }
+/* ---------- ① 索引表用顺序查找：ASL_index = (b+1)/2 ---------- */
+int locateSeq(int key) {
+    for (int i = 0; i &lt; bcnt; ++i)
+        if (key &lt;= idxMax[i]) return i;           // 第一个"能吃下"key 的块
+    return -1;
+}
 
-    /* 块内顺序查找，返回"块内偏移"，找不到返回 -1 */
-    int findInBlock(int b, int key) const {
-        int st = idx[b].start;
-        int en = (b + 1 &lt; (int)idx.size()) ? idx[b + 1].start : (int)data.size();
-        for (int i = st; i &lt; en; ++i)
-            if (data[i] == key) return i - st;
-        return -1;
+/* ---------- ② 索引表用折半查找：ASL_index = ⌈log2(b+1)⌉ ---------- */
+int locateBinary(int key) {
+    int lo = 0, hi = bcnt - 1, ans = -1;
+    while (lo &lt;= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (idxMax[mid] &gt;= key) { ans = mid; hi = mid - 1; }   // 记录并继续往左找
+        else lo = mid + 1;
     }
+    return ans;
+}
 
-    pair&lt;int, int&gt; searchSeqIndex(int key) const {       // ① 顺序索引版
-        int b = locateSeq(key);
-        if (b &lt; 0) return {-1, -1};
-        int off = findInBlock(b, key);
-        return off &lt; 0 ? make_pair(-1, -1) : make_pair(b, off);
-    }
-    pair&lt;int, int&gt; searchBinIndex(int key) const {       // ② 折半索引版
-        int b = locateBinary(key);
-        if (b &lt; 0) return {-1, -1};
-        int off = findInBlock(b, key);
-        return off &lt; 0 ? make_pair(-1, -1) : make_pair(b, off);
-    }
-};
+/* ---------- 块内顺序查找，返回"块内偏移"，找不到返回 -1 ---------- */
+int findInBlock(int b, int key) {
+    for (int i = idxStart[b]; i &lt; idxStart[b] + blen[b]; ++i)
+        if (dat[i] == key) return i - idxStart[b];
+    return -1;
+}
+
+/* ---------- 两种索引方式的两段式查找：先定块，再块内找 ---------- */
+pair&lt;int, int&gt; searchSeqIndex(int key) {          // ① 顺序索引版
+    int b = locateSeq(key);
+    if (b &lt; 0) return make_pair(-1, -1);
+    int off = findInBlock(b, key);
+    return off &lt; 0 ? make_pair(-1, -1) : make_pair(b, off);
+}
+
+pair&lt;int, int&gt; searchBinIndex(int key) {          // ② 折半索引版
+    int b = locateBinary(key);
+    if (b &lt; 0) return make_pair(-1, -1);
+    int off = findInBlock(b, key);
+    return off &lt; 0 ? make_pair(-1, -1) : make_pair(b, off);
+}
+
+void printIndex() {
+    printf("索引表（块间有序）：\n");
+    for (int i = 0; i &lt; bcnt; ++i)
+        printf("  块%d: maxKey=%-3d start=%-3d len=%d\n", i, idxMax[i], idxStart[i], blen[i]);
+}
 
 int main() {
     /* 块间有序、块内无序：n = 16, b = 4, s = 4 */
-    vector&lt;vector&lt;int&gt;&gt; blocks = {
-        {22, 12, 13,  8},        // 第 0 块，max = 22
-        {33, 48, 25, 30},        // 第 1 块，max = 48
-        {60, 86, 71, 55},        // 第 2 块，max = 86
-        {99, 95, 88, 90}         // 第 3 块，max = 99
-    };
-    BlockSearch bs;
-    bs.build(blocks);
+    int init[16] = {22, 12, 13,  8,        // 第 0 块，max = 22
+                    33, 48, 25, 30,        // 第 1 块，max = 48
+                    60, 86, 71, 55,        // 第 2 块，max = 86
+                    99, 95, 88, 90};       // 第 3 块，max = 99
+    n = 16;
+    for (int i = 0; i &lt; n; ++i) dat[i] = init[i];
+    buildBlocks(4);
+    printIndex();
 
-    for (int key : {48, 8, 99, 50, 100}) {
-        auto r1 = bs.searchSeqIndex(key);
-        auto r2 = bs.searchBinIndex(key);
-        cout &lt;&lt; "key=" &lt;&lt; key
-             &lt;&lt; "  顺序索引 → 块" &lt;&lt; r1.first &lt;&lt; " 内偏移" &lt;&lt; r1.second
-             &lt;&lt; "  折半索引 → 块" &lt;&lt; r2.first &lt;&lt; " 内偏移" &lt;&lt; r2.second &lt;&lt; "\n";
+    int keys[5] = {48, 8, 99, 50, 100};
+    for (int i = 0; i &lt; 5; ++i) {
+        int key = keys[i];
+        pair&lt;int, int&gt; r1 = searchSeqIndex(key);
+        pair&lt;int, int&gt; r2 = searchBinIndex(key);
+        printf("key=%-4d 顺序索引 → 块%d 内偏移%d    折半索引 → 块%d 内偏移%d\n",
+               key, r1.first, r1.second, r2.first, r2.second);
     }
+
     /* 理论 ASL：n = 16, s = 4, b = 4
-       ASL = (b+1)/2 + (s+1)/2 = 2.5 + 2.5 = 5，与 √n + 1 = 5 吻合 */
-    cout &lt;&lt; "理论 ASL(顺序索引) = " &lt;&lt; (4 + 1) / 2.0 + (4 + 1) / 2.0 &lt;&lt; "\n";   // 5
-    cout &lt;&lt; "理论 ASL(√n+1)   = " &lt;&lt; 4.0 + 1 &lt;&lt; "\n";                            // 5
+       ASL = (b+1)/2 + (s+1)/2 = 2.5 + 2.5 = 5，与最优块长 s = √n 时的 √n + 1 = 5 吻合 */
+    printf("理论 ASL(顺序索引) = (4+1)/2 + (4+1)/2 = %.1f\n", (4 + 1) / 2.0 + (4 + 1) / 2.0);
+    printf("理论 ASL(√n+1)     = √16 + 1 = %.1f\n", sqrt(16.0) + 1);
     return 0;
 }</pre>
 
@@ -2251,225 +2270,236 @@ int main() {
     </div>
 
     <h4 id="s7-3-5">开放定址法完整 C++ 实现（线性探测 + 平方探测）</h4>
-    <pre data-lang="cpp" data-file="open_addr_linear.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="open_addr_linear.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   开放定址 —— 线性探测法（linear probing）
-   H_i = ( H(key) + i ) mod m ，i = 0,1,2,...
-   三态槽位：EMPTY（从未用过）/ OCCUPIED（有元素）/ DELETED（墓碑）
-   删除必须打墓碑！否则会截断别人的探测链。
+   开放定址 —— 线性探测法（linear probing）。竞赛写法：全局数组 + 自由函数
+   H_i = ( H(key) + i ) mod m ，i = 0,1,2,...（冲突就一个一个往后数）
+   槽位三态：EMPTY 从未用过 / OCCUPIED 有元素 / DELETED 墓碑
+   删除必须打墓碑（tombstone）！直接置空会截断别人的探测链。
+   缺点：堆积现象（一次聚集 primary clustering）—— 被占的槽会连成一片，
+         这片越长越容易"吸住"后面的冲突，α 一高 ASL 就急剧上升
+         （成功 ≈ ½(1 + 1/(1-α))，失败 ≈ ½(1 + 1/(1-α)²)），所以实践上要求 α ≤ 0.75。
+   表长 m 取质数：本段用 m = 11 方便和正文的 ASL 手推对齐；
+   竞赛里开大表常写成 const int M = 100003;（1e5 级别的质数）。
    ===================================================================== */
-class LinearProbingHash {
-public:
-    enum State { EMPTY, OCCUPIED, DELETED };
-    struct Slot { int key; State st; };
 
-    int m;                       // 表长（建议取质数）
-    int cnt;                     // 有效元素个数
-    int tomb;                    // 墓碑个数
-    vector&lt;Slot&gt; t;
+const int M = 11;                    // 表长 m，取质数（11 是质数）
+const int EMPTY = 0, OCCUPIED = 1, DELETED = 2;
 
-    explicit LinearProbingHash(int size) : m(size), cnt(0), tomb(0), t(size, {0, EMPTY}) {}
+int h[M];                            // 槽位里存的关键字
+int st[M];                           // 每个槽位的状态：EMPTY / OCCUPIED / DELETED
+int cnt = 0;                         // 有效元素个数 n，装填因子 α = cnt / M
+int tomb = 0;                        // 墓碑个数（墓碑会让查找路径变长）
+bool verbose = false;                // 打开后打印每一次探测的过程
 
-    int hashKey(int key) const { return ((key % m) + m) % m; }
-    double loadFactor() const { return (double)cnt / m; }
+/* ---------- 哈希函数：除留余数法，顺便把负数掰成正的 ---------- */
+int hashOf(int k) { return ((k % M) + M) % M; }
 
-    /* ---------- 插入：返回最终落点下标；-1 表示表满且全被有效元素占满 ---------- */
-    int insert(int key, bool verbose = false) {
-        int h = hashKey(key);
-        for (int i = 0; i &lt; m; ++i) {
-            int pos = (h + i) % m;                    // 线性探测
-            if (verbose)
-                cout &lt;&lt; "    探测 i=" &lt;&lt; i &lt;&lt; " → pos " &lt;&lt; pos
-                     &lt;&lt; (t[pos].st == OCCUPIED ? "（占用，冲突）"
-                        : t[pos].st == DELETED ? "（墓碑，可复用）" : "（空，放入）") &lt;&lt; "\n";
-            if (t[pos].st == OCCUPIED &amp;&amp; t[pos].key == key) return pos;   // 已存在，不重复插
-            if (t[pos].st != OCCUPIED) {              // EMPTY 或 DELETED 都能放
-                if (t[pos].st == DELETED) --tomb;
-                t[pos].key = key; t[pos].st = OCCUPIED; ++cnt;
-                return pos;
-            }
+double loadFactor() { return (double)cnt / M; }
+
+/* ---------- 插入：返回最终落点下标；-1 表示探测一圈都没有空位 ---------- */
+int insertKey(int k) {
+    int hh = hashOf(k);
+    for (int i = 0; i &lt; M; ++i) {
+        int pos = (hh + i) % M;                        // 线性探测：d_i = i
+        if (verbose)
+            printf("    探测 i=%d → pos %d%s\n", i, pos,
+                   st[pos] == OCCUPIED ? "（占用，冲突）"
+                 : st[pos] == DELETED  ? "（墓碑，可复用）" : "（空，放入）");
+        if (st[pos] == OCCUPIED &amp;&amp; h[pos] == k) return pos;    // 已存在，不重复插
+        if (st[pos] != OCCUPIED) {                     // EMPTY 或 DELETED 都能放
+            if (st[pos] == DELETED) --tomb;            // 顺手清掉一个墓碑
+            h[pos] = k; st[pos] = OCCUPIED; ++cnt;
+            return pos;
         }
-        return -1;
     }
+    return -1;                                         // 表满
+}
 
-    /* ---------- 查找：返回下标；cmpCnt 输出比较次数 ---------- */
-    int find(int key, int* cmpCnt = nullptr) const {
-        int h = hashKey(key), c = 0;
-        for (int i = 0; i &lt; m; ++i) {
-            int pos = (h + i) % m;
-            ++c;                                       // 访问一次 = 一次比较
-            if (t[pos].st == EMPTY) {                  // 真空位 → 探测链断了，肯定没有
-                if (cmpCnt) *cmpCnt = c;
-                return -1;
-            }
-            if (t[pos].st == OCCUPIED &amp;&amp; t[pos].key == key) {
-                if (cmpCnt) *cmpCnt = c;
-                return pos;
-            }
-            /* DELETED 既不算匹配也不算终止，继续往下探 —— 这就是墓碑的作用 */
+/* ---------- 查找：返回下标，找不到返回 -1；cmpCnt 输出比较次数 ---------- */
+int findKey(int k, int *cmpCnt = nullptr) {
+    int hh = hashOf(k), c = 0;
+    for (int i = 0; i &lt; M; ++i) {
+        int pos = (hh + i) % M;
+        ++c;                                           // 访问一个槽位 = 一次比较
+        if (st[pos] == EMPTY) {                        // 真空位 → 探测链断了，肯定没有
+            if (cmpCnt) *cmpCnt = c;
+            return -1;
         }
-        if (cmpCnt) *cmpCnt = c;
-        return -1;
-    }
-
-    /* ---------- 删除：打墓碑，绝不置 EMPTY ---------- */
-    bool erase(int key) {
-        int pos = find(key);
-        if (pos &lt; 0) return false;
-        t[pos].st = DELETED;                          // 关键的一行！
-        ++tomb; --cnt;
-        return true;
-    }
-
-    /* ---------- 打印表 ---------- */
-    void dump(const string&amp; title) const {
-        cout &lt;&lt; title &lt;&lt; "（n=" &lt;&lt; cnt &lt;&lt; ", α=" &lt;&lt; loadFactor() &lt;&lt; "）\n  ";
-        for (int i = 0; i &lt; m; ++i) {
-            if (t[i].st == OCCUPIED) cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]" &lt;&lt; t[i].key &lt;&lt; " ";
-            else if (t[i].st == DELETED) cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]墓碑 ";
-            else cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]空 ";
+        if (st[pos] == OCCUPIED &amp;&amp; h[pos] == k) {
+            if (cmpCnt) *cmpCnt = c;
+            return pos;
         }
-        cout &lt;&lt; "\n";
+        /* DELETED 既不算匹配也不算终止，继续往下探 —— 这就是墓碑的作用 */
     }
-};
+    if (cmpCnt) *cmpCnt = c;
+    return -1;
+}
+
+/* ---------- 删除：打墓碑，绝不置 EMPTY ---------- */
+bool eraseKey(int k) {
+    int pos = findKey(k);
+    if (pos &lt; 0) return false;
+    st[pos] = DELETED;                                 // 关键的一行！
+    ++tomb; --cnt;
+    return true;
+}
+
+void dumpTable(const char *title) {
+    printf("%s（n=%d，α=%.2f，墓碑=%d）\n  ", title, cnt, loadFactor(), tomb);
+    for (int i = 0; i &lt; M; ++i) {
+        if (st[i] == OCCUPIED)      printf("[%d]%d ", i, h[i]);
+        else if (st[i] == DELETED)  printf("[%d]墓碑 ", i);
+        else                        printf("[%d]空 ", i);
+    }
+    printf("\n");
+}
 
 int main() {
-    LinearProbingHash ht(11);                         // m = 11 是质数
-    int keys[] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
+    int keys[9] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
 
-    for (int k : keys) {
-        cout &lt;&lt; "插入 " &lt;&lt; k &lt;&lt; "（H=" &lt;&lt; (k % 11) &lt;&lt; "）：\n";
-        ht.insert(k, true);
+    verbose = true;
+    for (int i = 0; i &lt; 9; ++i) {
+        printf("插入 %d（H=%d）：\n", keys[i], keys[i] % M);
+        insertKey(keys[i]);
     }
+    verbose = false;
+
     /* 实测最终表：0:22 1:1 2:46 3:13 4:67 5:42 6:空 7:空 8:41 9:53 10:30
        42 插入时探测链为 9✗10✗0✗1✗2✗3✗4✗5✓，共比较 8 次（同一约定下即查找它的成功比较次数）
-       于是 ASL_success = (1+1+1+1+3+2+1+4+8)/9 = 22/9 ≈ 2.44
-       删除 53 后重算：ASL_success = (1+1+1+1+3+2+1+8)/8 = 18/8 = 2.25，ASL_fail = 56/11 ≈ 5.09 */
-    ht.dump("最终表：");
+       各 key 的成功比较次数：22:1  41:1  53:1  46:1  30:3  13:2  1:1  67:4  42:8
+       成功 ASL 的分母是 n（表中元素个数），所以 ASL_success = 22/9 ≈ 2.44 */
+    dumpTable("最终表：");
+
+    int c = 0, total = 0, n = 0;
+    for (int i = 0; i &lt; 9; ++i)
+        if (findKey(keys[i], &amp;c) &gt;= 0) { total += c; ++n; }
+    printf("ASL_success = %d/%d = %.2f\n", total, n, (double)total / n);
 
     /* ---------- 演示墓碑的必要性 ---------- */
-    cout &lt;&lt; "\n---- 删除 53（9 号位）----\n";
-    ht.erase(53);
-    ht.dump("删除后：");                               // 9 号位变成墓碑
-    int c = 0;
-    int p = ht.find(30, &amp;c);                          // 30 住在 10 号位，必须穿过墓碑才找得到
-    cout &lt;&lt; "查找 30 → 下标 " &lt;&lt; p &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";
-    cout &lt;&lt; "（如果删除时把 9 号位置成 EMPTY，这里会返回 -1，30 就「消失」了）\n";
-    /* ---------- 统计成功 ASL ---------- */
-    int total = 0, n = 0;
-    for (int k : keys) {
-        if (k == 53) continue;                        // 53 已被删除
-        if (ht.find(k, &amp;c) &gt;= 0) { total += c; ++n; }
-    }
-    cout &lt;&lt; "ASL_success = " &lt;&lt; total &lt;&lt; "/" &lt;&lt; n &lt;&lt; " = " &lt;&lt; (double)total / n &lt;&lt; "\n";
+    printf("\n---- 删除 53（9 号位）----\n");
+    eraseKey(53);
+    dumpTable("删除后：");                             // 9 号位变成墓碑
+    int p = findKey(30, &amp;c);                           // 30 住在 10 号位，必须穿过墓碑才找得到
+    printf("查找 30 → 下标 %d，比较 %d 次\n", p, c);
+    printf("（如果删除时把 9 号位置成 EMPTY，这里会返回 -1，30 就「消失」了）\n");
 
-    /* ---------- 统计不成功 ASL（约定：从每个哈希地址出发，探到 EMPTY 为止） ---------- */
+    /* ---------- 删除后重算成功 ASL：22:1 41:1 46:1 30:3 13:2 1:1 67:4 42:8 = 21/8 ≈ 2.62 ---------- */
+    total = 0; n = 0;
+    for (int i = 0; i &lt; 9; ++i) {
+        if (keys[i] == 53) continue;                   // 53 已被删除
+        if (findKey(keys[i], &amp;c) &gt;= 0) { total += c; ++n; }
+    }
+    printf("删除 53 后 ASL_success = %d/%d = %.2f\n", total, n, (double)total / n);
+
+    /* ---------- 统计不成功 ASL：分母是 m，约定「从每个哈希地址出发探到 EMPTY 为止」 ---------- */
     int failTotal = 0;
-    for (int start = 0; start &lt; 11; ++start) {
+    for (int start = 0; start &lt; M; ++start) {
         int i = 0;
         while (true) {
-            int pos = (start + i) % 11;
+            int pos = (start + i) % M;
             ++i;
-            if (ht.t[pos].st == LinearProbingHash::EMPTY) break;   // 墓碑不算停
-            if (i &gt; 11) break;
+            if (st[pos] == EMPTY) break;               // 墓碑不算停
+            if (i &gt; M) break;
         }
         failTotal += i;
     }
-    cout &lt;&lt; "ASL_fail = " &lt;&lt; failTotal &lt;&lt; "/11 = " &lt;&lt; failTotal / 11.0 &lt;&lt; "\n";
+    printf("ASL_fail = %d/%d = %.2f\n", failTotal, M, (double)failTotal / M);
     return 0;
 }</pre>
 
-    <pre data-lang="cpp" data-file="open_addr_quadratic.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="open_addr_quadratic.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   开放定址 —— 平方探测法（quadratic probing）
+   开放定址 —— 平方探测法（quadratic probing）。竞赛写法：全局数组 + 自由函数
    探测序列：d = 0, +1, -1, +4, -4, +9, -9, ...
    地址：pos = ( H(key) + d ) mod m
-   结论：m 取 4j+3 形式的质数（7,11,19,23,31,43...）时能探测到全表所有位置
+   重要结论：m 取 4j+3 形式的质数（7,11,19,23,31,43...）时，
+             前 m 个探测位置恰好覆盖全表，保证一定能插入；
+             若 m 是 4j+1 型质数（13,29...）则只能覆盖一半位置。
+   优点：跳跃式探测打散了堆积，不会出现线性探测那样越长越"吸冲突"的一次聚集；
+         但起点相同的 key 仍走同一条探测序列，这叫二次聚集（secondary clustering）。
+   删除同样必须打墓碑。
    ===================================================================== */
-class QuadraticProbingHash {
-public:
-    enum State { EMPTY, OCCUPIED, DELETED };
-    struct Slot { int key; State st; };
 
-    int m, cnt;
-    vector&lt;Slot&gt; t;
+const int MAXM = 100005;     // 表长上限（竞赛里表长常取 1e5 级别的质数）
+const int EMPTY = 0, OCCUPIED = 1, DELETED = 2;
 
-    explicit QuadraticProbingHash(int size) : m(size), cnt(0), t(size, {0, EMPTY}) {}
+int m = 11;                  // 当前表长 m（要求是 4j+3 型质数）
+int h[MAXM];                 // 槽位里存的关键字
+int st[MAXM];                // 槽位状态
+int cnt = 0;                 // 有效元素个数 n
+bool verbose = false;        // 打开后打印每一次探测
 
-    int hashKey(int key) const { return ((key % m) + m) % m; }
+/* ---------- 重置成一张长度为 size 的空表 ---------- */
+void clearTable(int size) {
+    m = size; cnt = 0;
+    for (int i = 0; i &lt; m; ++i) { h[i] = 0; st[i] = EMPTY; }
+}
 
-    /* 生成探测序列的第 i 项增量（i 从 0 开始）：0, +1, -1, +4, -4, ... */
-    static int delta(int i) {
-        if (i == 0) return 0;
-        int k = (i + 1) / 2;                 // 1,1,2,2,3,3,...
-        int sq = k * k;
-        return (i % 2 == 1) ? sq : -sq;      // 奇数次取正，偶数次取负
-    }
+int hashOf(int k) { return ((k % m) + m) % m; }
 
-    int insert(int key, bool verbose = false) {
-        int h = hashKey(key);
-        for (int i = 0; i &lt; m; ++i) {
-            int pos = ((h + delta(i)) % m + m) % m;
-            if (verbose)
-                cout &lt;&lt; "    i=" &lt;&lt; i &lt;&lt; " d=" &lt;&lt; delta(i) &lt;&lt; " → pos " &lt;&lt; pos
-                     &lt;&lt; (t[pos].st == OCCUPIED ? "（冲突）" : "（可放）") &lt;&lt; "\n";
-            if (t[pos].st == OCCUPIED &amp;&amp; t[pos].key == key) return pos;
-            if (t[pos].st != OCCUPIED) {
-                t[pos].key = key; t[pos].st = OCCUPIED; ++cnt;
-                return pos;
-            }
+/* ---------- 探测序列的第 i 项增量（i 从 0 开始）：0, +1, -1, +4, -4, ... ---------- */
+int delta(int i) {
+    if (i == 0) return 0;
+    int k = (i + 1) / 2;                 // 1,1,2,2,3,3,...
+    int sq = k * k;
+    return (i % 2 == 1) ? sq : -sq;      // 奇数次取正，偶数次取负
+}
+
+/* ---------- 插入：返回落点下标；-1 表示表满 ---------- */
+int insertKey(int k) {
+    int hh = hashOf(k);
+    for (int i = 0; i &lt; m; ++i) {
+        int pos = ((hh + delta(i)) % m + m) % m;
+        if (verbose)
+            printf("    i=%d d=%d → pos %d%s\n", i, delta(i), pos,
+                   st[pos] == OCCUPIED ? "（冲突）" : "（可放）");
+        if (st[pos] == OCCUPIED &amp;&amp; h[pos] == k) return pos;    // 已存在
+        if (st[pos] != OCCUPIED) {                     // EMPTY 或 DELETED 都能放
+            h[pos] = k; st[pos] = OCCUPIED; ++cnt;
+            return pos;
         }
-        return -1;                            // 表满
     }
+    return -1;                                         // 表满
+}
 
-    int find(int key, int* cmpCnt = nullptr) const {
-        int h = hashKey(key), c = 0;
-        for (int i = 0; i &lt; m; ++i) {
-            int pos = ((h + delta(i)) % m + m) % m;
-            ++c;
-            if (t[pos].st == EMPTY) { if (cmpCnt) *cmpCnt = c; return -1; }
-            if (t[pos].st == OCCUPIED &amp;&amp; t[pos].key == key) { if (cmpCnt) *cmpCnt = c; return pos; }
-        }
-        if (cmpCnt) *cmpCnt = c;
-        return -1;
+/* ---------- 查找：返回下标，找不到返回 -1；cmpCnt 输出比较次数 ---------- */
+int findKey(int k, int *cmpCnt = nullptr) {
+    int hh = hashOf(k), c = 0;
+    for (int i = 0; i &lt; m; ++i) {
+        int pos = ((hh + delta(i)) % m + m) % m;
+        ++c;
+        if (st[pos] == EMPTY) { if (cmpCnt) *cmpCnt = c; return -1; }
+        if (st[pos] == OCCUPIED &amp;&amp; h[pos] == k) { if (cmpCnt) *cmpCnt = c; return pos; }
+        /* DELETED 继续往下探，这就是墓碑 */
     }
+    if (cmpCnt) *cmpCnt = c;
+    return -1;
+}
 
-    bool erase(int key) {
-        int pos = find(key);
-        if (pos &lt; 0) return false;
-        t[pos].st = DELETED;                  // 同样必须用墓碑
-        --cnt;
-        return true;
-    }
+/* ---------- 删除：同样必须打墓碑 ---------- */
+bool eraseKey(int k) {
+    int pos = findKey(k);
+    if (pos &lt; 0) return false;
+    st[pos] = DELETED;
+    --cnt;
+    return true;
+}
 
-    /* 验证：m = 4j+3 的质数时，前 m 个探测位置是否恰好覆盖 0..m-1 */
-    bool probeCoversAll() const {
-        vector&lt;bool&gt; seen(m, false);
-        int h = 0;
-        for (int i = 0; i &lt; m; ++i) {
-            int pos = ((h + delta(i)) % m + m) % m;
-            seen[pos] = true;
-        }
-        for (int i = 0; i &lt; m; ++i) if (!seen[i]) return false;
-        return true;
+/* ---------- 验证：前 m 个探测位置是否恰好覆盖 0..m-1（只与 m 有关，不需要真的建表） ---------- */
+bool probeCoversAll(int mm) {
+    bool seen[MAXM] = {false};
+    for (int i = 0; i &lt; mm; ++i) {
+        int pos = ((0 + delta(i)) % mm + mm) % mm;
+        seen[pos] = true;
     }
-
-    void dump(const string&amp; title) const {
-        cout &lt;&lt; title &lt;&lt; "（n=" &lt;&lt; cnt &lt;&lt; "）\n  ";
-        for (int i = 0; i &lt; m; ++i) {
-            if (t[i].st == OCCUPIED) cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]" &lt;&lt; t[i].key &lt;&lt; " ";
-            else if (t[i].st == DELETED) cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]墓碑 ";
-            else cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]空 ";
-        }
-        cout &lt;&lt; "\n";
-    }
-};
+    for (int i = 0; i &lt; mm; ++i) if (!seen[i]) return false;
+    return true;
+}
 
 bool isPrime(int x) {
     if (x &lt; 2) return false;
@@ -2477,29 +2507,42 @@ bool isPrime(int x) {
     return true;
 }
 
+void dumpTable(const char *title) {
+    printf("%s（n=%d）\n  ", title, cnt);
+    for (int i = 0; i &lt; m; ++i) {
+        if (st[i] == OCCUPIED)      printf("[%d]%d ", i, h[i]);
+        else if (st[i] == DELETED)  printf("[%d]墓碑 ", i);
+        else                        printf("[%d]空 ", i);
+    }
+    printf("\n");
+}
+
 int main() {
     /* ---- 结论验证：m = 4j+3 的质数能覆盖全表，其它不行 ---- */
-    for (int m : {7, 11, 12, 13, 19, 23, 29, 31}) {
-        QuadraticProbingHash q(m);
-        cout &lt;&lt; "m=" &lt;&lt; m &lt;&lt; "（4j+3? " &lt;&lt; ((m % 4 == 3) ? "是" : "否")
-             &lt;&lt; "，质数? " &lt;&lt; (isPrime(m) ? "是" : "否")
-             &lt;&lt; "）探测序列覆盖全表? " &lt;&lt; (q.probeCoversAll() ? "能" : "不能") &lt;&lt; "\n";
+    int ms[8] = {7, 11, 12, 13, 19, 23, 29, 31};
+    for (int i = 0; i &lt; 8; ++i) {
+        int mm = ms[i];
+        printf("m=%-3d（4j+3? %s，质数? %s）探测序列覆盖全表? %s\n",
+               mm, (mm % 4 == 3) ? "是" : "否", isPrime(mm) ? "是" : "否",
+               probeCoversAll(mm) ? "能" : "不能");
     }
     /* 预期：7/11/19/23/31 能；12（非质数）、13（≡1 mod 4）、29（≡1 mod 4）不能 */
 
-    /* ---- 同一串关键字，对比线性探测（用 10.7.3 的序列） ---- */
-    cout &lt;&lt; "\n平方探测插入 22,41,53,46,30,13,1,67,42（m=11）：\n";
-    QuadraticProbingHash h2(11);
-    int keys[] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
-    for (int k : keys) {
-        cout &lt;&lt; "  插入 " &lt;&lt; k &lt;&lt; "（H=" &lt;&lt; (k % 11) &lt;&lt; "）\n";
-        h2.insert(k, true);
+    /* ---- 同一串关键字，和线性探测对比（m 必须取 4j+3 型质数） ---- */
+    printf("\n平方探测插入 22,41,53,46,30,13,1,67,42（m=11）：\n");
+    clearTable(11);
+    int keys[9] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
+    verbose = true;
+    for (int i = 0; i &lt; 9; ++i) {
+        printf("  插入 %d（H=%d）\n", keys[i], keys[i] % m);
+        insertKey(keys[i]);
     }
-    h2.dump("结果：");
+    verbose = false;
+    dumpTable("结果：");
 
     int c = 0, total = 0;
-    for (int k : keys) { h2.find(k, &amp;c); total += c; }
-    cout &lt;&lt; "ASL_success = " &lt;&lt; total &lt;&lt; "/9 = " &lt;&lt; total / 9.0 &lt;&lt; "\n";
+    for (int i = 0; i &lt; 9; ++i) { findKey(keys[i], &amp;c); total += c; }
+    printf("ASL_success = %d/9 = %.2f\n", total, total / 9.0);
     return 0;
 }</pre>
 
@@ -2727,90 +2770,107 @@ int main() {
     </div>
 
     <h4 id="s7-5-2">链地址法的 C++ 实现</h4>
-    <pre data-lang="cpp" data-file="chain_hash.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;list&gt;
-#include &lt;algorithm&gt;
+    <pre data-lang="cpp" data-file="chain_hash.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   链地址法（拉链法）
-   - 桶数组 + 每个桶一条链表
+   链地址法（拉链法）—— 竞赛写法：struct 描述结点 + 全局桶数组 + 自由函数
+   - 桶数组 + 每个桶一条单链表（指针域 nxt）
    - 插入 O(1)（头插）；查找 = 定位桶 + 遍历链
-   - 删除不需要墓碑；α = n/m 可以大于 1
+   - 删除不需要墓碑，直接摘链；装填因子 α = n / m 可以大于 1
+   数组大小依据：M = 11 取质数；竞赛里桶数常取 1e5 级别的质数
    ===================================================================== */
-class ChainHash {
-public:
-    int m;
-    int n;
-    vector&lt;list&lt;int&gt;&gt; bucket;      // vector&lt;list&lt;int&gt;&gt; 是最省事的写法
-    bool headInsert;              // true = 头插，false = 尾插
 
-    explicit ChainHash(int size, bool head = true)
-        : m(size), n(0), bucket(size), headInsert(head) {}
+const int M = 11;              // 桶数 m，取质数
 
-    int hashKey(int key) const { return ((key % m) + m) % m; }
-    double loadFactor() const { return (double)n / m; }
-
-    void insert(int key) {
-        int h = hashKey(key);
-        for (int x : bucket[h]) if (x == key) return;     // 不允许重复
-        if (headInsert) bucket[h].push_front(key);        // O(1)
-        else            bucket[h].push_back(key);         // O(链长)
-        ++n;
-    }
-
-    /* 成功返回 true；cmpCnt 输出比较次数 */
-    bool find(int key, int* cmpCnt = nullptr) const {
-        int h = hashKey(key), c = 0;
-        for (int x : bucket[h]) {
-            ++c;
-            if (x == key) { if (cmpCnt) *cmpCnt = c; return true; }
-        }
-        if (cmpCnt) *cmpCnt = c;                          // 空桶时 c = 0
-        return false;
-    }
-
-    bool erase(int key) {
-        int h = hashKey(key);
-        for (auto it = bucket[h].begin(); it != bucket[h].end(); ++it) {
-            if (*it == key) { bucket[h].erase(it); --n; return true; }   // 直接摘链，无需墓碑
-        }
-        return false;
-    }
-
-    /* ---------------- 统计两种 ASL ---------------- */
-    void statASL() const {
-        int succTotal = 0;
-        for (int h = 0; h &lt; m; ++h) {
-            int rank = 0;
-            for (int x : bucket[h]) { (void)x; ++rank; succTotal += rank; }
-        }
-        int failTotal = 0;
-        for (int h = 0; h &lt; m; ++h) failTotal += (int)bucket[h].size();
-        cout &lt;&lt; "n=" &lt;&lt; n &lt;&lt; ", m=" &lt;&lt; m &lt;&lt; ", α=" &lt;&lt; loadFactor() &lt;&lt; "\n";
-        cout &lt;&lt; "ASL_success = " &lt;&lt; succTotal &lt;&lt; "/" &lt;&lt; n &lt;&lt; " = "
-             &lt;&lt; (n ? (double)succTotal / n : 0) &lt;&lt; "\n";
-        cout &lt;&lt; "ASL_fail    = " &lt;&lt; failTotal &lt;&lt; "/" &lt;&lt; m &lt;&lt; " = "
-             &lt;&lt; (double)failTotal / m &lt;&lt; "\n";
-    }
-
-    void dump() const {
-        for (int h = 0; h &lt; m; ++h) {
-            cout &lt;&lt; "桶" &lt;&lt; h &lt;&lt; ": ";
-            if (bucket[h].empty()) { cout &lt;&lt; "空\n"; continue; }
-            for (int x : bucket[h]) cout &lt;&lt; x &lt;&lt; " → ";
-            cout &lt;&lt; "∧\n";
-        }
-    }
+struct Node {                  // 链结点：数据域 + 指针域
+    int val;
+    Node *nxt;
 };
 
+Node *head[M];                 // 桶数组：head[i] 是第 i 条链的表头指针
+int n = 0;                     // 元素个数 n；α = n / M
+int headInsert = 1;            // 1 = 头插（O(1)），0 = 尾插（O(链长)）
+
+int hashOf(int k) { return ((k % M) + M) % M; }
+double loadFactor() { return (double)n / M; }
+
+/* ---------- 插入：同一关键字只留一个；头插 O(1)，尾插 O(链长) ---------- */
+bool insertKey(int k) {
+    int hh = hashOf(k);
+    for (Node *p = head[hh]; p; p = p-&gt;nxt)
+        if (p-&gt;val == k) return false;            // 不允许重复
+    Node *p = new Node{k, nullptr};               // 竞赛里不回收内存，程序结束即归还系统
+    if (headInsert) {                             // 头插
+        p-&gt;nxt = head[hh];
+        head[hh] = p;
+    } else {                                      // 尾插
+        if (!head[hh]) head[hh] = p;
+        else {
+            Node *q = head[hh];
+            while (q-&gt;nxt) q = q-&gt;nxt;
+            q-&gt;nxt = p;
+        }
+    }
+    ++n;
+    return true;
+}
+
+/* ---------- 查找：成功返回 true；cmpCnt 输出比较次数（空桶时是 0） ---------- */
+bool findKey(int k, int *cmpCnt = nullptr) {
+    int c = 0;
+    for (Node *p = head[hashOf(k)]; p; p = p-&gt;nxt) {
+        ++c;
+        if (p-&gt;val == k) { if (cmpCnt) *cmpCnt = c; return true; }
+    }
+    if (cmpCnt) *cmpCnt = c;                      // 空桶时 c = 0，这是链地址法失败 ASL 的特点
+    return false;
+}
+
+/* ---------- 删除：直接摘链，无需墓碑 ---------- */
+bool eraseKey(int k) {
+    int hh = hashOf(k);
+    Node *p = head[hh], *pre = nullptr;
+    while (p &amp;&amp; p-&gt;val != k) { pre = p; p = p-&gt;nxt; }
+    if (!p) return false;
+    if (pre) pre-&gt;nxt = p-&gt;nxt;                   // 摘链
+    else head[hh] = p-&gt;nxt;                       // 删的是表头
+    --n;
+    return true;
+}
+
+/* ---------- 统计两种 ASL ---------- */
+/* 成功 ASL：每个元素在链上的"名次"之和 / n（分母 n）
+   失败 ASL：把每条链走完的比较次数之和 / m（分母 m，空桶记 0 次比较） */
+void statASL() {
+    int succTotal = 0;
+    for (int i = 0; i &lt; M; ++i) {
+        int rank = 0;
+        for (Node *p = head[i]; p; p = p-&gt;nxt) { ++rank; succTotal += rank; }
+    }
+    int failTotal = 0;
+    for (int i = 0; i &lt; M; ++i)
+        for (Node *p = head[i]; p; p = p-&gt;nxt) ++failTotal;
+    printf("n=%d, m=%d, α=%.3f\n", n, M, loadFactor());
+    printf("ASL_success = %d/%d = %.3f\n", succTotal, n, n ? (double)succTotal / n : 0.0);
+    printf("ASL_fail    = %d/%d = %.3f\n", failTotal, M, (double)failTotal / M);
+}
+
+void dumpTable() {
+    for (int i = 0; i &lt; M; ++i) {
+        if (!head[i]) { printf("桶%d: 空\n", i); continue; }
+        printf("桶%d: ", i);
+        for (Node *p = head[i]; p; p = p-&gt;nxt) printf("%d → ", p-&gt;val);
+        printf("∧\n");
+    }
+}
+
 int main() {
-    ChainHash ht(11, true);                     // m = 11，头插
-    int keys[] = {99, 1, 23, 14, 55, 68, 11, 37, 46};
-    for (int k : keys) ht.insert(k);
-    ht.dump();
-    ht.statASL();
+    headInsert = 1;                               // m = 11，头插
+    int keys[9] = {99, 1, 23, 14, 55, 68, 11, 37, 46};
+    for (int i = 0; i &lt; 9; ++i) insertKey(keys[i]);
+    dumpTable();
+    statASL();
     /* 预期输出（m = 11，头插）：
        各关键字哈希：99→0, 1→1, 23→1, 14→3, 55→0, 68→2, 11→0, 37→4, 46→2
        桶0: 11,55,99（头插，最后插的在最前）  桶1: 23,1
@@ -2819,15 +2879,15 @@ int main() {
        ASL_fail    = (3+2+2+1+1+0+0+0+0+0+0) / 11    = 9/11 ≈ 0.818 */
 
     int c = 0;
-    ht.find(99, &amp;c);
-    cout &lt;&lt; "查找 99 → 比较 " &lt;&lt; c &lt;&lt; " 次（在桶 0 的链尾）\n";
-    ht.find(100, &amp;c);
-    cout &lt;&lt; "查找 100 → 失败，比较 " &lt;&lt; c &lt;&lt; " 次（桶 1 只有 2 个结点）\n";
+    findKey(99, &amp;c);
+    printf("查找 99 → 比较 %d 次（在桶 0 的链尾）\n", c);
+    findKey(100, &amp;c);
+    printf("查找 100 → 失败，比较 %d 次（桶 1 只有 2 个结点）\n", c);
 
-    ht.erase(99);
-    cout &lt;&lt; "删除 99 后：\n";
-    ht.dump();
-    ht.statASL();
+    eraseKey(99);
+    printf("删除 99 后：\n");
+    dumpTable();
+    statASL();
     return 0;
 }</pre>
 
@@ -2875,152 +2935,147 @@ int main() {
       或者数据量远小于表长（α 很小）。它在教材里主要作为「第四种方法」出现，工程中少见。
     </p>
 
-    <pre data-lang="cpp" data-file="rehash_overflow.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
+    <pre data-lang="cpp" data-file="rehash_overflow.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   方法三：再哈希法（多个哈希函数，冲突就换一个）
+   方法三：再哈希法（准备一组哈希函数，冲突就换下一个）
    方法四：建立公共溢出区（基本表 + 溢出表）
-   两个类放在一个文件里对照着看
+   两套全局数组 + 自由函数放在一个文件里对照着看
+   数组大小依据：表长都按 1e5 级别开（MAX 常量），实际演示只用到 11 个槽
    ===================================================================== */
 
 /* ------------------------- 方法三：再哈希法 ------------------------- */
-class RehashTable {
-public:
-    int m, n;
-    vector&lt;int&gt; t;
-    vector&lt;bool&gt; used;
-    int funcUsed[8];                     // 统计每个哈希函数被用了多少次
+const int RMAX = 100005;      // 再哈希法的表容量
+int rm = 11, rn = 0;          // 表长 m、元素个数 n
+int rt[RMAX];                 // 槽位里存的关键字
+bool rused[RMAX];             // 该槽位是否被占用
+int funcUsed[8];              // 统计每个哈希函数被用了多少次
 
-    explicit RehashTable(int size) : m(size), n(0), t(size, 0), used(size, false) {
-        for (int i = 0; i &lt; 8; ++i) funcUsed[i] = 0;
+/* 一组互相独立的哈希函数：冲突了就换下一个重算地址 */
+int hashByIdx(int idx, int k) {
+    switch (idx) {
+        case 0: return ((k % rm) + rm) % rm;                                       // 除留余数
+        case 1: return (int)((((long long)k * 2654435761LL / 256) % rm + rm) % rm); // 乘法散列
+        case 2: return (int)((((long long)k * k / 16) % rm + rm) % rm);             // 平方取中
+        case 3: return ((k / 7 + k % 7) % rm + rm) % rm;
+        default: return (int)((((long long)k * (idx * 2 + 1) + idx * 13) % rm + rm) % rm);
     }
+}
 
-    /* 一组互相独立的哈希函数 */
-    int h(int idx, int key) const {
-        switch (idx) {
-            case 0: return ((key % m) + m) % m;                          // 除留余数
-            case 1: return (int)(((long long)key * 2654435761u &gt;&gt; 8) % m);  // 乘法散列
-            case 2: return (int)(((long long)key * key &gt;&gt; 4) % m);         // 平方取中
-            case 3: return ((key / 7 + key % 7) % m + m) % m;
-            default: return (int)(((long long)key * (idx * 2 + 1) + idx * 13) % m + m) % m;
-        }
+bool rhInsert(int k, bool verbose = false) {
+    for (int f = 0; f &lt; 8; ++f) {
+        int pos = hashByIdx(f, k);
+        ++funcUsed[f];
+        if (verbose)
+            printf("    H%d(%d) = %d%s\n", f + 1, k, pos,
+                   rused[pos] ? "（冲突，换下一个函数）" : "（空，放入）");
+        if (!rused[pos]) { rt[pos] = k; rused[pos] = true; ++rn; return true; }
+        if (rt[pos] == k) return true;            // 已经存过
     }
+    return false;                                 // 8 个函数都撞了（极小概率）
+}
 
-    bool insert(int key, bool verbose = false) {
-        for (int f = 0; f &lt; 8; ++f) {
-            int pos = h(f, key);
-            ++funcUsed[f];
-            if (verbose)
-                cout &lt;&lt; "    H" &lt;&lt; (f + 1) &lt;&lt; "(" &lt;&lt; key &lt;&lt; ") = " &lt;&lt; pos
-                     &lt;&lt; (used[pos] ? "（冲突，换下一个函数）" : "（空，放入）") &lt;&lt; "\n";
-            if (!used[pos]) { t[pos] = key; used[pos] = true; ++n; return true; }
-            if (t[pos] == key) return true;
-        }
-        return false;                    // 8 个函数都撞了（极小概率）
+int rhFind(int k, int *cmpCnt = nullptr) {
+    int c = 0;
+    for (int f = 0; f &lt; 8; ++f) {
+        int pos = hashByIdx(f, k);
+        ++c;
+        if (rused[pos] &amp;&amp; rt[pos] == k) { if (cmpCnt) *cmpCnt = c; return pos; }
+        if (!rused[pos]) break;                   // 该函数算出的位置是空的 → 说明没存进来过
     }
+    if (cmpCnt) *cmpCnt = c;
+    return -1;
+}
 
-    int find(int key, int* cmpCnt = nullptr) const {
-        int c = 0;
-        for (int f = 0; f &lt; 8; ++f) {
-            int pos = h(f, key);
-            ++c;
-            if (used[pos] &amp;&amp; t[pos] == key) { if (cmpCnt) *cmpCnt = c; return pos; }
-            if (!used[pos]) break;       // 该函数算出的位置是空的 → 说明没存进来过
-        }
-        if (cmpCnt) *cmpCnt = c;
-        return -1;
-    }
-
-    bool erase(int key) {
-        int pos = find(key);
-        if (pos &lt; 0) return false;
-        used[pos] = false; --n;
-        return true;
-    }
-};
+bool rhErase(int k) {
+    int pos = rhFind(k);
+    if (pos &lt; 0) return false;
+    rused[pos] = false; --rn;
+    return true;
+}
 
 /* ------------------------- 方法四：公共溢出区 ------------------------- */
-class OverflowAreaTable {
-public:
-    int m, n, overflowCount;
-    vector&lt;int&gt; base;                    // 基本表
-    vector&lt;bool&gt; used;
-    vector&lt;int&gt; overflow;                // 公共溢出区（顺序表）
+const int OMAX = 100005;      // 基本表容量
+int om = 11, on = 0;          // 基本表表长 m、元素个数 n
+int obase[OMAX];              // 基本表：一个萝卜一个坑
+bool oused[OMAX];             // 基本表槽位是否被占用
+int ovf[OMAX];                // 公共溢出区（顺序表），存所有冲突的元素
+int ovfCnt = 0;               // 溢出区元素个数
 
-    explicit OverflowAreaTable(int size) : m(size), n(0), overflowCount(0),
-                                           base(size, 0), used(size, false) {}
+int ovHash(int k) { return ((k % om) + om) % om; }
 
-    int hashKey(int key) const { return ((key % m) + m) % m; }
+void ovInsert(int k) {
+    int pos = ovHash(k);
+    if (!oused[pos]) { obase[pos] = k; oused[pos] = true; }   // 基本表还空着
+    else if (obase[pos] == k) return;                         // 已存在
+    else { ovf[ovfCnt++] = k; }                               // 冲突 → 统统进溢出区
+    ++on;
+}
 
-    void insert(int key) {
-        int pos = hashKey(key);
-        if (!used[pos]) { base[pos] = key; used[pos] = true; }      // 基本表还空着
-        else if (base[pos] == key) return;                          // 已存在
-        else { overflow.push_back(key); ++overflowCount; }          // 冲突 → 溢出区
-        ++n;
-    }
-
-    int find(int key, int* cmpCnt = nullptr) const {
-        int c = 0, pos = hashKey(key);
+int ovFind(int k, int *cmpCnt = nullptr) {
+    int c = 0, pos = ovHash(k);
+    ++c;
+    if (oused[pos] &amp;&amp; obase[pos] == k) { if (cmpCnt) *cmpCnt = c; return pos; }
+    /* 基本表没有 → 去溢出区顺序查找（冲突一多就退化成顺序表，这是它的缺点） */
+    for (int i = 0; i &lt; ovfCnt; ++i) {
         ++c;
-        if (used[pos] &amp;&amp; base[pos] == key) { if (cmpCnt) *cmpCnt = c; return pos; }
-        /* 基本表没有 → 去溢出区顺序查找 */
-        for (int i = 0; i &lt; (int)overflow.size(); ++i) {
-            ++c;
-            if (overflow[i] == key) { if (cmpCnt) *cmpCnt = c; return m + i; }  // 用 m+i 表示溢出区下标
+        if (ovf[i] == k) { if (cmpCnt) *cmpCnt = c; return om + i; }   // 用 m+i 表示溢出区下标
+    }
+    if (cmpCnt) *cmpCnt = c;
+    return -1;
+}
+
+bool ovErase(int k) {
+    int pos = ovHash(k);
+    if (oused[pos] &amp;&amp; obase[pos] == k) { oused[pos] = false; --on; return true; }
+    for (int i = 0; i &lt; ovfCnt; ++i)
+        if (ovf[i] == k) {                        // 溢出区删除：后面的元素往前搬
+            for (int j = i; j + 1 &lt; ovfCnt; ++j) ovf[j] = ovf[j + 1];
+            --ovfCnt; --on;
+            return true;
         }
-        if (cmpCnt) *cmpCnt = c;
-        return -1;
-    }
+    return false;
+}
 
-    bool erase(int key) {
-        int pos = hashKey(key);
-        if (used[pos] &amp;&amp; base[pos] == key) { used[pos] = false; --n; return true; }
-        for (auto it = overflow.begin(); it != overflow.end(); ++it)
-            if (*it == key) { overflow.erase(it); --n; --overflowCount; return true; }
-        return false;
+void ovDump() {
+    printf("  基本表: ");
+    for (int i = 0; i &lt; om; ++i) {
+        if (oused[i]) printf("[%d]%d ", i, obase[i]);
+        else printf("[%d]空 ", i);
     }
-
-    void dump() const {
-        cout &lt;&lt; "  基本表: ";
-        for (int i = 0; i &lt; m; ++i)
-            cout &lt;&lt; "[" &lt;&lt; i &lt;&lt; "]" &lt;&lt; (used[i] ? to_string(base[i]) : "空") &lt;&lt; " ";
-        cout &lt;&lt; "\n  溢出区: ";
-        for (int x : overflow) cout &lt;&lt; x &lt;&lt; " ";
-        if (overflow.empty()) cout &lt;&lt; "(空)";
-        cout &lt;&lt; "\n";
-    }
-};
+    printf("\n  溢出区: ");
+    if (!ovfCnt) printf("(空)");
+    for (int i = 0; i &lt; ovfCnt; ++i) printf("%d ", ovf[i]);
+    printf("\n");
+}
 
 int main() {
-    int keys[] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
+    int keys[9] = {22, 41, 53, 46, 30, 13, 1, 67, 42};
 
-    cout &lt;&lt; "======== 方法三：再哈希法 ========\n";
-    RehashTable rh(11);
-    for (int k : keys) {
-        cout &lt;&lt; "  插入 " &lt;&lt; k &lt;&lt; "：\n";
-        rh.insert(k, true);
+    printf("======== 方法三：再哈希法 ========\n");
+    for (int i = 0; i &lt; 9; ++i) {
+        printf("  插入 %d：\n", keys[i]);
+        rhInsert(keys[i], true);
     }
-    cout &lt;&lt; "  各哈希函数被调用次数：";
-    for (int i = 0; i &lt; 5; ++i) cout &lt;&lt; "H" &lt;&lt; (i + 1) &lt;&lt; "=" &lt;&lt; rh.funcUsed[i] &lt;&lt; " ";
-    cout &lt;&lt; "\n";
-    int c = 0;
-    cout &lt;&lt; "  查找 42 → " &lt;&lt; (rh.find(42, &amp;c) &gt;= 0 ? "成功" : "失败")
-         &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";
+    printf("  各哈希函数被调用次数：");
+    for (int i = 0; i &lt; 5; ++i) printf("H%d=%d ", i + 1, funcUsed[i]);
+    printf("\n");
+    int c = 0, pos = 0;
+    pos = rhFind(42, &amp;c);
+    printf("  查找 42 → %s，比较 %d 次\n", pos &gt;= 0 ? "成功" : "失败", c);
 
-    cout &lt;&lt; "\n======== 方法四：公共溢出区 ========\n";
-    OverflowAreaTable ot(11);
-    for (int k : keys) ot.insert(k);
-    ot.dump();                                   // 冲突的几个会落到溢出区
-    cout &lt;&lt; "  查找 42 → " &lt;&lt; (ot.find(42, &amp;c) &gt;= 0 ? "成功" : "失败")
-         &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次（基本表 1 次 + 溢出区若干次）\n";
-    cout &lt;&lt; "  查找 999 → " &lt;&lt; (ot.find(999, &amp;c) &gt;= 0 ? "成功" : "失败")
-         &lt;&lt; "，比较 " &lt;&lt; c &lt;&lt; " 次\n";
-    ot.erase(42);
-    cout &lt;&lt; "  删除 42 后：\n";
-    ot.dump();
+    printf("\n======== 方法四：公共溢出区 ========\n");
+    for (int i = 0; i &lt; 9; ++i) ovInsert(keys[i]);
+    ovDump();                                     // 冲突的几个会落到溢出区
+    pos = ovFind(42, &amp;c);
+    printf("  查找 42 → %s，比较 %d 次（基本表 1 次 + 溢出区若干次）\n",
+           pos &gt;= 0 ? "成功" : "失败", c);
+    pos = ovFind(999, &amp;c);
+    printf("  查找 999 → %s，比较 %d 次\n", pos &gt;= 0 ? "成功" : "失败", c);
+    ovErase(42);
+    printf("  删除 42 后：\n");
+    ovDump();
     return 0;
 }</pre>
 
@@ -3199,40 +3254,31 @@ int main() {
       要边遍历边插入，先收集到 <code>vector</code> 里再统一插入。
     </div>
 
-    <pre data-lang="cpp" data-file="unordered_map_demo.cpp">#include &lt;iostream&gt;
-#include &lt;unordered_map&gt;
-#include &lt;string&gt;
-#include &lt;chrono&gt;
+    <pre data-lang="cpp" data-file="unordered_map_demo.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* =====================================================================
-   std::unordered_map 的底层行为观察 + 自定义哈希
+   std::unordered_map 的底层行为观察 + 自定义类型的哈希（这一段保留 STL 用法）
+   竞赛写法要点：自定义 key 时不再特化 std::hash，而是给容器传第三个参数 ——
+   一个重载了 operator() 的哈希仿函数，既不用写模板，也不污染 std 命名空间。
    ===================================================================== */
 
-/* ---------- 为自定义类型提供哈希：两种写法 ---------- */
+struct Point {                 // 自定义类型做 key：必须提供 == （容器靠它判等）
+    int x, y;
+    bool operator==(const Point &amp;o) const { return x == o.x &amp;&amp; y == o.y; }
+};
 
-struct Point { int x, y; bool operator==(const Point&amp; o) const { return x == o.x &amp;&amp; y == o.y; } };
-
-/* 写法一：特化 std::hash */
-namespace std {
-    template&lt;&gt; struct hash&lt;Point&gt; {
-        size_t operator()(const Point&amp; p) const {
-            /* 把两个 int 混合成一个 size_t：乘法散列 + 异或，避免 x+y 这种会撞车的组合 */
-            size_t h1 = hash&lt;int&gt;()(p.x);
-            size_t h2 = hash&lt;int&gt;()(p.y);
-            return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 &lt;&lt; 6) + (h1 &gt;&gt; 2));
-        }
-    };
-}
-
-/* 写法二：给容器传第三个模板参数（更推荐，不污染 std 命名空间） */
+/* 哈希仿函数：把两个 int 混合成一个 size_t，避免 x+y 这种会撞车的组合 */
 struct PointHash {
-    size_t operator()(const Point&amp; p) const {
-        return hash&lt;long long&gt;()(((long long)p.x &lt;&lt; 32) ^ (unsigned)p.y);
+    size_t operator()(const Point &amp;p) const {
+        size_t h1 = hash&lt;int&gt;()(p.x);
+        size_t h2 = hash&lt;int&gt;()(p.y);
+        /* 0x9e3779b9... 是黄金分割常数，配合移位异或能把两个分量彻底打散 */
+        return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 &lt;&lt; 6) + (h1 &gt;&gt; 2));
     }
 };
 
-/* ---------- 一个"慢哈希"，用来观察哈希质量对性能的影响 ---------- */
+/* 一个"慢哈希"，用来观察哈希质量对性能的影响 */
 struct SlowHash {
     size_t operator()(int k) const {
         size_t h = k;
@@ -3265,19 +3311,16 @@ int main() {
     cout &lt;&lt; " 预留 : " &lt;&lt; chrono::duration_cast&lt;chrono::milliseconds&gt;(t2 - t1).count() &lt;&lt; " ms\n";
     cout &lt;&lt; "a.bucket_count=" &lt;&lt; a.bucket_count() &lt;&lt; "  b.bucket_count=" &lt;&lt; b.bucket_count() &lt;&lt; "\n";
 
-    /* ---------- 3. 自定义类型的哈希 ---------- */
+    /* ---------- 3. 自定义类型的哈希：把 PointHash 作为第三个参数传进去 ---------- */
     unordered_map&lt;Point, int, PointHash&gt; grid;
     grid[{1, 2}] = 10;
     grid[{3, 4}] = 20;
-    cout &lt;&lt; "grid[{1,2}] = " &lt;&lt; grid[{1, 2}] &lt;&lt; "\n";        // 10
-    cout &lt;&lt; "grid.count({9,9}) = " &lt;&lt; grid.count({9, 9}) &lt;&lt; "\n";   // 0
-
-    unordered_map&lt;Point, int&gt; grid2;                       // 用 std::hash&lt;Point&gt; 特化版
-    grid2[{5, 6}] = 30;
-    cout &lt;&lt; "grid2[{5,6}] = " &lt;&lt; grid2[{5, 6}] &lt;&lt; "\n";      // 30
+    cout &lt;&lt; "grid[{1,2}] = " &lt;&lt; grid[{1, 2}] &lt;&lt; "\n";            // 10
+    cout &lt;&lt; "grid.count({9,9}) = " &lt;&lt; grid.count({9, 9}) &lt;&lt; "\n"; // 0
 
     /* ---------- 4. 哈希函数质量直接影响性能 ---------- */
-    unordered_map&lt;int, int&gt; fast, slow;
+    unordered_map&lt;int, int&gt; fast;                           // 默认 hash&lt;int&gt;：就是个恒等映射
+    unordered_map&lt;int, int, SlowHash&gt; slow;                 // 每次哈希都算 200 次乘法
     auto t3 = chrono::steady_clock::now();
     for (int i = 0; i &lt; 100000; ++i) fast[i] = i;
     auto t4 = chrono::steady_clock::now();

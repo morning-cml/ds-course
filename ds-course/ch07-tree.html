@@ -1762,90 +1762,114 @@ int main() {
       <li><b>递归</b>：对两个子区间分别递归，返回值接到根的左右指针上。</li>
     </ol>
 
-    <pre data-lang="cpp" data-file="bt_rebuild.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;string&gt;
-#include &lt;unordered_map&gt;
+    <pre data-lang="cpp" data-file="bt_rebuild.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-struct TreeNode {
-    char      val;
-    TreeNode* left;
-    TreeNode* right;
-    explicit TreeNode(char v) : val(v), left(nullptr), right(nullptr) {}
-};
-
 /* ============================================================
-   由"先序 + 中序"序列重建二叉树
-   思路：先序定根，中序分左右；用哈希表把"在中序里找根"从 O(n) 降到 O(1)
+   由「先序 + 中序」序列重建二叉树（竞赛标准写法：全局数组 + 递归）
+   ------------------------------------------------------------
+   先序定根，中序分左右：
+       pre[pl..pr] 是当前子树的先序区间，in[il..ir] 是对应的中序区间
+       ① 根 = pre[pl]
+       ② 在中序里找到根的位置 k ⇒ 左子树结点数 leftLen = k - il
+          左子树：先序 [pl+1, pl+leftLen]   中序 [il, k-1]
+          右子树：先序 [pl+leftLen+1, pr]   中序 [k+1, ir]
+       ③ 对两个子区间递归，返回值直接接到根的左右孩子上
+   用桶 pos[c] 把「在中序里找根」从 O(n) 降到 O(1)（字符可以直接开 128 的桶）
    时间复杂度 O(n)，空间 O(n)
-   ============================================================ */
-class Rebuilder {
-public:
-    TreeNode* build(const vector&lt;char&gt;&amp; pre, const vector&lt;char&gt;&amp; in) {
-        for (int i = 0; i &lt; (int)in.size(); ++i) pos_[in[i]] = i;   // 预处理：值 → 中序下标
-        return dfs(pre, 0, (int)pre.size() - 1, 0, (int)in.size() - 1);
-    }
-private:
-    unordered_map&lt;char, int&gt; pos_;
 
-    /* pre[pl..pr] 是当前子树的先序区间，in[il..ir] 是对应的中序区间 */
-    TreeNode* dfs(const vector&lt;char&gt;&amp; pre, int pl, int pr, int il, int ir) {
-        if (pl &gt; pr || il &gt; ir) return nullptr;         // 空子树
-        char rootVal = pre[pl];                          // ① 先序区间的第一个就是根
-        TreeNode* root = new TreeNode(rootVal);
-        int k = pos_[rootVal];                           // ② 根在中序中的位置
-        int leftLen = k - il;                            //    左子树结点个数
-        root-&gt;left  = dfs(pre, pl + 1, pl + leftLen, il, k - 1);          // ③ 递归左子树
-        root-&gt;right = dfs(pre, pl + leftLen + 1, pr, k + 1, ir);          //    递归右子树
-        return root;
-    }
-};
-
-/* ============================================================
-   由"后序 + 中序"序列重建：只需把"先序取第一个"换成"后序取最后一个"
+   二叉树的静态数组表示：lc[u] / rc[u] 存左右孩子的下标，0 表示空子树
    ============================================================ */
-TreeNode* buildFromPostIn(const vector&lt;char&gt;&amp; post, int pl, int pr,
-                          const vector&lt;char&gt;&amp; in, int il, int ir,
-                          const unordered_map&lt;char, int&gt;&amp; pos) {
-    if (pl &gt; pr || il &gt; ir) return nullptr;
-    char rootVal = post[pr];                             // ★ 后序的最后一个才是根
-    TreeNode* root = new TreeNode(rootVal);
-    int k = pos.at(rootVal);
-    int leftLen = k - il;
-    root-&gt;left  = buildFromPostIn(post, pl, pl + leftLen - 1, in, il, k - 1, pos);
-    root-&gt;right = buildFromPostIn(post, pl + leftLen, pr - 1, in, k + 1, ir, pos);
-    return root;
+
+const int N = 100005;             /* 结点数上限 */
+char pre[N], in[N], post[N];      /* 先序、中序、后序序列（都按 1..n 存，1 基好写区间） */
+int  pos[128];                    /* pos[c] = 字符 c 在「中序」里的下标，O(1) 找根 */
+char val[N];                      /* 每个结点的值 */
+int  lc[N], rc[N];                /* 左、右孩子的下标，0 表示空 */
+int  q[N];                        /* 层序遍历用的手写队列 */
+int  tot;                         /* 已经用掉的结点编号（从 1 开始） */
+int  n;                           /* 结点个数 */
+
+/* 申请一个新结点：静态数组版的 new */
+int newNode(char c) {
+    ++tot;
+    val[tot] = c;
+    lc[tot] = rc[tot] = 0;
+    return tot;
 }
 
-/* ---------- 校验：对重建出来的树做一次层序遍历 ---------- */
-void levelOrder(TreeNode* root, vector&lt;char&gt;&amp; out) {
-    if (!root) return;
-    vector&lt;TreeNode*&gt; q{ root };
-    for (size_t i = 0; i &lt; q.size(); ++i) {              // 用 vector 当队列，简洁
-        out.push_back(q[i]-&gt;val);
-        if (q[i]-&gt;left)  q.push_back(q[i]-&gt;left);
-        if (q[i]-&gt;right) q.push_back(q[i]-&gt;right);
+/* 先序 + 中序：返回当前子树的根，0 表示空子树 */
+int build(int pl, int pr, int il, int ir) {
+    if (pl &gt; pr || il &gt; ir) return 0;                      /* 空子树 */
+    char rootVal = pre[pl];                                /* ① 先序区间的第一个就是根 */
+    int  k = pos[(int)rootVal];                            /* ② 根在中序中的位置 */
+    int  leftLen = k - il;                                 /*    左子树结点个数 */
+    int  u = newNode(rootVal);
+    lc[u] = build(pl + 1, pl + leftLen, il, k - 1);        /* ③ 递归左子树 */
+    rc[u] = build(pl + leftLen + 1, pr, k + 1, ir);        /*    递归右子树 */
+    return u;
+}
+
+/* 后序 + 中序：只需把「先序取第一个」换成「后序取最后一个」，其余一模一样 */
+int buildFromPost(int pl, int pr, int il, int ir) {
+    if (pl &gt; pr || il &gt; ir) return 0;
+    char rootVal = post[pr];                               /* ★ 后序的最后一个才是根 */
+    int  k = pos[(int)rootVal];
+    int  leftLen = k - il;
+    int  u = newNode(rootVal);
+    lc[u] = buildFromPost(pl, pl + leftLen - 1, il, k - 1);
+    rc[u] = buildFromPost(pl + leftLen, pr - 1, k + 1, ir);
+    return u;
+}
+
+/* ---------- 校验：对建出来的树做一次层序遍历（手写队列，竞赛常用） ---------- */
+int levelOrder(int root, char out[]) {
+    int len = 0;
+    if (root == 0) return len;
+    int head = 0, tail = 0;
+    q[tail++] = root;
+    while (head &lt; tail) {
+        int u = q[head++];
+        out[len++] = val[u];
+        if (lc[u]) q[tail++] = lc[u];
+        if (rc[u]) q[tail++] = rc[u];
     }
+    return len;
+}
+
+/* 顺便打印先序 / 中序，肉眼确认建出来的树与输入序列一致 */
+void printPre(int u) { if (!u) return; putchar(val[u]); printPre(lc[u]); printPre(rc[u]); }
+void printIn (int u) { if (!u) return; printIn(lc[u]); putchar(val[u]); printIn(rc[u]); }
+
+/* 把字符串按 1 基装进数组（等价于竞赛里的 cin &gt;&gt; (pre + 1)） */
+void load(const char* s, char dst[]) {
+    n = (int)strlen(s);
+    for (int i = 1; i &lt;= n; ++i) dst[i] = s[i - 1];
 }
 
 int main() {
-    vector&lt;char&gt; pre  = { 'A','B','D','E','C','F','G' };
-    vector&lt;char&gt; in   = { 'D','B','E','A','F','C','G' };
-    vector&lt;char&gt; post = { 'D','E','B','F','G','C','A' };
+    load("ABDECFG", pre);
+    load("DBEAFCG", in);
+    load("DEBFGCA", post);
+    for (int i = 1; i &lt;= n; ++i) pos[(int)in[i]] = i;      /* 预处理：值 → 中序下标 */
 
-    Rebuilder rb;
-    TreeNode* t1 = rb.build(pre, in);
-    vector&lt;char&gt; lv1; levelOrder(t1, lv1);
-    for (char c : lv1) cout &lt;&lt; c;                       // ABCDEFG
-    cout &lt;&lt; "\n";
+    char out[N];
 
-    unordered_map&lt;char, int&gt; pos;
-    for (int i = 0; i &lt; (int)in.size(); ++i) pos[in[i]] = i;
-    TreeNode* t2 = buildFromPostIn(post, 0, post.size() - 1, in, 0, in.size() - 1, pos);
-    vector&lt;char&gt; lv2; levelOrder(t2, lv2);
-    for (char c : lv2) cout &lt;&lt; c;                       // ABCDEFG（两种方式得到同一棵树）
-    cout &lt;&lt; "\n";
+    tot = 0;
+    int t1 = build(1, n, 1, n);
+    int len1 = levelOrder(t1, out);
+    printf("pre+in  -&gt; 层序 ");
+    for (int i = 0; i &lt; len1; ++i) putchar(out[i]);
+    printf("  先序 "); printPre(t1);
+    printf("  中序 "); printIn(t1);
+    printf("\n");                                          /* 层序 ABCDEFG */
+
+    tot = 0;
+    int t2 = buildFromPost(1, n, 1, n);
+    int len2 = levelOrder(t2, out);
+    printf("post+in -&gt; 层序 ");
+    for (int i = 0; i &lt; len2; ++i) putchar(out[i]);
+    printf("\n");                    /* ABCDEFG：两种方式得到同一棵树 */
     return 0;
 }</pre>
 
@@ -2939,119 +2963,135 @@ int main() {
     <p>
       实现要点有三条：① 用<b>小根堆（<code>priority_queue</code> 配 <code>greater</code>）</b>每次取最小的两个，
       复杂度 O(n log n)；② 编码用<b>从叶子往上回溯</b>的方式生成（避免从根递归传字符串）；
-      ③ 因为要判断「左 0 右 1」，回溯时要记录当前结点是双亲的左孩子还是右孩子，所以结点里存一个 <code>parent</code> 指针，
-      或者用一个 <code>code</code> 数组在构建时就记录。
+      ③ 因为要判断「左 0 右 1」，回溯时要记录当前结点是双亲的左孩子还是右孩子，所以结点里要存一个
+      <code>parent</code> 字段——写成数组版就是<b>双亲的下标</b> <code>t[i].par</code>。
     </p>
 
-    <pre data-lang="cpp" data-file="huffman_full.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;queue&gt;
-#include &lt;string&gt;
-#include &lt;algorithm&gt;
+    <pre data-lang="cpp" data-file="huffman_full.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   赫夫曼树：用静态数组 + 小根堆实现，便于从叶子回溯出编码
+   赫夫曼树 + 赫夫曼编码（竞赛写法：静态数组建树 + 小根堆合并）
+   ------------------------------------------------------------
+   结点用数组 t[] 存：前 n 个是叶子，后面是合并出来的 n-1 个内部结点
+       t[i].w    权值（叶子是频率；内部结点是两个孩子权值之和）
+       t[i].l/r  左 / 右孩子下标（-1 表示没有）
+       t[i].par  双亲下标（-1 表示根）—— 专门为了「从叶子往上回溯」求编码
+       t[i].ch   该叶子对应的字符（内部结点无意义）
+
+   合并顺序：每次取权值最小的两棵树合并成新结点，用小根堆维护，
+             共合并 n-1 次，复杂度 O(n log n)。
+   两个重要结论（算出来一定相等，本例都是 80）：
+       ① WPL = Σ 叶子权值 × 叶子深度（也就是码长）
+       ② WPL = 所有非叶（内部）结点权值之和   ← 边合并边累加即可，竞赛最常用
    ============================================================ */
-struct HuffNode {
-    int   weight;          // 权值
-    int   parent;          // 双亲下标（-1 表示没有）
-    int   left;            // 左孩子下标（-1 表示没有）
-    int   right;           // 右孩子下标
-    char  ch;              // 对应字符（只有叶子有意义）
-    HuffNode() : weight(0), parent(-1), left(-1), right(-1), ch(0) {}
+
+const int N = 5005;                  /* 叶子数上限：结点总数 2N-1 不超过数组 */
+struct Node {
+    int  w;                          /* 权值 */
+    int  l, r;                       /* 左、右孩子下标，-1 表示空 */
+    int  par;                        /* 双亲下标，-1 表示根 */
+    char ch;                         /* 该叶子对应的字符 */
 };
+Node t[2 * N];
+int  n;                              /* 叶子个数 */
 
-class Huffman {
-public:
-    vector&lt;HuffNode&gt; t;    // 所有结点：前 n 个是叶子，后 n-1 个是合并出的内部结点
+/* 小根堆里存 (权值, 结点下标)：按权值升序取最小；
+   权值相同时按下标升序，保证每次合并的结果可复现 */
+priority_queue&lt;pair&lt;int, int&gt;, vector&lt;pair&lt;int, int&gt;&gt;, greater&lt;pair&lt;int, int&gt;&gt;&gt; pq;
 
-    /* chars/weights 长度相同；总权值 sumW 会被算出来供求平均码长用 */
-    void build(const vector&lt;char&gt;&amp; chars, const vector&lt;int&gt;&amp; weights) {
-        int n = chars.size();
-        t.assign(2 * n - 1, HuffNode());
-        for (int i = 0; i &lt; n; ++i) { t[i].ch = chars[i]; t[i].weight = weights[i]; }
-
-        /* 小根堆：按权值排序；权值相同时按下标排序，保证结果可复现 */
-        struct Cmp {
-            const vector&lt;HuffNode&gt;* t;
-            bool operator()(int a, int b) const {
-                if ((*t)[a].weight != (*t)[b].weight) return (*t)[a].weight &gt; (*t)[b].weight;
-                return a &gt; b;                        // 权值相同则优先取下标小的（更稳定）
-            }
-        };
-        priority_queue&lt;int, vector&lt;int&gt;, Cmp&gt; pq{ Cmp{ &amp;t } };
-        for (int i = 0; i &lt; n; ++i) pq.push(i);
-
-        /* 每次取出两个最小的，合并成新结点 */
-        for (int i = n; i &lt; 2 * n - 1; ++i) {
-            int a = pq.top(); pq.pop();
-            int b = pq.top(); pq.pop();
-            t[i].left  = a;                          // 约定：先取出的（较小的）做左孩子
-            t[i].right = b;
-            t[i].weight = t[a].weight + t[b].weight;
-            t[a].parent = t[b].parent = i;
-            pq.push(i);
-        }
+/* 建树：chars / w 是 n 个叶子的字符与频率，返回根的下标 */
+int buildHuffman(const char chars[], const int w[]) {
+    while (!pq.empty()) pq.pop();
+    for (int i = 0; i &lt; n; ++i) {
+        t[i].w = w[i]; t[i].l = t[i].r = t[i].par = -1; t[i].ch = chars[i];
+        pq.push(make_pair(t[i].w, i));
     }
+    int tot = n;                             /* 下一个可用的内部结点下标 */
+    while (pq.size() &gt; 1) {                  /* 一共合并 n-1 次 */
+        int a = pq.top().second; pq.pop();   /* 先取出的是较小的 → 做左孩子（左 0 右 1） */
+        int b = pq.top().second; pq.pop();
+        t[tot].w = t[a].w + t[b].w;
+        t[tot].l = a; t[tot].r = b; t[tot].par = -1; t[tot].ch = 0;
+        t[a].par = t[b].par = tot;           /* 孩子记住双亲，方便往上回溯 */
+        pq.push(make_pair(t[tot].w, tot));
+        ++tot;
+    }
+    return tot - 1;                          /* 最后合并出来的就是根 */
+}
 
-    /* 从每个叶子往上回溯到根，左 0 右 1；返回编码表 */
-    vector&lt;string&gt; codes(int n) const {
-        vector&lt;string&gt; res(n);
-        for (int i = 0; i &lt; n; ++i) {
-            string code;
-            int cur = i;
-            while (t[cur].parent != -1) {
-                int p = t[cur].parent;
-                code += (t[p].left == cur) ? '0' : '1';
-                cur = p;
-            }
-            reverse(code.begin(), code.end());       // 回溯得到的是"从下往上"，要反转
-            res[i] = code;
-        }
-        return res;
+/* 从叶子往上回溯到根求编码：左 0 右 1。
+   回溯拿到的是「从下往上」的序列，最后要反转一次。
+   （从根 DFS 往下传字符串也行，但回溯法不用递归传参，代码更短） */
+string codeOf(int leaf) {
+    string s;
+    int cur = leaf;
+    while (t[cur].par != -1) {
+        int p = t[cur].par;
+        s += (t[p].l == cur) ? '0' : '1';
+        cur = p;
     }
+    reverse(s.begin(), s.end());
+    return s;
+}
 
-    /* WPL：两种算法都要能写出来 */
-    int wplByLeaves(int n) const {                   // 法一：Σ 权值 × 深度
-        int sum = 0;
-        for (int i = 0; i &lt; n; ++i) {
-            int d = 0, cur = i;
-            while (t[cur].parent != -1) { ++d; cur = t[cur].parent; }
-            sum += d * t[i].weight;
-        }
-        return sum;
+/* 法一：WPL = Σ 权值 × 深度（叶子顺着 par 往上数深度） */
+long long wplByLeaves() {
+    long long sum = 0;
+    for (int i = 0; i &lt; n; ++i) {
+        int d = 0, cur = i;
+        while (t[cur].par != -1) { ++d; cur = t[cur].par; }
+        sum += 1LL * d * t[i].w;
     }
-    int wplByInternal(int n) const {                 // 法二：所有内部结点权值之和
-        int sum = 0;
-        for (int i = n; i &lt; (int)t.size(); ++i) sum += t[i].weight;
-        return sum;
+    return sum;
+}
+
+/* 法二：WPL = 所有内部结点（非叶结点）权值之和 */
+long long wplByInternal(int root) {
+    long long sum = 0;
+    for (int i = n; i &lt;= root; ++i) sum += t[i].w;
+    return sum;
+}
+
+/* 只求 WPL 时连树都不用建：小根堆里合并 n-1 次，把每次的合并结果加起来 */
+long long wplByHeap(int w[]) {
+    priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt; q;
+    for (int i = 0; i &lt; n; ++i) q.push(w[i]);
+    long long wpl = 0;
+    while (q.size() &gt; 1) {
+        int a = q.top(); q.pop();
+        int b = q.top(); q.pop();
+        wpl += a + b;                        /* 技巧：WPL = 所有合并结果之和 */
+        q.push(a + b);
     }
-};
+    return wpl;
+}
 
 int main() {
-    vector&lt;char&gt; ch = { 'a', 'b', 'c', 'd', 'e', 'f' };
-    vector&lt;int&gt;  w  = {  2,   3,   4,   7,   8,   9 };
+    const char ch[6] = { 'a', 'b', 'c', 'd', 'e', 'f' };
+    int w[6] = { 2, 3, 4, 7, 8, 9 };
+    n = 6;
 
-    Huffman h;
-    h.build(ch, w);
-    vector&lt;string&gt; code = h.codes(ch.size());
+    int root = buildHuffman(ch, w);
 
-    int totalW = 0; for (int x : w) totalW += x;
+    int totalW = 0;
+    for (int i = 0; i &lt; n; ++i) totalW += w[i];
+
     int totalBits = 0;
-    for (size_t i = 0; i &lt; ch.size(); ++i) {
-        int bits = (int)code[i].size() * w[i];
+    for (int i = 0; i &lt; n; ++i) {
+        string code = codeOf(i);
+        int bits = (int)code.size() * w[i];
         totalBits += bits;
-        cout &lt;&lt; ch[i] &lt;&lt; "  频率 " &lt;&lt; w[i] &lt;&lt; "  编码 " &lt;&lt; code[i]
-             &lt;&lt; "  码长 " &lt;&lt; code[i].size() &lt;&lt; "  贡献 " &lt;&lt; bits &lt;&lt; "\n";
+        printf("%c  频率 %d  编码 %s  码长 %d  贡献 %d\n",
+               ch[i], w[i], code.c_str(), (int)code.size(), bits);
     }
 
-    int equalLen = 3;                                 // ⌈log2 6⌉ = 3 位等长编码
-    cout &lt;&lt; "赫夫曼总位数 = " &lt;&lt; totalBits &lt;&lt; "\n";
-    cout &lt;&lt; "等长编码总位数 = " &lt;&lt; totalW * equalLen &lt;&lt; "\n";
-    cout &lt;&lt; "WPL(按叶子) = " &lt;&lt; h.wplByLeaves(ch.size())
-         &lt;&lt; "   WPL(按内部结点) = " &lt;&lt; h.wplByInternal(ch.size()) &lt;&lt; "\n";   // 都是 80
-    cout &lt;&lt; "平均码长 = " &lt;&lt; (double)totalBits / totalW &lt;&lt; "\n";           // 80/33 ≈ 2.4242
+    int equalLen = 3;                                    /* ceil(log2 6) = 3 位等长编码 */
+    printf("赫夫曼总位数 = %d\n", totalBits);
+    printf("等长编码总位数 = %d\n", totalW * equalLen);
+    printf("WPL(按叶子) = %lld   WPL(按内部结点) = %lld   WPL(小根堆直算) = %lld\n",
+           wplByLeaves(), wplByInternal(root), wplByHeap(w));       /* 都是 80 */
+    printf("平均码长 = %.4f\n", (double)totalBits / totalW);        /* 80/33 ≈ 2.4242 */
     return 0;
 }</pre>
 
@@ -3122,9 +3162,10 @@ int main() {
       这正好就是 7.2.1 节的<b>双亲表示法</b>！于是：
     </p>
     <ul>
-      <li><code>find(x)</code>：沿着 <code>parent</code> 一路往上走，直到根（<code>parent[x] == x</code>），返回根的下标。
+      <li><code>find(x)</code>：沿着 <code>fa[]</code> 一路往上走，直到根（<code>fa[x] == x</code>），返回根的下标。
         根相同 ⇔ 属于同一集合。</li>
-      <li><code>union(x, y)</code>：先 <code>find</code> 到两个根，把其中一个根的双亲改成另一个根，两棵树就合成一棵。</li>
+      <li><code>unite(a, b)</code>：先 <code>find</code> 到两个根，把其中一个根的双亲改成另一个根，两棵树就合成一棵。
+        （C++ 里 <code>union</code> 是关键字，所以竞赛代码里这个操作都叫 <code>unite</code>，也有写 <code>merge</code> 的。）</li>
     </ul>
     <p>
       下面动画演示并查集的两个关键优化。<b>路径压缩</b>让 <code>find</code> 顺路把经过的结点直接挂到根上，
@@ -3134,80 +3175,105 @@ int main() {
     <div id="viz-dsu"></div>
 
     <h3 id="dsu-code">7.9.2 完整实现：路径压缩 + 按秩合并</h3>
-    <pre data-lang="cpp" data-file="dsu.cpp">#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;numeric&gt;
+    <pre data-lang="cpp" data-file="dsu.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* ============================================================
-   并查集（Disjoint Set Union）
-   用双亲表示法的森林：parent[i] = i 表示 i 是根（集合代表元）
+   并查集（Disjoint Set Union，DSU）—— 竞赛标准写法
+   ------------------------------------------------------------
+   用「双亲表示法」的森林表示若干个集合：fa[i] == i 说明 i 是根（集合代表元）
+       find(x)   ：沿 fa 一路往上走到根；顺路把路径上所有点直接挂到根
+                   → 路径压缩（递归一行搞定）
+       unite(a,b)：先 find 到两个根，再把一棵树挂到另一棵下面
+                   → 按大小合并（小树挂到大树上）
+                     或 按秩合并（矮树挂到高树上），两者等价，任选其一
+   两个优化都用上，单次操作的均摊复杂度 O(α(n))：α 是反阿克曼函数，
+   对任何现实中的 n（哪怕 10^80）都不超过 5，可以认为是常数。
    ============================================================ */
-class DSU {
-public:
-    vector&lt;int&gt; parent;   // 双亲下标
-    vector&lt;int&gt; rnk;      // 秩：近似"树高"，用于按秩合并
-    int         sets;     // 当前集合个数
 
-    explicit DSU(int n) : parent(n), rnk(n, 0), sets(n) {
-        iota(parent.begin(), parent.end(), 0);      // parent[i] = i，各自成集合
+const int N = 100005;              /* 元素个数上限 */
+int fa[N];                         /* 双亲下标：fa[i] == i 说明 i 是根 */
+int siz[N];                        /* 只对根有意义：集合的元素个数（按大小合并用） */
+int rnk[N];                        /* 只对根有意义：树高的上界（按秩合并用） */
+int sets;                          /* 当前集合个数 */
+
+/* 初始化：n 个元素各自成一个集合
+   易错点：别忘了 siz[i] = 1，否则按大小合并会把新集合当成空集合 */
+void init(int n) {
+    for (int i = 1; i &lt;= n; ++i) { fa[i] = i; siz[i] = 1; rnk[i] = 0; }
+    sets = n;
+}
+
+/* ---------- 查：路径压缩（递归版，竞赛最常用的一行写法） ----------
+   把查找路径上所有结点的双亲都直接改成根，树被「压扁」，后续查找几乎 O(1) */
+int find(int x) {
+    return fa[x] == x ? x : fa[x] = find(fa[x]);      /* ★ 递归赋值 = 路径压缩 */
+}
+
+/* ---------- 查：路径压缩（迭代版，避免深树时递归爆栈） ---------- */
+int findIter(int x) {
+    int root = x;
+    while (fa[root] != root) root = fa[root];         /* 第一趟：先找到根 */
+    while (fa[x] != root) {                           /* 第二趟：把路径上的点全挂到根 */
+        int nxt = fa[x];
+        fa[x] = root;
+        x = nxt;
     }
+    return root;
+}
 
-    /* ---------- 查：带路径压缩（递归版，写法最简洁） ----------
-       把查找路径上所有结点的双亲直接改成根，树被"压扁"，后续查找几乎 O(1) */
-    int find(int x) {
-        if (parent[x] == x) return x;
-        return parent[x] = find(parent[x]);         // ★ 递归赋值 = 路径压缩
-    }
+/* ---------- 并：按大小合并（小树挂到大树上） ---------- */
+void unite(int a, int b) {
+    int ra = find(a), rb = find(b);
+    if (ra == rb) return;                             /* 已经在同一集合，无需合并 */
+    if (siz[ra] &lt; siz[rb]) swap(ra, rb);              /* 保证 ra 是较大的那个根 */
+    fa[rb] = ra;                                      /* rb 挂到 ra 下面 */
+    siz[ra] += siz[rb];
+    --sets;
+}
 
-    /* ---------- 查：带路径压缩（迭代版，避免深树递归爆栈） ---------- */
-    int findIter(int x) {
-        int root = x;
-        while (parent[root] != root) root = parent[root];   // 第一趟：找根
-        while (parent[x] != root) {                          // 第二趟：把路径上所有点挂到根
-            int nxt = parent[x];
-            parent[x] = root;
-            x = nxt;
-        }
-        return root;
-    }
+/* ---------- 并：按秩合并（矮树挂到高树上，另一种等价优化） ---------- */
+void uniteByRank(int a, int b) {
+    int ra = find(a), rb = find(b);
+    if (ra == rb) return;
+    if (rnk[ra] &lt; rnk[rb]) swap(ra, rb);
+    fa[rb] = ra;
+    if (rnk[ra] == rnk[rb]) ++rnk[ra];                /* 秩相同时，合并后树高 +1 */
+    --sets;
+}
 
-    /* ---------- 并：按秩合并 ----------
-       把"矮"的树挂到"高"的树下，避免树退化成链。
-       秩的定义可以是"树高的上界"，也可以是"集合大小"（按大小合并同样正确）。 */
-    bool unite(int x, int y) {
-        int rx = find(x), ry = find(y);
-        if (rx == ry) return false;                 // 已经同集合，无需合并
-        if (rnk[rx] &lt; rnk[ry]) swap(rx, ry);        // 保证 rx 的秩不小于 ry
-        parent[ry] = rx;                            // ry 挂到 rx 下
-        if (rnk[rx] == rnk[ry]) ++rnk[rx];          // 秩相同时合并后高度 +1
-        --sets;
-        return true;
-    }
-
-    bool same(int x, int y) { return find(x) == find(y); }
-};
+/* 判两个元素是否属于同一集合（Kruskal 判环用的就是它） */
+bool same(int a, int b) { return find(a) == find(b); }
 
 int main() {
-    DSU d(8);                                       // 8 个元素 0..7
-    d.unite(0, 1);
-    d.unite(2, 3);
-    d.unite(1, 3);                                  // {0,1,2,3} 合成一个集合
-    d.unite(4, 5);
-    d.unite(6, 7);
+    init(8);                                          /* 8 个元素 1..8 */
+    unite(1, 2);
+    unite(3, 4);
+    unite(2, 4);                                      /* {1,2,3,4} 合成一个集合 */
+    unite(5, 6);
+    unite(7, 8);
 
-    cout &lt;&lt; "0 和 3 同集合? " &lt;&lt; (d.same(0, 3) ? "是" : "否") &lt;&lt; "\n";   // 是
-    cout &lt;&lt; "0 和 4 同集合? " &lt;&lt; (d.same(0, 4) ? "是" : "否") &lt;&lt; "\n";   // 否
-    cout &lt;&lt; "当前集合个数 = " &lt;&lt; d.sets &lt;&lt; "\n";                     // 3
+    printf("各元素的双亲: ");
+    for (int i = 1; i &lt;= 8; ++i) printf("%d ", fa[i]);
+    printf("\n");              /* 注意 4 还挂在 3 下面：合并时只把"根"挂到根上 */
 
-    cout &lt;&lt; "各元素的双亲: ";
-    for (int i = 0; i &lt; 8; ++i) cout &lt;&lt; d.parent[i] &lt;&lt; ' ';
-    cout &lt;&lt; "\n";                                  // 观察哪些结点被路径压缩成了直接挂根
+    for (int i = 1; i &lt;= 8; ++i) find(i);  /* 对全部元素做一次 find：顺路压缩 */
+    printf("再次压缩后: ");
+    for (int i = 1; i &lt;= 8; ++i) printf("%d ", fa[i]);
+    printf("\n");                          /* 4 的双亲也直接变成了根，树被压扁 */
 
-    for (int i = 0; i &lt; 8; ++i) d.find(i);          // 对全部元素做一次 find
-    cout &lt;&lt; "再次压缩后: ";
-    for (int i = 0; i &lt; 8; ++i) cout &lt;&lt; d.parent[i] &lt;&lt; ' ';
-    cout &lt;&lt; "\n";                                  // 大部分元素的双亲都变成了根
+    printf("1 和 4 同集合? %s\n", same(1, 4) ? "是" : "否");   /* 是 */
+    printf("1 和 5 同集合? %s\n", same(1, 5) ? "是" : "否");   /* 否 */
+    printf("当前集合个数 = %d\n", sets);                       /* 3 */
+
+    /* 换成「按秩合并」做同样的事，结果完全一样：两种优化可以互换 */
+    init(8);
+    uniteByRank(1, 2); uniteByRank(3, 4); uniteByRank(2, 4);
+    uniteByRank(5, 6); uniteByRank(7, 8);
+    printf("按秩合并: 集合个数 = %d, 1 和 4 同集合? %s\n",
+           sets, same(1, 4) ? "是" : "否");                   /* 3, 是 */
+
+    printf("迭代版 findIter(4) = %d（与 find 结果相同，且不递归）\n", findIter(4));
     return 0;
 }</pre>
 
@@ -3230,13 +3296,13 @@ int main() {
     <div class="note warn">
       <span class="note-title">易错：并查集的三个细节</span>
       <ol style="margin:6px 0 0">
-        <li><b>路径压缩会破坏「树的父子关系」语义。</b>压缩之后 <code>parent[x]</code> 不再是 x 在原来那棵树里的双亲，
+        <li><b>路径压缩会破坏「树的父子关系」语义。</b>压缩之后 <code>fa[x]</code> 不再是 x 在原来那棵树里的双亲，
           而只是「指向根的跳板」。所以并查集<b>只能回答「是否同集合」</b>，
           不能用来求「原树中的深度 / 父亲是谁 / 两点距离」。</li>
         <li><b>路径压缩与「按秩合并」的秩会失真。</b>压缩后树高变小，但 rnk 数组不会同步更新——
           这没关系，rnk 从此只作为「合并时的一个启发式上界」，不影响正确性。</li>
         <li><b>递归版 find 在极端情况下会爆栈。</b>虽然路径压缩让树很浅，但如果<b>从不做路径压缩、
-          只做 union</b>，或者一开始构造了长链，第一次 find 仍可能递归很深。
+          只做 unite</b>，或者一开始构造了长链，第一次 find 仍可能递归很深。
           保险起见可以写迭代版（上面的 <code>findIter</code>），或者手动加大栈。</li>
       </ol>
     </div>
@@ -3258,7 +3324,8 @@ int main() {
 #include &lt;numeric&gt;
 using namespace std;
 
-/* 并查集（双亲表示法 + 路径压缩 + 按秩合并），与 7.9.2 节同一份实现 */
+/* 并查集（双亲表示法 + 路径压缩 + 按秩合并）：算法与 7.9.2 节完全一致，
+   这里只是把 fa / rnk 装进 struct，方便当成参数在函数间传递 */
 struct DSU {
     vector&lt;int&gt; parent, rnk;
     explicit DSU(int n) : parent(n), rnk(n, 0) { iota(parent.begin(), parent.end(), 0); }
@@ -3594,12 +3661,12 @@ int main() {
           <tr><td>前 / 中序非递归</td><td>O(n)</td><td>O(h)</td><td>显式栈在堆上；中序要把左链一路压栈</td></tr>
           <tr><td>后序非递归</td><td>O(n)</td><td>O(h)（双栈法 O(h)）</td><td>双栈法 = 「根右左」再反转；或单栈配 last 指针</td></tr>
           <tr><td>层序遍历（BFS）</td><td>O(n)</td><td>O(w)，w 为最大宽度，最坏 O(n)</td><td>队列；分层时先固定 <code>q.size()</code></td></tr>
-          <tr><td>由先序 + 中序还原</td><td>O(n)</td><td>O(n)</td><td>哈希表把「找根」从 O(n) 降到 O(1)</td></tr>
+          <tr><td>由先序 + 中序还原</td><td>O(n)</td><td>O(n)</td><td>先序定根、中序分左右；用桶数组（或哈希表）把「找根」从 O(n) 降到 O(1)</td></tr>
           <tr><td>中序线索化</td><td>O(n)</td><td>O(h)（递归栈）</td><td>递归右子树前必须判 <code>rtag</code></td></tr>
           <tr><td>线索树上找前驱 / 后继</td><td>O(1) 或 O(h)</td><td>O(1)</td><td>有线索直接用；否则后继找右子树最左下</td></tr>
           <tr><td>赫夫曼树构造（堆）</td><td><b>O(n log n)</b></td><td>O(n)</td><td>小根堆 + 静态数组 + 从叶子回溯出编码</td></tr>
           <tr><td>赫夫曼 WPL（排序 + 双队列）</td><td>O(n log n)</td><td>O(n)</td><td>合并结果天然有序，可省掉堆</td></tr>
-          <tr><td>并查集 find / union</td><td><b>均摊 O(α(n)) ≈ O(1)</b></td><td>O(n)</td><td>路径压缩 + 按秩合并，两者缺一不可（缺一个退化到 O(log n) 或更差）</td></tr>
+          <tr><td>并查集 find / union</td><td><b>均摊 O(α(n)) ≈ O(1)</b></td><td>O(n)</td><td>路径压缩 + 按大小（或按秩）合并，两者缺一不可（缺一个退化到 O(log n) 或更差）</td></tr>
         </tbody>
       </table>
     </div>
