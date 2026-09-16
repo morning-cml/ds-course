@@ -20,31 +20,45 @@
 
 已推送到 GitHub：**https://github.com/morning-cml/ds-course**（public）
 
-- 当前状态：**51 个文件已入库**，标签 `v0000`（课件完整版）→ `v0001`（建立 git 管理）→ `v0002` → `v0003` → `v0004`，全部已推送
-- `origin` 已配置为上述地址，`main` 已跟踪 `origin/main`
+- 当前状态：**52 个文件已入库**，标签 `v0000`（课件完整版）→ `v0001` → `v0002` → `v0003` → `v0004` → `v0005`（配置远端）→ `v0006`（仓库主页 README），**全部已推送**
+- `origin` = `https://github.com/morning-cml/ds-course.git`，`main` 已跟踪 `origin/main`
+- 本地与远端 HEAD 一致（`f5c6b32`）
 
 ## 一键提交 + 推送（推荐）
 
 在 `家教` 目录下打开 PowerShell：
 
 ```powershell
-.\git-commit.ps1 "说明这次改了什么"
+.\git-commit.ps1 "说明这次改了什么" -Push
 ```
 
 它会：
 1. 先跑一遍全量校验（结构 / 导航链 / 动画逐帧渲染 / C++ 代码编译 / 需求覆盖）；
 2. **校验不通过就中止**，不把坏状态写进历史；
-3. 通过后提交，并自动打标签 `v0001`、`v0002`…（方便按版本回退）。
+3. 通过后提交，并自动打标签 `v0007`、`v0008`…（方便按版本回退）；
+4. `-Push` 会把提交和标签一起推到 GitHub。
 
 常用参数：
 
 | 参数 | 用途 |
 |---|---|
+| `-Push` | 提交后自动推送到 GitHub（含标签） |
 | `-SkipCheck` | 跳过校验（例如只改了 PDF、和课件代码无关时） |
 | `-NoTag` | 本次不打标签 |
 | `-DryRun` | 只看会提交哪些文件，不真提交 |
 
-## 手动提交（不用脚本也行）
+### 关于推送的一个环境说明
+
+我在这个受限沙箱里执行 `git push` 时，git 的 schannel 后端会因为拿不到 Windows 证书/密钥存储而报
+`SEC_E_NO_CREDENTIALS`，**每次都需要单独提权批准**才能推送。
+
+**你自己在普通 PowerShell 窗口里推送不会有这个问题**（`-Push` 直接可用）。
+所以以后可以这样分工：
+
+- 我负责改课件 + 本地提交（`git-commit.ps1 "说明"`，不带 `-Push`）；
+- 你随手补一句 `.\git-commit.ps1 "说明" -Push`，或在终端里执行 `git push origin main --tags`。
+
+## 手动提交 / 推送（不用脚本也行）
 
 ```powershell
 git add -A
