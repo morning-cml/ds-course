@@ -7,13 +7,6 @@
 <link rel="stylesheet" href="assets/css/course.css">
 <script>window.DS_PAGE = { id: 'index', title: '课程总览' };</script>
 <script src="assets/js/course.js" defer></script>
-<style>
-  .quick { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
-  .quick a { display:block; padding:12px 16px; border-radius:10px; background:var(--panel);
-             border:1px solid var(--border); color:var(--text); text-decoration:none; font-weight:600; font-size:14px; }
-  .quick a:hover { border-color:var(--brand); color:var(--brand); }
-  .quick a span { display:block; font-weight:400; font-size:12.5px; color:var(--text-faint); margin-top:3px; }
-</style>
 </head>
 <body>
 
@@ -298,110 +291,7 @@
       把这三问答顺了，代码自然就写出来了。
     </div>
 
-    <h2 id="progress">学习进度自查表</h2>
-    <p style="color:var(--text-soft);font-size:14px">
-      建议每学完一讲就回来勾一次。判断标准很简单：<b>能不能不看讲义，把这一讲的图画出来、把模板代码默写出来。</b>
-    </p>
-    <div class="grid c3">
-      <div class="card">
-        <h4 style="margin-top:0">01 绪论</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能说出逻辑结构与物理结构的区别</li>
-          <li>☐ 能独立推导 8 个循环 / 递归的复杂度</li>
-          <li>☐ 能默画复杂度增长曲线</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">02 线性表</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能默写顺序表插入删除并算移动次数</li>
-          <li>☐ 能手写单链表的插入、删除、反转</li>
-          <li>☐ 能说清头结点与首元结点的区别</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">03~04 栈与队列</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能写中缀转后缀 + 后缀求值</li>
-          <li>☐ 能默写循环队列的判空判满与元素计数</li>
-          <li>☐ 能解释为什么队列适合 BFS</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">05 串与 KMP</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能用纸笔推任意模式串的 π 与 next</li>
-          <li>☐ 能默写 KMP 匹配的 10 行核心代码</li>
-          <li>☐ 能说出 BM 两条规则的位移怎么取</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">06 数组与矩阵</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能现场推导行优先 / 列优先地址公式</li>
-          <li>☐ 能写出对称、三角、三对角的下标映射</li>
-          <li>☐ 能画出三元组表与十字链表</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">07 树与二叉树</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能证明 n₀ = n₂ + 1</li>
-          <li>☐ 能手写四种遍历（递归 + 非递归）</li>
-          <li>☐ 能构造赫夫曼树并算 WPL</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">08 图基础</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能默写握手定理并解释</li>
-          <li>☐ 能手写邻接矩阵 / 邻接表 / 前向星</li>
-          <li>☐ 能写 DFS、BFS 求连通分量</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">09 图论算法</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能手推 Prim / Kruskal 全过程</li>
-          <li>☐ 能手推 Dijkstra 的 dist 数组变化</li>
-          <li>☐ 能算 ve / vl / e / l 并找关键路径</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">10 查找与哈希</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能默画 n=11 的判定树并算 ASL</li>
-          <li>☐ 能算开放定址的 ASL（成功 / 失败）</li>
-          <li>☐ 能说清删除为什么需要墓碑</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">11~12 排序</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能默写快排 / 堆排 / 归并三份模板</li>
-          <li>☐ 能背出十种排序的复杂度与稳定性</li>
-          <li>☐ 能用决策树证明 Ω(n log n) 下界</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">13 范式与 DP</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ 能写 N 皇后与全排列的回溯</li>
-          <li>☐ 能解释 01 背包为什么倒序</li>
-          <li>☐ 能默写 LIS、LCS 两个模板</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4 style="margin-top:0">14 洛谷题单</h4>
-        <ul style="list-style:none;padding-left:0;font-size:13.5px">
-          <li>☐ KMP、并查集、Dijkstra 模板题 AC</li>
-          <li>☐ 背包三连（01 / 完全 / 多重）AC</li>
-          <li>☐ 会自己写对拍脚本</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="pager">
+        <div class="pager">
       <a class="next" href="ch01-intro.html" style="text-align:right">
         <span class="dir">开始学习 →</span>
         <span class="ttl">01 绪论：数据结构与算法分析</span>
