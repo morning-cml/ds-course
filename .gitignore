@@ -19,6 +19,9 @@ $RECYCLE.BIN/
 .tmp-*
 *.part
 
+# 沙箱里推送用的临时 git 配置（见 GIT-使用说明.md「关于推送的一个环境说明」）
+.git-local-config
+
 # ---------- 编辑器崩溃恢复 / 自动保存 ----------
 *.autosave
 *.sav
