@@ -497,38 +497,11 @@
           <tr><th>存储结构</th><th>关系怎么表示</th><th>随机访问</th><th>插入 / 删除</th><th>空间特点</th><th>典型例子</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <td><b>顺序存储</b></td>
-            <td>物理相邻即逻辑相邻，无需额外空间</td>
-            <td class="c-ok">O(1)</td>
-            <td class="c-bad">O(n)，需搬移</td>
-            <td>需预分配连续空间，可能浪费或扩容</td>
-            <td><code>vector</code>、数组、完全二叉树顺序表</td>
-          </tr>
-          <tr>
-            <td><b>链式存储</b></td>
-            <td>指针显式指出后继 / 前驱的地址</td>
-            <td class="c-bad">O(n)</td>
-            <td class="c-ok">O(1)（已知位置时）</td>
-            <td>每结点多 1～2 个指针，空间利用率略低</td>
-            <td>单链表、二叉链表、邻接表</td>
-          </tr>
-          <tr>
-            <td><b>索引存储</b></td>
-            <td>索引项（关键字 → 地址）间接定位</td>
-            <td class="c-warn">O(log n) 或 O(1)</td>
-            <td class="c-warn">O(n)，需维护索引</td>
-            <td>多一张索引表，空间换时间</td>
-            <td>数据库 B+ 树索引、分块查找</td>
-          </tr>
-          <tr>
-            <td><b>散列存储</b></td>
-            <td>由 h(key) 直接计算地址，不记录顺序关系</td>
-            <td class="c-ok">平均 O(1)</td>
-            <td class="c-ok">平均 O(1)</td>
-            <td>需要预留装填因子空间，装太满性能骤降</td>
-            <td><code>unordered_map</code>、哈希表、布隆过滤器</td>
-          </tr>
+          <tr><td>1</td><td>双层嵌套</td><td>T(n) = 2n² + 2n + 2</td><td>外层 n × 内层 n</td><td class="c-ok">O(n²)</td></tr>
+          <tr><td>2</td><td><code>i *= 2</code> / <code>i /= 2</code></td><td>k ≈ log₂n + 1</td><td>通项 i = 2<sup>k</sup></td><td class="c-ok">O(log n)</td></tr>
+          <tr><td>3</td><td><code>i = i * i</code> / <code>i = √i</code></td><td>k ≈ log₂log₂n + 1</td><td>通项 i = 2<sup>2<sup>k</sup></sup></td><td class="c-ok">O(log log n)</td></tr>
+          <tr><td>4</td><td>归并排序 T(n) = 2T(n/2) + cn</td><td>T(n) = n(log₂n + 1)</td><td>递归树每层代价都是 n</td><td class="c-ok">O(n log n)</td></tr>
+          <tr><td>5</td><td>二分查找 T(n) = T(n/2) + c</td><td>T(n) = c(log₂n + 1)</td><td>每层常数代价 × log 层</td><td class="c-ok">O(log n)</td></tr>
         </tbody>
       </table>
     </div>
@@ -926,264 +899,50 @@ int main() {
       就是这份约定里的一个基本操作。
     </p>
 
-    <pre data-lang="cpp" data-file="list_adt.cpp">// list_adt.cpp —— 线性表的抽象数据类型（ADT）：先把「有哪些操作」定下来
-//
-// ── 教材描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P ──────────
-// ADT List {
-//   数据对象：D = { a_i | a_i 属于 ElemSet, i = 1, 2, ..., n, n &gt;= 0 }
-//   数据关系：R = { &lt;a_(i-1), a_i&gt; | a_(i-1), a_i 属于 D, i = 2, ..., n }
-//   基本操作：
-//     InitList(&amp;L)             初始化，构造一个空的线性表
-//     DestroyList(&amp;L)          销毁线性表，释放全部空间
-//     ListEmpty(L)             判空：空返回 true
-//     ListLength(L)            求长度：返回元素个数
-//     GetElem(L, i, &amp;e)        取值：用 e 返回第 i 个元素
-//     LocateElem(L, e)         查找：返回第一个与 e 满足关系的元素位序
-//     PriorElem(L, cur, &amp;pre)  求前驱
-//     NextElem(L, cur, &amp;next)  求后继
-//     ListInsert(&amp;L, i, e)     插入：在第 i 个位置前插入 e
-//     ListDelete(&amp;L, i, &amp;e)    删除：删除第 i 个元素并用 e 返回其值
-//     ListTraverse(L, visit)   遍历：对每个元素调用 visit
-// } ADT List
-//
-// ── 怎么读这份 ADT ───────────────────────────────────────────────────────
-// · ADT 关心的是「有哪些操作、每个操作是什么语义（做什么）」，不关心「怎么做」：
-//   数据放数组还是链表、容量怎么扩、地址怎么算，全部交给实现者决定。
-// · 它跟「用类还是用函数」没有关系：教材习惯用类把数据和操作封在一个类型里，
-//   竞赛里不用类、不用模板、不用虚函数，直接「全局数组 + 自由函数」——
-//   一个函数就是 ADT 里的一个基本操作，函数名和上面 P 里的操作一一对应。
-//   两种写法表达的是同一个 ADT，区别只在语法外壳。
+    <pre data-lang="cpp" data-file="list_adt.cpp">// list_adt.cpp —— 线性表的 ADT：先把「能做哪些事」定下来，不管「怎么做」
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-const int MAXN = 100005;   // 容量：这类题 n 一般 &lt;= 1e5，一次开够就不必扩容
-int a[MAXN];               // 数据对象 D：所有元素都放在这个全局数组里
-int len = 0;               // 数据关系 R：a[0..len-1] 按下标排成一对一的前驱后继
+/* ADT 的规格说明（教材用伪码写，这里保留原味）：
+     ADT List {
+       数据对象：D = { a_i | a_i ∈ ElemSet, i = 1..n, n ≥ 0 }
+       数据关系：R = { &lt;a_(i-1), a_i&gt; | i = 2..n }        // 一对一的前驱后继
+       基本操作：InitList / ListLength / GetElem / ListInsert / ListDelete / ListTraverse
+     } ADT List
 
-// ── 基本操作 P 的竞赛写法：函数名照抄 ADT，语义与上面的约定完全一致 ──────
-void initList() { len = 0; }                  // InitList：O(1)
-bool listEmpty() { return len == 0; }         // ListEmpty：O(1)
-int  listLength() { return len; }             // ListLength：O(1)
-// （DestroyList 在竞赛里通常不写：程序一结束，系统就把空间全收回了）
+   注意：上面一个字都没提「数据放数组还是链表、容量怎么扩」——
+   那些属于实现，不属于 ADT。接口一旦定下，实现可以有好几份。 */
 
-// GetElem：取第 i 个元素（i 是位序，从 1 开始）—— 随机存取 O(1)
-// 地址公式 LOC(a_i) = LOC(a_1) + (i - 1) * sizeof(int)，与表长 len 无关
-bool getElem(int i, int &amp;e) {
-    if (i &lt; 1 || i &gt; len) return false;       // 竞赛里用返回值报错，不抛异常
+const int MAXN = 100005;
+int a[MAXN], n = 0;                       // 存储细节：调用方看不见这些
+
+void initList()            { n = 0; }     // 清空
+int  listLength()          { return n; }  // 求长度
+int  getElem(int i)        { return a[i - 1]; }        // 取第 i 个
+bool listInsert(int i, int x) {                        // 在第 i 个位置插入 x
+    for (int k = n; k &gt;= i; --k) a[k] = a[k - 1];
+    a[i - 1] = x; ++n; return true;
+}
+bool listDelete(int i, int &amp;e) {                       // 删除第 i 个，用 e 带回其值
     e = a[i - 1];
-    return true;
+    for (int k = i - 1; k &lt; n - 1; ++k) a[k] = a[k + 1];
+    --n; return true;
 }
-
-// LocateElem：按值查找，返回位序（从 1 开始），找不到返回 0 —— 逐个比较 O(n)
-int locateElem(int e) {
-    for (int i = 0; i &lt; len; ++i) if (a[i] == e) return i + 1;
-    return 0;
-}
-
-// ListInsert：在第 i 个位置前插入 e —— 后继元素整体后移，
-// 最坏 O(n)，等概率下平均搬移 n/2 个元素
-bool listInsert(int i, int e) {
-    if (i &lt; 1 || i &gt; len + 1 || len == MAXN) return false;
-    for (int k = len; k &gt;= i; --k) a[k] = a[k - 1];
-    a[i - 1] = e;
-    ++len;
-    return true;
-}
-
-// ListDelete：删除第 i 个元素，并用 e 带回它的值 —— 后继元素整体前移，
-// 最坏 O(n)，等概率下平均搬移 (n-1)/2 个元素
-bool listDelete(int i, int &amp;e) {
-    if (i &lt; 1 || i &gt; len) return false;
-    e = a[i - 1];
-    for (int k = i - 1; k &lt; len - 1; ++k) a[k] = a[k + 1];
-    --len;
-    return true;
-}
-
-// ListTraverse：ADT 只说「对每个元素做一遍 visit」，至于写成回调函数
-// 还是直接打印，由实现者自己挑 —— 这里直接打印最省事。
-void listTraverse() {
-    for (int i = 0; i &lt; len; ++i) printf("%d%c", a[i], i + 1 == len ? '\n' : ' ');
+void listTraverse() {                                  // 依次访问每个元素
+    for (int i = 0; i &lt; n; ++i) printf("%d%c", a[i], i + 1 == n ? '\n' : ' ');
 }
 
 int main() {
     initList();
-    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * 10);   // 尾插 10 20 30 40 50
-    int e = 0;
-    getElem(3, e);
-    printf("第 3 个元素 = %d，长度 = %d，判空 = %d\n", e, listLength(), (int)listEmpty());
-    printf("值 40 的位序 = %d（找不到才返回 0）\n", locateElem(40));
-    listDelete(1, e);
-    printf("删除的元素 = %d，剩下：", e);
+    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * 10);
+    printf("长度 %d，第 3 个是 %d，内容：", listLength(), getElem(3));
+    listTraverse();
+    int e; listDelete(1, e);
+    printf("删掉 %d 后剩 %d 个：", e, listLength());
     listTraverse();
     return 0;
 }
 </pre>
-
-    <p>
-      约定一旦定下来，实现就可以有很多份。下面这份是顺序表（数组）的实现（完整版留给第 02 讲），
-      注意它对外提供的仍然是上面约定的那一组操作，一个不多一个不少；至于内部是开一个固定的大数组，
-      还是按需扩容，那属于实现者的自由。
-    </p>
-
-    <pre data-lang="cpp" data-file="seqlist_array.cpp">// seqlist_array.cpp —— 线性表 ADT 的一种实现：顺序表（全局数组 + 自由函数）
-//
-// 上一段把 ADT 的操作定成了「一组函数」；这里逐个实现出来，一个不多一个不少。
-// 换成链式实现时，只要操作名和语义不变，调用方的代码一行都不用改。
-// 顺序表最要紧的三件事都在这段里：
-//   ① 地址能直接算 → 随机存取 O(1)；② 插删要搬元素 → O(n)；③ 满了要扩容 → 均摊 O(1)。
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-int *a = nullptr;    // 数据区：动态申请，装不下就按 2 倍扩容
-int len = 0;         // 元素个数
-int cap = 0;         // 当前容量
-
-// 扩容：重新申请一块更大的空间 + 整体拷贝 O(len)。
-// 单次最坏 O(n)，但容量按 2 倍增长，均摊到每次尾插只有 O(1)。
-void grow() {
-    cap = cap ? cap * 2 : 16;
-    int *na = new int[cap];
-    for (int i = 0; i &lt; len; ++i) na[i] = a[i];
-    delete[] a;      // 竞赛里也可以整个不管（程序结束系统就回收），这里换新块顺手回收旧的
-    a = na;
-}
-
-// InitList：重置为空表（教材里的 DestroyList 也顺手并在这里了）
-void initList() { delete[] a; len = 0; cap = 0; a = nullptr; }
-bool listEmpty() { return len == 0; }                  // ListEmpty
-int  listLength() { return len; }                      // ListLength
-
-// GetElem：地址 = 首地址 + (i-1) * sizeof(int)，与表长无关 → 随机存取 O(1)
-int getElem(int i) {
-    if (i &lt; 1 || i &gt; len) return -1;
-    return a[i - 1];
-}
-
-// LocateElem：逐个比较 → O(n)，找不到返回 0
-int locateElem(int x) {
-    for (int i = 0; i &lt; len; ++i) if (a[i] == x) return i + 1;
-    return 0;
-}
-
-// ListInsert：在第 i 个位置前插入 x，返回这次搬移的元素个数（-1 表示位置非法）。
-// 长度 n 时有 n+1 个可插入位置，插在第 i 个位置要搬 n-i+1 个，
-// 等概率下平均搬移 n/2 个 → 时间 O(n)
-int listInsert(int i, int x) {
-    if (i &lt; 1 || i &gt; len + 1) return -1;
-    if (len == cap) grow();
-    int moved = 0;
-    for (int k = len; k &gt;= i; --k) { a[k] = a[k - 1]; ++moved; }
-    a[i - 1] = x;
-    ++len;
-    return moved;
-}
-
-// ListDelete：删掉第 i 个元素并用 e 带回它的值。后继元素整体前移，
-// 等概率下平均搬移 (n-1)/2 个 → 时间 O(n)
-bool listDelete(int i, int &amp;e) {
-    if (i &lt; 1 || i &gt; len) return false;
-    e = a[i - 1];
-    for (int k = i - 1; k &lt; len - 1; ++k) a[k] = a[k + 1];
-    --len;
-    return true;
-}
-
-void listTraverse() {                                  // ListTraverse：依次打印
-    for (int i = 0; i &lt; len; ++i) printf("%d%c", a[i], i + 1 == len ? '\n' : ' ');
-}
-
-int main() {
-    initList();
-    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * i);   // 1 4 9 16 25
-    printf("长度 = %d，判空 = %d，第 4 个 = %d，值 9 的位序 = %d\n",
-           listLength(), (int)listEmpty(), getElem(4), locateElem(9));
-    int e = 0;
-    listDelete(1, e);
-    printf("删除 %d 后剩下：", e);
-    listTraverse();
-
-    // 亲手数一遍「插入平均搬多少」：长度 n = 8 的表，9 个插入位置各试一次
-    int n = 8, total = 0;
-    for (int i = 1; i &lt;= n + 1; ++i) {
-        initList();                                    // 重新建一个长度 8 的表
-        for (int k = 1; k &lt;= n; ++k) listInsert(listLength() + 1, k);
-        total += listInsert(i, 0);
-    }
-    printf("n = %d：%d 个插入位置共搬 %d 个元素，平均 %.0f 个 = n/2\n",
-           n, n + 1, total, (double)total / (n + 1));
-    return 0;
-}
-</pre>
-
-    <p>
-      光看代码不容易体会差别，下面把<b>同一组操作</b>（<code>getElem</code> 和 <code>listInsert</code>）
-      用两种存储各写一遍，并让函数返回「实际访问 / 搬移了多少个元素」。
-      两边的函数签名、调用方式、打印结果完全一样，<b>变的只是内部那两行</b>：
-    </p>
-
-    <pre data-lang="cpp" data-file="get_by_index.cpp">// get_by_index.cpp —— 同一个操作「取第 i 个元素」，两种存储各写一遍
-//
-// 逻辑上这是同一个操作：给个位置 i，把第 i 个元素拿出来。
-// 两种存储装的是同一批数据、语义完全一样，但内部的代价差得很远。
-//
-// 为了让差别看得见，两个函数都把「访问了几个元素」通过 cnt 带回来。
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-int N;                                  // 表长，两种实现装同样多的元素
-
-/* ═══════════ 实现一：顺序存储（数组） ═══════════
-   数据挤在一段连续内存里，下标相邻 = 地址相邻，
-   第 i 个的地址 = 首地址 + (i-1)*sizeof(int)，一次算出来。 */
-int arr[100005];
-
-int getArray(int i, int &amp;cnt) {
-    cnt = 1;                            // 不管 i 是多少，都只访问这 1 个
-    return arr[i - 1];                  // ← 一行搞定，没有循环
-}
-
-/* ═══════════ 实现二：链式存储（单链表） ═══════════
-   结点散落在堆上，靠 next 串起来，没有任何地址公式可用。 */
-struct Node { int val; Node *nxt; };
-Node *head = nullptr;                   // 头结点，本身不存数据
-
-int getList(int i, int &amp;cnt) {
-    Node *p = head;
-    cnt = 0;
-    for (int k = 0; k &lt; i; ++k) { p = p-&gt;nxt; ++cnt; }   // ← 走 i 步，数 i 次
-    return p-&gt;val;
-}
-
-int main() {
-    N = 100000;
-    for (int i = 0; i &lt; N; ++i) arr[i] = i + 1;
-    head = new Node{0, nullptr};
-    for (int i = N; i &gt;= 1; --i) head-&gt;nxt = new Node{i, head-&gt;nxt};
-
-    int c1, c2, i = 50000;
-    int v1 = getArray(i, c1), v2 = getList(i, c2);
-    printf("表长 %d，取第 %d 个元素：\n", N, i);
-    printf("  数组：访问 %d 个元素，拿到 %d（一次地址计算，与 i 无关）\n", c1, v1);
-    printf("  链表：访问 %d 个元素，拿到 %d（走了 %d 步，正比于 i）\n", c2, v2, c2);
-    printf("  → 同一个操作、同样的结果，链表慢了 %d 倍\n\n", c2 / c1);
-
-    // 再抽查 1000 个位置，确认两种存储的语义完全一致
-    int bad = 0;
-    for (int k = 1; k &lt;= 1000; ++k)
-        if (getArray(k, c1) != getList(k, c2)) ++bad;
-    printf("抽查前 1000 个位置，取值不一致的 %d 个（0 = 语义完全一致）\n", bad);
-    return 0;
-}
-</pre>
-
-    <div class="note exam">
-      <span class="note-title">考点　把这两行数字记住</span>
-      同一个「取第 i 个元素」：<b>顺序存储访问 1 个元素，链式存储访问 i 个元素</b>。
-      操作名、语义、返回结果全都一样，只有代价不同——
-      这正是「逻辑结构相同、存储结构不同」最直观的证据，也印证了 1.4 节的结论：
-      <b>按位查找，链表比顺序表慢 n 倍</b>。
-    </div>
 
     <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
     <p>
@@ -1191,90 +950,54 @@ int main() {
       如果一行都不用改，说明抽象是干净的；如果要改十处，那说明调用方偷偷依赖了实现细节。
     </p>
 
-    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 调用方只认识 ADT 约定的那组操作，不认识任何实现细节
+    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 体会 ADT 的作用：内部实现全换了，调用方一行都不用改
 //
-// 前面说过：ADT 只管「有哪些操作、各自什么语义」，不管「用数组还是链表、用类还是函数」。
-// 这里把同一组操作名（init / size / insert / erase / traverse）用两种存储结构各实现一份，
-// 调用方 report() 只按操作名去用 —— 换实现时，report() 和 main() 一行都不用改。
-// 竞赛里表达「同一组操作」最省事的办法是「命名空间 + 别名」，而不是类加虚函数。
+// 同一个线性表，用两套完全不同的存储各实现一遍：
+//   数组版：元素在连续内存里         链表版：结点散在堆上，靠指针串起来
+// 而调用方 use() 只认操作名和语义，根本不知道背后是哪种写法。
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-namespace seqImpl {              // 实现一：顺序存储（全局数组）
-    const int MAXN = 1005;       // 演示用，最多 1000 个元素足够
-    int a[MAXN], n = 0;
-
-    void init() { n = 0; }                                   // InitList
-    int  size() { return n; }                                // ListLength
-    bool insert(int i, int x) {                              // ListInsert：后继后移 O(n)
-        if (i &lt; 1 || i &gt; n + 1 || n == MAXN) return false;
+namespace arrImpl {                    // 实现一：顺序存储
+    int a[1005], n = 0;
+    void init() { n = 0; }
+    int  size() { return n; }
+    void insert(int i, int x) {        // 第 i 个位置插入：后继整体后移 O(n)
         for (int k = n; k &gt;= i; --k) a[k] = a[k - 1];
         a[i - 1] = x; ++n;
-        return true;
     }
-    bool erase(int i) {                                      // ListDelete：后继前移 O(n)
-        if (i &lt; 1 || i &gt; n) return false;
-        for (int k = i - 1; k &lt; n - 1; ++k) a[k] = a[k + 1];
-        --n;
-        return true;
-    }
-    void traverse() {                                        // ListTraverse
-        for (int i = 0; i &lt; n; ++i) printf("%d%c", a[i], i + 1 == n ? '\n' : ' ');
-    }
+    void traverse() { for (int i = 0; i &lt; n; ++i) printf("%d ", a[i]); }
 }
 
-namespace linkImpl {             // 实现二：链式存储（带头结点的单链表），操作名与语义完全相同
+namespace linkImpl {                   // 实现二：链式存储（带头结点）
     struct Node { int val; Node *nxt; };
     Node *head = nullptr;
-
-    void init() { head = new Node{0, nullptr}; }              // 哨兵头结点，省掉大量判空
-    int  size() {
-        int c = 0;
-        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c;         // 只能一个个数过去 O(n)
-        return c;
-    }
-    bool insert(int i, int x) {                               // 找第 i-1 个结点后插：改两条指针 O(1)
-        if (i &lt; 1) return false;
+    void init() { head = new Node{0, nullptr}; }
+    int  size() { int c = 0; for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c; return c; }
+    void insert(int i, int x) {        // 先走到第 i-1 个结点，再改两条指针
         Node *p = head;
-        for (int k = 1; k &lt; i &amp;&amp; p; ++k) p = p-&gt;nxt;            // 找位置还是要 O(n)
-        if (!p) return false;
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;nxt;
         p-&gt;nxt = new Node{x, p-&gt;nxt};
-        return true;
     }
-    bool erase(int i) {                                       // 摘掉第 i 个结点；竞赛里不 delete
-        if (i &lt; 1) return false;
-        Node *p = head;
-        for (int k = 1; k &lt; i &amp;&amp; p-&gt;nxt; ++k) p = p-&gt;nxt;
-        if (!p-&gt;nxt) return false;
-        p-&gt;nxt = p-&gt;nxt-&gt;nxt;
-        return true;
-    }
-    void traverse() {
-        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt)
-            printf("%d%c", p-&gt;val, p-&gt;nxt ? ' ' : '\n');
-    }
+    void traverse() { for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d ", p-&gt;val); }
 }
 
-// 换实现只要改这一行：namespace impl = linkImpl; —— 下面所有调用一行都不用动
-namespace impl = seqImpl;
+/* ★ 下面这一行决定用哪个实现：改成 linkImpl 即可，其余一个字都不用动。
+     用「命名空间 + 别名」表达「同一组操作」，比类加虚函数省事得多。 */
+namespace impl = arrImpl;
 
-void report() {                  // 调用方：只认操作名和语义，不认存储方式
+/* 调用方：只用了 ADT 约定的那几个操作名，看不到、也没用到任何实现细节。
+   所以 impl 指向谁，这段代码都不用改 —— 这就是抽象的价值。 */
+void use() {
+    impl::init();
+    for (int i = 1; i &lt;= 5; ++i) impl::insert(i, i * i);
     printf("元素个数 = %d，内容：", impl::size());
     impl::traverse();
+    printf("\n");
 }
 
 int main() {
-    impl::init();
-    for (int i = 1; i &lt;= 5; ++i) impl::insert(i, i * i);   // 在第 i 个位置插入 i*i
-    impl::erase(1);                                        // 删掉第 1 个元素
-    report();                                              // 输出：元素个数 = 4，内容：4 9 16 25
-
-    // 同样的调用序列，换成链表实现（把上面的 impl 换成 linkImpl 的名字）结果一模一样
-    linkImpl::init();
-    for (int i = 1; i &lt;= 5; ++i) linkImpl::insert(i, i * i);
-    linkImpl::erase(1);
-    printf("链表实现：元素个数 = %d，内容：", linkImpl::size());
-    linkImpl::traverse();
+    use();                             // 输出：元素个数 = 5，内容：1 4 9 16 25
     return 0;
 }
 </pre>
@@ -1283,8 +1006,9 @@ int main() {
       <div class="card">
         <h3 id="s5-4" style="margin-top:0">抽象之一：隐藏表示</h3>
         <p style="margin-bottom:0">
-          调用方只会调用那几个操作函数，看不到内部的数组 <code>a</code>、<code>len</code>、<code>cap</code>，
-          也不知道容量怎么翻倍。表示的改变被隔离在实现里，不会像涟漪一样扩散到全工程。
+          调用方只会调用那几个操作函数，看不到内部的数组 <code>a</code>、计数器 <code>n</code>、
+          链表头 <code>head</code>，也不知道数据是连续放的还是散着放的。
+          表示的改变被隔离在实现里，不会像涟漪一样扩散到全工程。
         </p>
       </div>
       <div class="card">
@@ -1722,10 +1446,10 @@ int main() {
       三步走完，答案自然落地。接下来我们就用 8 道例题把这套流程练到条件反射。
     </div>
 
-    <h2 id="s8">1.8 八道例题：手把手推导大 O</h2>
+    <h2 id="s8">1.8 五道例题：手把手推导大 O</h2>
 
     <p>
-      下面 8 道例题由浅入深，覆盖了考试和面试中 95% 的复杂度分析场景。每道题的格式都是固定的：
+      下面 5 道例题由浅入深，覆盖了考试和面试中 95% 的复杂度分析场景。每道题的格式都是固定的：
       <b>代码 → 逐行计数表 → 频度求和 → 化简得阶</b>。请务必自己先遮住答案推一遍，
       推不出来再看我的过程——只看不推，等于没学。
     </p>
@@ -1736,43 +1460,7 @@ int main() {
       ③ 得到精确频度表达式后，<b>删系数、删低阶、只留最高阶</b>，得到大 O。
     </div>
 
-    <h3 id="ex1">例 1　单层 for 循环 —— O(n)</h3>
-    <pre data-lang="cpp" data-file="ex1_single_loop.cpp">// ex1_single_loop.cpp —— 单层循环：频度与 n 成正比
-#include &lt;iostream&gt;
-
-long long sumTo(int n) {
-    long long sum = 0;                    // ① 执行 1 次
-    for (int i = 1; i &lt;= n; ++i) {        // ② 条件判断执行 n + 1 次；++i 执行 n 次
-        sum += i;                         // ③ 执行 n 次
-    }
-    return sum;                           // ④ 执行 1 次
-}
-
-int main() {
-    std::cout &lt;&lt; sumTo(100) &lt;&lt; '\n';       // 5050
-    return 0;
-}
-</pre>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>语句</th><th>频度</th><th>化简后</th></tr></thead>
-        <tbody>
-          <tr><td>① <code>sum = 0</code></td><td>1</td><td>1</td></tr>
-          <tr><td>② 条件判断 <code>i &lt;= n</code></td><td>n + 1</td><td>n</td></tr>
-          <tr><td>② <code>++i</code></td><td>n</td><td>n</td></tr>
-          <tr><td>③ <code>sum += i</code></td><td>n</td><td>n</td></tr>
-          <tr><td>④ <code>return sum</code></td><td>1</td><td>1</td></tr>
-          <tr><td colspan="2"><b>T(n) = 3n + 4</b></td><td class="c-ok"><b>O(n)</b>，线性阶</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p>
-      <b>变体思考</b>：如果写成 <code>for (int i = 1; i &lt;= n; i += 2)</code>，循环次数变成约 n/2，
-      T(n) = 1.5n + 4，仍然是 <b>O(n)</b>——因为常数系数 0.5 被法则二吃掉了。
-      这也是「O(1) 里的一万条语句仍是 O(1)」的同一个道理。
-    </p>
-
-    <h3 id="ex2">例 2　双层嵌套 —— O(n²)</h3>
+    <h3 id="ex1">例 1　双层嵌套 —— O(n²)</h3>
     <pre data-lang="cpp" data-file="ex2_double_loop.cpp">// ex2_double_loop.cpp —— 双层嵌套：总次数 = 外层 × 内层
 #include &lt;iostream&gt;
 
@@ -1820,51 +1508,7 @@ int main() {
       其实还是同一量级。只有当「n 出现在指数或对数位置」时，改动才可能改变阶。
     </p>
 
-    <h3 id="ex3">例 3　三层嵌套（三角形）—— O(n³)</h3>
-    <pre data-lang="cpp" data-file="ex3_triple_loop.cpp">// ex3_triple_loop.cpp —— 三层三角形嵌套：组合数 C(n+2, 3)
-#include &lt;iostream&gt;
-
-long long countTriples(int n) {
-    long long cnt = 0;
-    for (int i = 1; i &lt;= n; ++i)
-        for (int j = 1; j &lt;= i; ++j)
-            for (int k = 1; k &lt;= j; ++k)
-                ++cnt;                        // 执行次数 = 满足 1 &lt;= k &lt;= j &lt;= i &lt;= n 的三元组个数
-    return cnt;
-}
-
-int main() {
-    std::cout &lt;&lt; countTriples(10) &lt;&lt; '\n';     // 220 = C(12,3)
-    std::cout &lt;&lt; countTriples(100) &lt;&lt; '\n';    // 171700
-    return 0;
-}
-</pre>
-    <p>最内层语句的执行次数是一个三重求和，逐层求和即可：</p>
-    <div class="formula">
-      T(n) = Σ<sub>i=1..n</sub> Σ<sub>j=1..i</sub> j
-      = Σ<sub>i=1..n</sub> i(i+1)/2
-      = ½ ( Σ i² + Σ i )
-      = ½ ( n(n+1)(2n+1)/6 + n(n+1)/2 )
-      = n(n+1)(n+2) / 6
-    </div>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>求和步骤</th><th>结果</th><th>化简</th></tr></thead>
-        <tbody>
-          <tr><td>最内层 <code>k</code> 循环</td><td>j 次</td><td>j</td></tr>
-          <tr><td>对 j 求和 <code>Σ_{j≤i} j</code></td><td>i(i+1)/2</td><td>0.5i² + 0.5i</td></tr>
-          <tr><td>对 i 求和（用 Σi² 与 Σi 公式）</td><td>n(n+1)(n+2)/6</td><td>n³/6 + n²/2 + n/3</td></tr>
-          <tr><td colspan="2"><b>T(n) = n³/6 + n²/2 + n/3</b></td><td class="c-ok"><b>O(n³)</b>，立方阶</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p>
-      <b>结论</b>：三角形嵌套比满嵌套少了 6 倍，但阶完全一样。这也解释了为什么
-      「三重循环」几乎总意味着 O(n³)：n = 1000 时是 10⁹ 量级，普通电脑要跑好几秒；
-      n = 10⁴ 时是 10¹² 量级，必须换算法。
-    </p>
-
-    <h3 id="ex4">例 4　循环变量倍增 —— O(log n)</h3>
+    <h3 id="ex2">例 2　循环变量倍增 —— O(log n)</h3>
     <pre data-lang="cpp" data-file="ex4_double_step.cpp">// ex4_double_step.cpp —— 倍增型循环：循环次数是对数级的
 #include &lt;iostream&gt;
 
@@ -1911,7 +1555,7 @@ int main() {
       ⌊log₂n⌋（n = 1000 时为 9），与倍增写法一致，同为 O(log n)。
     </p>
 
-    <h3 id="ex5">例 5　循环变量自乘（开方型）—— O(log log n)</h3>
+    <h3 id="ex3">例 3　循环变量自乘（开方型）—— O(log log n)</h3>
     <pre data-lang="cpp" data-file="ex5_sqrt.cpp">// ex5_sqrt.cpp —— 循环变量以自身为倍数增长 / 自身开方：双对数级
 #include &lt;iostream&gt;
 #include &lt;cmath&gt;
@@ -1962,58 +1606,7 @@ int main() {
       其中那个 log log n 正来自这种「标记倍数」的循环结构——第 13 讲会再见到它。
     </p>
 
-    <h3 id="ex6">例 6　递归式 T(n) = T(n−1) + O(1) —— O(n)</h3>
-    <pre data-lang="cpp" data-file="ex6_recursive_linear.cpp">// ex6_recursive_linear.cpp —— 线性递归：每次只把规模减 1
-#include &lt;iostream&gt;
-
-// 求 1 + 2 + ... + n
-long long sumRec(int n) {
-    if (n &lt;= 0) return 0;                 // 递归基：O(1)，只执行最后一次
-    return n + sumRec(n - 1);             // 本层 O(1) 加法 + 规模 n-1 的子问题
-}
-
-// 对照：同样功能的迭代版，时间同为 O(n)，但空间只需 O(1)
-long long sumIter(int n) {
-    long long s = 0;
-    for (int i = 1; i &lt;= n; ++i) s += i;
-    return s;
-}
-
-int main() {
-    std::cout &lt;&lt; sumRec(100) &lt;&lt; '\n';        // 5050
-    std::cout &lt;&lt; sumIter(100) &lt;&lt; '\n';       // 5050
-    return 0;
-}
-</pre>
-    <p>递推式用「展开法」求解：把 T(n−1) 反复代入，直到触底：</p>
-    <div class="formula">
-      T(n) = T(n−1) + c<br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= T(n−2) + 2c<br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= T(n−3) + 3c<br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= … = T(0) + n·c = O(n)
-    </div>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>递归层次 k</th><th>当前规模</th><th>本层代价</th><th>累计代价</th><th>栈帧数</th></tr></thead>
-        <tbody>
-          <tr><td>0</td><td>n</td><td>c</td><td>c</td><td>1</td></tr>
-          <tr><td>1</td><td>n−1</td><td>c</td><td>2c</td><td>2</td></tr>
-          <tr><td>2</td><td>n−2</td><td>c</td><td>3c</td><td>3</td></tr>
-          <tr><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
-          <tr><td>n</td><td>0（触底）</td><td>c</td><td>(n+1)c</td><td>n+1</td></tr>
-          <tr><td colspan="3"><b>T(n) = (n+1)c</b></td><td colspan="2" class="c-ok"><b>时间 O(n)，空间 O(n)</b></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="note danger">
-      <span class="note-title">递归的时间与空间要分开看</span>
-      这道题的<b>时间</b>是 O(n)，但<b>空间</b>不是 O(1)——每深入一层就要压一个栈帧，
-      最大深度 n，所以空间复杂度是 <b>O(n)</b>。同样功能的迭代版 <code>sumIter</code>
-      时间 O(n)、空间 O(1)。这就是 1.11 节要讲的「递归栈空间必须计入 S(n)」。
-      另外，n 很大时递归会爆栈（一般 n 超过 10⁵ 就要警惕），这也是工程上优先写迭代的原因。
-    </div>
-
-    <h3 id="ex7">例 7　递归式 T(n) = 2T(n/2) + O(n) —— O(n log n)</h3>
+    <h3 id="ex4">例 4　递归式 T(n) = 2T(n/2) + O(n) —— O(n log n)</h3>
     <p>
       这是<b>分治法</b>的典型形态：把问题一分为二（2 个规模 n/2 的子问题），
       再花线性时间把两半结果合起来。归并排序、快速排序的平均情况都是这个式子。
@@ -2068,10 +1661,10 @@ int main() {
       不必每次画树。
     </p>
 
-    <h3 id="ex8">例 8　递归式 T(n) = T(n/2) + O(1) —— O(log n)</h3>
+    <h3 id="ex5">例 5　递归式 T(n) = T(n/2) + O(1) —— O(log n)</h3>
     <p>
       这是「每次砍掉一半」的形态，二分查找是它的标准代表。
-      它比例 7 更妙的地方在于：<b>每层只需常数时间</b>，所以只剩层数一个因子。
+      它比例 4 更妙的地方在于：<b>每层只需常数时间</b>，所以只剩层数一个因子。
     </p>
     <pre data-lang="cpp" data-file="ex8_binary_search.cpp">// ex8_binary_search.cpp —— 二分查找：T(n) = T(n/2) + O(1) = O(log n)
 #include &lt;iostream&gt;
@@ -2125,7 +1718,7 @@ int main() {
       这又是一个「存储结构决定算法能否成立」的例子。
     </p>
 
-    <h3 id="ex-sum">1.8.1 八道例题速查表</h3>
+    <h3 id="ex-sum">1.8.1 五道例题速查表</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -2266,7 +1859,7 @@ int main() {
     <ul>
       <li>
         <b>最好情况</b>：每次划分都把序列<b>对半分</b>，递推式 T(n) = 2T(n/2) + O(n)，
-        由例 7 得 <b>O(n log n)</b>；
+        由例 4 得 <b>O(n log n)</b>；
       </li>
       <li>
         <b>最坏情况</b>：每次划分都<b>极不均衡</b>（例如对已排好序的序列取首元素为基准，
@@ -2965,8 +2558,8 @@ int main() {
         <li>用事前分析估算代替事后统计；以语句频度 T(n) 度量时间；</li>
         <li>大 O 是渐进<b>上界</b>：存在 c、n₀ 使 n ≥ n₀ 时 0 ≤ f(n) ≤ c·g(n)；Ω 是下界，Θ 是紧确界；</li>
         <li>三条法则：只留最高阶项、忽略常数系数、常数记 O(1)；嵌套循环相乘；</li>
-        <li>八道例题的结论：单层 O(n)、双层 O(n²)、三层 O(n³)、倍增 O(log n)、
-            自乘 / 开方 O(log log n)、T(n−1)+c 是 O(n)、2T(n/2)+cn 是 O(n log n)、T(n/2)+c 是 O(log n)；</li>
+        <li>五道例题的结论：双层嵌套 O(n²)、倍增 / 折半 O(log n)、自乘 / 开方 O(log log n)、
+            2T(n/2)+cn 是 O(n log n)、T(n/2)+c 是 O(log n)；</li>
         <li>最好 / 最坏 / 平均要分清，默认说最坏；顺序查找等概率 ASL = (n+1)/2；</li>
         <li>空间复杂度只算辅助空间；递归栈深度必须计入，S(n) 常见 O(1) / O(log n) / O(n) / O(n²)。</li>
       </ul>
