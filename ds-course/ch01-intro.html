@@ -648,52 +648,54 @@
     </div>
 
         <div class="figure">
-      <svg viewBox="0 0 900 450" width="900" height="450" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字直接算出该去哪个桶">
+      <svg viewBox="0 0 900 470" width="900" height="470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字直接算出该去哪个桶">
         <text x="20" y="26" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<tspan font-weight="700">直接算出</tspan>该去哪个桶</text>
 
         <rect x="20" y="42" width="860" height="44" rx="8" class="fg-box"/>
         <text x="34" y="61" class="fg-b">演示：4 个桶（编号 0～3），散列函数 h(key) = key % 4。把 key 丢进去，算出的余数就是它该待的桶号。</text>
-        <text x="34" y="79" class="fg-b">下面往表里放 3 个 key：1001、1009 和 2002，看看它们各自去哪。</text>
+        <text x="34" y="79" class="fg-b">下面往表里放 3 个 key：1001、1009、2002，看看它们各自去哪。</text>
 
-        <text x="30" y="110" class="fg-bm">① 由 key 算桶号（一次取模，不需要比较）</text>
-        <rect x="30" y="120" width="200" height="82" rx="8" class="fg-os"/>
-        <text x="130" y="142" class="fg-tm">1001 % 4 = 1</text>
-        <text x="130" y="164" class="fg-tm">1009 % 4 = 1</text>
-        <text x="130" y="186" class="fg-tm">2002 % 4 = 2</text>
+        <text x="30" y="110" class="fg-bm">① 由 key 算出桶号（一次取模，不需要任何比较）</text>
+        <rect x="30" y="120" width="230" height="82" rx="8" class="fg-os"/>
+        <text x="145" y="142" class="fg-tm">1001 % 4 = 1</text>
+        <text x="145" y="164" class="fg-tm">1009 % 4 = 1</text>
+        <text x="145" y="186" class="fg-tm">2002 % 4 = 2</text>
 
-        <line x1="234" y1="161" x2="282" y2="161" class="fg-eo" marker-end="url(#mk-ao)"/>
-        <text x="258" y="152" class="fg-lm" text-anchor="middle">桶号</text>
+        <line x1="264" y1="161" x2="316" y2="161" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="290" y="152" class="fg-lm" text-anchor="middle">桶号</text>
 
-        <text x="292" y="110" class="fg-bm">② 桶数组（每个桶后面挂一条链）</text>
-        <rect x="292" y="120" width="588" height="170" rx="8" class="fg-box"/>
+        <text x="326" y="110" class="fg-bm">② 桶数组：[0] 和 [3] 空着，1001 与 1009 撞进同一个桶</text>
+        <rect x="326" y="120" width="554" height="190" rx="8" class="fg-box"/>
 
-        <rect x="304" y="128" width="44" height="26" rx="4" class="fg-soft"/><text x="326" y="146" class="fg-lm">[0]</text>
-        <text x="362" y="146" class="fg-lm">空</text>
+        <rect x="338" y="128" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="146" class="fg-lm">[0]</text>
+        <text x="398" y="146" class="fg-lm">空</text>
 
-        <rect x="304" y="162" width="44" height="26" rx="4" class="fg-rs"/><text x="326" y="180" class="fg-tm">[1]</text>
-        <rect x="356" y="162" width="130" height="26" rx="4" class="fg-rs"/><text x="421" y="180" class="fg-t">1001 张三</text>
-        <line x1="490" y1="175" x2="516" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
-        <rect x="520" y="162" width="130" height="26" rx="4" class="fg-rs"/><text x="585" y="180" class="fg-t">1009 李四</text>
-        <text x="660" y="180" class="fg-lm" fill="var(--danger)">← 冲突：两个 key 都算出 1</text>
+        <rect x="338" y="162" width="46" height="26" rx="4" class="fg-rs"/><text x="361" y="180" class="fg-tm">[1]</text>
+        <rect x="392" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="452" y="180" class="fg-t">1001 张三</text>
+        <line x1="516" y1="175" x2="542" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
+        <rect x="546" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="606" y="180" class="fg-t">1009 李四</text>
+        <text x="674" y="180" class="fg-lm">← 挂成一条链</text>
+        <text x="392" y="206" class="fg-lm">两个 key 都算出 1，这叫<tspan fill="var(--danger)">冲突</tspan>；查 1009 要在这个桶里比 2 次</text>
 
-        <rect x="304" y="214" width="44" height="26" rx="4" class="fg-bs"/><text x="326" y="232" class="fg-tm">[2]</text>
-        <rect x="356" y="214" width="130" height="26" rx="4" class="fg-bs"/><text x="421" y="232" class="fg-t">2002 王五</text>
+        <rect x="338" y="222" width="46" height="26" rx="4" class="fg-bs"/><text x="361" y="240" class="fg-tm">[2]</text>
+        <rect x="392" y="222" width="120" height="26" rx="4" class="fg-bs"/><text x="452" y="240" class="fg-t">2002 王五</text>
+        <text x="522" y="240" class="fg-lm">← 桶里只有它一个，比 1 次就找到</text>
 
-        <rect x="304" y="252" width="44" height="26" rx="4" class="fg-soft"/><text x="326" y="270" class="fg-lm">[3]</text>
-        <text x="362" y="270" class="fg-lm">空</text>
+        <rect x="338" y="258" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="276" class="fg-lm">[3]</text>
+        <text x="398" y="276" class="fg-lm">空</text>
 
-        <rect x="30" y="306" width="390" height="88" rx="8" class="fg-ws"/>
-        <text x="44" y="328" class="fg-b"><tspan font-weight="700" fill="var(--ok)">优势</tspan>：定位一个 key 只要「算一次 %」+「看这一个桶」，</text>
-        <text x="44" y="348" class="fg-b">与总记录数 n <tspan font-weight="700">无关</tspan>——这是真正的 O(1)，</text>
-        <text x="44" y="368" class="fg-b">比索引存储的 O(log k) 还快一步。</text>
+        <rect x="30" y="326" width="430" height="70" rx="8" class="fg-gs"/>
+        <text x="44" y="348" class="fg-b"><tspan font-weight="700" fill="var(--ok)">优势</tspan>：定位一个 key 只要「算一次 %」+「看这一个桶」，</text>
+        <text x="44" y="368" class="fg-b">与总记录数 n <tspan font-weight="700">无关</tspan>——这是真正的 O(1)，</text>
+        <text x="44" y="388" class="fg-b">比索引存储的 O(log k) 还快一步。</text>
 
-        <rect x="438" y="306" width="442" height="88" rx="8" class="fg-rs"/>
-        <text x="452" y="328" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价一</tspan>：会冲突——不同的 key 算出同一个桶，</text>
-        <text x="452" y="348" class="fg-b">桶里要再逐个比较（上图 [1] 号桶要比 2 次）。</text>
-        <text x="452" y="368" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价二</tspan>：元素是「乱」的，顺序性被放弃，不能范围查询。</text>
+        <rect x="474" y="326" width="406" height="70" rx="8" class="fg-rs"/>
+        <text x="488" y="348" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价一</tspan>：会冲突，桶里要再逐个比较（如上）</text>
+        <text x="488" y="368" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价二</tspan>：元素是「乱」的，顺序性被放弃，</text>
+        <text x="488" y="388" class="fg-b">不能做「取成绩 80～90 之间的学生」这类范围查询</text>
 
-        <text x="20" y="414" class="fg-b">所以散列存储是「用顺序性换常数级查找」：查单个 key 最快，但「查成绩 80～90 分之间的所有学生」这类需求它就无能为力了（第 10 讲细讲）。</text>
-        <text x="20" y="432" class="fg-lm">注：桶数取 4 只为画得下；真实实现里桶数是几万到几百万，且随元素增多自动扩容。</text>
+        <text x="20" y="424" class="fg-b">所以散列存储是「用顺序性换常数级查找」：查单个 key 最快，但按顺序、按范围的需求它就无能为力了（第 10 讲细讲）。</text>
+        <text x="20" y="448" class="fg-lm">注：桶数取 4 只为画得下；真实实现里桶数是几万到几百万，且元素变多时会自动扩容。</text>
       </svg>
       <figcaption>图 1-10　散列存储：由关键字直接算出桶号（O(1) 定位），代价是必须处理冲突、且放弃顺序性</figcaption>
     </div>
@@ -1120,120 +1122,67 @@ int main() {
       两边的函数签名、调用方式、打印结果完全一样，<b>变的只是内部那两行</b>：
     </p>
 
-    <pre data-lang="cpp" data-file="list_two_impls.cpp">// list_two_impls.cpp —— 同一个 ADT，两种存储，差别全在内部那几行
+    <pre data-lang="cpp" data-file="get_by_index.cpp">// get_by_index.cpp —— 同一个操作「取第 i 个元素」，两种存储各写一遍
 //
-// 左边（顺序存储）和右边（链式存储）对外提供的是**同一个**线性表：
-//   getElem(i)     取第 i 个元素
-//   listInsert(i,x) 在第 i 个位置插入 x
-// 而两者的内部完全是两回事：
-//   · 顺序存储：元素挤在一段连续内存里，下标相邻 = 地址相邻
-//   · 链式存储：每个结点散落在堆上，靠 next 指针串起来
+// 逻辑上这是同一个操作：给个位置 i，把第 i 个元素拿出来。
+// 两种存储装的是同一批数据、语义完全一样，但内部的代价差得很远。
 //
-// 为了把差别摆到明面上，这两个函数都**返回访问了几个元素**（真实计数，不是估算）。
+// 为了让差别看得见，两个函数都把「访问了几个元素」通过 cnt 带回来。
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
-/* ══════════════════════════════════════════════════════════════
-   实现一：顺序存储 —— 全局数组，物理相邻
-   ══════════════════════════════════════════════════════════════ */
-namespace seq {
-    const int MAXN = 100005;
-    int dat[MAXN];
-    int n = 0;
+int N;                                  // 表长，两种实现装同样多的元素
 
-    void init() { n = 0; }
-    int  length() { return n; }
+/* ═══════════ 实现一：顺序存储（数组） ═══════════
+   数据挤在一段连续内存里，下标相邻 = 地址相邻，
+   第 i 个的地址 = 首地址 + (i-1)*sizeof(int)，一次算出来。 */
+int arr[100005];
 
-    /* 取第 i 个：地址 = 首地址 + (i-1)*sizeof(int)，一次就算出来。
-       返回访问次数，永远是 1 —— 与 i、与表长 n 都无关。 */
-    int getElem(int i, int &amp;out) {
-        out = dat[i - 1];         // ← 就这一行，没有循环
-        return 1;                 // 访问了 1 个元素
-    }
-
-    /* 在第 i 个位置插入：为了保持「物理相邻」，dat[i-1..n-1] 必须整体后移。
-       返回实际搬移的元素个数 = n-i+1。 */
-    int listInsert(int i, int x) {
-        int moved = 0;
-        for (int k = n; k &gt;= i; --k) { dat[k] = dat[k - 1]; ++moved; }  // ← 成片搬移
-        dat[i - 1] = x;
-        ++n;
-        return moved;
-    }
+int getArray(int i, int &amp;cnt) {
+    cnt = 1;                            // 不管 i 是多少，都只访问这 1 个
+    return arr[i - 1];                  // ← 一行搞定，没有循环
 }
 
-/* ══════════════════════════════════════════════════════════════
-   实现二：链式存储 —— 结点 + 指针，物理位置任意
-   ══════════════════════════════════════════════════════════════ */
-namespace link {
-    struct Node { int val; Node *nxt; };
-    Node *head = nullptr;         // 带头结点的单链表：head 本身不存数据
+/* ═══════════ 实现二：链式存储（单链表） ═══════════
+   结点散落在堆上，靠 next 串起来，没有任何地址公式可用。 */
+struct Node { int val; Node *nxt; };
+Node *head = nullptr;                   // 头结点，本身不存数据
 
-    void init() {
-        head = new Node{0, nullptr};
-    }
-    int length() {
-        int c = 0;
-        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c;
-        return c;
-    }
-
-    /* 取第 i 个：没有地址公式可用，只能从 head 出发一个结点一个结点地走。
-       返回走过的结点数 = i。 */
-    int getElem(int i, int &amp;out) {
-        int visited = 0;
-        Node *p = head;
-        for (int k = 1; k &lt;= i; ++k) { p = p-&gt;nxt; ++visited; }   // ← 顺着指针走
-        out = p-&gt;val;
-        return visited;
-    }
-
-    /* 在第 i 个位置插入：找到第 i-1 个结点后，只改两条指针。
-       返回……0：因为一个元素都没搬，只是把指针重新接了一下。 */
-    int listInsert(int i, int x) {
-        Node *p = head;
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;nxt;      // 找位置本身要 O(n)，但这不是「搬移」
-        p-&gt;nxt = new Node{x, p-&gt;nxt};                 // ← 只改两条指针，元素一个都没动
-        return 0;
-    }
+int getList(int i, int &amp;cnt) {
+    Node *p = head;
+    cnt = 0;
+    for (int k = 0; k &lt; i; ++k) { p = p-&gt;nxt; ++cnt; }   // ← 走 i 步，数 i 次
+    return p-&gt;val;
 }
 
 int main() {
-    const int N = 100000;         // 建一张 10 万长的表，两种实现装同样的数据
-    int v = 0;
+    N = 100000;
+    for (int i = 0; i &lt; N; ++i) arr[i] = i + 1;
+    head = new Node{0, nullptr};
+    for (int i = N; i &gt;= 1; --i) head-&gt;nxt = new Node{i, head-&gt;nxt};
 
-    seq::init();
-    for (int i = 1; i &lt;= N; ++i) seq::listInsert(seq::length() + 1, i);
-    link::init();
-    for (int i = 1; i &lt;= N; ++i) link::listInsert(link::length() + 1, i);
+    int c1, c2, i = 50000;
+    int v1 = getArray(i, c1), v2 = getList(i, c2);
+    printf("表长 %d，取第 %d 个元素：\n", N, i);
+    printf("  数组：访问 %d 个元素，拿到 %d（一次地址计算，与 i 无关）\n", c1, v1);
+    printf("  链表：访问 %d 个元素，拿到 %d（走了 %d 步，正比于 i）\n", c2, v2, c2);
+    printf("  → 同一个操作、同样的结果，链表慢了 %d 倍\n\n", c2 / c1);
 
-    printf("表长 n = %d\n\n", N);
-
-    /* —— 对比一：按位查找（取正中间那个元素）—— */
-    int i = N / 2;
-    int a1 = seq::getElem(i, v), a2 = link::getElem(i, v);
-    printf("【getElem(%d)】取第 %d 个元素\n", i, i);
-    printf("  顺序存储：访问 %d 个元素（一次地址计算，与 i 无关）\n", a1);
-    printf("  链式存储：访问 %d 个元素（走了 %d 步，正比于 i）\n", a2, i);
-    printf("  → 链表慢 %.0f 倍，而且 i 越大差得越多\n\n", (double)a2 / a1);
-
-    /* —— 对比二：在表头插入（最坏位置）—— */
-    int m1 = seq::listInsert(1, 999);
-    int m2 = link::listInsert(1, 999);
-    printf("【listInsert(1, 999)】在表头插入\n");
-    printf("  顺序存储：搬移 %d 个元素（后面所有元素都要往后退一格）\n", m1);
-    printf("  链式存储：搬移 %d 个元素（只改两条指针）\n", m2);
-    printf("  → 这一次反过来了：链表一个元素都不用搬\n");
+    // 再抽查 1000 个位置，确认两种存储的语义完全一致
+    int bad = 0;
+    for (int k = 1; k &lt;= 1000; ++k)
+        if (getArray(k, c1) != getList(k, c2)) ++bad;
+    printf("抽查前 1000 个位置，取值不一致的 %d 个（0 = 语义完全一致）\n", bad);
     return 0;
 }
 </pre>
 
     <div class="note exam">
-      <span class="note-title">考点　上机跑一遍，把这两行数字记住</span>
-      同一个 <code>getElem(i)</code>，顺序存储访问 <b>1</b> 个元素、链式存储访问 <b>i</b> 个；
-      同一个 <code>listInsert(1, x)</code>，顺序存储搬 <b>n</b> 个元素、链式存储搬 <b>0</b> 个。
-      <b>操作名一模一样，代价完全对称</b>——这正是「逻辑结构相同、存储结构不同」最直观的证据，
-      也再次印证了 1.4 节的结论：<b>按位查找链表慢 n 倍，已知位置插删链表快 n 倍</b>。
+      <span class="note-title">考点　把这两行数字记住</span>
+      同一个「取第 i 个元素」：<b>顺序存储访问 1 个元素，链式存储访问 i 个元素</b>。
+      操作名、语义、返回结果全都一样，只有代价不同——
+      这正是「逻辑结构相同、存储结构不同」最直观的证据，也印证了 1.4 节的结论：
+      <b>按位查找，链表比顺序表慢 n 倍</b>。
     </div>
 
     <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
