@@ -55,7 +55,7 @@ table.dpgrid caption { caption-side: top; text-align: left; color: var(--text-fa
         <li><b>13.4</b> 贪心法 —— 为什么贪心必须证明、用反例打脸，以及贪心与 DP 的血缘关系。</li>
         <li><b>13.5</b> 动态规划 —— <b>本章核心，篇幅最大</b>：记忆化搜索 → 四步法 → 线性 DP → 背包五兄弟 → 区间 DP → 树形 DP → 状压 DP → 优化技巧 → 调试方法。</li>
         <li><b>13.6</b> 数学类算法 —— 数论、快速幂、筛法、组合数学、高精度、博弈论、二分三分。</li>
-        <li><b>13.7~13.8</b> 综合对比表 + 易错点 + 考点 + 6 道自测题。</li>
+        <li><b>13.7~13.9</b> 综合对比表 + 工程视角 + 易错点 + 考点 + 6 道自测题。</li>
       </ul>
     </div>
 
@@ -5969,9 +5969,632 @@ int main() {
       <b>如果算出来的复杂度比范围要求的差一个量级，那一定是思路需要优化，而不是常数问题。</b>
     </div>
 
-    <h2 id="s8">13.8 本章小结、易错点与自测</h2>
+    <h2 id="s8">13.8 工程视角：这六把锤子在真实系统里敲什么</h2>
 
-    <h3 id="s8-1">13.8.1 必须记住的十二件事</h3>
+    <p>
+      前面七节把六种范式从定义到代码过了一遍，但它们看起来还像「考试用的东西」。
+      这一节回答一个更实际的问题：<b>输入法、<code>git</code>、测序仪、编译器后端，
+      到底在哪些地方用到了这些范式？</b>答案可能出乎意料——用得最多、最不声不响的那个，
+      正是 13.5 节花了一整节讲的动态规划。
+    </p>
+    <p>
+      <b>工程代码里几乎不会出现「教科书式的纯范式」</b>，真实系统多是
+      「一个范式做骨架、另一个做加速、再加工程近似」的混合体。下面每处落点都按同一个三段式讲：
+      <b>用什么范式 → 为什么非它不可 → 代价是什么</b>。
+    </p>
+
+    <h3 id="s8-1">13.8.1 动态规划在工程里的三个「顶梁柱」</h3>
+
+    <h4 id="s8-1a">（1）序列比对：生物信息学的双子星</h4>
+
+    <p>
+      序列比对是生物信息学最重要的算法：「两条 DNA 序列有多像」决定了基因注释、进化分析、
+      病毒溯源的全部下游结论。两个奠基性算法都是二维 DP：
+      <b>Needleman–Wunsch（1970）</b>做全局比对（状态 <code>F[i][j]</code> =
+      「a 前 i 个字符与 b 前 j 个字符的最优比对得分」，三种来源同样是上、左、左上，
+      再加打分矩阵与空位罚分）；<b>Smith–Waterman（1981）</b>做局部比对，只找最像的那一段。
+    </p>
+    <p>
+      把它们和 13.5.3 的 LCS 并排看：<b>状态定义、下标含义、三种来源、初始化形状完全一致</b>，
+      区别只在合并操作——LCS 用 <code>max</code> 且相等时 +1，比对用带权 <code>max</code> 加打分与罚分。
+      <b>LCS 就是「不算分、等权」的全局比对</b>；局部比对只在每项末尾加一个下限 0
+      （<code>H[i][j] = max(0, 三种来源)</code>，答案取全表最大值），含义是「分数已为负，
+      不如从这格重新开始」——<b>一格改动，就从「比全长」变成「比局部」。</b>
+    </p>
+    <p>
+      代价有三层：<b>① 全表是 <code>O(nm)</code> 时间与空间</b>；
+      <b>② 想要对齐路径就不能只留一行</b>——只求分数可滚动数组压到 <code>O(min(n,m))</code>，
+      要还原「怎么排」必须存下每格来源方向（Hirschberg 用分治压回 <code>O(m)</code>，时间翻倍）；
+      <b>③ 规模根本不允许</b>：人类基因组约 3.2×10⁹ 个碱基，全表 DP 是 10¹⁸ 量级。
+      所以工业工具走<b>启发式剪枝</b>：<b>BLAST</b> 先找短的完全相同片段（种子），
+      只对种子周围的窄带做精细 DP；今天的 BWA、minimap2 是同一思路。
+      <b>范式没变，变的是「只算值得算的那一小块」。</b>
+    </p>
+
+    <h4 id="s8-1b">（2）编辑距离、Viterbi 与输入法</h4>
+
+    <p>
+      编辑距离（Levenshtein distance）是图 13-17 与 <code>edit_distance.cpp</code> 的主角：
+      它与 LCS 共用同一张表，只是把「奖励匹配」换成三种操作的代价、把 <code>max</code> 换成 <code>min</code>，
+      第 0 行/列也从全 0 变成 0,1,2,3…。它支撑着四件事：<b>拼写纠错</b>（与词典逐词比距离取最近）、
+      <b>输入法</b>（拼音与候选词匹配、按错隔壁键的容错）、<b>模糊搜索与实体消歧</b>、
+      以及<b>生物信息学</b>。
+    </p>
+    <p>
+      真正的工程难点<b>不是这个 DP，而是「和谁比」</b>：词典十万条，单次比较 <code>O(nm)</code>，
+      暴力就是 <code>O(N·nm)</code>。所以工程上分两段——先在<b>检索</b>层把候选砍到几十个
+      （n-gram 倒排索引、BK 树、Levenshtein 自动机），再对候选跑精确 DP。
+      这与 <b>第 10 讲</b>「先建索引再查找」一致：
+      <b>算法负责正确性，数据结构负责把搜索空间砍小。</b>
+    </p>
+    <p>
+      <b>Viterbi 算法</b>是同一套思想在概率模型上的化身：语音识别、词性标注、通信解调都建立在
+      隐马尔可夫模型上，解码就是求「让观测出现概率最大的隐状态路径」——
+      <code>dp[t][s]</code> = 「到时刻 t 停在状态 s 的最大累计概率」，取上一时刻所有状态的最大值，
+      再回溯恢复路径。唯一实质性的工程改动是<b>把概率连乘改成对数相加</b>：
+      上百帧概率连乘会下溢到 0——
+      <b>这是统计类 DP 的第一条纪律：能用对数就别用连乘。</b>
+    </p>
+
+    <h4 id="s8-1c">（3）文本 diff：<code>git diff</code> 背后的 LCS</h4>
+
+    <p>
+      <code>git diff</code> 与所有差异显示工具，底层都是「求两序列的最小编辑脚本」，
+      而「保留不动的部分」正是两文件的最长公共子序列——<b>编辑脚本越短 ⇔ 公共部分越长</b>，
+      所以 diff 与 13.5.3 的 LCS 是同一个问题的两种说法。
+      这里有个值得记住的事实：<b>最小编辑脚本一般不唯一，diff 的输出也就不唯一。</b>
+      因为 <code>A[i] != B[j]</code> 时要往上走或往左走，<b>两条路可能给出完全相同的长度</b>，
+      选哪条只是「把差异算在哪一块」的分歧。以 <code>kitten</code> → <code>sitting</code> 为例：
+      距离是 3，但「k 替换为 s」与「删 k 再插 s」是<b>同样步数</b>的两种合法方案，
+      显示成补丁就是「改一个字符」还是「删一行加一行」——
+      <b>只要差异行数相同，它们就都是「最小」的。</b>
+    </p>
+    <p>
+      代价：教科书版 LCS 是 <code>O(nm)</code> 时间与空间，两个几十万行的文件就是 10¹⁰ 量级。
+      所以 <code>git</code> 默认用 <b>Myers 的 O(ND) 差分算法</b>（1986）：它不填满整张表，
+      而是从编辑距离 D 出发做「带预算的广度搜索」，相似文件（D 很小）时快得惊人。
+    </p>
+
+    <div class="figure">
+      <svg viewBox="0 0 940 500" width="940" height="500" xmlns="http://www.w3.org/2000/svg">
+        <text x="16" y="26" fill="var(--text)" font-size="14" font-weight="700">编辑距离 DP 填表：把 "kitten" 改成 "sitting"，dp[i][j] 取「上、左、左上」三者最小值</text>
+
+        <!-- ===== 表头：列字符 = sitting ===== -->
+        <g font-family="Consolas,monospace" font-size="15" font-weight="700" fill="var(--text-soft)">
+          <text x="83" y="50" text-anchor="middle">j=0</text>
+          <text x="137" y="50" text-anchor="middle">s</text>
+          <text x="191" y="50" text-anchor="middle">i</text>
+          <text x="245" y="50" text-anchor="middle">t</text>
+          <text x="299" y="50" text-anchor="middle">t</text>
+          <text x="353" y="50" text-anchor="middle">i</text>
+          <text x="407" y="50" text-anchor="middle">n</text>
+          <text x="461" y="50" text-anchor="middle">g</text>
+        </g>
+        <!-- ===== 行标签：i / kitten ===== -->
+        <g font-family="Consolas,monospace" font-size="15" font-weight="700" fill="var(--text-soft)" text-anchor="middle">
+          <text x="28" y="92">i=0</text>
+          <text x="28" y="138">k</text>
+          <text x="28" y="184">i</text>
+          <text x="28" y="230">t</text>
+          <text x="28" y="276">t</text>
+          <text x="28" y="322">e</text>
+          <text x="28" y="368">n</text>
+        </g>
+
+        <!-- ===== 表格网格 ===== -->
+        <g fill="none" stroke="var(--border)" stroke-width="1">
+          <rect x="56" y="64" width="432" height="46"/>
+          <rect x="56" y="110" width="432" height="46"/>
+          <rect x="56" y="156" width="432" height="46"/>
+          <rect x="56" y="202" width="432" height="46"/>
+          <rect x="56" y="248" width="432" height="46"/>
+          <rect x="56" y="294" width="432" height="46"/>
+          <rect x="56" y="340" width="432" height="46"/>
+        </g>
+        <g fill="none" stroke="var(--border)" stroke-width="1">
+          <rect x="56" y="64" width="54" height="322"/>
+          <rect x="110" y="64" width="54" height="322"/>
+          <rect x="164" y="64" width="54" height="322"/>
+          <rect x="218" y="64" width="54" height="322"/>
+          <rect x="272" y="64" width="54" height="322"/>
+          <rect x="326" y="64" width="54" height="322"/>
+          <rect x="380" y="64" width="54" height="322"/>
+          <rect x="434" y="64" width="54" height="322"/>
+        </g>
+
+        <!-- ===== 依赖来源：三格高亮（上 / 左 / 左上）===== -->
+        <rect x="166" y="112" width="50" height="42" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <rect x="222" y="160" width="50" height="42" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <rect x="276" y="112" width="50" height="42" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <!-- 当前正在计算的格子 dp[2][4] -->
+        <rect x="274" y="158" width="50" height="42" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2.4"/>
+
+        <!-- ===== 三条箭头 ===== -->
+        <path d="M299,158 L299,136" stroke="var(--brand)" stroke-width="2"/>
+        <polygon points="299,128 294,138 304,138" fill="var(--brand)"/>
+        <path d="M274,179 L250,179" stroke="var(--brand)" stroke-width="2"/>
+        <polygon points="242,179 252,174 252,184" fill="var(--brand)"/>
+        <path d="M250,136 L270,156" stroke="var(--brand)" stroke-width="2"/>
+        <polygon points="276,162 262,158 266,170" fill="var(--brand)"/>
+
+        <text x="330" y="134" fill="var(--brand)" font-size="11.5" font-weight="700">上：dp[i−1][j] + 1</text>
+        <text x="244" y="170" fill="var(--brand)" font-size="11.5" font-weight="700" text-anchor="end">左：dp[i][j−1] + 1</text>
+        <text x="204" y="112" fill="var(--brand)" font-size="11.5" font-weight="700">左上：dp[i−1][j−1] + 替换代价</text>
+
+        <!-- ===== 数值 ===== -->
+        <g font-family="Consolas,monospace" font-size="15" text-anchor="middle">
+          <text x="83" y="93" fill="var(--text)">0</text>
+          <text x="137" y="93" fill="var(--text)">1</text>
+          <text x="191" y="93" fill="var(--text)">2</text>
+          <text x="245" y="93" fill="var(--text)">3</text>
+          <text x="299" y="93" fill="var(--text)">4</text>
+          <text x="353" y="93" fill="var(--text)">5</text>
+          <text x="407" y="93" fill="var(--text)">6</text>
+          <text x="461" y="93" fill="var(--text)">7</text>
+
+          <text x="83" y="139" fill="var(--text)">1</text>
+          <text x="137" y="139" fill="var(--text)">1</text>
+          <text x="191" y="139" fill="var(--text)">2</text>
+          <text x="245" y="139" fill="var(--text)">3</text>
+          <text x="299" y="139" fill="var(--text)">4</text>
+          <text x="353" y="139" fill="var(--text)">5</text>
+          <text x="407" y="139" fill="var(--text)">6</text>
+          <text x="461" y="139" fill="var(--text)">7</text>
+
+          <text x="83" y="185" fill="var(--text)">2</text>
+          <text x="137" y="185" fill="var(--text)">2</text>
+          <text x="191" y="185" fill="var(--text)">1</text>
+          <text x="245" y="185" fill="var(--text)">2</text>
+          <text x="299" y="185" fill="var(--ok)" font-weight="800">2</text>
+          <text x="353" y="185" fill="var(--text)">3</text>
+          <text x="407" y="185" fill="var(--text)">4</text>
+          <text x="461" y="185" fill="var(--text)">5</text>
+
+          <text x="83" y="231" fill="var(--text)">3</text>
+          <text x="137" y="231" fill="var(--text)">3</text>
+          <text x="191" y="231" fill="var(--text)">2</text>
+          <text x="245" y="231" fill="var(--text)">1</text>
+          <text x="299" y="231" fill="var(--text)">2</text>
+          <text x="353" y="231" fill="var(--text)">3</text>
+          <text x="407" y="231" fill="var(--text)">4</text>
+          <text x="461" y="231" fill="var(--text)">5</text>
+
+          <text x="83" y="277" fill="var(--text)">4</text>
+          <text x="137" y="277" fill="var(--text)">4</text>
+          <text x="191" y="277" fill="var(--text)">3</text>
+          <text x="245" y="277" fill="var(--text)">2</text>
+          <text x="299" y="277" fill="var(--text)">1</text>
+          <text x="353" y="277" fill="var(--text)">2</text>
+          <text x="407" y="277" fill="var(--text)">3</text>
+          <text x="461" y="277" fill="var(--text)">4</text>
+
+          <text x="83" y="323" fill="var(--text)">5</text>
+          <text x="137" y="323" fill="var(--text)">5</text>
+          <text x="191" y="323" fill="var(--text)">4</text>
+          <text x="245" y="323" fill="var(--text)">3</text>
+          <text x="299" y="323" fill="var(--text)">2</text>
+          <text x="353" y="323" fill="var(--text)">2</text>
+          <text x="407" y="323" fill="var(--text)">3</text>
+          <text x="461" y="323" fill="var(--text)">4</text>
+
+          <text x="83" y="369" fill="var(--text)">6</text>
+          <text x="137" y="369" fill="var(--text)">6</text>
+          <text x="191" y="369" fill="var(--text)">5</text>
+          <text x="245" y="369" fill="var(--text)">4</text>
+          <text x="299" y="369" fill="var(--text)">3</text>
+          <text x="353" y="369" fill="var(--text)">3</text>
+          <text x="407" y="369" fill="var(--text)">2</text>
+          <text x="461" y="369" fill="var(--ok)" font-weight="800">3</text>
+        </g>
+
+        <!-- ===== 右侧说明 ===== -->
+        <text x="516" y="90" fill="var(--text)" font-size="13" font-weight="700">当前正在算 dp[2][4]（i=2, j=4）</text>
+        <text x="516" y="114" fill="var(--text-soft)" font-size="12">a[2] = 'i'，b[4] = 't'，不相等 → 替换代价 = 1</text>
+        <text x="516" y="138" fill="var(--text-soft)" font-size="12">上 &nbsp; dp[1][4] + 1 = 4 + 1 = 5　（删除 a[2]）</text>
+        <text x="516" y="162" fill="var(--text-soft)" font-size="12">左 &nbsp; dp[2][3] + 1 = 2 + 1 = 3　（插入 b[4]）</text>
+        <text x="516" y="186" fill="var(--text-soft)" font-size="12">左上 dp[1][3] + 1 = 2 + 1 = 3　（替换）</text>
+        <text x="516" y="210" fill="var(--ok)" font-size="12.5" font-weight="700">三者取 min → dp[2][4] = 2　（图上绿色格）</text>
+
+        <rect x="516" y="232" width="16" height="16" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/>
+        <text x="542" y="245" fill="var(--text-soft)" font-size="12">第 0 行 / 第 0 列是边界：0,1,2,3…（空串要插入整串）</text>
+        <rect x="516" y="258" width="16" height="16" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.6"/>
+        <text x="542" y="271" fill="var(--text-soft)" font-size="12">三个依赖格：上、左、左上</text>
+        <rect x="516" y="284" width="16" height="16" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="542" y="297" fill="var(--text-soft)" font-size="12">当前正在计算的格子</text>
+
+        <text x="516" y="330" fill="var(--danger)" font-size="12.5" font-weight="700">答案在右下角：dp[6][7] = 3</text>
+        <text x="516" y="354" fill="var(--text-soft)" font-size="12">即 "kitten" 改成 "sitting" 最少 3 步：</text>
+        <text x="516" y="376" fill="var(--text-soft)" font-size="12">k → s，e → i，末尾插入 g。</text>
+        <text x="516" y="412" fill="var(--text-soft)" font-size="12">每格只依赖三个方向，所以按行从上到下、</text>
+        <text x="516" y="434" fill="var(--text-soft)" font-size="12">行内从左到右填，就一定用不到还没算的值。</text>
+      </svg>
+      <figcaption>图 13-17　编辑距离（Levenshtein）的 DP 填表：dp[2][4] 由「上、左、左上」三格取 min 得到，答案在右下角 dp[6][7] = 3</figcaption>
+    </div>
+
+    <p>
+      把下面这段代码和图 13-17 逐行对上。它就是上面几个落点共享的内核：
+      <b>「用什么打分、和谁比、比完怎么用」各不同，DP 部分一字不改。</b>
+    </p>
+
+    <pre data-lang="cpp" data-file="edit_distance.cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+using namespace std;
+
+/* ============================================================
+   编辑距离（Levenshtein Distance）—— 二维 DP 的标准写法
+   状态：dp[i][j] = 把 a 的前 i 个字符改成 b 的前 j 个字符所需的最少操作数
+   转移：dp[i][j] = min( dp[i-1][j]   + 1,     // 上：删除 a 的第 i 个字符
+                         dp[i][j-1]   + 1,     // 左：插入 b 的第 j 个字符
+                         dp[i-1][j-1] + (a[i-1] != b[j-1]) )  // 左上：替换或匹配
+   边界：dp[i][0] = i（删光 a 的前 i 个字符）；dp[0][j] = j（从空串插满 b 的前 j 个字符）
+
+   与 13.5 节 LCS 的异同：
+   相同——状态语义都是「前缀 vs 前缀」，都从上、左、左上三格推出，边界都在第 0 行/列，
+         遍历顺序都是 i、j 双重正序循环，答案都在右下角 dp[n][m]。
+   不同——LCS 求最长公共部分，越匹配越长，用 max，只在字符相等时走左上并 +1；
+         编辑距离求最少改动次数，越匹配越短，用 min，三路都要走（删除 / 插入也计入代价）。
+         另一处外观差异在边界：LCS 第 0 行/列全是 0，编辑距离是 0,1,2,3…。
+   ============================================================ */
+int editDistance(const string&amp; a, const string&amp; b) {
+    int n = (int)a.size(), m = (int)b.size();
+    vector&lt;vector&lt;int&gt;&gt; dp(n + 1, vector&lt;int&gt;(m + 1, 0));
+    for (int i = 0; i &lt;= n; ++i) dp[i][0] = i;   // 第一列：删掉 a 的前 i 个字符
+    for (int j = 0; j &lt;= m; ++j) dp[0][j] = j;   // 第一行：插入出 b 的前 j 个字符
+    for (int i = 1; i &lt;= n; ++i)
+        for (int j = 1; j &lt;= m; ++j) {
+            int sub = (a[i - 1] == b[j - 1]) ? 0 : 1;   // 相同就不用替换
+            dp[i][j] = min(min(dp[i - 1][j] + 1,        // 上：删除
+                               dp[i][j - 1] + 1),       // 左：插入
+                           dp[i - 1][j - 1] + sub);     // 左上：替换 / 匹配
+        }
+    return dp[n][m];
+}
+
+/* 空间优化：二维 O(nm) 压成一维 O(min(n, m))。
+   滚动时「左上角」的值会被覆盖，必须先用 diag 存下来；
+   dp[0] 每一行都要更新为 i，否则第 0 列会一直停在 0。 */
+int editDistance1D(const string&amp; a, const string&amp; b) {
+    int n = (int)a.size(), m = (int)b.size();
+    if (m &gt; n) return editDistance1D(b, a);      // 让 m 取较小值，空间 O(min(n,m))
+    vector&lt;int&gt; dp(m + 1, 0);
+    for (int j = 0; j &lt;= m; ++j) dp[j] = j;      // 第 0 行
+    for (int i = 1; i &lt;= n; ++i) {
+        int diag = dp[0];                        // dp[i-1][j-1]，先存旧值再覆盖
+        dp[0] = i;                               // 第 i 行的第 0 列：删光
+        for (int j = 1; j &lt;= m; ++j) {
+            int old = dp[j];                     // 覆盖前存下 dp[i-1][j]
+            int sub = (a[i - 1] == b[j - 1]) ? 0 : 1;
+            dp[j] = min(min(dp[j] + 1, dp[j - 1] + 1), diag + sub);
+            diag = old;                          // 下一格的「左上」就是这一格上方的旧值
+        }
+    }
+    return dp[m];
+}
+
+/* 打印整张 dp 表，对照图 13-17 逐格检查 */
+void printTable(const string&amp; a, const string&amp; b) {
+    int n = (int)a.size(), m = (int)b.size();
+    vector&lt;vector&lt;int&gt;&gt; dp(n + 1, vector&lt;int&gt;(m + 1, 0));
+    for (int i = 0; i &lt;= n; ++i) dp[i][0] = i;
+    for (int j = 0; j &lt;= m; ++j) dp[0][j] = j;
+    for (int i = 1; i &lt;= n; ++i)
+        for (int j = 1; j &lt;= m; ++j) {
+            int sub = (a[i - 1] == b[j - 1]) ? 0 : 1;
+            dp[i][j] = min(min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + sub);
+        }
+    cout &lt;&lt; "      ";
+    for (int j = 0; j &lt;= m; ++j) cout &lt;&lt; (j == 0 ? '-' : b[j - 1]) &lt;&lt; ' ';
+    cout &lt;&lt; "\n";
+    for (int i = 0; i &lt;= n; ++i) {
+        cout &lt;&lt; (i == 0 ? '-' : a[i - 1]) &lt;&lt; "  :  ";
+        for (int j = 0; j &lt;= m; ++j) cout &lt;&lt; dp[i][j] &lt;&lt; ' ';
+        cout &lt;&lt; "\n";
+    }
+}
+
+int main() {
+    string a = "kitten", b = "sitting";
+    cout &lt;&lt; "把 " &lt;&lt; a &lt;&lt; " 改成 " &lt;&lt; b &lt;&lt; " 最少需要 "
+         &lt;&lt; editDistance(a, b) &lt;&lt; " 步\n";                       // 3
+    cout &lt;&lt; "一维滚动数组结果 = " &lt;&lt; editDistance1D(a, b) &lt;&lt; "\n"; // 3（对照用）
+
+    cout &lt;&lt; "----- DP 表（行 = " &lt;&lt; a &lt;&lt; "，列 = " &lt;&lt; b &lt;&lt; "）-----\n";
+    printTable(a, b);            // 最后一格 dp[6][7] = 3，与图 13-17 完全一致
+
+    /* 边界情况必须单独测：空串最容易把下标和初始化坑死 */
+    cout &lt;&lt; "\nkitten -&gt; kitten : " &lt;&lt; editDistance("kitten", "kitten") &lt;&lt; "\n"; // 0
+    cout &lt;&lt; "abc    -&gt; abcde  : " &lt;&lt; editDistance("abc", "abcde") &lt;&lt; "\n";       // 2
+    cout &lt;&lt; "(空)   -&gt; abc    : " &lt;&lt; editDistance("", "abc") &lt;&lt; "\n";             // 3
+    cout &lt;&lt; "abc    -&gt; (空)   : " &lt;&lt; editDistance("abc", "") &lt;&lt; "\n";             // 3
+
+    cout &lt;&lt; "\n时间 O(n*m)；空间二维 O(n*m)，可优化成一维 O(min(n,m))，\n";
+    cout &lt;&lt; "但一维版只能给出距离，要还原「怎么改的」必须保留整张表。\n";
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">工程提醒：编辑距离的三个「用了才知道」的坑</span>
+      <ul style="margin:6px 0 0">
+        <li><b>第 0 行/列不是 0 而是 0,1,2,3…</b>。这是它与 LCS 最大的外观差异，
+          也是初学者最常见的错误：边界全填 0，算出的距离偏小，小数据上很难发现。</li>
+        <li><b>滚动数组会丢掉路径。</b>压成一维后就再也回答不了「具体改哪几个字符」。
+          既要省内存又要路径，用 Hirschberg 的分治思路：分两半算前缀与后缀 DP，再从中点合并。</li>
+        <li><b>复杂度要按「候选集大小 × 单次比较」估。</b>单次 <code>O(nm)</code> 看着不大，
+          但对着十万条词典暴力跑就是 <code>O(N·nm)</code>——先做检索剪枝，再跑 DP。</li>
+      </ul>
+    </div>
+
+    <h3 id="s8-2">13.8.2 贪心：从路由器到操作系统的「每步拍板」</h3>
+    <p>
+      13.4 节说过「贪心必须证明」。规律很明显：<b>贪心被大规模使用的地方，
+      往往是「问题结构足够规整」或「有理论下界兜底」的地方。</b>
+    </p>
+
+    <h4 id="s8-2a">（1）网络：Dijkstra 是最短路的贪心</h4>
+    <p>
+      路由器算路（<code>OSPF</code>）、导航算最快路线，底层都是单源最短路，
+      而 <b>Dijkstra 本质上就是一个贪心</b>（<b>第 09 讲</b>）：每次从「还没确定的顶点」里
+      挑出当前距离最小的那个，宣布它的最短路已确定，再用它松弛邻居。
+      贪心选择性质成立靠的是<b>边权非负</b>——当前最近的未确定点不可能再被更长的路径绕近。
+      <b>代价正在这里：一旦出现负权边，贪心立刻失效</b>，必须换成 Bellman–Ford 那一类
+      允许反复修正的算法。另一层代价是选最小值的开销：朴素写法 <code>O(V²)</code> 只在稠密图划算，
+      真实路网用二叉堆做到 <code>O((V+E) log V)</code>；理论上更快的斐波那契堆因常数巨大而几乎不用——
+      <b>理论复杂度更优不等于工程更快。</b>
+    </p>
+
+    <h4 id="s8-2b">（2）编码与压缩：Huffman 是最优前缀码的贪心</h4>
+    <p>
+      <b>Huffman 编码</b>（<b>第 07 讲</b>）是贪心最纯粹的胜利：反复合并频率最小的两个结点，
+      得到的编码<b>可证明是所有前缀码里平均码长最短的</b>（交换论证），
+      它出现在 <code>gzip</code> / <code>zip</code>（DEFLATE）、JPEG、MP3、HTTP/2 头部压缩里。
+      代价有两条：<b>① 必须两遍</b>——先统计全局频率表再编码，频率表还要传给解码方；
+      <b>② 最优性带着约束</b>——它假设每个符号占整数比特，而信息论下界是实数：
+      概率 0.9 的符号理论最优码长约 0.152 比特，Huffman 只能给 1 比特，浪费近 7 倍，
+      所以更贴近下界的是算术编码 / 区间编码。
+      <b>贪心给出的是「这个模型下」的最优，不是「信息论意义下」的最优。</b>
+    </p>
+
+    <h4 id="s8-2c">（3）调度：SPT 规则</h4>
+    <p>
+      操作系统任务队列、打印队列、订单履约排程里有一条老规矩：<b>最短处理时间优先（SPT）</b>——
+      每次先做预计耗时最短的任务。在「单机、任务同时到达、最小化平均等待时间」这个模型下，
+      它<b>可以严格证明最优</b>（交换论证：两个相邻任务中长的在前，交换不会让平均等待时间变差）。
+      代价是<b>饥饿</b>：只要短任务源源不断，长任务就永远排不上。
+      而且它的证明依赖「处理时间事先已知」，现实中工时是估计值，估错就全盘退化。
+      所以真实系统用<b>多级反馈队列</b>（新任务进高优先级，用完时间片没做完就降级）
+      加上<b>老化（aging）</b>——把等久的任务优先级慢慢抬高，用工程手段补上 SPT 缺的那块。
+    </p>
+
+    <h4 id="s8-2d">（4）存储：Belady 最优页面置换是「不可实现的下界」</h4>
+    <p>
+      这是本节最值得记住的工程思想。<b>Belady 最优算法（OPT）</b>的规则是
+      <b>淘汰「未来最久才会被再次访问」的那页</b>：它是贪心，
+      而且可证明是所有页面置换算法里缺页最少的。
+      代价只有一条，但这条代价致命——<b>它需要预知未来的访问序列</b>，
+      而程序下一步要访问哪个地址，任何操作系统都不可能提前知道。
+      所以它的工程地位很特殊：<b>它不是一个能跑的算法，而是一个理论下界。</b>
+      工程上用 <b>LRU（最近最少使用）</b>近似它——把「未来最久不用」偷换成「过去最久没用」，
+      赌程序的<b>访问局部性</b>。这个赌在多数真实程序上有效，但有明确的失效场景：
+      顺序扫描大数组时，LRU 会把马上还要用的页提前淘汰；加上硬件实现成本（每次访问都要维护
+      链表位置，太贵），所以真实系统用的是 CLOCK、二次机会、ARC 这些改良版。
+      <b>「最优不可实现 → 用可实现的近似 → 近似在特定场景失效 → 再造更好的近似」，
+      这条链是系统工程最真实的写照，而它的起点是一个贪心算法的理论最优性。</b>
+    </p>
+
+    <h4 id="s8-2e">（5）找零：贪心的正确性必须证明，不能凭直觉</h4>
+    <p>
+      <b>人民币面额为什么可以贪心？</b>因为相邻面额之间有倍数关系（1、2、5、10、20、50、100），
+      这种面额系统称为「规范（canonical）」系统，可以证明贪心恰好最优。
+      但只要面额不是这套规整结构，贪心立刻出错：以 <code>{1, 3, 4}</code> 为例，
+      凑 6 时贪心先取最大的 4，剩下 2 只能用 1+1，共 3 枚；而最优解是 3+3，只要 2 枚。
+      <b>贪心给出 3，正确答案是 2，错得很安静</b>——它不崩溃也不报错，只是答案偏大；
+      这时必须换 DP：<code>dp[x] = min over c of (dp[x − c] + 1)</code>。
+    </p>
+    <p>
+      工程含义有三点：<b>①</b> 判断一个硬币系统是否规范可以多项式时间完成，
+      但任意给定面额集合的找零问题本身是 NP-hard 的，所以自动售货机、积分兑换
+      往往不追求最优，只追求「够快、够合理」；
+      <b>②</b> 面额是业务配置项，改一个面额就可能让贪心从正确变错误，
+      所以任何用贪心的地方都要有<b>测试用例保护</b>，不能靠「上次是对的」；
+      <b>③</b> 贪心失败一定能用 DP 救回来（13.4.7 讲过「贪心 = 只保留一个状态的 DP」），
+      代价是复杂度从 <code>O(面额数)</code> 变成 <code>O(目标金额 × 面额数)</code>——
+      <b>这就是「局部最优」换「全局最优」要付的钱。</b>
+    </p>
+
+    <h3 id="s8-3">13.8.3 分治：大规模系统的默认骨架</h3>
+
+    <h4 id="s8-3a">（1）MapReduce / 大数据：分治的产业化形态</h4>
+    <p>
+      Hadoop、Spark、Flink 这一整代大数据框架的核心模型 MapReduce 就是<b>分治的工程化形态</b>：
+      把输入切成若干分片（<b>划分</b>）→ 每个分片独立跑 <code>map</code>（<b>递归求解</b>）→
+      按 key 洗牌 → 每个 key 独立跑 <code>reduce</code>（<b>合并</b>）。
+      <b>第 11 讲</b>的<b>归并排序</b>就是这套流程的最小可运行样例：
+      切分数组、两半各自排序、合并两个有序序列——
+      <b>一个能讲清的归并排序，已经包含了 MapReduce 的全部思想要素。</b>
+      为什么必须是分治而不是 DP？因为 13.3.2 的四条件里最关键的是「子问题相互独立」：
+      map 任务互不通信，才能线性扩展到几千台机器；而 DP 的子问题有重叠依赖，
+      <b>天然难以直接并行</b>，这也是大数据流水线里几乎看不到 DP 的原因。
+      代价是三条：<b>shuffle 是瓶颈</b>（中间结果要按键重分发、排序、落盘、走网络，开销常超过计算本身）、
+      <b>数据倾斜</b>（某个 key 数据量远超其他，拖慢整个 reduce 阶段）、
+      以及「合并操作必须满足结合律」——只有可结合的操作才能安全地任意分组重排。
+    </p>
+
+    <h4 id="s8-3b">（2）FFT：分治在信号与数值计算里的王者</h4>
+    <p>
+      朴素计算 n 点 DFT 需要 <code>O(n²)</code> 次复数乘法，而<b>快速傅里叶变换（FFT）</b>
+      利用 <code>e^(−2πi/n)</code> 的对称性与周期性，把 n 点 DFT 拆成<b>两个 n/2 点的 DFT</b>
+      再合并，得到 <code>T(n) = 2T(n/2) + O(n)</code>，由<b>主定理</b>（13.3.7）情形二得 <code>O(n log n)</code>。
+      这个递推式和归并排序<b>一模一样</b>——你不是在学两个算法，而是在看同一个分治骨架的两次应用。
+      它的覆盖面极广：Wi-Fi / 4G / 5G 的 OFDM 调制解调、MP3 / AAC 音频编码、
+      JPEG 图像压缩（8×8 分块 DCT，与 DFT 同源）、MRI / CT 重建，以及最容易被忽略的
+      <b>大整数乘法</b>：把大数看作多项式系数，用 FFT 做系数卷积
+      （「多项式乘法 = 系数卷积」，可由「FFT → 逐点相乘 → 逆 FFT」在 <code>O(n log n)</code> 完成）。
+      整数乘法的演进 <code>O(n²)</code> → Karatsuba <code>O(n^1.585)</code>（也是分治）→ Toom–Cook → FFT，
+      正是「分治一路把指数往下压」的历史。
+    </p>
+
+    <h4 id="s8-3c">（3）快速选择与快速幂：把分治用在「一半」上</h4>
+    <p>
+      13.6.5 的<b>快速幂</b>就是分治用在幂运算上的结果：把 <code>a^n</code> 拆成
+      「先算 <code>a^(n/2)</code> 再平方」，<code>T(n) = T(n/2) + O(1)</code>，
+      由主定理得 <code>O(log n)</code>。它在密码学里不可替代：RSA 的核心是模幂 <code>a^b mod m</code>，
+      现代密钥 2048 位以上，指数 b 本身就有 2000 多位——朴素连乘要约 2²⁰⁴⁸ 次乘法，
+      一个永远算不完的数；快速幂只要约 2048 次。
+      <b>这一个算法的存在与否直接决定了 RSA 能不能用。</b>
+      同族的<b>快速选择（Quickselect）</b>更妙：求「第 k 小」时用快排的划分把数组分成两半后，
+      <b>只递归进入包含第 k 小元素的那一半</b>——与快速排序只差一行，
+      却把 <code>O(n log n)</code> 变成<b>期望 <code>O(n)</code></b>，平均意义上打破了比较排序下界；
+      工程上用于找中位数、算分位数（P99 延迟）、找 top-k。
+      代价是对划分轴敏感，最坏 <code>O(n²)</code>，所以生产实现用随机取轴或 BFPRT；
+      而数据能装进内存时，维护一个大小为 k 的堆（<code>O(n log k)</code>）往往更好写、还支持流式——
+      <b>又一次，工程最优不等于渐进复杂度最优。</b>
+    </p>
+
+    <h3 id="s8-4">13.8.4 回溯：NP 难世界的工业底座</h3>
+
+    <h4 id="s8-4a">（1）SAT 求解器与约束满足：回溯长成了工业级巨兽</h4>
+    <p>
+      「布尔可满足性问题」（SAT）问的是：给一个布尔公式，是否存在一组变量取值使它为真。
+      它是历史上第一个被证明的 NP 完全问题，理论上「难」；但工程上，
+      <b>现代 SAT 求解器能稳定处理几十万变量、几百万子句的工业实例</b>。
+      骨架就是 13.2 节的回溯——<b>选变量赋值 → 递归 → 冲突就回退</b>——再叠加几项决定性改进：
+      <b>单元传播</b>（子句只剩一个未赋值变量时它被迫取值，可立刻传播，把大量分支在生成前砍掉）、
+      <b>冲突驱动子句学习（CDCL）</b>（分析冲突成因，学出新子句加回公式，保证同样的冲突不再发生）、
+      <b>非时序回溯</b>（一次跳回真正相关的决策层，而不是只退一层）、
+      <b>重启与子句删除</b>（定期丢掉搜索进度重新开始，避免在坏分支里耗尽时间）。
+      它的下游极其庞大：数独、排课、芯片布线与版图验证、软硬件的<b>形式化验证</b>、物流排程；
+      <b>SMT 求解器</b>进一步结合整数算术、数组与位向量理论，成为程序分析与符号执行的引擎。
+      代价是：<b>最坏情况仍是指数时间</b>，只能靠启发式与工程优化绕开；
+      而且「建模」本身成了核心竞争力——同一个问题换一种编码，求解时间可能差几个数量级，
+      <b>工程师的价值从「写搜索算法」转移到了「把问题翻译成约束」</b>。
+      CSP 里的通用剪枝启发式（<b>MRV</b> 优先选取值最少的变量、<b>度启发式</b>、<b>最少约束值</b>）
+      配合约束传播（弧相容 AC-3）与前向检查，正是 13.2.3「约束函数」的系统化版本。
+    </p>
+
+    <h4 id="s8-4b">（2）正则表达式引擎：回溯的甜蜜与灾难</h4>
+    <p>
+      这是回溯最贴近每个程序员的一个落点。主流正则引擎（PCRE、Python 的 <code>re</code>、Java、
+      早期 JavaScript）都用<b>回溯式匹配</b>：遇到 <code>a*</code> 先贪心吃下尽可能多的字符，
+      为满足后续模式再<b>一个字符一个字符地退回来</b>——正是一次标准的回溯搜索。
+      反向引用、环视这些「非正则」特性只有靠回溯才能实现，所以这些引擎宁愿忍受指数复杂度。
+    </p>
+    <p>
+      但代价就是那个「最坏指数级」。当量词<b>嵌套</b>且整体匹配失败时，
+      引擎会把所有可能的切分方式全试一遍，这就是<b>灾难性回溯（catastrophic backtracking）</b>：
+      用 <code>(a+)+$</code> 去匹配 30 个 <code>a</code> 后面跟一个 <code>b</code> 的字符串，
+      末尾的 <code>$</code> 永远不成立，但引擎会在「如何把 a 串切成若干段」的全部组合上穷举——
+      约 2²⁹ 种切法，程序直接卡死。这样的正则写进服务端，攻击者只要发一个精心构造的短字符串
+      就能打满 CPU，这就是 <b>ReDoS（正则表达式拒绝服务）</b>，现实中引发过多个公开 CVE，
+      是「算法复杂度直接变成安全漏洞」的教科书案例。
+      防御有三条：<b>① 换引擎</b>——用把正则编译成 NFA / DFA 的线性时间引擎
+      （RE2、Rust 的 <code>regex</code>、Go 的 <code>regexp</code>），匹配时间与模式复杂度无关，
+      代价是放弃反向引用与部分环视；<b>② 改模式</b>——用占有量词 <code>a++</code>、
+      原子组 <code>(?&gt;…)</code> 禁止引擎回头重试；<b>③ 限制输入</b>——限制被匹配串长度与超时。
+      <b>把「回溯的重试次数」当作可控资源来管理，而不是相信它总会很快返回。</b>
+    </p>
+
+    <h4 id="s8-4c">（3）编译器、硬件验证与物流：求解器是工业底座</h4>
+    <p>
+      编译器后端最经典的优化之一是<b>寄存器分配</b>：把成百上千个临时变量映射到物理寄存器。
+      它的标准建模是<b>图着色</b>——变量是顶点，活跃区间重叠就连边，颜色就是寄存器编号，
+      问题变成「用 k 种颜色给图上色」（正是 13.2.7 的回溯案例）。
+      图着色是 NP 完全的，所以教科书讲回溯；工业编译器实际做的是「图着色 + 溢出
+      （把放不下的变量塞回内存）+ 把最难的实例交给 ILP / SAT 求解器」。
+      硬件验证、物流排程（车辆路径、装箱、人员排班）、芯片布局布线走的都是同一条路：
+      <b>把问题编码成 SAT / ILP / SMT，交给工业求解器</b>——理由很实际，
+      现代求解器集成了几十年的剪枝、学习、重启技术，手写启发式几乎追不上。
+      代价有三条：<b>① 编码开销</b>（一个自然的约束可能要用成百上千个子句表达）；
+      <b>② 可解释性差</b>（求解器只还你一个赋值，不解释为什么这样排最好，调试困难）；
+      <b>③ 超时后只能降级</b>——通常只返回「当前最好可行解 + 与下界的差距（gap）」，
+      你必须接受「不保证最优」。
+    </p>
+    <p>
+      把这些落点和 13.2.9 的结论对上：回溯的价值不在于它快，
+      而在于<b>它能在指数级解空间里给出精确答案，并且可以随手加剪枝</b>。
+      一旦规模超出「剪枝后能算完」的范围，工程上只有三条出路——
+      <b>换更强的剪枝与学习</b>（CDCL）、<b>换问题表述</b>（换编码或换求解器）、
+      或<b>接受近似解</b>（启发式 + 下界，容忍 gap）。
+    </p>
+
+    <h3 id="s8-5">13.8.5 四范式工程对照表</h3>
+    <p>
+      下面这张表是本节的总纲，建议和 13.7 的「课堂版对比表」对照着看：
+      13.7 关心「考试怎么答」，这张表关心「工程怎么选」。
+    </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr>
+            <th>范式</th><th>核心思想</th><th>是否最优</th><th>典型时间复杂度</th>
+            <th>最出名的工业用例</th><th>失败时用什么替代</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>分治</b></td>
+            <td>划分 → 递归求解 → 合并；<b>子问题不重叠</b></td>
+            <td class="c-ok">是</td>
+            <td class="c-ok"><code>O(n log n)</code>（主定理）</td>
+            <td>MapReduce / Spark、FFT、大整数乘法、快速选择</td>
+            <td>合并代价高或数据倾斜：改分片策略，或退化为<b>贪心 + 近似</b></td>
+          </tr>
+          <tr>
+            <td><b>贪心</b></td>
+            <td>每步取局部最优、永不反悔</td>
+            <td class="c-warn">仅当贪心选择性质可证时最优；否则只是近似</td>
+            <td class="c-ok"><code>O(n log n)</code>（排序主导）或 <code>O(n)</code></td>
+            <td>Dijkstra 最短路、Huffman 编码（gzip / JPEG）、SPT 调度、Belady 下界</td>
+            <td>证明不了就换 <b>DP</b>（贪心 = 只留一个状态的 DP）；或加老化 / 随机化启发式</td>
+          </tr>
+          <tr>
+            <td><b>动态规划</b></td>
+            <td>划分阶段 + 状态定义 + 转移方程；<b>重叠子问题只算一次</b></td>
+            <td class="c-ok">是</td>
+            <td class="c-warn">状态数 × 转移代价：<code>O(nm)</code> / <code>O(nV)</code> / <code>O(n·2ⁿ)</code></td>
+            <td>序列比对（Needleman–Wunsch、Smith–Waterman）、编辑距离、Viterbi、diff / LCS、拼写纠错</td>
+            <td>规模过大：<b>启发式剪枝（BLAST）、带式 / 分块 DP</b>，或换 Myers 这类「利用 D 很小」的算法</td>
+          </tr>
+          <tr>
+            <td><b>回溯</b></td>
+            <td>DFS 解空间树 + 约束 / 限界剪枝，走不通就退回来</td>
+            <td class="c-ok">是（搜完整个解空间）</td>
+            <td class="c-bad">最坏 <code>O(b^d)</code>（子集树 <code>O(2ⁿ)</code>、排列树 <code>O(n!)</code>）</td>
+            <td>SAT / SMT / ILP 求解器、数独与 CSP、正则回溯引擎、图着色寄存器分配</td>
+            <td>加 <b>CDCL 学习、非时序回溯、约束传播</b>；仍超时则接受近似解 + 下界 gap</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">小结：什么信号提示该用哪个范式</span>
+      <p style="margin:6px 0 0">把本节压成一张「信号 → 范式」的对照，做题和做工程都适用：</p>
+      <ul style="margin:6px 0 0">
+        <li><b>子问题互相独立、能拆开并行</b> → <b>分治</b>。信号：能对半分、合并是线性操作、
+          答案可由两半的答案算出；工程上还要求合并操作满足结合律。</li>
+        <li><b>能说出「为什么这一步取局部最优不会吃亏」</b> → <b>贪心</b>。信号：有排序依据、有交换论证。
+          <b>说不出来就别用</b>——先写 DP 保正确，再考虑能不能贪。</li>
+        <li><b>子问题会重叠、且需要全局最优（计数 / 判定 / 最大化）</b> → <b>动态规划</b>。
+          信号：暴力搜索树里出现重复状态、有「前 i 个」这样的前缀结构、决策只影响未来不影响过去。</li>
+        <li><b>要在指数级解空间里找可行解或精确最优，且规模不大</b> → <b>回溯 + 剪枝</b>。
+          信号：需要「输出所有方案」、约束能在中途判定、限界函数能估出一个界。</li>
+        <li><b>规模已超出剪枝能救的范围</b> → 换更强的剪枝（学习 / 传播）、换问题编码（SAT / ILP），
+          或接受近似解 + 下界。</li>
+      </ul>
+      <p style="margin:6px 0 0">
+        最后补一句：<b>选型从来不只看复杂度</b>，还要看内存峰值、延迟要求、能否并行、
+        代码能否被同事看懂，以及「有没有现成的库」——工程上最常见的正确答案其实是
+        <b>用别人写好的库</b>（Redis 的近似 LRU、SQLite 的 B 树、zlib 的 Huffman）。
+        <b>你真正要练的能力，是看懂它们为什么这么做、代价在哪、什么条件下会失效。</b>
+      </p>
+    </div>
+
+    <h2 id="s9">13.9 本章小结、易错点与自测</h2>
+
+    <h3 id="s9-1">13.9.1 必须记住的十二件事</h3>
     <div class="grid c2">
       <div class="card">
         <h4 style="margin-top:0">范式与思想（1~6）</h4>
@@ -5999,7 +6622,7 @@ int main() {
       </div>
     </div>
 
-    <h3 id="s8-2">13.8.2 易错点总清单</h3>
+    <h3 id="s9-2">13.9.2 易错点总清单</h3>
 
     <div class="note danger">
       <span class="note-title">红色警报：这些错误会让你的代码「样例过、提交 WA」</span>
@@ -6052,7 +6675,7 @@ int main() {
       </ol>
     </div>
 
-    <h3 id="s8-3">13.8.3 自测题（6 道，答案折叠）</h3>
+    <h3 id="s9-3">13.9.3 自测题（6 道，答案折叠）</h3>
 
     <details class="fold">
       <summary>1. 写出 01 背包的状态定义与转移方程，并说明为什么一维数组实现时容量必须倒序枚举。</summary>
@@ -6243,7 +6866,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s8-4">13.8.4 配套编程练习</h3>
+    <h3 id="s9-4">13.9.4 配套编程练习</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>练习</th><th>任务</th><th>提示</th><th>对应小节</th></tr></thead>

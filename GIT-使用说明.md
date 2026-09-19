@@ -20,9 +20,16 @@
 
 已推送到 GitHub：**https://github.com/morning-cml/ds-course**（public）
 
-- 当前状态：**52 个文件已入库**，标签 `v0000`（课件完整版）→ `v0001` → `v0002` → `v0003` → `v0004` → `v0005`（配置远端）→ `v0006`（仓库主页 README），**全部已推送**
+- 当前状态：**58 个文件已入库**，共 **12 次提交**、**12 个标签**（`v0000` 课件完整版 → … → `v0011`），**全部已推送**
 - `origin` = `https://github.com/morning-cml/ds-course.git`，`main` 已跟踪 `origin/main`
-- 本地与远端 HEAD 一致（`f5c6b32`）
+- 本地与远端 HEAD 一致（`46152d2`）
+
+> 想随时确认这里的数字是否过期，跑这三条即可：
+> ```powershell
+> git rev-list --count HEAD      # 提交数
+> git tag -l | Measure-Object    # 标签数
+> git ls-files | Measure-Object  # 入库文件数
+> ```
 
 ## 一键提交 + 推送（推荐）
 
@@ -86,12 +93,13 @@ git commit -m "说明"
 
 ```powershell
 cd ds-course
-node tools/batch-check.mjs      # 一次性跑完下面五项
+node tools/batch-check.mjs      # 一次性跑完下面六项
 node tools/check.mjs            # 结构完整性（文件、锚点、容器、转义）
 node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本 + 逐帧渲染所有动画
 node tools/cpp-check.mjs        # 把每段 C++ 抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
+node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 ```
 
 `cpp-check.mjs` 需要系统里有 `g++`（本机已具备）；其余几个只需要 Node.js。

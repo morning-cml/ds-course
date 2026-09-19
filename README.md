@@ -10,10 +10,12 @@
 | 项目 | 数量 |
 |---|---|
 | 讲义 | 15 讲 |
-| 正文 | 约 23.6 万字 |
-| 可单步交互动画 | **81 个**（共 3000+ 帧） |
-| 静态结构图解 | 169 张内联 SVG |
-| C++ 代码 | 263 段，254 段通过 `g++` 编译校验 |
+| 正文 | 约 27.6 万字（另含代码内注释约 5.4 万字） |
+| 可单步交互动画 | **81 个**（逐帧渲染共 2565 帧） |
+| 静态结构图解 | 173 张内联 SVG（其中 11 张为可翻页的静态分步图） |
+| C++ 代码 | 268 段，261 段通过 `g++` 编译校验（7 段为需人工确认的片段） |
+
+> 以上数字由 `node ds-course/tools/stats.mjs` 实测得出，改课件后请重新跑一遍并同步本表。
 
 ## 章节
 
@@ -30,10 +32,14 @@
 | 09 | `ch09-graph-algo.html` | 图论算法：Prim、Kruskal、Dijkstra、Floyd、Bellman-Ford/SPFA、拓扑排序、关键路径 |
 | 10 | `ch10-search-hash.html` | 查找与哈希：顺序/折半/插值/斐波那契/分块查找、哈希构造与四大冲突解决方案 |
 | 11 | `ch11-sort-basic.html` | 八大排序图解：冒泡、选择、插入、希尔、堆、归并、快排、基数 |
-| 12 | `ch12-sort-advanced.html` | 排序体系与下界分析：五大体系 20+ 种、决策树证明 Ω(n log n)、稳定性剖析、外部排序 |
+| 12 | `ch12-sort-advanced.html` | 排序体系与下界分析：五大体系 23 种、决策树证明 Ω(n log n)、稳定性剖析、外部排序 |
 | 13 | `ch13-paradigm-dp.html` | 算法设计范式：回溯、分治、贪心、动态规划与背包、数论/快速幂/高精度 |
 | 14 | `ch14-luogu.html` | 洛谷题单：分层作业、题目清单、例题精讲、对拍调试方法 |
 | 15 | `ch15-review.html` | 综合自测与速查手册：复杂度大表、STL 速查、算法模板库、模拟自测卷 |
+
+> 第 **02 / 03 / 05 / 07 / 13** 讲各有一节 **「工程视角」**，专门讲这些结构在操作系统、数据库、
+> 网络系统里的真实落点（CPU 缓存与链表、函数调用栈与栈溢出攻击、grep 为什么用 BM、
+> B+ 树为什么一个结点就是一页、序列比对与 `git diff` 背后的 DP）。可以当独立读物跳着看。
 
 ## 怎么用
 
@@ -63,15 +69,19 @@ ds-course/
 ## 校验工具（改课件后建议跑一遍）
 
 ```bash
-node tools/batch-check.mjs      # 一键跑完下面五项
+node tools/batch-check.mjs      # 一键跑完下面六项
 node tools/check.mjs            # 结构完整性：文件、锚点、容器对应、HTML 转义
 node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本，并逐帧渲染所有动画，捕获运行时错误
 node tools/cpp-check.mjs        # 把每段 C++ 代码抽出来交给 g++ 编译
-node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都讲到
+node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都讲到（含「工程视角」小节硬检查）
+node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 ```
 
 `cpp-check.mjs` 需要 `g++`；其余只需 Node.js，无第三方依赖。
+
+另有 `node tools/stats.mjs`（统计规模数据）与 `node tools/verify-stats.mjs`
+（核对上表与实测是否一致），改完课件重新跑一遍即可确认这里有没有过期。
 
 ## 仓库根的其它文件
 

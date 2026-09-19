@@ -90,4 +90,69 @@ for (const [name, re, must] of NEEDS) {
   console.log("✓ " + name.padEnd(24, "　") + " → " + where);
 }
 console.log("\n" + (miss ? `有 ${miss} 项未覆盖` : `清单共 ${NEEDS.length} 项，全部覆盖 ✅`));
-process.exit(miss ? 1 : 0);
+
+/* ============================================================
+   工程视角硬检查（SPEC 第 8 节）
+   ------------------------------------------------------------
+   以各章 h2 标题里是否含「工程视角」为准，因此新设这一节会自动纳入检查。
+   要求该节内至少有：1 个内联 SVG、1 段 C++ 代码、1 张表、2 处跨讲引用。
+   ============================================================ */
+const ENGINEERING = [
+  ["ch02-linear-list.html", "2.10"],
+  ["ch03-stack.html", "3.12"],
+  ["ch05-string-kmp-bm.html", "5.7"],
+  ["ch07-tree.html", "7.11"],
+  ["ch13-paradigm-dp.html", "13.8"],
+];
+
+console.log("\n工程视角小节核对（SPEC 第 8 节）\n");
+let eBad = 0;
+
+/** 取某页里第一个含「工程视角」的 h2 到下一个 h2 之间的内容 */
+function engineeringSection(html) {
+  const h2s = [...html.matchAll(/<h2[^>]*>[\s\S]*?<\/h2>/g)];
+  for (let i = 0; i < h2s.length; i++) {
+    if (!/工程视角/.test(h2s[i][0])) continue;
+    const start = h2s[i].index;
+    const end = i + 1 < h2s.length ? h2s[i + 1].index : html.length;
+    return html.slice(start, end);
+  }
+  return null;
+}
+
+for (const [file, expect] of ENGINEERING) {
+  const fp = path.join(ROOT, file);
+  if (!fs.existsSync(fp)) { eBad++; console.log(`✗ ${file} 不存在`); continue; }
+  const html = fs.readFileSync(fp, "utf8");
+  const sec = engineeringSection(html);
+  if (!sec) { eBad++; console.log(`✗ ${file.padEnd(24)} 找不到「工程视角」小节（应有 ${expect} 节）`); continue; }
+
+  const problems = [];
+  const svg = (sec.match(/<svg/g) || []).length;
+  const cpp = (sec.match(/data-lang="cpp"/g) || []).length;
+  const table = (sec.match(/<table/g) || []).length;
+  const xref = new Set([...sec.matchAll(/第\s*(\d{1,2})\s*讲/g)].map(m => m[1])).size;
+
+  if (svg < 1) problems.push("缺静态 SVG 图解");
+  if (cpp < 1) problems.push("缺可编译的 C++ 代码块");
+  if (table < 1) problems.push("缺工程选型对比表");
+  if (xref < 2) problems.push(`跨讲引用只有 ${xref} 处（要求 ≥2）`);
+
+  if (problems.length) { eBad++; console.log(`✗ ${file.padEnd(24)} ${problems.join("；")}`); }
+  else console.log(`✓ ${file.padEnd(24)} 有工程视角节（${expect}）　图解 ${svg}　C++ ${cpp}　表 ${table}　跨讲引用 ${xref}`);
+}
+
+/* 提示性信息：其它讲次若也适合补，但不作为失败条件 */
+const extra = files.filter(f => /^ch\d\d-.*\.html$/.test(f) && !ENGINEERING.some(([x]) => x === f));
+const couldAdd = [];
+for (const f of extra) {
+  const html = fs.readFileSync(path.join(ROOT, f), "utf8");
+  if (!engineeringSection(html)) couldAdd.push(f.replace(/-.*/, ""));
+}
+if (couldAdd.length) {
+  console.log("\n提示（不判失败）：以下讲次暂无「工程视角」小节 —— " + couldAdd.join("、"));
+  console.log("      其中第 09 讲（图论算法）、第 10 讲（查找与哈希）最值得补。");
+}
+
+console.log("\n" + (eBad ? `工程视角小节有 ${eBad} 项不达标` : "工程视角小节全部达标 ✅"));
+process.exit(miss || eBad ? 1 : 0);

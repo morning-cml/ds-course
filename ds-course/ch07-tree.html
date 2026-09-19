@@ -48,7 +48,7 @@
         <li><b>7.7</b> 树、森林与二叉树的转换 —— 三条互逆规则 + 两条必背遍历对应结论。</li>
         <li><b>7.8</b> 赫夫曼树与最优前缀编码（<b>本章重点</b>）—— WPL、贪心构造、编码表、规范赫夫曼编码。</li>
         <li><b>7.9</b> 并查集 —— 双亲表示法 + 路径压缩 + 按秩合并，为第 09 讲的图论算法做准备。</li>
-        <li><b>7.10 ~ 7.12</b> C++ 实战细节、易错点与考点自测。</li>
+        <li><b>7.10 ~ 7.13</b> C++ 实战细节、易错点、工程视角与考点自测。</li>
       </ul>
     </div>
 
@@ -3142,7 +3142,7 @@ int main() {
     vector&lt;int&gt; w = { 2, 3, 4, 7, 8, 9 };
     cout &lt;&lt; "WPL = " &lt;&lt; huffmanWPL(w) &lt;&lt; "\n";       // 80
     vector&lt;int&gt; w2 = { 5, 7, 2, 3, 11 };
-    cout &lt;&lt; "WPL = " &lt;&lt; huffmanWPL(w2) &lt;&lt; "\n";      // 见 7.12 节自测题第 4 题
+    cout &lt;&lt; "WPL = " &lt;&lt; huffmanWPL(w2) &lt;&lt; "\n";      // 见 7.13 节自测题第 4 题
     return 0;
 }</pre>
 
@@ -3606,14 +3606,454 @@ int main() {
       </table>
     </div>
 
-    <h2 id="summary">7.11 本章小结</h2>
+    <h2 id="s11">7.11 工程视角：树结构在真实系统里撑起了什么</h2>
+
+    <p>
+      前面十节我们把树从定义一路做到了并查集。你可能会问：这些看起来像是为考试才设计出来的结构，
+      在真实系统里到底出现在哪？答案是<b>几乎无处不在，只是藏在你平时看不见的地方</b>。
+      这一节把本章的每种树都对号入座，并对每个落点回答三个问题：
+      <b>用的是什么结构 → 为什么非它不可 → 代价是什么</b>。
+    </p>
+
+    <h3 id="s11-1">7.11.1 数据库索引：为什么是 B+ 树，而不是二叉搜索树</h3>
+
+    <p>先记住两个数量级，它们决定了这一小节的每一个结论。</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>典型耗时</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>一次内存访问</td><td><b>约 100 ns</b>（10<sup>−7</sup> 秒）</td>
+            <td>CPU 直接在内存里取一个字节</td></tr>
+          <tr><td>一次磁盘随机读</td><td><b>约 10 ms</b>（10<sup>−2</sup> 秒）</td>
+            <td>含寻道与旋转延迟；SSD 约 0.1 ms，仍比内存慢 3 个数量级</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      两者相差 <b>10<sup>5</sup></b> 倍，即 <b>5 个数量级</b>：<b>内存读十万次，才抵得上磁盘读一次</b>。
+      所以索引优化的从来不是比较次数，而是<b>磁盘 I/O 次数</b>——第 01 讲的 O(log n) 到了磁盘上，
+      还要再乘一个「每次读几次盘」的系数。
+    </p>
+
+    <p>
+      二叉搜索树（BST）每次比较排除一半数据，O(log<sub>2</sub> n)，确实漂亮。但放到磁盘上，
+      它的问题<b>不是「矮」，而是「瘦」</b>：一个结点只存 1 个键 + 2 个指针，在 4 KB 的页里
+      只占十几个字节却独占一页——读一个结点 = 一次磁盘 I/O，而这一次 I/O 只换来 <b>1 个键</b>。于是：
+    </p>
+
+    <div class="formula">
+      1 亿行数据：树高 ≈ log<sub>2</sub>(10<sup>8</sup>) ≈ 27 层<br>
+      → 最坏 27 次<b>随机</b>磁盘 I/O ≈ 27 × 10 ms ≈ <b>270 ms</b>，只为查一行
+    </div>
+
+    <p>
+      这 27 个结点在磁盘上东一个西一个，每次都要重新寻道。更糟的是：若插入的是有序主键又没有平衡机制，
+      BST 会退化成斜树（7.10 的坑 1），27 层变成 1 亿层——崩溃的东西从函数栈换成了系统响应时间。
+    </p>
+
+    <p>
+      <b>B+ 树（B-plus tree）</b>的解法是把「瘦」改成「胖」：<b>让一个结点就等于一个磁盘页</b>。
+      这一句话解释了它的全部设计：
+    </p>
+
+    <ul>
+      <li><b>结点大小 = 页大小</b>（常见 4 KB，InnoDB 默认 16 KB），一次 I/O 读进来的整页都是有用的键；
+        页内是有序数组，可以在页内二分，页内比几十次也只算 <b>1 次 I/O</b>。</li>
+      <li><b>一页塞几百个键</b>，扇出（fan-out）从 2 变成几百，树高从 log<sub>2</sub> n 变成
+        log<sub>扇出</sub> n。<b>几千万行数据树高只有 3～4 层</b>，查任意一行只要 3～4 次 I/O。</li>
+      <li><b>数据全在叶子层</b>，内部结点只存键当「路标」，一页能装更多键、树更矮，
+        而且每次查询都走到叶子，<b>代价与数据落在哪无关，性能可预测</b>。</li>
+      <li><b>叶子之间用链表串起来</b>，这是<b>范围查询</b>（<code>WHERE id BETWEEN 100 AND 200</code>）的命门：
+        定位到 100 后<b>顺着叶子链表顺序扫</b>到 200 即可：只有第一次是随机 I/O，后面全是顺序 I/O，
+        比随机 I/O 快一到两个数量级。</li>
+    </ul>
+
+    <div class="figure">
+      <svg viewBox="0 0 900 400" width="900" height="400" xmlns="http://www.w3.org/2000/svg">
+        <text x="20" y="26" fill="var(--danger)" font-size="13" font-weight="700">① 二叉搜索树：4 层 → 查一次最坏 4 次磁盘 I/O</text>
+        <text x="455" y="26" fill="var(--ok)" font-size="13" font-weight="700">② B+ 树：2 层 → 查一次只要 2 次磁盘 I/O</text>
+
+        <!-- 左：二叉搜索树里查 30 的路径 50 → 25 → 37 → 30 -->
+        <g stroke="var(--border-strong)" stroke-width="1.6">
+          <line x1="215" y1="74" x2="300" y2="144"/>
+          <line x1="300" y1="144" x2="260" y2="214"/>
+          <line x1="130" y1="144" x2="90" y2="214"/>
+        </g>
+        <g stroke="var(--danger)" stroke-width="2">
+          <line x1="215" y1="74" x2="130" y2="144"/>
+          <line x1="130" y1="144" x2="170" y2="214"/>
+          <line x1="170" y1="214" x2="140" y2="284"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="12.5">
+          <circle cx="215" cy="74" r="17" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="215" y="79" text-anchor="middle" fill="var(--text)">50</text>
+          <circle cx="130" cy="144" r="17" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="130" y="149" text-anchor="middle" fill="var(--text)">25</text>
+          <circle cx="300" cy="144" r="17" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="300" y="149" text-anchor="middle" fill="var(--text-faint)">75</text>
+          <circle cx="170" cy="214" r="17" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="170" y="219" text-anchor="middle" fill="var(--text)">37</text>
+          <circle cx="90" cy="214" r="17" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="90" y="219" text-anchor="middle" fill="var(--text-faint)">12</text>
+          <circle cx="260" cy="214" r="17" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6"/><text x="260" y="219" text-anchor="middle" fill="var(--text-faint)">62</text>
+          <circle cx="140" cy="284" r="17" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/><text x="140" y="289" text-anchor="middle" fill="var(--text)">30</text>
+        </g>
+        <g fill="var(--danger)" font-size="12" font-family="Consolas,monospace">
+          <text x="24" y="79">I/O 1</text>
+          <text x="24" y="149">I/O 2</text>
+          <text x="24" y="219">I/O 3</text>
+          <text x="24" y="289">I/O 4</text>
+        </g>
+        <text x="20" y="330" fill="var(--danger)" font-size="12.5">红色是查 30 的路径：4 个结点 = 4 次 I/O</text>
+        <text x="20" y="352" fill="var(--text-faint)" font-size="12">每个结点独占一页，页利用率不到 1%</text>
+
+        <!-- 右：B+ 树（根页 + 叶子层） -->
+        <rect x="565" y="56" width="210" height="36" rx="4" fill="var(--panel)" stroke="var(--brand)" stroke-width="1.6"/>
+        <g stroke="var(--border)" stroke-width="1">
+          <line x1="635" y1="56" x2="635" y2="92"/>
+          <line x1="705" y1="56" x2="705" y2="92"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="12.5" fill="var(--text)" text-anchor="middle">
+          <text x="600" y="79">50</text>
+          <text x="670" y="79">150</text>
+          <text x="740" y="79">250</text>
+        </g>
+        <text x="565" y="46" fill="var(--brand)" font-size="11.5">根页（第 1 次 I/O）</text>
+        <g stroke="var(--border-strong)" stroke-width="1.5">
+          <line x1="578" y1="92" x2="508" y2="148"/>
+          <line x1="640" y1="92" x2="616" y2="148"/>
+          <line x1="700" y1="92" x2="724" y2="148"/>
+          <line x1="762" y1="92" x2="832" y2="148"/>
+        </g>
+        <rect x="460" y="150" width="96" height="36" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/>
+        <rect x="568" y="150" width="96" height="36" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/>
+        <rect x="676" y="150" width="96" height="36" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <rect x="784" y="150" width="96" height="36" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.5"/>
+        <g stroke="var(--border)" stroke-width="1">
+          <line x1="492" y1="150" x2="492" y2="186"/><line x1="524" y1="150" x2="524" y2="186"/>
+          <line x1="600" y1="150" x2="600" y2="186"/><line x1="632" y1="150" x2="632" y2="186"/>
+          <line x1="708" y1="150" x2="708" y2="186"/><line x1="740" y1="150" x2="740" y2="186"/>
+          <line x1="816" y1="150" x2="816" y2="186"/><line x1="848" y1="150" x2="848" y2="186"/>
+        </g>
+        <g font-family="Consolas,monospace" font-size="11.5" fill="var(--text)" text-anchor="middle">
+          <text x="476" y="173">5</text><text x="508" y="173">12</text><text x="540" y="173">37</text>
+          <text x="584" y="173">50</text><text x="616" y="173">62</text><text x="648" y="173">88</text>
+          <text x="692" y="173">150</text><text x="724" y="173">180</text><text x="756" y="173">240</text>
+          <text x="800" y="173">250</text><text x="832" y="173">300</text><text x="864" y="173">400</text>
+        </g>
+        <g stroke="var(--ok)" stroke-width="1.2" stroke-dasharray="3 3">
+          <line x1="508" y1="186" x2="508" y2="204"/>
+          <line x1="616" y1="186" x2="616" y2="204"/>
+          <line x1="724" y1="186" x2="724" y2="204"/>
+          <line x1="832" y1="186" x2="832" y2="204"/>
+        </g>
+        <line x1="460" y1="204" x2="884" y2="204" stroke="var(--brand)" stroke-width="1.6" marker-end="url(#par1)"/>
+        <text x="455" y="228" fill="var(--text-soft)" font-size="11.5">查 180：第 1 次 I/O 读根页，第 2 次读第 3 个叶子（绿色）</text>
+        <text x="455" y="250" fill="var(--text-soft)" font-size="11.5">一个结点 = 一个磁盘页（4 KB / 16 KB），一页能塞 300 多个键</text>
+        <text x="455" y="272" fill="var(--text-faint)" font-size="11.5">→ 扇出从 2 变成 300+，树高从二十多层压到 3～4 层</text>
+        <text x="455" y="292" fill="var(--ok)" font-size="11.5">叶子用链表串起来：范围查询顺着它顺序扫</text>
+
+        <line x1="20" y1="364" x2="884" y2="364" stroke="var(--border)" stroke-width="1"/>
+        <text x="20" y="386" fill="var(--text)" font-size="12.5">同样查一条记录：左边 4 次随机 I/O ≈ 40 ms，右边 2 次 ≈ 20 ms；数据量再翻 340 倍，左边树高 +9 层，右边只 +1 层。</text>
+      </svg>
+      <figcaption>图 7-13　二叉搜索树与 B+ 树的树高、磁盘 I/O 次数对比：结点越「胖」，树越矮，读盘越少</figcaption>
+    </div>
+
+    <p>
+      下面这段代码不实现 B+ 树的插入删除，只按页内布局算出「一个结点能装多少个键」，
+      再由此推出「几层能撑多少行」——「树高 3 层撑住几千万行」就是这么几个除法的结果。
+    </p>
+
+    <pre data-lang="cpp" data-file="btree_page_layout.cpp">// btree_page_layout.cpp —— 一个页能装多少个键？树高为什么只有 3～4 层？
+#include &lt;iostream&gt;
+#include &lt;cmath&gt;
+using namespace std;
+
+/* B+ 树的结点在磁盘上就是一个「页」，即一次磁盘 I/O 读进来的单位。
+   页内布局：[ 页头 ][ 键 ]…[ 键 ][ 孩子指针 ]…[ 孩子指针 ] */
+struct PageLayout {
+    int pageBytes;    // 页大小：4KB = 4096，InnoDB 默认 16KB
+    int headerBytes;  // 页头（页号、校验和等）开销
+    int keyBytes;     // 一个键占几字节（int 主键 = 4）
+    int ptrBytes;     // 一个孩子指针占几字节（64 位 = 8）
+    int rowBytes;     // 叶子层行指针占几字节
+};
+
+/* 内部结点：K 个键 + (K+1) 个孩子指针 + 页头 ≤ pageBytes
+   → K ≤ (pageBytes − headerBytes − ptrBytes) / (keyBytes + ptrBytes)
+   K 是「一页放几个键」，孩子个数 K + 1 就是扇出。 */
+int internalKeys(const PageLayout&amp; p) {
+    int rest = p.pageBytes - p.headerBytes;
+    return (rest - p.ptrBytes) / (p.keyBytes + p.ptrBytes);
+}
+
+/* 叶子结点：只有键 + 行指针，没有孩子指针 */
+int leafRows(const PageLayout&amp; p) {
+    return (p.pageBytes - p.headerBytes) / (p.keyBytes + p.rowBytes);
+}
+
+// 按亿 / 万打印
+void show(const char* name, long long rows) {
+    if (rows &gt;= 100000000)
+        cout &lt;&lt; name &lt;&lt; " = " &lt;&lt; rows &lt;&lt; " 行 ≈ " &lt;&lt; rows / 100000000
+             &lt;&lt; " 亿 " &lt;&lt; rows % 100000000 / 10000 &lt;&lt; " 万行\n";
+    else
+        cout &lt;&lt; name &lt;&lt; " = " &lt;&lt; rows &lt;&lt; " 行 ≈ " &lt;&lt; rows / 10000 &lt;&lt; " 万行\n";
+}
+
+int main() {
+    PageLayout p4k  = { 4096,  16, 4, 8, 8 };   // 4KB 页
+    PageLayout p16k = { 16384, 16, 4, 8, 8 };   // 16KB 页
+
+    int k4 = internalKeys(p4k);
+    int f4 = k4 + 1;                            // 扇出 = 孩子个数
+    int rows4 = leafRows(p4k);
+    cout &lt;&lt; "【4KB 页】最多 " &lt;&lt; k4 &lt;&lt; " 个键、扇出 " &lt;&lt; f4
+         &lt;&lt; "，叶子最多 " &lt;&lt; rows4 &lt;&lt; " 行\n";
+    show("  3 层", (long long)f4 * f4 * rows4);
+    show("  4 层", (long long)f4 * f4 * f4 * rows4);
+
+    int k16 = internalKeys(p16k);
+    int f16 = k16 + 1;
+    int rows16 = leafRows(p16k);
+    cout &lt;&lt; "【16KB 页】最多 " &lt;&lt; k16 &lt;&lt; " 个键、扇出 " &lt;&lt; f16
+         &lt;&lt; "，叶子最多 " &lt;&lt; rows16 &lt;&lt; " 行\n";
+    show("  3 层", (long long)f16 * f16 * rows16);
+
+    /* 二叉搜索树呢？它每个结点只有 2 个孩子，树高 ≈ log2(行数)。 */
+    long long rows = (long long)f4 * f4 * rows4;
+    int h = (int)ceil(log2((double)rows));
+    cout &lt;&lt; "二叉搜索树存 " &lt;&lt; rows &lt;&lt; " 行要 " &lt;&lt; h
+         &lt;&lt; " 层 → 最坏 " &lt;&lt; h &lt;&lt; " 次 I/O\n";
+    cout &lt;&lt; "B+ 树只要 3 次。按一次随机 I/O 10ms 算："
+         &lt;&lt; h * 10 &lt;&lt; "ms  vs  30ms\n";
+    cout &lt;&lt; "I/O 次数由树高决定，树高由扇出决定 —— 这就是 B+ 树「矮」的秘密。\n";
+    return 0;
+}</pre>
+
+    <p>
+      结论：<b>4 KB 页 + int 主键 → 一个内部结点 339 个键、扇出 340 → 3 层索引 3930 万行</b>；
+      换成 16 KB 页扇出 1364，<b>3 层撑到 25 亿行</b>；而同样 3930 万行，二叉搜索树要 <b>26 层</b>。
+      真实索引「只有 3～4 层」不是数据少，而是<b>每一层都被撑得极宽</b>——把「应该很快吧」变成
+      「3 次 I/O、30 毫秒」这样能对账的数字，正是工程判断力的来源。
+    </p>
+
+    <p>
+      第 02 讲留了一个问题：<b>为什么主键索引既不用链表也不用顺序表</b>？现在可以回答了：
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>候选结构</th><th>点查 <code>WHERE id = 5</code></th><th>范围查询 <code>BETWEEN</code></th><th>插入 / 删除</th><th>为什么不做磁盘索引</th></tr></thead>
+        <tbody>
+          <tr><td>有序顺序表（第 02 讲）</td><td>页内折半很快，但比较分散在 log n 个页上</td>
+            <td>好（区间连续）</td><td>O(n) 次移动 = 大量页被改写</td>
+            <td>插入一行要挪半个表，表大了放不下</td></tr>
+          <tr><td>链表（第 02 讲）</td><td>O(n) 次结点访问，几乎每次都是随机 I/O</td>
+            <td>差（得先走到起点）</td><td>O(1)（已走到位置时）</td>
+            <td>查找退化成全表扫描</td></tr>
+          <tr><td>哈希表（第 10 讲）</td><td><b>O(1)</b>，最快</td><td><b>不支持</b>（哈希打散了顺序）</td>
+            <td>O(1)</td><td>做不了 <code>BETWEEN</code> / <code>ORDER BY</code> / <code>&gt;</code></td></tr>
+          <tr><td><b>B+ 树</b></td><td>O(log<sub>扇出</sub> n) ≈ <b>3～4 次 I/O</b></td>
+            <td><b>强项</b>：叶子链表顺序扫</td><td>O(log n)，只改一两个页</td>
+            <td>——（它就是答案）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-title">B 树与 B+ 树：区别只在「数据放哪一层」</span>
+      B 树（B-tree）同样是多路平衡查找树，结点同样做成页，树高同样很低。区别在于：
+      <b>B 树的每个结点都存数据，B+ 树只有叶子层存数据、内部结点全是路标</b>。后果有两个：<br>
+      ① B+ 树的内部结点不含数据，同样一页能装更多键 → 树更矮、I/O 更少；<br>
+      ② B+ 树的叶子连成链表，<b>范围查询可以顺序扫</b>；而 B 树的数据散落在各层，
+      范围查询只能靠中序遍历在树里上下跳，随机 I/O 一片一片。
+      数据库负载里范围查询占大头，所以 <b>B+ 树胜出</b>；而目录索引这种「点查多、改动频繁」的场景，
+      B 树变体依然常见。
+    </div>
+
+    <h3 id="s11-2">7.11.2 文件系统：目录树与 inode</h3>
+
+    <p>
+      Linux 里没有「文件夹」这个数据结构，只有一棵树：根是 <code>/</code>，目录是分支结点，文件是叶子。
+      <code>cd /home/user/a.txt</code> 就是在树上从根走一条路径：<code>/</code> → <code>home</code> →
+      <code>user</code> → <code>a.txt</code>。7.1.1 那句「从根到结点的路径唯一」，在工程里就是<b>绝对路径</b>；
+      <b>相对路径</b>则是从当前结点出发的一条向下路径。
+    </p>
+
+    <p>
+      更关键的是 <b>inode</b>：ext4 里目录项只保存「名字 → inode 号」，真正的元数据（大小、权限、时间戳、
+      数据块地址）都在 inode 里。翻译成本章的术语：<b>inode 是树的结点，目录项是指向结点的指针</b>。
+      而每个目录都有的 <code>.</code> 和 <code>..</code>，恰好就是 <b>7.2.1 双亲表示法</b>里的双亲指针
+      （<code>.</code> 指向自己，<code>..</code> 指向双亲）。7.9 的并查集用的是同一套表示法：
+      「找根」就是沿双亲指针向上爬——你在 shell 里敲 <code>cd ..</code>，
+      和 <code>find(x)</code> 里那句 <code>x = parent[x]</code>，是同一个动作。
+      （顺带一提，<b>硬链接</b>就是两个目录项指向同一个 inode。）
+    </p>
+
+    <h3 id="s11-3">7.11.3 并查集：不只是 Kruskal 的配角</h3>
+
+    <p>
+      7.9.3 说过，并查集在本课程里的主要用途是第 09 讲 Kruskal 最小生成树算法判环：
+      边按权值排序后依次取出，两端点已属同一集合就丢弃（会成环），否则 union 并收下这条边。
+      整个算法 O(e log e)，瓶颈在排序。
+    </p>
+
+    <p>
+      但它的真实工作量远不止于此：并查集擅长的始终是<b>把元素合并成等价类，并随时回答
+      「这两个元素是不是同一类」</b>。凡是能翻译成这句话的场景，它几乎都是最优解：
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>领域</th><th>元素是什么</th><th>union 的含义</th><th>find 回答什么</th></tr></thead>
+        <tbody>
+          <tr><td>图论（第 09 讲）</td><td>顶点</td><td>这条边把两个连通块接上了</td><td>两端是否已连通（会不会成环）</td></tr>
+          <tr><td>编译器 / 静态分析</td><td>变量、类型变量</td><td>「x 与 y 是同一个对象」「类型 T1 = T2」</td><td>是否同一等价类、类型是否冲突</td></tr>
+          <tr><td>寄存器分配</td><td>临时变量</td><td>活跃区间不重叠，可共用一个寄存器</td><td>能否合并以省一条搬移指令</td></tr>
+          <tr><td>图像处理</td><td>像素</td><td>相邻且颜色相近的像素属于同一块</td><td>两个像素是否同一连通区域</td></tr>
+          <tr><td>网络管理</td><td>主机</td><td>两台主机被判定在同一子网</td><td>主机属于哪个子网（等价类的代表元）</td></tr>
+          <tr><td>账号清洗</td><td>用户记录</td><td>两条记录被确认是同一个人</td><td>是否同一实体</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      图像处理里的用法值得多说一句。<b>连通区域标记（connected-component labeling）</b>
+      是二值图像分析的第一步（数细胞、数零件、OCR 切字都要它）：第一趟给前景像素临时标号，
+      发现相邻两个标号其实属于同一块就 union 合并；第二趟把标号换成 find(标号)，得到最终编号。
+      几百万个前景像素能顺畅跑完，全靠并查集近似 O(1) 的均摊代价（7.9.2）。
+    </p>
+
+    <h3 id="s11-4">7.11.4 赫夫曼编码：ZIP、gzip、JPEG、MP3 的共同底座</h3>
+
+    <p>
+      7.8 节用贪心构造了 WPL 最小的树，得到<b>最优前缀编码</b>；它在工程里的名字就是
+      <b>赫夫曼编码（Huffman coding）</b>，今天几乎所有常见压缩格式都在用它：
+    </p>
+
+    <ul>
+      <li><b>ZIP / gzip / PNG / HTTP 压缩</b>：都用 DEFLATE：LZ77（找重复串）+ 赫夫曼编码（压符号）。</li>
+      <li><b>JPEG</b>：对量化后的 DCT 系数做游程编码，再用赫夫曼编码输出；标准表是预先统计好的码表。</li>
+      <li><b>MP3 / AAC</b>：量化后的频谱系数用赫夫曼编码压缩，配一组预定义码表。</li>
+      <li><b>HTTP/2 的 HPACK</b>：请求头字符串用静态赫夫曼表压缩（HTTP 头重复度极高）。</li>
+    </ul>
+
+    <p>
+      为什么敢用变长编码？因为赫夫曼树给出的是<b>前缀码（prefix code）</b>：
+      <b>没有任何一个码字是另一个码字的前缀</b>。这直接保证了<b>解码无歧义</b>——
+      解码就是从第一个比特开始沿树从根往下走（约定左 0 右 1），走到叶子就输出一个符号、再回到根；
+      因为不会有码字停在内部结点上，所以不存在「读到一半不知道要不要继续」的歧义。
+      换个说法：<b>前缀码把「切分比特流」变成了「在树上走到叶子」</b>，
+      7.5 的遍历与 7.8.4 的编码表在这里合成了一个每秒几千万次的循环。
+    </p>
+
+    <p>代价也很清楚：</p>
+
+    <ol>
+      <li><b>码表必须传给解码方</b>，所以压缩文件头部总要存一份（或像 JPEG、MP3 那样用标准表）；
+        文件很小时，码表开销会盖过省下的空间。</li>
+      <li><b>只有频率偏斜时才划算</b>：低频符号可能被拉长到十几比特，若 256 种字节几乎均匀出现
+        （已加密数据），平均码长接近 8 比特，收益几乎为零。</li>
+      <li><b>不能随机访问</b>：第 k 个符号的位置取决于前面所有符号。DEFLATE 的对策是<b>分块</b>：
+        每 32～64 KB 一块、各自建表，牺牲一点压缩率换回「可以按块定位」。</li>
+    </ol>
+
+    <h3 id="s11-5">7.11.5 堆与优先队列：调度器、定时器与最短路</h3>
+
+    <p>
+      二叉堆是本章内容的「特例组合」：<b>它是完全二叉树（7.3.2），所以能用数组顺序存储（7.3.3），
+      下标满足 7.4.5 的公式</b>；同时只维护一条比 BST 弱得多的序关系——每个结点不大于它的孩子。
+      这条「弱序」换来的是：<b>取最值 O(1)、插入删除 O(log n)，且常数极小、内存连续</b>。
+    </p>
+
+    <p>工程上，堆几乎就是「优先队列」：</p>
+
+    <ul>
+      <li><b>操作系统任务调度</b>：从就绪队列里挑优先级最高（或虚拟运行时间最小）的任务投入 CPU。
+        （Linux 的 CFS 用的是红黑树，因为它还需要「按时间顺序找下一个」——<b>选结构要看操作集合</b>。）</li>
+      <li><b>定时器</b>：一台服务器可能挂着几十万个超时事件，事件循环只需知道「哪一个最先到期」，
+        libuv（Node.js 的底座）等都用最小堆维护，看堆顶是 O(1)。<b>代价</b>：取消任意定时器要先找到它
+        （O(n)），所以工程实现常额外记下「堆内下标」，把删除压到 O(log n)。</li>
+      <li><b>Dijkstra / Prim 的优化（第 09 讲）</b>：把「选距离最小的未确定顶点」交给小根堆，
+        Dijkstra 从 O(n<sup>2</sup>) 降到 O((n + e) log n)，稀疏图上差一个数量级。</li>
+      <li><b>堆排序与 Top-K（第 11 讲）</b>：堆排序是原地 O(n log n)；「10 亿个数里找最大的 100 个」
+        只要一个大小 100 的小根堆，空间 O(k)，数据不必全读进内存。</li>
+    </ul>
+
+    <p>
+      代价要记牢：堆只保证<b>堆顶是最值</b>，其余元素之间没有任何有序关系。所以它<b>不擅长</b>按序遍历、
+      查找任意元素（O(n)）、求中位数。想要「有序 + 任意查找」，得回到平衡搜索树或第 10 讲的哈希表。
+    </p>
+
+    <h3 id="s11-6">7.11.6 五种树的工程分工：一张表看清该选谁</h3>
+
+    <p>
+      把上面五个落点收拢成一张表。注意最后两列——<b>「是否适合磁盘」和「是否支持范围查询」
+      才是选型的关键维度</b>，而不是「查找复杂度」。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>结构</th><th>主要用途</th><th>单次查找</th><th>适合磁盘？</th><th>范围查询</th><th>典型真实系统</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>普通二叉树<br>（无顺序约束）</td>
+            <td>表达式树、赫夫曼树、语法树</td>
+            <td>O(n)（只能遍历）</td>
+            <td>不适合</td>
+            <td>不支持</td>
+            <td>编译器的语法树、浏览器 DOM、赫夫曼树</td></tr>
+          <tr><td>二叉搜索树 BST</td>
+            <td>内存里的小规模有序表</td>
+            <td>平均 O(log n)，<b>最坏 O(n)</b>（退化成斜树）</td>
+            <td>不适合（一次 I/O 只换 1 个键）</td>
+            <td>支持（中序遍历即有序）</td>
+            <td>工程里基本已被平衡树取代</td></tr>
+          <tr><td>平衡搜索树<br>（AVL / 红黑树）</td>
+            <td>内存中的有序容器</td>
+            <td><b>严格 O(log n)</b></td>
+            <td>不适合（结点太小）</td>
+            <td>支持（可做区间查询）</td>
+            <td>C++ <code>std::map</code>/<code>set</code>、Java <code>TreeMap</code>、Linux 内核 CFS 与内存管理</td></tr>
+          <tr><td><b>B+ 树</b></td>
+            <td>磁盘上的有序索引</td>
+            <td>O(log<sub>扇出</sub> n)，即 <b>3～4 次磁盘 I/O</b></td>
+            <td><b>适合</b>（结点 = 磁盘页，一页几百个键）</td>
+            <td><b>强项</b>：叶子链表顺序扫</td>
+            <td>MySQL InnoDB、PostgreSQL、SQLite、ext4 / NTFS 的目录索引</td></tr>
+          <tr><td>二叉堆</td>
+            <td>只要「最值」，不要全序</td>
+            <td>取最值 O(1)，插入删除 O(log n)；查任意元素 O(n)</td>
+            <td>不适合（外部排序用它做多路归并）</td>
+            <td>不支持（只有堆顶有序）</td>
+            <td>调度器与定时器、优先队列（Dijkstra / Prim）、<code>std::priority_queue</code>、堆排序</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      怎么记？一句话：<b>约束越弱，代价越小；想要什么能力，就得付出对应的结构复杂度</b>。
+      普通二叉树什么都不保证，所以什么都快不了；加「左小右大」成了 BST，却会退化成斜树；
+      再加「平衡」是红黑树，代价是插入删除要旋转；把结点放大成磁盘页就是 B+ 树，
+      用页内查找换树高骤降；堆放弃「有序」只留「最值」，于是在自己的赛道上无可替代。
+      <b>没有最好的结构，只有最匹配操作集合的结构</b>。
+    </p>
+
+    <div class="note exam">
+      <span class="note-title">考点：一句话回答「为什么数据库索引用 B+ 树，不用二叉搜索树」</span>
+      磁盘 I/O 次数由<b>树高</b>决定，树高由<b>结点的扇出</b>决定：二叉搜索树每个结点只有 2 个分支，
+      几千万行数据树高二十多层，就要二十多次随机 I/O（每次约 10 ms，比内存慢 5 个数量级）；
+      B+ 树把<b>一个结点做成一个磁盘页</b>，一页塞几百个键，树高压到 3～4 层，3～4 次 I/O 就能定位任意一行；
+      再加上数据全在叶子层、叶子用链表串起来，范围查询顺着链表顺序扫——这正是 B+ 树胜过 B 树的关键。
+    </div>
+
+    <h2 id="s12">7.12 本章小结</h2>
 
     <p>
       树这一章的内容看起来很多，但骨架非常清楚：<b>一套术语 + 三种存储 + 五条性质 + 四种遍历 + 三大应用</b>。
       下面把最需要记住的东西压成几张表。
     </p>
 
-    <h3 id="summary-terms">7.11.1 术语与结构速查</h3>
+    <h3 id="s12-1">7.12.1 术语与结构速查</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>概念</th><th>一句话定义</th><th>关键数字 / 性质</th></tr></thead>
@@ -3633,7 +4073,7 @@ int main() {
       </table>
     </div>
 
-    <h3 id="summary-props">7.11.2 二叉树性质与公式速查</h3>
+    <h3 id="s12-2">7.12.2 二叉树性质与公式速查</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>结论</th><th>公式</th><th>适用前提</th></tr></thead>
@@ -3652,7 +4092,7 @@ int main() {
       </table>
     </div>
 
-    <h3 id="summary-complexity">7.11.3 复杂度与算法对比</h3>
+    <h3 id="s12-3">7.12.3 复杂度与算法对比</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th>算法 / 操作</th><th>时间</th><th>空间</th><th>关键点</th></tr></thead>
@@ -3671,7 +4111,7 @@ int main() {
       </table>
     </div>
 
-    <h3 id="summary-language">7.11.4 一句话总结每一节</h3>
+    <h3 id="s12-4">7.12.4 一句话总结每一节</h3>
     <ul>
       <li><b>树的定义</b>：递归定义，关键词是「唯一根」与「互不相交」，直接推出「n 个结点 n − 1 条边」。</li>
       <li><b>三种存储</b>：双亲表示法向上快（并查集用），孩子表示法向下快，孩子兄弟表示法把树变成二叉树。</li>
@@ -3686,7 +4126,7 @@ int main() {
       <li><b>并查集</b>：用双亲表示法的森林表示「集合的集合」，路径压缩 + 按秩合并后近似 O(1)。</li>
     </ul>
 
-    <h2 id="exams">7.12 考点清单与自测题</h2>
+    <h2 id="s13">7.13 考点清单与自测题</h2>
 
     <div class="note exam">
       <span class="note-title">考点清单（按出现频率排序）</span>
@@ -3705,7 +4145,7 @@ int main() {
       </ol>
     </div>
 
-    <h3 id="quiz-1">7.12.1 自测题（六道，答案折叠）</h3>
+    <h3 id="s13-1">7.13.1 自测题（六道，答案折叠）</h3>
 
     <p>
       <b>第 1 题（术语与性质）</b>：一棵树的度为 4，其中度为 1、2、3 的结点数分别是 8、10、2，
@@ -3930,7 +4370,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="quiz-2">7.12.2 上机练习建议</h3>
+    <h3 id="s13-2">7.13.2 上机练习建议</h3>
     <p>
       光看不写是学不会树的。建议按下面的顺序把本章代码亲手敲一遍（每道都在 30 分钟以内）：
     </p>
