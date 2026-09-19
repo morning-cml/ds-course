@@ -672,14 +672,14 @@
 
         <rect x="338" y="162" width="46" height="26" rx="4" class="fg-rs"/><text x="361" y="180" class="fg-tm">[1]</text>
         <rect x="392" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="452" y="180" class="fg-t">1001 张三</text>
-        <line x1="516" y1="175" x2="542" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
-        <rect x="546" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="606" y="180" class="fg-t">1009 李四</text>
-        <text x="674" y="180" class="fg-lm">← 挂成一条链</text>
+        <line x1="514" y1="175" x2="538" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
+        <rect x="540" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="600" y="180" class="fg-t">1009 李四</text>
+        <text x="668" y="180" class="fg-lm">← 挂成一条链</text>
         <text x="392" y="206" class="fg-lm">两个 key 都算出 1，这叫<tspan fill="var(--danger)">冲突</tspan>；查 1009 要在这个桶里比 2 次</text>
 
         <rect x="338" y="222" width="46" height="26" rx="4" class="fg-bs"/><text x="361" y="240" class="fg-tm">[2]</text>
         <rect x="392" y="222" width="120" height="26" rx="4" class="fg-bs"/><text x="452" y="240" class="fg-t">2002 王五</text>
-        <text x="522" y="240" class="fg-lm">← 桶里只有它一个，比 1 次就找到</text>
+        <text x="520" y="240" class="fg-lm">← 桶里只有它一个，比 1 次就找到</text>
 
         <rect x="338" y="258" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="276" class="fg-lm">[3]</text>
         <text x="398" y="276" class="fg-lm">空</text>
@@ -1426,37 +1426,6 @@ int main() {
       在 n = 10⁶ 时要跑上万亿次操作，根本等不到它输出正确答案。这也是本讲后半部分
       要花大力气研究复杂度分析的原因。
     </p>
-
-    <pre data-lang="cpp" data-file="gcd_and_counterexample.cpp">// gcd_and_counterexample.cpp —— 用两个小函数体会「有穷性」与「可行性」
-#include &lt;iostream&gt;
-
-// 欧几里得算法：有穷（余数严格递减）、确定（不含随机与二义）、可行（每步都是基本运算）
-// 复杂度 O(log min(a, b))，是一个各方面都合格的算法
-int gcd(int a, int b) {
-    while (b != 0) {          // 每次迭代 b 至少减半量级，必然终止
-        int r = a % b;
-        a = b;
-        b = r;
-    }
-    return a;
-}
-
-// 反例：以下循环不是算法，因为它不满足有穷性
-// int sumAll() {
-//     int s = 0, i = 1;
-//     while (true) s += i++;   // 永不返回，「求所有自然数之和」在有穷时间内做不到
-//     return s;
-// }
-
-// 反例：以下写法不满足确定性 —— 注释里没有说清「较大」的判定标准
-// int pick(int x, int y) { return x 较大 ? x : y; }
-
-int main() {
-    std::cout &lt;&lt; gcd(1071, 462) &lt;&lt; '\n';   // 21
-    std::cout &lt;&lt; gcd(17, 5) &lt;&lt; '\n';       // 1
-    return 0;
-}
-</pre>
 
     <h2 id="s7">1.7 算法效率的度量：从掐秒表到渐近分析</h2>
 
