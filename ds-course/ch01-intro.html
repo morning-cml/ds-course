@@ -101,61 +101,24 @@
         <li><b>然后抽象</b>：抽象数据类型 ADT 把「能做什么」和「怎么做」彻底分开，这是工程代码能长期维护的根本原因。</li>
         <li><b>最后量尺</b>：算法效率不看秒表看渐近，本章给出大 O 的严格定义、三条推导法则、8 道手推例题。</li>
         <li><b>回到机器</b>：1.16 换到工程视角，看内存层次、缓存行与数据规模分布如何让「大 O 相同」的两个算法实测差出几倍。</li>
-        <li><b>顺手打底</b>：末尾的 43 条中英对照术语表覆盖全课程，建议打印出来贴在书桌前。</li>
+        <li><b>顺手打底</b>：末尾 43 条中英对照术语表覆盖全课程，建议打印出来贴在书桌前。</li>
       </ul>
     </div>
-
-    <h2 id="s1">1.1 五个必须分清的概念：数据、数据元素、数据项、数据对象、数据结构</h2>
+    <h2 id="s1">1.1 四个底层术语：数据、数据元素、数据项、数据对象</h2>
 
     <p>
-      很多同学学完一学期数据结构，仍然说不清「数据项」和「数据元素」的区别。问题不在记忆力，而在于
-      一开始就没有把这些词放进同一个层级去看。我们换一个最熟悉的场景——<b>学生成绩表</b>——把它们一次性掰开。
+      这四个词是层层包含的，先在最熟悉的场景——<b>学生成绩表</b>——里把它们一次性认清：
     </p>
 
-    <h3 id="s1-1">1.1.1 数据（data）</h3>
+    <dl class="def">
+      <dt>数据 data</dt><dd>能输入计算机并被程序识别处理的符号集合。整数 <code>65</code> 与字符 <code>'A'</code> 在内存里都是 <code>0x41</code>——同一份存储，不同解释即不同数据。</dd>
+      <dt>数据项 data item</dt><dd>不可再分的最小单位，也叫<b>字段</b>。如「学号 = 1001」；再往下拆成 1、0、0、1 就失去含义了。</dd>
+      <dt>数据元素 data element</dt><dd>数据的基本单位，由若干数据项组成，也叫<b>记录</b>或<b>结点</b>。如「张三 1001 计科1班 92」这一整条记录。</dd>
+      <dt>数据对象 data object</dt><dd>性质相同的数据元素的集合。全班成绩记录格式一致，构成一个数据对象。</dd>
+    </dl>
     <p>
-      <b>数据</b>是<b>信息的载体</b>，是对客观事物的符号表示，是能输入到计算机中并被计算机程序识别和处理的
-      符号的集合。注意这句话里有两个关键词：
-    </p>
-    <ul>
-      <li><b>能输入计算机</b>：写在纸上的诗当然也是「信息」，但如果不被数字化，就不是这里说的数据；</li>
-      <li><b>能被程序处理</b>：一串随机乱码虽然存进了磁盘，但程序无法赋予它含义，它只是垃圾字节。</li>
-    </ul>
-    <p>
-      随着技术发展，数据的范围早就从「数字」扩展到了字符、声音、图像、视频。所以在数据结构课上，
-      我们干脆把数据看成「<b>一堆符号</b>」，重点研究的是这些符号之间<b>怎么组织</b>。这里有一个常被忽略的结论：
-      <em>数据的逻辑含义与它的存储形式是两回事</em>。整数 <code>65</code> 在内存里是 <code>0x41</code>，
-      而字符 <code>'A'</code> 在内存里也是 <code>0x41</code>——同样的比特，不同的解释，就得到不同的数据。
-      这个「同一份存储、多种解释」的思想，正是后面「同一逻辑结构可以有多种存储结构」的伏笔。
-    </p>
-
-    <h3 id="s1-2">1.1.2 数据元素（data element）与数据项（data item）</h3>
-    <p>
-      <b>数据元素</b>是<b>数据的基本单位</b>，在程序中通常作为一个整体被考虑和处理。它有时候也被称为
-      <b>记录</b>（record）或<b>结点</b>（node）——「结点」这个词你在链表、树、图里会反复见到。
-      在我们例子里，「张三同学这一整条成绩记录」就是一个数据元素：
-    </p>
-    <div class="formula center">张三 &nbsp;|&nbsp; 学号 1001 &nbsp;|&nbsp; 计科 1 班 &nbsp;|&nbsp; 高数 92</div>
-    <p>
-      而构成这条记录的一个个字段——学号 1001、姓名张三、班级计科 1 班、高数 92——就是<b>数据项</b>。
-      <b>数据项是数据的不可分割的最小单位</b>。为什么强调「不可分割」？因为再往下拆就失去了独立含义：
-      把「1001」拆成「1」「0」「0」「1」在数据结构层面没有意义。
-    </p>
-    <p>
-      两者的关系是一句话：<b>数据元素由若干数据项组成，数据项是数据元素的组成部分</b>。
-      有时候一个数据元素只由一个数据项构成，比如一个整数数组里的 <code>a[3] = 7</code>，
-      此时「数据元素」和「数据项」在形态上重合了，但概念层级依然不同。
-    </p>
-
-    <h3 id="s1-3">1.1.3 数据对象（data object）</h3>
-    <p>
-      <b>数据对象</b>是<b>性质相同的数据元素的集合</b>，是数据的一个子集。请注意「性质相同」这四个字：
-      全班 50 个学生的成绩记录，每一条都是「学号 + 姓名 + 班级 + 成绩」这个格式，所以它们构成一个数据对象；
-      而把学生记录和课程记录混在一起，就不是一个数据对象了。
-    </p>
-    <p>
-      数据对象和数据结构经常被放在一起比较：<b>数据对象强调「有哪些成员」，数据结构强调「成员之间是什么关系」</b>。
-      一个数据对象可以是无穷的（比如全体正整数），也可以是有穷的（比如一张成绩表）。
+      要特别注意<b>数据对象与数据结构的区别</b>：数据对象回答「有哪些成员」，数据结构回答
+      「成员之间是什么关系」。下面这张图把四者的包含关系画了出来——
     </p>
 
     <div class="figure">
@@ -197,7 +160,7 @@
       <figcaption>图 1-1　数据、数据对象、数据元素、数据项四者的层级关系（以学生成绩表为例）</figcaption>
     </div>
 
-    <h3 id="s1-4">1.1.4 数据结构的严格定义</h3>
+    <h3 id="s1-1">1.1.1 数据结构的严格定义</h3>
     <p>把上面的铺垫收拢，给出教材上那个必须一字不差记住的定义：</p>
     <div class="note exam">
       <span class="note-title">定义 1-1　数据结构（data structure）</span>
@@ -291,14 +254,33 @@
 
     <h3 id="s2-2">1.2.2 线性结构：一对一的前驱后继</h3>
     <p>
-      线性结构中，数据元素之间存在<b>一对一</b>的线性关系。如果把它画出来，就是一条链。它必须满足：
+      线性结构的特征一句话就能说明白：<b>所有元素排成一条链，每个元素最多只有一个直接前驱、一个直接后继</b>。
+      「最多一个」保证了它是「一条线」而不是「一张网」；而要让它成为一条<b>完整连通</b>的链，链条还得有头有尾——
+      恰好一个元素没有前驱（<b>首元素</b>），恰好一个元素没有后继（<b>尾元素</b>）。
+      两条合起来，就是教材上那四条性质的全部含义：
     </p>
-    <ul>
-      <li>有且仅有一个<b>开始元素</b>（第一个元素），它没有前驱；</li>
-      <li>有且仅有一个<b>终端元素</b>（最后一个元素），它没有后继；</li>
-      <li>除第一个元素外，每个元素<b>有且仅有一个直接前驱</b>；</li>
-      <li>除最后一个元素外，每个元素<b>有且仅有一个直接后继</b>。</li>
-    </ul>
+    <div class="formula center">
+      首尾各一个 ＋ 中间的一人一个前驱、一个后继 ＝ 一条不分支、不断开的链
+    </div>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>教材上的四条性质</th><th>换成一句话</th><th>它排除了什么</th></tr></thead>
+        <tbody>
+          <tr><td>恰好一个首元素，它没有前驱</td><td>链有唯一的头</td><td class="c-bad">环形结构（绕一圈回来，没有头）</td></tr>
+          <tr><td>恰好一个尾元素，它没有后继</td><td>链有唯一的尾</td><td class="c-bad">两条链并存（出现两个头 / 两个尾）</td></tr>
+          <tr><td>其余每个元素恰好一个直接前驱</td><td>中间不合并</td><td class="c-bad">树 / 图（一个元素被多个元素指向）</td></tr>
+          <tr><td>其余每个元素恰好一个直接后继</td><td>中间不分支</td><td class="c-bad">树 / 图（一个元素指向多个元素）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note tip">
+      <span class="note-title">记忆抓手：只数「两个 1」</span>
+      判断一个结构是不是线性结构，不必背四条，只数两个数就够了：
+      <b>每个元素的直接前驱个数 ≤ 1，直接后继个数 ≤ 1</b>。满足它就是「线」，不满足就是「网」。
+      首尾那两个元素的特殊规定，只是为了保证这条线是<b>一整条</b>、而不是断成几截。
+      这也解释了为什么<b>循环链表</b>在逻辑上仍是线性结构——每个结点依然只有一个前驱、一个后继，
+      首尾相接属于<b>存储层面</b>的处理。
+    </div>
     <p>
       线性结构是本课程最庞大的家族：<b>线性表、栈、队列、双端队列、串、数组</b>都属于线性结构。
       它们之间的区别只在于「限制在哪里」——栈限制只能在一端插入删除，队列限制一端进另一端出，
@@ -445,10 +427,10 @@
     </div>
 
     <div class="note warn">
-      <span class="note-title">易错点</span>
-      「数组是线性结构」这句话只在讨论<b>逻辑结构</b>时成立。二维数组在逻辑上依然是线性结构（它是「数组的数组」，
-      每个元素有唯一后继），但在<b>存储</b>时它被映射成一维连续空间，于是有了行优先 / 列优先的地址计算问题，
-      这一点第 06 讲会专门讲。
+      <span class="note-title">易错点：「数组是线性结构」要说清是在哪一层</span>
+      说「数组是线性结构」，指的是它的<b>逻辑结构</b>——元素一个一个排下去，每个最多一个前驱、一个后继。
+      这与它在内存里怎么摊开是两件事：二维数组为了塞进一维内存，必须人为约定「先横着排还是先竖着排」，
+      于是才有了行优先 / 列优先的地址计算。那是<b>存储层面</b>的选择，不改变它的逻辑结构（第 06 讲细讲）。
     </div>
 
     <h2 id="s3">1.3 存储结构（物理结构）：四种落地手段</h2>
@@ -639,45 +621,75 @@
       <figcaption>图 1-8　同一个逻辑结构（线性表）的两种存储结构对照：上部是逻辑结构，中部是顺序存储，下部是链式存储</figcaption>
     </div>
 
-    <div class="figure">
-      <svg viewBox="0 0 850 330" width="850" height="330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储与散列存储示意">
-        <text x="26" y="30" class="fg-tb">索引存储 index storage</text>
-        <text x="96" y="52" class="fg-bm">索引表（关键字 → 地址）</text>
-        <text x="325" y="52" class="fg-bm">数据表（记录存放区）</text>
-        <rect x="26" y="60" width="140" height="184" rx="8" class="fg-bs"/>
-        <rect x="240" y="60" width="170" height="184" rx="8" class="fg-box"/>
-        <rect x="36" y="74" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="97" class="fg-tm">1001 → @30</text>
-        <rect x="36" y="120" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="143" class="fg-tm">1002 → @34</text>
-        <rect x="36" y="166" width="120" height="36" rx="5" class="fg-box"/><text x="96" y="189" class="fg-tm">1003 → @38</text>
-        <rect x="36" y="212" width="120" height="26" rx="5" class="fg-soft"/><text x="96" y="230" class="fg-lm">…</text>
-        <rect x="250" y="74" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="97" class="fg-tm">记录 1001</text>
-        <rect x="250" y="120" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="143" class="fg-tm">记录 1002</text>
-        <rect x="250" y="166" width="150" height="36" rx="5" class="fg-box"/><text x="325" y="189" class="fg-tm">记录 1003</text>
-        <rect x="250" y="212" width="150" height="26" rx="5" class="fg-soft"/><text x="325" y="230" class="fg-lm">…</text>
-        <line x1="176" y1="92" x2="234" y2="92" class="fg-eb" marker-end="url(#mk-ab)"/>
-        <line x1="176" y1="138" x2="234" y2="138" class="fg-eb" marker-end="url(#mk-ab)"/>
-        <line x1="176" y1="184" x2="234" y2="184" class="fg-eb" marker-end="url(#mk-ab)"/>
-        <text x="26" y="272" class="fg-b">先查索引表定位，再按地址取记录；检索快。</text>
-        <text x="26" y="294" class="fg-b">代价：索引本身占空间，插入删除要同步维护。</text>
-        <text x="26" y="316" class="fg-b">数据表本身可以是顺序或链式存储（两种可叠加）。</text>
+        <div class="figure">
+      <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储：索引表保存 关键字到地址 的映射">
+        <text x="24" y="28" class="fg-tb">索引存储 index storage：主表之外再建一张「关键字 → 地址」的小表</text>
+        <text x="24" y="52" class="fg-b">要查「学号 1003 的成绩」——不建索引的话，只能从第一条记录开始逐条比对，这叫<b>全表扫描</b>。</text>
 
-        <line x1="428" y1="20" x2="428" y2="316" class="fg-grid" stroke-dasharray="6 6"/>
+        <text x="170" y="82" class="fg-bm">索引表（小，可常驻内存）</text>
+        <text x="450" y="82" class="fg-bm">数据表 / 主表（大，真正的记录都在这儿）</text>
+        <text x="170" y="100" class="fg-lm">关键字 key</text>
+        <text x="240" y="100" class="fg-lm">地址</text>
 
-        <text x="460" y="30" class="fg-tb">散列存储 hash storage</text>
-        <rect x="460" y="60" width="120" height="44" rx="6" class="fg-os"/><text x="520" y="88" class="fg-tm">关键字 key</text>
-        <line x1="584" y1="82" x2="614" y2="82" class="fg-eo" marker-end="url(#mk-ao)"/>
-        <rect x="618" y="60" width="196" height="44" rx="6" class="fg-bs"/><text x="716" y="88" class="fg-tm">散列函数 h(key) = key % 7</text>
-        <line x1="716" y1="108" x2="716" y2="134" class="fg-eo" marker-end="url(#mk-ao)"/>
-        <rect x="576" y="138" width="238" height="152" rx="8" class="fg-box"/>
-        <text x="695" y="158" class="fg-bm">散列表（桶数组）</text>
-        <rect x="588" y="168" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="184" class="fg-l">[0]  空</text>
-        <rect x="588" y="192" width="214" height="22" rx="4" class="fg-bs"/><text x="598" y="208" class="fg-l">[1]  1001</text>
-        <rect x="588" y="216" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="232" class="fg-l">[2]  空</text>
-        <rect x="588" y="240" width="214" height="22" rx="4" class="fg-rs"/><text x="598" y="256" class="fg-l">[3]  1010 → 1003（冲突链）</text>
-        <rect x="588" y="264" width="214" height="22" rx="4" class="fg-soft"/><text x="598" y="280" class="fg-l">[4]  空</text>
-        <text x="460" y="312" class="fg-b">由关键字算出地址，平均查找 O(1)；代价是失去顺序性。</text>
+        <rect x="150" y="108" width="150" height="184" rx="8" class="fg-bs"/>
+        <rect x="384" y="108" width="220" height="184" rx="8" class="fg-box"/>
+
+        <rect x="160" y="118" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="139" class="fg-tm">1001</text>
+        <rect x="222" y="118" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="139" class="fg-lm">@9000</text>
+        <rect x="160" y="154" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="175" class="fg-tm">1002</text>
+        <rect x="222" y="154" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="175" class="fg-lm">@9100</text>
+        <rect x="160" y="190" width="60" height="30" rx="4" class="fg-bs"/><text x="190" y="211" class="fg-tm">1003</text>
+        <rect x="222" y="190" width="68" height="30" rx="4" class="fg-bs"/><text x="256" y="211" class="fg-tm">@9200</text>
+        <rect x="160" y="226" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="247" class="fg-tm">1004</text>
+        <rect x="222" y="226" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="247" class="fg-lm">@9300</text>
+        <text x="190" y="280" class="fg-lm">… 共 1000 项 …</text>
+
+        <rect x="394" y="118" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="138" class="fg-t">① 张三　高数 92</text>
+        <rect x="394" y="152" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="172" class="fg-t">② 李四　高数 78</text>
+        <rect x="394" y="186" width="200" height="28" rx="4" class="fg-bs"/><text x="494" y="206" class="fg-t">③ 王五　高数 85　← 目标</text>
+        <rect x="394" y="220" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="240" class="fg-t">④ 赵六　高数 90</text>
+        <text x="494" y="272" class="fg-lm">… 共 1 000 000 条记录 …</text>
+
+        <line x1="302" y1="205" x2="384" y2="200" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <text x="343" y="196" class="fg-lm">一次取到</text>
+
+        <text x="24" y="312" class="fg-b">★ 优势就在这个「小」字上：索引项只有「键 + 地址」十几个字节，而数据表每条记录可能几百字节。</text>
+        <text x="24" y="332" class="fg-b">　 查 100 万条记录时，不必读 100 万条记录——先在索引里<b>二分查找</b>（O(log k) ≈ 20 次比较）定位到键，</text>
+        <text x="24" y="352" class="fg-b">　 再按地址<b>只读 1 条</b>记录。代价：多一份索引空间，插入删除要同步维护索引。</text>
       </svg>
-      <figcaption>图 1-9　索引存储与散列存储：两种「加外挂」式的存储结构</figcaption>
+      <figcaption>图 1-9　索引存储：用一张「关键字 → 地址」的小索引表，把「读 n 条记录」变成「查索引 + 读 1 条」</figcaption>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字经散列函数直接算出桶位置">
+        <text x="24" y="28" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<b>直接算出</b>该去哪个桶</text>
+        <text x="24" y="52" class="fg-b">查找分两步：① 把 key 丢进散列函数 h(key) 算出桶号；② 只在这一个桶里找。桶号是<b>算出来的</b>，不需要比较、不需要扫描。</text>
+
+        <rect x="150" y="66" width="130" height="40" rx="6" class="fg-os"/><text x="215" y="92" class="fg-tm">key = 1001</text>
+        <line x1="284" y1="86" x2="330" y2="86" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <rect x="334" y="66" width="190" height="40" rx="6" class="fg-bs"/><text x="429" y="92" class="fg-tm">h(key) = key % 7 = 1</text>
+        <line x1="429" y1="106" x2="429" y2="128" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="440" y="122" class="fg-lm">算出「桶号 = 1」</text>
+
+        <text x="90" y="146" class="fg-bm">桶数组</text>
+        <rect x="150" y="132" width="560" height="172" rx="8" class="fg-box"/>
+        <rect x="162" y="144" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="162" class="fg-lm">[0]</text>
+        <rect x="162" y="176" width="44" height="26" rx="4" class="fg-bs"/><text x="184" y="194" class="fg-tm">[1]</text>
+        <rect x="162" y="208" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="226" class="fg-lm">[2]</text>
+        <rect x="162" y="240" width="44" height="26" rx="4" class="fg-rs"/><text x="184" y="258" class="fg-tm">[3]</text>
+        <rect x="162" y="272" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="290" class="fg-lm">[4]</text>
+
+        <rect x="222" y="176" width="128" height="26" rx="4" class="fg-bs"/><text x="286" y="194" class="fg-t">1001 → 张三</text>
+        <rect x="222" y="240" width="128" height="26" rx="4" class="fg-rs"/><text x="286" y="258" class="fg-t">1010 → 李四</text>
+        <line x1="354" y1="253" x2="382" y2="253" class="fg-e" marker-end="url(#mk-ar)"/>
+        <rect x="386" y="240" width="128" height="26" rx="4" class="fg-rs"/><text x="450" y="258" class="fg-t">1003 → 王五</text>
+        <text x="524" y="258" class="fg-lm" fill="var(--danger)">← 冲突：两个 key 都算出 3</text>
+
+        <text x="150" y="330" class="fg-b">★ 优势：定位一个 key 只需「算一次 %」+「看一个桶」，与记录总数 n <b>无关</b>——这是真正的 O(1)，比索引的 O(log k) 还快。</text>
+        <text x="150" y="350" class="fg-b">★ 代价一：不同 key 可能算出同一个桶（<tspan fill="var(--danger)">冲突</tspan>），桶里要再逐个比，或用链表串起来（上图 [3] 号桶）。</text>
+        <text x="150" y="370" class="fg-b">★ 代价二：桶里元素是「乱」的，<tspan fill="var(--danger)">顺序性被彻底放弃</tspan>——不能范围查询、不能按序遍历。第 10 讲细讲。</text>
+      </svg>
+      <figcaption>图 1-10　散列存储：由关键字直接算出桶号（O(1) 定位），代价是放弃顺序性与必须处理冲突</figcaption>
     </div>
 
     <h2 id="s4">1.4 逻辑结构与存储结构的关系</h2>
@@ -717,22 +729,39 @@
 
     <h3 id="s4-3">1.4.3 存储结构如何影响算法效率：一个必须亲手算一遍的例子</h3>
     <p>
-      「取线性表中第 i 个元素」这个运算，在逻辑结构层面是一模一样的：
-      给定位置 i，返回对应元素。但两种存储下的代价差了一个数量级。
+      「取线性表中第 i 个元素」这个运算，在逻辑结构层面是一模一样的：给定位置 i，返回对应元素。
+      但换成不同存储结构，代价的<b>增长方式</b>完全不同。
     </p>
     <p>
-      <b>顺序表</b>：元素地址 = 首地址 + (i-1) × 元素大小。这是一个乘法加一次访存，
-      <b>与表长 n 无关</b>，所以是 O(1)——常数时间。
+      <b>顺序表</b>：元素地址 = 首地址 + (i-1) × 元素大小。一次乘法加一次访存，
+      <b>与表长 n 无关</b>——取第 1 个和取第 100 万个耗时一样，所以是 O(1)。
     </p>
     <p>
       <b>单链表</b>：第 i 个结点在哪里？没有人知道。必须从 <code>head</code> 出发，
-      沿着 <code>next</code> 一步一步走 i-1 次。<b>与 i 成正比</b>，最坏（i = n）要走 n 步，所以是 O(n)。
-      如果 n = 10⁶，顺序表 1 次访存就够，链表要 100 万次。
+      沿着 <code>next</code> 一步一步走 i-1 次，<b>与 i 成正比</b>，最坏（i = n）走 n 步，所以是 O(n)。
     </p>
+    <div class="note exam">
+      <span class="note-title">注意：不要说「差一个数量级」——差距是 n 倍，随 n 而变</span>
+      「一个数量级」是固定的 10 倍，而这里的差距<b>根本不是固定值</b>：
+      <div class="table-wrap" style="margin:8px 0">
+        <table class="compact">
+          <thead><tr><th>表长 n</th><th>顺序表取第 n 个</th><th>单链表取第 n 个</th><th>差距</th></tr></thead>
+          <tbody>
+            <tr><td>4</td><td>1 次访存</td><td>4 次</td><td>4 倍</td></tr>
+            <tr><td>10³</td><td>1 次访存</td><td>10³ 次</td><td>1000 倍</td></tr>
+            <tr><td>10⁶</td><td>1 次访存</td><td>10⁶ 次</td><td class="c-bad">100 万倍</td></tr>
+          </tbody>
+        </table>
+      </div>
+      准确的说法是：<b>顺序表是常数时间，链表是线性时间，两者相差约 n 倍</b>——
+      n 小的时候几乎看不出差别，n 大了才成为不可承受的开销。
+      真正值得记住的不是「快多少倍」这个会变的数字，而是<b>O(1) 与 O(n) 这两种不同的增长方式</b>。
+    </div>
     <p>
-      反过来，如果在「已知前驱结点 p」的位置插入一个新元素：链表只要改两条指针，O(1)；
-      顺序表却要把 p 后面的所有元素整体后移，O(n)。<b>没有绝对的好坏，只有场景的匹配</b>。
-      读多写少选顺序表，频繁在中间插删且已有位置信息选链表。
+      反过来，在「已知前驱结点 p」的位置插入一个新元素：链表只要改两条指针，O(1)；
+      顺序表却要把 p 后面的所有元素整体后移，O(n)——<b>这一次是链表快 n 倍</b>。
+      所以没有绝对的好坏，只有场景的匹配：读多写少、需要按下标随机访问时选顺序表；
+      频繁在中间插删、且已经拿到位置信息时选链表。这也正是「结构决定算法」最直观的一课。
     </p>
 
     <pre data-lang="cpp" data-file="seqlist_access.cpp">// seqlist_access.cpp —— 顺序存储：逻辑相邻 ⇒ 物理相邻，按位查找 O(1)
@@ -847,7 +876,7 @@ int main() {
         <rect x="30" y="254" width="795" height="34" rx="8" class="fg-soft"/>
         <text x="427" y="277" class="fg-bm">存储结构可以随便换，逻辑结构始终不变 —— 这就是「逻辑结构独立于存储结构」的含义</text>
       </svg>
-      <figcaption>图 1-10　一个逻辑结构，多种存储实现：换的是代价，不换的是语义</figcaption>
+      <figcaption>图 1-11　一个逻辑结构，多种存储实现：换的是代价，不换的是语义</figcaption>
     </div>
 
     <div class="note exam">
@@ -1602,7 +1631,7 @@ int main() {
         <line x1="300" y1="30" x2="300" y2="256" class="fg-grid" stroke-dasharray="4 5"/>
         <line x1="600" y1="30" x2="600" y2="256" class="fg-grid" stroke-dasharray="4 5"/>
       </svg>
-      <figcaption>图 1-11　O、Ω、Θ 的几何含义：只有当 n ≥ n₀ 时，不等式才开始稳定成立</figcaption>
+      <figcaption>图 1-12　O、Ω、Θ 的几何含义：只有当 n ≥ n₀ 时，不等式才开始稳定成立</figcaption>
     </div>
 
     <h3 id="s7-5">1.7.5 推导大 O 的三条法则</h3>
@@ -2191,7 +2220,7 @@ int main() {
         <rect x="580" y="18" width="14" height="14" rx="3" class="fg-rs"/><text x="602" y="30" class="fg-b">最坏：8 次</text>
         <text x="92" y="30" class="fg-b">查找第 i 个元素需比较 i 次</text>
       </svg>
-      <figcaption>图 1-12　顺序查找：位置 i 需要 i 次比较，等概率下的平均值正好是 (n+1)/2</figcaption>
+      <figcaption>图 1-13　顺序查找：位置 i 需要 i 次比较，等概率下的平均值正好是 (n+1)/2</figcaption>
     </div>
 
     <h3 id="s9-3">1.9.3 快速排序：三种情况天差地别</h3>
@@ -2350,7 +2379,7 @@ int main() {
         <text x="800" y="422" class="fg-l">上升，说明它是</text>
         <text x="800" y="438" class="fg-l">指数级爆炸。</text>
       </svg>
-      <figcaption>图 1-13　六种常见复杂度的增长曲线对比（纵轴为对数刻度）：n = 16 时 2ⁿ 已达 65536，而 log₂n 只有 4</figcaption>
+      <figcaption>图 1-14　六种常见复杂度的增长曲线对比（纵轴为对数刻度）：n = 16 时 2ⁿ 已达 65536，而 log₂n 只有 4</figcaption>
     </div>
 
     <div class="note tip">
@@ -2524,7 +2553,7 @@ int main() {
         <rect x="440" y="266" width="280" height="44" rx="6" class="fg-rs"/>
         <text x="454" y="293" class="fg-t">最大栈深度 = n ⟹ S(n) = O(n)</text>
       </svg>
-      <figcaption>图 1-14　递归求 n! 时的调用栈：任一时刻栈里有 n 个栈帧，所以 S(n) = O(n)</figcaption>
+      <figcaption>图 1-15　递归求 n! 时的调用栈：任一时刻栈里有 n 个栈帧，所以 S(n) = O(n)</figcaption>
     </div>
 
     <p>
@@ -2614,7 +2643,7 @@ int main() {
         <text x="610" y="284" class="fg-b">或递推可把时间降到 O(n)</text>
         <text x="610" y="303" class="fg-l">（第 13 讲动态规划的主角）</text>
       </svg>
-      <figcaption>图 1-15　斐波那契朴素递归的调用树：结点数指数级（时间），但深度只有 n（空间）</figcaption>
+      <figcaption>图 1-16　斐波那契朴素递归的调用树：结点数指数级（时间），但深度只有 n（空间）</figcaption>
     </div>
 
     <h3 id="s11-4">1.11.4 S(n) 的常见形态</h3>
@@ -2870,7 +2899,7 @@ int main() {
 
         <text x="35" y="428" class="fg-b">本章打底的逻辑结构、存储结构与复杂度分析，会在后面每一讲反复出现——它是全课程的地基。</text>
       </svg>
-      <figcaption>图 1-16　本章与后续 14 讲的衔接关系：一条从「关系分类」到「算法范式」的主线</figcaption>
+      <figcaption>图 1-17　本章与后续 14 讲的衔接关系：一条从「关系分类」到「算法范式」的主线</figcaption>
     </div>
 
     <h2 id="s14">1.14 本章小结</h2>
@@ -3110,7 +3139,7 @@ int main() {
 
         <text x="240" y="588" class="fg-b">同样多的加法：连续走 1 次访存换 16 个元素，跳着走 1 次只换 1 个。</text>
       </svg>
-      <figcaption>图 1-17　内存层次金字塔与各级延迟数量级（上）；行优先连续访问与列优先跨 4096 字节访问的缓存行命中对比（下）</figcaption>
+      <figcaption>图 1-18　内存层次金字塔与各级延迟数量级（上）；行优先连续访问与列优先跨 4096 字节访问的缓存行命中对比（下）</figcaption>
     </div>
 
     <h3 id="s16-2">1.16.2 缓存行与局部性：一次搬 64 字节，顺序与跳跃实测差 5 倍以上</h3>
