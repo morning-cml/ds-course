@@ -102,6 +102,8 @@ const ENGINEERING = [
   ["ch03-stack.html", "3.12"],
   ["ch05-string-kmp-bm.html", "5.7"],
   ["ch07-tree.html", "7.11"],
+  ["ch09-graph-algo.html", "9.9"],
+  ["ch10-search-hash.html", "10.8"],
   ["ch13-paradigm-dp.html", "13.8"],
 ];
 
@@ -151,7 +153,7 @@ for (const f of extra) {
 }
 if (couldAdd.length) {
   console.log("\n提示（不判失败）：以下讲次暂无「工程视角」小节 —— " + couldAdd.join("、"));
-  console.log("      其中第 09 讲（图论算法）、第 10 讲（查找与哈希）最值得补。");
+  console.log("      纯练习章（14 题单）与速查章（15）按 SPEC 不强制；其余章按需补。");
 }
 
 console.log("\n" + (eBad ? `工程视角小节有 ${eBad} 项不达标` : "工程视角小节全部达标 ✅"));
