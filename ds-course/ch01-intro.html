@@ -603,75 +603,99 @@
       <figcaption>图 1-8　同一个逻辑结构（线性表）的两种存储结构对照：上部是逻辑结构，中部是顺序存储，下部是链式存储</figcaption>
     </div>
 
-        <div class="figure">
-      <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储：索引表保存 关键字到地址 的映射">
-        <text x="24" y="28" class="fg-tb">索引存储 index storage：主表之外再建一张「关键字 → 地址」的小表</text>
-        <text x="24" y="52" class="fg-b">要查「学号 1003 的成绩」——不建索引的话，只能从第一条记录开始逐条比对，这叫<tspan font-weight="700">全表扫描</tspan>。</text>
+            <div class="figure">
+      <svg viewBox="0 0 900 420" width="900" height="420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储：给「专业」建索引，把七十万次查找压到七千次">
+        <text x="20" y="26" class="fg-tb">索引存储 index storage：给「专业」建一张索引表</text>
 
-        <text x="170" y="82" class="fg-bm">索引表（小，可常驻内存）</text>
-        <text x="450" y="82" class="fg-bm">数据表 / 主表（大，真正的记录都在这儿）</text>
-        <text x="170" y="100" class="fg-lm">关键字 key</text>
-        <text x="240" y="100" class="fg-lm">地址</text>
+        <rect x="20" y="42" width="860" height="44" rx="8" class="fg-box"/>
+        <text x="34" y="61" class="fg-b">某大学 70 万名学生，分在 100 个专业里，每个专业正好 7000 人；学生记录按「同专业放在一起」连续存放。</text>
+        <text x="34" y="79" class="fg-b">现在要查「计算机专业学号 1005 的学生」——查得快不快，全看有没有下面这张索引表。</text>
 
-        <rect x="150" y="108" width="150" height="184" rx="8" class="fg-bs"/>
-        <rect x="384" y="108" width="220" height="184" rx="8" class="fg-box"/>
+        <text x="30" y="112" class="fg-bm">索引表：只有 100 项，一项 = 一个专业的起始位置</text>
+        <rect x="30" y="122" width="320" height="112" rx="8" class="fg-bs"/>
+        <rect x="42" y="132" width="88" height="26" rx="4" class="fg-box"/><text x="86" y="150" class="fg-tm">专业</text>
+        <rect x="132" y="132" width="112" height="26" rx="4" class="fg-box"/><text x="188" y="150" class="fg-tm">起始记录号</text>
+        <rect x="42" y="160" width="88" height="24" rx="4" class="fg-soft"/><text x="86" y="177" class="fg-tm">计算机</text>
+        <rect x="132" y="160" width="112" height="24" rx="4" class="fg-soft"/><text x="188" y="177" class="fg-lm">第 0 条起</text>
+        <rect x="42" y="186" width="88" height="24" rx="4" class="fg-soft"/><text x="86" y="203" class="fg-tm">数学</text>
+        <rect x="132" y="186" width="112" height="24" rx="4" class="fg-soft"/><text x="188" y="203" class="fg-lm">第 7000 条起</text>
+        <rect x="42" y="212" width="88" height="24" rx="4" class="fg-soft"/><text x="86" y="229" class="fg-tm">物理</text>
+        <rect x="132" y="212" width="112" height="24" rx="4" class="fg-soft"/><text x="188" y="229" class="fg-lm">第 14000 条起</text>
 
-        <rect x="160" y="118" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="139" class="fg-tm">1001</text>
-        <rect x="222" y="118" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="139" class="fg-lm">@9000</text>
-        <rect x="160" y="154" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="175" class="fg-tm">1002</text>
-        <rect x="222" y="154" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="175" class="fg-lm">@9100</text>
-        <rect x="160" y="190" width="60" height="30" rx="4" class="fg-bs"/><text x="190" y="211" class="fg-tm">1003</text>
-        <rect x="222" y="190" width="68" height="30" rx="4" class="fg-bs"/><text x="256" y="211" class="fg-tm">@9200</text>
-        <rect x="160" y="226" width="60" height="30" rx="4" class="fg-box"/><text x="190" y="247" class="fg-tm">1004</text>
-        <rect x="222" y="226" width="68" height="30" rx="4" class="fg-soft"/><text x="256" y="247" class="fg-lm">@9300</text>
-        <text x="190" y="280" class="fg-lm">… 共 1000 项 …</text>
+        <text x="392" y="112" class="fg-bm">数据表：70 万条记录，按专业分块连续存放</text>
+        <rect x="392" y="122" width="488" height="112" rx="8" class="fg-box"/>
+        <rect x="404" y="132" width="110" height="92" rx="4" class="fg-bs"/><text x="459" y="172" class="fg-tm">计算机</text><text x="459" y="192" class="fg-lm">7000 人</text>
+        <rect x="522" y="132" width="110" height="92" rx="4" class="fg-soft"/><text x="577" y="172" class="fg-tm">数学</text><text x="577" y="192" class="fg-lm">7000 人</text>
+        <rect x="640" y="132" width="110" height="92" rx="4" class="fg-soft"/><text x="695" y="172" class="fg-tm">物理</text><text x="695" y="192" class="fg-lm">7000 人</text>
+        <rect x="758" y="132" width="110" height="92" rx="4" class="fg-soft"/><text x="813" y="172" class="fg-tm">…其余专业</text><text x="813" y="192" class="fg-lm">97 个</text>
+        <text x="636" y="248" class="fg-lm">一共 100 个这样的块，合起来 70 万条</text>
 
-        <rect x="394" y="118" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="138" class="fg-t">① 张三　高数 92</text>
-        <rect x="394" y="152" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="172" class="fg-t">② 李四　高数 78</text>
-        <rect x="394" y="186" width="200" height="28" rx="4" class="fg-bs"/><text x="494" y="206" class="fg-t">③ 王五　高数 85　← 目标</text>
-        <rect x="394" y="220" width="200" height="28" rx="4" class="fg-box"/><text x="494" y="240" class="fg-t">④ 赵六　高数 90</text>
-        <text x="494" y="272" class="fg-lm">… 共 1 000 000 条记录 …</text>
+        <line x1="356" y1="172" x2="398" y2="172" class="fg-eb" marker-end="url(#mk-ab)"/>
+        <line x1="466" y1="240" x2="466" y2="266" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="476" y="262" class="fg-lm">索引直接指到计算机块的第 1 条</text>
 
-        <line x1="302" y1="205" x2="384" y2="200" class="fg-eb" marker-end="url(#mk-ab)"/>
-        <text x="343" y="196" class="fg-lm">一次取到</text>
+        <rect x="20" y="276" width="860" height="48" rx="8" class="fg-ws"/>
+        <text x="34" y="295" class="fg-b"><tspan font-weight="700" fill="var(--danger)">不建索引</tspan>：只能从第 1 条开始逐条比对专业，直到碰上「计算机」——最坏要翻过 99 个专业、约 69.3 万条记录。</text>
+        <text x="34" y="314" class="fg-b">→ 查找代价：<tspan font-weight="700" fill="var(--danger)">最多约 70 万次</tspan>（等于把整张表扫一遍）</text>
 
-        <text x="24" y="312" class="fg-b">★ 优势就在这个「小」字上：索引项只有「键 + 地址」十几个字节，而数据表每条记录可能几百字节。</text>
-        <text x="24" y="332" class="fg-b">　 查 100 万条记录时，不必读 100 万条记录——先在索引里<tspan font-weight="700">二分查找</tspan>（O(log k) ≈ 20 次比较）定位到键，</text>
-        <text x="24" y="352" class="fg-b">　 再按地址<tspan font-weight="700">只读 1 条</tspan>记录。代价：多一份索引空间，插入删除要同步维护索引。</text>
+        <rect x="20" y="330" width="860" height="48" rx="8" class="fg-gs"/>
+        <text x="34" y="349" class="fg-b"><tspan font-weight="700" fill="var(--ok)">建了索引</tspan>：先在只有 100 项的索引表里二分查找（log₂100 ≈ 7 次比较）定位到「计算机」，</text>
+        <text x="34" y="368" class="fg-b">　 再从它后面的 7000 人里逐个比学号 → 查找代价：<tspan font-weight="700" fill="var(--ok)">7 + 最多 7000 次</tspan></text>
+
+        <text x="20" y="400" class="fg-b">这就是索引的全部意义：把「翻遍 70 万条」变成「查 100 项 + 翻 7000 条」，<tspan font-weight="700">快了约 100 倍</tspan>；索引本身只占 100 项的空间，非常划算。</text>
       </svg>
-      <figcaption>图 1-9　索引存储：用一张「关键字 → 地址」的小索引表，把「读 n 条记录」变成「查索引 + 读 1 条」</figcaption>
+      <figcaption>图 1-9　索引存储：给「专业」建索引后，查一个学生从「最多约 70 万次」降到「7 + 最多 7000 次」，快约 100 倍</figcaption>
     </div>
 
-    <div class="figure">
-      <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字经散列函数直接算出桶位置">
-        <text x="24" y="28" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<tspan font-weight="700">直接算出</tspan>该去哪个桶</text>
-        <text x="24" y="52" class="fg-b">查找分两步：① 把 key 丢进散列函数 h(key) 算出桶号；② 只在这一个桶里找。桶号是<tspan font-weight="700">算出来的</tspan>，不需要比较、不需要扫描。</text>
+        <div class="figure">
+      <svg viewBox="0 0 900 450" width="900" height="450" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字直接算出该去哪个桶">
+        <text x="20" y="26" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<tspan font-weight="700">直接算出</tspan>该去哪个桶</text>
 
-        <rect x="150" y="66" width="130" height="40" rx="6" class="fg-os"/><text x="215" y="92" class="fg-tm">key = 1001</text>
-        <line x1="284" y1="86" x2="330" y2="86" class="fg-eo" marker-end="url(#mk-ao)"/>
-        <rect x="334" y="66" width="190" height="40" rx="6" class="fg-bs"/><text x="429" y="92" class="fg-tm">h(key) = key % 7 = 1</text>
-        <line x1="429" y1="106" x2="429" y2="128" class="fg-eo" marker-end="url(#mk-ao)"/>
-        <text x="440" y="122" class="fg-lm">算出「桶号 = 1」</text>
+        <rect x="20" y="42" width="860" height="44" rx="8" class="fg-box"/>
+        <text x="34" y="61" class="fg-b">演示：4 个桶（编号 0～3），散列函数 h(key) = key % 4。把 key 丢进去，算出的余数就是它该待的桶号。</text>
+        <text x="34" y="79" class="fg-b">下面往表里放 3 个 key：1001、1009 和 2002，看看它们各自去哪。</text>
 
-        <text x="90" y="146" class="fg-bm">桶数组</text>
-        <rect x="150" y="132" width="560" height="172" rx="8" class="fg-box"/>
-        <rect x="162" y="144" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="162" class="fg-lm">[0]</text>
-        <rect x="162" y="176" width="44" height="26" rx="4" class="fg-bs"/><text x="184" y="194" class="fg-tm">[1]</text>
-        <rect x="162" y="208" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="226" class="fg-lm">[2]</text>
-        <rect x="162" y="240" width="44" height="26" rx="4" class="fg-rs"/><text x="184" y="258" class="fg-tm">[3]</text>
-        <rect x="162" y="272" width="44" height="26" rx="4" class="fg-soft"/><text x="184" y="290" class="fg-lm">[4]</text>
+        <text x="30" y="110" class="fg-bm">① 由 key 算桶号（一次取模，不需要比较）</text>
+        <rect x="30" y="120" width="200" height="82" rx="8" class="fg-os"/>
+        <text x="130" y="142" class="fg-tm">1001 % 4 = 1</text>
+        <text x="130" y="164" class="fg-tm">1009 % 4 = 1</text>
+        <text x="130" y="186" class="fg-tm">2002 % 4 = 2</text>
 
-        <rect x="222" y="176" width="128" height="26" rx="4" class="fg-bs"/><text x="286" y="194" class="fg-t">1001 → 张三</text>
-        <rect x="222" y="240" width="128" height="26" rx="4" class="fg-rs"/><text x="286" y="258" class="fg-t">1010 → 李四</text>
-        <line x1="354" y1="253" x2="382" y2="253" class="fg-e" marker-end="url(#mk-ar)"/>
-        <rect x="386" y="240" width="128" height="26" rx="4" class="fg-rs"/><text x="450" y="258" class="fg-t">1003 → 王五</text>
-        <text x="524" y="258" class="fg-lm" fill="var(--danger)">← 冲突：两个 key 都算出 3</text>
+        <line x1="234" y1="161" x2="282" y2="161" class="fg-eo" marker-end="url(#mk-ao)"/>
+        <text x="258" y="152" class="fg-lm" text-anchor="middle">桶号</text>
 
-        <text x="150" y="330" class="fg-b">★ 优势：定位一个 key 只需「算一次 %」+「看一个桶」，与记录总数 n <tspan font-weight="700">无关</tspan>——这是真正的 O(1)，比索引的 O(log k) 还快。</text>
-        <text x="150" y="350" class="fg-b">★ 代价一：不同 key 可能算出同一个桶（<tspan fill="var(--danger)">冲突</tspan>），桶里要再逐个比，或用链表串起来（上图 [3] 号桶）。</text>
-        <text x="150" y="370" class="fg-b">★ 代价二：桶里元素是「乱」的，<tspan fill="var(--danger)">顺序性被彻底放弃</tspan>——不能范围查询、不能按序遍历。第 10 讲细讲。</text>
+        <text x="292" y="110" class="fg-bm">② 桶数组（每个桶后面挂一条链）</text>
+        <rect x="292" y="120" width="588" height="170" rx="8" class="fg-box"/>
+
+        <rect x="304" y="128" width="44" height="26" rx="4" class="fg-soft"/><text x="326" y="146" class="fg-lm">[0]</text>
+        <text x="362" y="146" class="fg-lm">空</text>
+
+        <rect x="304" y="162" width="44" height="26" rx="4" class="fg-rs"/><text x="326" y="180" class="fg-tm">[1]</text>
+        <rect x="356" y="162" width="130" height="26" rx="4" class="fg-rs"/><text x="421" y="180" class="fg-t">1001 张三</text>
+        <line x1="490" y1="175" x2="516" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
+        <rect x="520" y="162" width="130" height="26" rx="4" class="fg-rs"/><text x="585" y="180" class="fg-t">1009 李四</text>
+        <text x="660" y="180" class="fg-lm" fill="var(--danger)">← 冲突：两个 key 都算出 1</text>
+
+        <rect x="304" y="214" width="44" height="26" rx="4" class="fg-bs"/><text x="326" y="232" class="fg-tm">[2]</text>
+        <rect x="356" y="214" width="130" height="26" rx="4" class="fg-bs"/><text x="421" y="232" class="fg-t">2002 王五</text>
+
+        <rect x="304" y="252" width="44" height="26" rx="4" class="fg-soft"/><text x="326" y="270" class="fg-lm">[3]</text>
+        <text x="362" y="270" class="fg-lm">空</text>
+
+        <rect x="30" y="306" width="390" height="88" rx="8" class="fg-ws"/>
+        <text x="44" y="328" class="fg-b"><tspan font-weight="700" fill="var(--ok)">优势</tspan>：定位一个 key 只要「算一次 %」+「看这一个桶」，</text>
+        <text x="44" y="348" class="fg-b">与总记录数 n <tspan font-weight="700">无关</tspan>——这是真正的 O(1)，</text>
+        <text x="44" y="368" class="fg-b">比索引存储的 O(log k) 还快一步。</text>
+
+        <rect x="438" y="306" width="442" height="88" rx="8" class="fg-rs"/>
+        <text x="452" y="328" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价一</tspan>：会冲突——不同的 key 算出同一个桶，</text>
+        <text x="452" y="348" class="fg-b">桶里要再逐个比较（上图 [1] 号桶要比 2 次）。</text>
+        <text x="452" y="368" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价二</tspan>：元素是「乱」的，顺序性被放弃，不能范围查询。</text>
+
+        <text x="20" y="414" class="fg-b">所以散列存储是「用顺序性换常数级查找」：查单个 key 最快，但「查成绩 80～90 分之间的所有学生」这类需求它就无能为力了（第 10 讲细讲）。</text>
+        <text x="20" y="432" class="fg-lm">注：桶数取 4 只为画得下；真实实现里桶数是几万到几百万，且随元素增多自动扩容。</text>
       </svg>
-      <figcaption>图 1-10　散列存储：由关键字直接算出桶号（O(1) 定位），代价是放弃顺序性与必须处理冲突</figcaption>
+      <figcaption>图 1-10　散列存储：由关键字直接算出桶号（O(1) 定位），代价是必须处理冲突、且放弃顺序性</figcaption>
     </div>
 
     <h2 id="s4">1.4 逻辑结构与存储结构的关系</h2>
