@@ -98,12 +98,18 @@ console.log("\n" + (miss ? `有 ${miss} 项未覆盖` : `清单共 ${NEEDS.lengt
    要求该节内至少有：1 个内联 SVG、1 段 C++ 代码、1 张表、2 处跨讲引用。
    ============================================================ */
 const ENGINEERING = [
+  ["ch01-intro.html", "1.16"],
   ["ch02-linear-list.html", "2.10"],
   ["ch03-stack.html", "3.12"],
+  ["ch04-queue.html", "4.14"],
   ["ch05-string-kmp-bm.html", "5.7"],
+  ["ch06-array-matrix.html", "6.9"],
   ["ch07-tree.html", "7.11"],
+  ["ch08-graph-basic.html", "8.10"],
   ["ch09-graph-algo.html", "9.9"],
   ["ch10-search-hash.html", "10.8"],
+  ["ch11-sort-basic.html", "11.11"],
+  ["ch12-sort-advanced.html", "12.11"],
   ["ch13-paradigm-dp.html", "13.8"],
 ];
 

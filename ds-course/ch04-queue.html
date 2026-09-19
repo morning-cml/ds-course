@@ -52,6 +52,7 @@
         <li><b>扩展层</b>：双端队列 deque、受限双端队列，以及「栈和队列都是双端队列的特例」这一统一视角。</li>
         <li><b>应用层</b>：银行排队模拟（重点）、杨辉三角、二叉树层序遍历、迷宫最短路、单调队列滑动窗口、图的 BFS 与消息队列。</li>
         <li><b>工具层</b>：STL 的 <code>std::queue</code> / <code>std::deque</code> / <code>std::priority_queue</code> 速查与常见坑。</li>
+        <li><b>工程层</b>：队列是系统的「缓冲层」—— 消息队列的削峰与 lag、有界缓冲区与阻塞唤醒、操作系统的调度队列与 IO 电梯、缓冲区膨胀与网卡环形缓冲区、BFS 的另一面，以及一张工程选型表。</li>
       </ul>
     </div>
 
@@ -3122,11 +3123,373 @@ int main() {
 }
 </pre>
 
-    <h2 id="s14">4.14 本章小结</h2>
+    <h2 id="s14">4.14 工程视角：队列是系统的「缓冲层」</h2>
+
+    <p>4.12 节只把队列出现的地方「点名」了一遍。这一节换个更高的角度：把队列当成系统里的
+      <b>缓冲层 buffer</b> —— 上游按自己的节奏塞数据，下游按自己的速度取走，队列吸收两边的速度差。
+      看清这一层你会发现：操作系统、网络协议栈、消息中间件、垃圾回收器，都在反复实现同一个东西 ——
+      <b>一块有界的、会阻塞的、先进先出的环形内存</b>。</p>
+
+    <h3 id="s14-mq">4.14.1 消息队列：解耦、异步、削峰，同一副骨架</h3>
+
+    <p>Kafka、RabbitMQ、RocketMQ、Redis 的 List，名字与协议都不同，骨架却完全一样：
+      <b>生产者把消息追加到队尾，消费者从队头取走并确认</b>。4.12 只说它们「是队列」，
+      这里要说清：队列凭什么值得单独做成一个中间件 —— 因为它同时给了三个别处拿不到的能力。</p>
+
+    <ol>
+      <li><b>解耦</b>：下单服务只写一条「订单已创建」，<b>不需要知道</b>后面还有库存、积分、通知三个下游；
+        明天要加一个风控消费者，上游一行代码都不用改 —— 生产者与消费者互相不认识，接口越小，依赖越少。</li>
+      <li><b>异步</b>：同步调三个下游、每个 100 ms，用户要等 300 ms；改成写一条消息（约 5 ms）就返回，
+        主链路立刻降到 5 ms。那 295 ms 没有消失，只是搬到了队列另一侧。</li>
+      <li><b>削峰填谷</b>：这是最值钱的一条。秒杀入口 10 万 QPS 打进来，数据库只扛得住 5 万 QPS，
+        队列把「瞬时高峰」摊平成「持续输出」，让下游按自己舒服的速度跑。</li>
+    </ol>
+
+    <p>削峰可以算得很具体：生产者每秒写 10 万条、消费者每秒只取 5 万条，
+      <b>积压就以每秒 5 万条的速度线性增长</b>。持续 10 分钟的秒杀会堆下
+      <code>5 万 × 600 = 3000 万</code>条消息，按每条 1 KB 算是 <b>30 GB</b>；
+      消费者要追平还得再花 600 秒。用户看到的「下单成功」与后台真正扣库存之间，隔了十分钟。</p>
+
+    <p><b>Kafka 凭什么每秒吞几十万条？</b>因为它对磁盘只做<b>顺序追加写</b>：机械盘顺序写能到 100 MB/s 以上，
+      按 1 KB 一条算就是每秒 10 万条，随机写却只有一两百次每秒。</p>
+
+    <h3 id="s14-lag">4.14.2 削峰的代价：积压、重复、顺序性与消费者滞后</h3>
+
+    <p>队列不是免费的午餐：把流量塞进队列，等于把「下游处理不过来」从<b>立刻报错</b>换成<b>延后暴露</b>。
+      四个指标必须盯住，它们恰好是队列的四项代价：</p>
+
+    <ul>
+      <li><b>积压 backlog</b>：那 3000 万条并没有消失，只是在排队。队列不会让系统变快，
+        只会把故障从「请求超时」变成「结果迟到十分钟」。</li>
+      <li><b>消费者滞后 lag</b>：<code>lag = 最新消息位点 − 消费者已提交位点</code>，即「还欠多少条」。
+        100 万条 lag 在 5 万条/秒的消费能力下要 20 秒消化。运维盯的就是这条曲线：
+        <b>lag 只涨不跌，说明消费者死了或被下游拖住</b> —— 这时入口成功率反而一切正常。</li>
+      <li><b>消息重复</b>：网络抖动、消费者重启、确认丢失都会导致「至少一次 at-least-once」投递，
+        同一条消息被处理两遍。所以消费者必须<b>幂等</b>：用订单号去重，或把「余额加 1」改成「余额置为 1」。</li>
+      <li><b>顺序性</b>：为了吞吐，队列会被拆成多个分区并行消费，全局顺序随之消失。
+        要保序，就得让同一个业务键（如同一订单号）落进同一个分区，且只被一个线程处理 ——
+        <b>吞吐与顺序天生互斥</b>。</li>
+    </ul>
+
+    <div class="note danger">
+      <span class="note-title">危险点　不要把队列当成「无限大的内存」</span>
+      队列最危险的地方，是它会<b>掩盖下游处理不过来这个事实</b>。有界队列满时会阻塞生产者，压力当场顶回入口；
+      而<b>无界队列</b>永远不拒绝、不报错，只是内存一直涨 —— 每秒写 1 万条、每条 2 KB，
+      一分钟就是 <code>1 万 × 2 KB × 60 ≈ 1.2 GB</code>，迟早 OOM。
+      <br>正确做法只有三条：<b>①队列必须有界</b>；<b>②监控 lag，而不是只看写入成功率</b>；
+      <b>③消费不过来时扩容消费者或降级业务，而不是把队列调大</b>。
+      一句话：<b>队列是用来争取时间的，不是用来消灭流量的。</b>
+    </div>
+
+    <h3 id="s14-pc">4.14.3 生产者-消费者与有界缓冲区：满和空两个条件</h3>
+
+    <p>把前面所有系统的内核剥出来，剩下的就是「生产者-消费者 + 有界缓冲区」这一个模型。
+      为什么强调<b>有界</b>？因为内存有限，无界队列只是把 OOM 推迟到更难排查的时刻。
+      有界之后缓冲区只剩三种状态：<b>空、满、既不空也不满</b>，两个角色各自只需盯住一个条件：</p>
+
+    <ul>
+      <li>队列<b>满</b>时生产者不能再写 —— 必须<b>阻塞</b>（或按策略丢弃最老的数据）；</li>
+      <li>队列<b>空</b>时消费者不能读 —— 必须<b>阻塞</b>等待；</li>
+      <li>一次 <code>push</code> 成功要<b>唤醒</b>等数据的消费者，一次 <code>pop</code> 成功要<b>唤醒</b>等空位的生产者。</li>
+    </ul>
+
+    <p>这正是「信号量 / 条件变量」的经典用法：<code>empty</code>（空位数，初值等于容量）与 <code>full</code>（数据个数，初值 0）
+      两个信号量，生产者先 <code>P(empty)</code> 再写、写完 <code>V(full)</code>，消费者反过来。
+      两个 P 写反就是著名的<b>死锁</b>：两边各占一把锁互等。用条件变量时同理，等待要写成
+      <code>while (条件不满足) wait();</code> —— 被唤醒时条件可能已被别人抢走。</p>
+
+    <div class="figure">
+      <svg viewBox="0 0 880 470" width="880" height="470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="有界环形缓冲区的空与满两种状态及阻塞条件">
+        <text x="440" y="28" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700" font-family="inherit">有界环形缓冲区（CAP = 8）：空与满都是 head == tail，只能靠 count 区分</text>
+
+        <text x="440" y="62" text-anchor="middle" fill="var(--brand)" font-size="12.5" font-family="inherit">pop()：消费者从 head 取走</text>
+        <line x1="440" y1="72" x2="440" y2="108" stroke="var(--brand)" stroke-width="2" marker-end="url(#q6-b)"/>
+
+        <rect x="408" y="116" width="64" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="440" y="142" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">10</text>
+        <rect x="476" y="144" width="64" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="508" y="170" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">20</text>
+        <rect x="504" y="212" width="64" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="536" y="238" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">30</text>
+        <rect x="476" y="280" width="64" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="508" y="306" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">40</text>
+        <rect x="408" y="308" width="64" height="40" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+        <text x="440" y="334" text-anchor="middle" fill="var(--text)" font-size="14" font-family="Consolas, monospace">50</text>
+        <rect x="340" y="280" width="64" height="40" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="372" y="306" text-anchor="middle" fill="var(--ok)" font-size="14" font-family="Consolas, monospace">—</text>
+        <rect x="312" y="212" width="64" height="40" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="344" y="238" text-anchor="middle" fill="var(--text-faint)" font-size="14" font-family="Consolas, monospace">—</text>
+        <rect x="340" y="144" width="64" height="40" rx="6" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="372" y="170" text-anchor="middle" fill="var(--text-faint)" font-size="14" font-family="Consolas, monospace">—</text>
+
+        <text x="440" y="222" text-anchor="middle" fill="var(--brand)" font-size="15" font-weight="700" font-family="Consolas, monospace">count = 5</text>
+        <text x="440" y="244" text-anchor="middle" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">head = 0　tail = 5</text>
+        <text x="440" y="266" text-anchor="middle" fill="var(--text-faint)" font-size="12" font-family="inherit">已用 5 格，还有 3 个空位</text>
+
+        <text x="196" y="330" text-anchor="end" fill="var(--ok)" font-size="12.5" font-family="inherit">push(x)：生产者写入 tail</text>
+        <line x1="204" y1="340" x2="332" y2="302" stroke="var(--ok)" stroke-width="2" marker-end="url(#q6-g)"/>
+
+        <path d="M574,176 A120,120 0 0 1 574,300" fill="none" stroke="var(--border-strong)" stroke-width="2.2" stroke-dasharray="6 5" marker-end="url(#q6-a)"/>
+        <text x="602" y="222" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">(i + 1) % CAP</text>
+        <text x="602" y="242" fill="var(--text-soft)" font-size="12.5" font-family="inherit">下标走到 7 之后回 0</text>
+        <text x="602" y="274" fill="var(--text-faint)" font-size="12" font-family="inherit">生产者只看 tail，消费者只看 head</text>
+        <text x="602" y="292" fill="var(--text-faint)" font-size="12" font-family="inherit">但两边都可能被 count 挡住</text>
+
+        <rect x="20" y="382" width="400" height="74" rx="10" fill="var(--ok-soft)" stroke="var(--ok)"/>
+        <text x="40" y="406" fill="var(--ok)" font-size="13.5" font-weight="700" font-family="inherit">状态一：空　count == 0</text>
+        <text x="40" y="428" fill="var(--text-soft)" font-size="12.5" font-family="inherit">head 与 tail 指向同一格，格子却是空的，</text>
+        <text x="40" y="446" fill="var(--text-soft)" font-size="12.5" font-family="inherit">pop() 失败 → 消费者阻塞，等「非空」条件</text>
+
+        <rect x="460" y="382" width="400" height="74" rx="10" fill="var(--danger-soft)" stroke="var(--danger)"/>
+        <text x="480" y="406" fill="var(--danger)" font-size="13.5" font-weight="700" font-family="inherit">状态二：满　count == CAP</text>
+        <text x="480" y="428" fill="var(--text-soft)" font-size="12.5" font-family="inherit">tail 绕圈追上 head，两指针再次重合，</text>
+        <text x="480" y="446" fill="var(--text-soft)" font-size="12.5" font-family="inherit">push() 失败 → 生产者阻塞，等「有空位」条件</text>
+      </svg>
+      <figcaption>图 4-12　有界环形缓冲区：空与满的 head/tail 关系完全相同，只有 count 能区分；满时生产者阻塞，空时消费者阻塞</figcaption>
+    </div>
+
+    <p>图里这两种状态值得盯住：<b>空和满时 <code>head == tail</code> 都成立</b>，必须再维护一个 <code>count</code>
+      （或像 4.3.2 节那样牺牲一个存储单元）。下面这段代码用 <code>count</code> 方案，
+      把「写满后 push 失败、读空后 pop 失败」真跑一遍：</p>
+
+    <pre data-lang="cpp" data-file="ring_buffer.cpp">// ring_buffer.cpp —— 有界环形缓冲区：生产者-消费者模型的最小可用内核
+// 结构：数组 + head/tail + count；判空判满只比计数，入队出队都是 O(1)。
+// 满则 push 返回 false（真实系统在此阻塞生产者），空则 pop 返回 false（阻塞消费者）。
+#include &lt;cstdio&gt;
+
+const int CAP = 8;                 // 缓冲区容量：真实系统里取 1024、4096 这类 2 的幂
+
+int buf[CAP];                      // 环形缓冲区本体：连续内存，缓存友好
+int head  = 0;                     // 队头：消费者取数据的位置
+int tail  = 0;                     // 队尾：生产者写数据的位置
+int count = 0;                     // ★ 当前元素个数：区分「空」与「满」的唯一依据
+
+long long pushOk = 0, pushFail = 0;   // 生产者侧：成功 / 因满被拒
+long long popOk  = 0, popFail  = 0;   // 消费者侧：成功 / 因空被拒
+
+bool isFull()  { return count == CAP; }   // 判满：计数器方案，不浪费存储单元
+bool isEmpty() { return count == 0; }     // 判空
+
+bool push(int x) {                        // 生产者调用
+    if (isFull()) { ++pushFail; return false; }
+    buf[tail] = x;
+    tail = (tail + 1) % CAP;              // ★ 循环队列的取模回绕
+    ++count; ++pushOk;
+    return true;
+}
+
+bool pop(int&amp; x) {                        // 消费者调用
+    if (isEmpty()) { ++popFail; return false; }
+    x = buf[head];
+    head = (head + 1) % CAP;
+    --count; ++popOk;
+    return true;
+}
+
+void show(const char* tag) {
+    printf("      %-10s count=%d  head=%d  tail=%d  %s%s\n", tag, count, head, tail,
+           isFull() ? "[满]" : "", isEmpty() ? "[空]" : "");
+}
+
+int main() {
+    printf("缓冲区容量 CAP = %d\n\n", CAP);
+
+    printf("--- 第 1 步：生产者连写 10 条，容量只有 %d ---\n", CAP);
+    for (int i = 1; i &lt;= 10; ++i) {
+        int v = i * 10;
+        if (push(v)) printf("push(%3d) 成功\n", v);
+        else         printf("push(%3d) 失败  &lt;- 缓冲区已满，生产者必须阻塞或丢弃\n", v);
+    }
+    show("写满后");
+    printf("      注意 head 与 tail 都回到了 0：只有 count 能区分空与满\n\n");
+
+    printf("--- 第 2 步：消费者取走 3 条，腾出 3 个空位 ---\n");
+    int v = 0;
+    for (int i = 0; i &lt; 3; ++i)
+        if (pop(v)) printf("pop() -&gt; %3d\n", v);
+
+    printf("\n--- 第 3 步：生产者再写 3 条，这次全部成功 ---\n");
+    for (int i = 1; i &lt;= 3; ++i) {
+        v = 100 + i * 10;
+        int t0 = tail;
+        bool ok = push(v);              // 先写，再打印：printf 的实参求值顺序是未指定的
+        printf("push(%3d) %s   tail: %d -&gt; %d\n", v, ok ? "成功" : "失败", t0, tail);
+    }
+
+    printf("\n--- 第 4 步：把剩下的 8 条全部取空，顺序仍是 FIFO ---\n");
+    while (pop(v)) printf("pop() -&gt; %3d\n", v);
+    show("取空后");
+    printf("      最后一次 pop 返回 false：缓冲区已空，消费者必须阻塞等待\n\n");
+
+    printf("=== 统计 ===\n");
+    printf("push 成功 %lld 次，因满失败 %lld 次\n", pushOk, pushFail);
+    printf("pop  成功 %lld 次，因空失败 %lld 次\n", popOk, popFail);
+    printf("守恒检查：push 成功 - pop 成功 = %lld，当前 count = %d —— %s\n",
+           pushOk - popOk, count, (pushOk - popOk == count) ? "一致" : "不一致");
+    return 0;
+}
+</pre>
+
+    <p>在 <code>g++ -std=c++17</code> 下编译运行，关键输出如下：</p>
+
+    <pre data-lang="text" data-file="ring_buffer.out">push( 90) 失败  &lt;- 缓冲区已满，生产者必须阻塞或丢弃
+      写满后  count=8  head=0  tail=0  [满]
+      注意 head 与 tail 都回到了 0：只有 count 能区分空与满
+push(110) 成功   tail: 0 -&gt; 1
+      取空后  count=0  head=3  tail=3  [空]
+push 成功 11 次，因满失败 2 次
+pop  成功 11 次，因空失败 1 次</pre>
+
+    <p>三处细节值得停下来看：<b>①写满 8 条后 <code>head</code> 与 <code>tail</code> 都等于 0</b>，
+      只靠「两下标相等」判空判满在这里会彻底懵掉 —— 这就是 4.3.2 节「计数器方案」存在的理由；
+      <b>②第 3 步的 3 次写入从 0 绕回 3</b>，没有假溢出，这正是 4.3 节循环队列的全部价值；
+      <b>③取空后的顺序是 40 50 60 70 80 110 120 130</b>，绕一圈仍严格 FIFO ——
+      FIFO 是语义承诺，取模回绕只是实现手段。</p>
+
+    <p><code>push</code> / <code>pop</code> 只报成败、不擅自决定（同样是「满」，Kafka 攒批重发、Redis 的 <code>BRPOP</code> 阻塞等待、
+      网关丢掉最老请求返回 503），这正是缓冲区能适配各种策略的前提。</p>
+
+    <div class="note tip">
+      <span class="note-title">再往前一步：无锁环形队列</span>
+      <b>只有一个生产者、一个消费者</b>时，<code>head</code> 只被消费者改、<code>tail</code> 只被生产者改，两个线程根本不冲突：
+      把两个下标做成原子变量、加内存屏障，就得到<b>不需要锁</b>的队列 —— LMAX Disruptor、内核的 <code>kfifo</code>
+      都是这套思路。代价是容量必须是 2 的幂，多生产者时又要退回 CAS 竞争。
+    </div>
+
+    <h3 id="s14-os">4.14.4 操作系统：三张队列和一个电梯</h3>
+
+    <p><b>① 就绪队列与等待队列。</b>工程上要分清两条队列：<b>就绪队列 ready queue</b> 里全是「只等 CPU」的进程，
+      调度器每次挑一个上 CPU；<b>等待队列 wait queue</b> 里的进程在等磁盘 IO、等锁，CPU 空着也不会被选中。
+      磁盘中断到来时，内核把进程从等待队列<b>搬到</b>就绪队列 —— 这个「搬家」就是唤醒（<code>V</code> 操作）。</p>
+
+    <p>就绪队列若严格 FIFO，就是先来先服务 FCFS。它公平，却有个致命毛病叫<b>护航效应</b>：
+      一个要跑 10 秒的编译任务排在前面，后面 100 个只要 10 ms 的交互式任务就得一起干等 10 秒。
+      于是有了<b>多级反馈队列 MLFQ</b>：就绪队列拆成多层，优先级从高到低、时间片从短到长
+      （如 8 ms / 16 ms / 32 ms）；新进程进最高层，一个时间片没跑完就降一层，高层全空才轮到低层；
+      再加一条防饿死规则：<b>定时把所有进程提升回最高层</b>（老化 aging）。
+      结论：<b>单一 FIFO 不够用，真实调度是「多条队列 + 优先级 + 老化」的组合</b>。</p>
+
+    <p><b>② IO 请求队列与电梯算法。</b>一块磁盘同一时刻只能服务一个请求，于是<b>排队顺序直接决定性能</b>。
+      按 FIFO，磁头会在盘面上来回横跳：一次机械寻道约 10 ms，一次内存访问约 100 ns，差了 5 个数量级，
+      1000 个随机请求光是寻道就要 10 秒。电梯算法 SCAN 把请求按磁道号排序，磁头只朝一个方向扫
+      （像电梯只往上开），到最远处再折返；总行程从「1000 次随机跳跃」变成「大约走完全程一遍」，
+      随机 IO 被改造成近似顺序 IO —— 和 Kafka 靠顺序写提速是同一个道理。SSTF 每次挑最近的请求，
+      效果像优先队列（第 11 讲的堆可以 <code>O(log n)</code> 取最小），代价是最远的磁道会饿死。
+      SSD 没有寻道，IO 队列换成了「按优先级与权重分配带宽」（Linux 的 <code>blk-mq</code>）。</p>
+
+    <p><b>③ 打印假脱机 spooling。</b>4.12 说过打印任务要排队，工程上这条队列叫<b>假脱机</b>（SPOOL）。
+      为什么不干脆在内存里排个队？因为任务可能要等几小时才轮到，10 个用户各提交 50 MB 文档，
+      就是 500 MB 内存被「排队」占着。所以 spooling 的做法是：<b>作业本体先完整写到磁盘的 spool 目录</b>
+      （Windows 下是 <code>System32\spool\PRINTERS</code>），内存里只留一条「作业控制块」队列，指向磁盘文件。
+      这是一条极重要的工程惯例：<b>队列元素要小，真实数据放别处，队列里只存句柄或指针</b>。
+      第 02 讲的链表结点演示过这个思路；Kafka 的内存索引、网卡的接收描述符，都是同一个套路。</p>
+
+    <h3 id="s14-net">4.14.5 网络：从端口队列到缓冲区膨胀</h3>
+
+    <p><b>① 端口出队列与缓冲区膨胀 bufferbloat。</b>路由器和交换机的每个端口都有一条出队列：
+      多个入口的包要往同一个出口走，出口线速固定，排队无法避免。为了让「不丢包」好看，
+      家用路由器的缓冲区被做得很大（几百 KB 到几 MB），但大缓冲区会把<b>延迟</b>顶上去：
+      家宽上行 10 Mbps 约合 1.25 MB/s，2 MB 的缓冲区排满就是 <b>1.6 秒</b>的额外延迟 ——
+      游戏 ping 从 20 ms 变成 1600 ms 就是这么来的。更麻烦的是 TCP 靠丢包判断拥塞：缓冲区太大、
+      包迟迟不丢，发送方以为链路很空而继续加速，队列越排越长。解法是主动队列管理 AQM（CoDel、FQ-CoDel）：
+      延迟超过 5 ms 就主动丢包或打 ECN 标记，让 TCP 早点减速。<b>缓冲区换来的吞吐，是用延迟买的。</b></p>
+
+    <p><b>② TCP 滑动窗口本质上也是一条队列。</b>发送方维护「已发送但未确认」的窗口，接收方维护
+      「已收到但未交给应用」的接收缓冲区；窗口为 0 时发送方必须停下等待，这就是标准的「队列满则阻塞」，
+      <code>SO_RCVBUF</code> 设的就是这条队列的容量。选小了吞吐上不去，选大了延迟变高，
+      所以现代内核干脆让窗口自动调节。</p>
+
+    <p><b>③ 网卡环形缓冲区：4.3 节的循环队列跑在硬件旁边。</b>网卡通过 DMA 把收到的包写进内存里
+      <b>一圈固定大小的描述符</b>，驱动从另一头取走。为什么非用循环队列不可？因为网卡是硬件，
+      它<b>不能调用 <code>malloc</code></b>，只能操作地址和大小都固定的内存：用普通数组，<code>tail</code> 几秒钟就撞墙
+      （4.2 节的假溢出）；取模回绕之后，一块 4096 个描述符 × 2 KB ≈ <b>8 MB</b> 的内存就能永远转下去。
+      8 MB 听着不少，可 10 Gbps 线速就是 1.25 GB/s，<b>只够缓冲 6.4 ms</b> ——
+      环的大小直接决定网卡能容忍多长的中断延迟。<code>ethtool -g eth0</code> 看的就是这个环，
+      <code>ifconfig</code> 里的 RX dropped / overrun 说的正是「环满了，包被硬件丢掉了」。</p>
+
+    <h3 id="s14-bfs">4.14.6 BFS 的另一面：人脉、爬虫与垃圾回收</h3>
+
+    <p>4.10 和 4.12 里的 BFS 都还在网格图与图的遍历范围内。跳出课本看，还有三类系统其实是同一件事：
+      <b>一层一层向外扩散</b>，引擎就是队列。</p>
+
+    <ul>
+      <li><b>N 度人脉</b>：「你和某人的最短关系链」就是无权图最短路，标准解法是 BFS。
+        Facebook 在 2016 年公布过一个数字：当时 15.9 亿用户之间的平均距离是 <b>3.57 跳</b>，
+        BFS 只需扩三四层。真实系统不会从你一个人 BFS 到全网，而是用<b>双向 BFS</b>：
+        两边各扩一层，中途相遇即最短 —— 正是 4.10 迷宫最短路在大图上的工程版本。</li>
+      <li><b>爬虫的待抓队列 frontier</b>：爬虫就是「取 URL → 下载 → 解析出新 URL → 入队」。
+        与课本 BFS 最大的差别在<b>去重</b>：网页互相链接，不判重队列会无限膨胀，
+        所以每个 URL 入队前都要查一次「抓过没有」—— 靠的正是第 10 讲的哈希表。
+        工业爬虫还会按域名把队列拆成多条并限速（礼貌性 polite）。</li>
+      <li><b>垃圾回收的标记阶段</b>：主流 GC 用三色标记 —— 白（没访问过）、灰（发现未扫描）、黑（扫描完）。
+        <b>灰色对象的集合就是一条队列</b>：从 GC Roots 入队，每出队一个灰对象，就把它引用的白对象染灰并入队。
+        用队列还是用栈，决定了这是 BFS 还是 DFS：标记结果一样，但<b>队列版本的灰色集合规模正比于图的宽度，
+        栈版本却可能把一整条路径压住</b>。这就是 G1、Go 都用标记队列而非递归的原因。</li>
+    </ul>
+
+    <h3 id="s14-table">4.14.7 工程选型对比表：五种「队列」，五个现实维度</h3>
+
+    <p>最后把本节的结构压成一张表，比的是工程师真正会卡的五个现实维度（不是复杂度，那些都是 <code>O(1)</code>）。</p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr><th>结构</th><th>容量特性</th><th>是否支持并发</th><th>缓存友好度</th><th>是否有界</th><th>典型系统举例</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>循环队列</b><br>数组 + 取模回绕</td>
+            <td>创建时定死，容量不可变</td>
+            <td class="c-warn">单线程 O(1)；多线程要加锁</td>
+            <td class="c-ok">极高：一整块连续内存</td>
+            <td class="c-ok">是（有界正是它的优点）</td>
+            <td>网卡环形缓冲区、Linux <code>kfifo</code>、音频 / 串口驱动缓冲</td>
+          </tr>
+          <tr>
+            <td><b>链队列</b><br>结点 + head/tail</td>
+            <td>只受内存限制，可一直增长</td>
+            <td class="c-warn">要锁保护两端的指针</td>
+            <td class="c-bad">差：每元素一次独立分配</td>
+            <td class="c-bad">否（必须自己加上限计数）</td>
+            <td>Java <code>LinkedBlockingQueue</code>（可指定容量）、线程池的任务队列</td>
+          </tr>
+          <tr>
+            <td><b>双端队列</b><br>deque / 分块连续</td>
+            <td>两端都能进出，容量可变</td>
+            <td class="c-warn">要并发就得按线程分片</td>
+            <td>中：分段连续，优于链表</td>
+            <td class="c-warn">否（要自己限长）</td>
+            <td>工作窃取调度器（Go 运行时、ForkJoinPool）、4.11 节单调队列、Redis 的 quicklist</td>
+          </tr>
+          <tr>
+            <td><b>优先队列</b><br>二叉堆（数组存堆）</td>
+            <td>不保证 FIFO，只保证每次取最值</td>
+            <td class="c-warn">并发版要细粒度锁或跳表</td>
+            <td class="c-ok">高：堆就是数组，连续内存</td>
+            <td class="c-warn">否（可设上限，满了拒绝）</td>
+            <td>定时器 / 延时任务、第 09 讲 Dijkstra 与第 11 讲堆排序的底座、负载均衡挑最少连接</td>
+          </tr>
+          <tr>
+            <td><b>无锁环形队列</b><br>原子 head/tail + 屏障</td>
+            <td>固定容量，必须是 2 的幂</td>
+            <td class="c-ok">单生产单消费完全无锁</td>
+            <td class="c-ok">极高：数组 + 顺序访问</td>
+            <td class="c-ok">是</td>
+            <td>LMAX Disruptor（金融交易百万级 TPS）、DPDK 收发包环、<code>kfifo</code> 无锁模式</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>选型心法只有三问：<b>容量能不能在创建时定死？有几个人同时碰它？要不要按优先级取？</b>
+      能定死 + 单生产单消费者 → 无锁环形队列；必须动态增长 → 链队列（补上容量上限和拒绝策略）；
+      要按优先级取 → 优先队列（第 11 讲的堆是底座）；两端都要动 → 双端队列。</p>
+
+    <h2 id="s15">4.15 本章小结</h2>
 
     <div class="grid c2">
       <div class="card">
-        <h3 style="margin-top:0" id="s14-concept">概念层面</h3>
+        <h3 style="margin-top:0" id="s15-concept">概念层面</h3>
         <ul style="margin-bottom:0">
           <li>队列是<b>只能在队尾入队、队头出队</b>的线性表，特性是 <b>FIFO</b>。</li>
           <li>ADT 五个操作：<code>InitQueue</code> / <code>QueueEmpty</code> / <code>EnQueue</code> / <code>DeQueue</code> / <code>GetHead</code>。</li>
@@ -3135,7 +3498,7 @@ int main() {
         </ul>
       </div>
       <div class="card">
-        <h3 style="margin-top:0" id="s14-impl">实现层面</h3>
+        <h3 style="margin-top:0" id="s15-impl">实现层面</h3>
         <ul style="margin-bottom:0">
           <li>顺序队列有<b>假溢出</b>（<code>rear</code> 撞满但前面有空格），必须用<b>循环队列</b>解决。</li>
           <li>循环队列的核心是取模：<code>rear = (rear+1)%MaxSize</code>。</li>
@@ -3160,7 +3523,7 @@ int main() {
       </table>
     </div>
 
-    <h3 id="s14-apps">应用的统一视角</h3>
+    <h3 id="s15-apps">应用的统一视角</h3>
 
     <p>把本章五个应用串起来看，队列在不同场景里扮演的角色其实只有三种：</p>
 
@@ -3176,9 +3539,9 @@ int main() {
     <p>看清这三种角色，以后再遇到新问题，你会先问自己：<b>这里的「先来后到」是什么？有没有「近的先处理」的需求？
       有没有元素已经彻底没用了、可以安全丢掉？</b> 只要有一个答案是肯定的，队列大概率就是你要找的工具。</p>
 
-    <h2 id="s15">4.15 易错点清单与考点</h2>
+    <h2 id="s16">4.16 易错点清单与考点</h2>
 
-    <h3 id="s15-bugs">高频易错点汇总</h3>
+    <h3 id="s16-bugs">高频易错点汇总</h3>
 
     <div class="note danger">
       <span class="note-title">易错点 4-10　期末考试与面试的「送命题」清单</span>
@@ -3198,7 +3561,7 @@ int main() {
       </ol>
     </div>
 
-    <h3 id="s15-exam">考点提示</h3>
+    <h3 id="s16-exam">考点提示</h3>
 
     <div class="note exam">
       <span class="note-title">考点 4-7　本章高频考点（按出现频率排序）</span>
@@ -3221,11 +3584,11 @@ int main() {
       这三条正是本章所有易错点的来源。
     </div>
 
-    <h2 id="s16">4.16 自测题</h2>
+    <h2 id="s17">4.17 自测题</h2>
 
     <p>先自己动笔算，再展开答案对照。四道题分别覆盖概念、公式、指针与算法设计。</p>
 
-    <h3 id="s16-q1">第 1 题（循环队列公式）</h3>
+    <h3 id="s17-q1">第 1 题（循环队列公式）</h3>
 
     <p>一个循环队列存放在数组 <code>data[0..9]</code> 中（<code>MaxSize = 10</code>），
       采用「牺牲一个存储单元」判满。当前 <code>front = 7</code>、<code>rear = 3</code>。请回答：</p>
@@ -3250,7 +3613,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s16-q2">第 2 题（假溢出辨析）</h3>
+    <h3 id="s17-q2">第 2 题（假溢出辨析）</h3>
 
     <p>某同学用数组 <code>data[0..7]</code> 实现队列，<code>front</code> 指向队头元素、<code>rear</code> 指向队尾元素的下一个位置，
       判满条件是 <code>rear == MaxSize</code>，判空条件是 <code>front == rear</code>。
@@ -3274,7 +3637,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s16-q3">第 3 题（链队列指针）</h3>
+    <h3 id="s17-q3">第 3 题（链队列指针）</h3>
 
     <p>带头结点的链队列中，<code>front</code> 指向头结点，<code>rear</code> 指向队尾结点，队列中当前只有一个元素。
       请写出出队操作的完整代码（含判空），并说明为什么不能省略其中的某一行。</p>
@@ -3340,7 +3703,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s16-q4">第 4 题（算法设计：单调队列）</h3>
+    <h3 id="s17-q4">第 4 题（算法设计：单调队列）</h3>
 
     <p>给定数组 <code>a = [2, 1, 4, 5, 3, 7]</code>，窗口大小 <code>k = 3</code>。
       请手工写出用单调队列求每个窗口最大值的完整过程（每步的队列内容 + 输出），

@@ -59,7 +59,10 @@
         <li><b>6.5</b> 三角矩阵：下三角与上三角两套公式，注意常数 <code>c</code> 单独占一个单元。</li>
         <li><b>6.6</b> 三对角（带状）矩阵：长度 <code>3n−2</code>，公式 <code>k = 2i + j</code>，以及它为什么仍能 O(1) 访问。</li>
         <li><b>6.7</b> 稀疏矩阵：三元组表、快速转置、行逻辑链接、<b>十字链表</b>、工程中的 CSR 格式。</li>
-        <li><b>6.8–6.9</b> 四类矩阵横向对比、易错点、考点与自测题。</li>
+        <li><b>6.8</b> 四类矩阵横向对比：一张表看清长度、映射公式与随机存取能力。</li>
+        <li><b>6.9</b> <b>工程视角</b>：行优先 / 列优先的性能后果、对称与三对角结构的真实用途、
+          COO / CSR / CSC / BSR 的分工，以及「稠密 vs 稀疏」的临界点。</li>
+        <li><b>6.10</b> 易错点、考点与自测题。</li>
       </ul>
     </div>
 
@@ -3443,9 +3446,755 @@ int main() {
       </ol>
     </div>
 
-    <h2 id="s9">6.9 本章小结、易错点与自测</h2>
+    <h2 id="s9">6.9 工程视角：矩阵压缩在数值计算与推荐系统里怎么用</h2>
 
-    <h3 id="s9-1">6.9.1 必须记住的六件事</h3>
+    <p>
+      前面八节把矩阵压缩当成「考试计算题」讲完了。但矩阵和稀疏矩阵在真实世界里是另一种身份：
+      它们是<b>科学计算、机器学习、图算法的基础设施</b>。NumPy / SciPy 的底层是 BLAS 与 LAPACK，
+      GPU 上的 cuSPARSE 与 cuBLAS，PageRank 的一次迭代、有限元的一次求解、推荐系统的一次召回，
+      全都落在本章讲的这些存储结构上。这一节换个视角，对六个工程落点逐条回答三个问题：
+      <b>用什么结构 → 为什么必须用它 → 代价和陷阱是什么</b>。
+    </p>
+
+    <h3 id="s9-1">6.9.1 行优先 vs 列优先：一次遍历凭什么差几倍</h3>
+
+    <p>
+      6.2 节讲了两种压平方式只是地址公式不同。到了工程里，这个「不同」直接换成钱和时间。
+      先看两个数量级（选 <code>double</code>，每个 8 字节）：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>事实</th><th>数量级</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>L1 缓存命中</td><td><b>3 ~ 4 ns</b></td>
+            <td>约 12 ~ 15 个时钟周期（3 GHz CPU）</td></tr>
+          <tr><td>主存访问 / 缓存未命中</td><td><b>60 ~ 100 ns</b></td>
+            <td>约 <b>18 倍</b>于 L1 命中，这是下面所有结论的来源</td></tr>
+          <tr><td>一条 64 字节缓存行</td><td>装 <code>8 个 double</code></td>
+            <td>连续访问时，一次未命中换来 8 个元素</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      现在拿一个 <code>1024 × 1024</code> 的 <code>double</code> 矩阵做实验。
+      它占 <code>1024 × 1024 × 8 = 8388608</code> 字节，也就是 <b>8 MB</b>，
+      远超典型 256 KB ~ 1 MB 的 L2 缓存，整个矩阵只能待在主存里。两种遍历方式写的代码几乎一样：
+    </p>
+    <div class="formula">
+      <span style="color:var(--ok)">// 行优先遍历：内层 j 连续，一整行 8 KB 顺序读入</span><br>
+      for (int i = 0; i &lt; n; ++i) for (int j = 0; j &lt; n; ++j) sum += a[i][j];<br><br>
+      <span style="color:var(--danger)">// 列优先遍历：内层 j 的步长是一整行 8 KB</span><br>
+      for (int j = 0; j &lt; n; ++j) for (int i = 0; i &lt; n; ++i) sum += a[i][j];
+    </div>
+    <p>
+      按行遍历时，8 个 <code>double</code> 挤在同一条缓存行里，平均每 8 次访问才发生一次主存访问；
+      按列遍历时，<code>a[0][j]</code> 与 <code>a[1][j]</code> 在内存里正好相隔 8 KB，
+      <b>每一次访问都落在不同的缓存行上</b>，于是 100 万次访问里有 100 万次是主存访问。
+      把 <code>n = 1024</code> 代进上面两个数字：<code>1024 × 1024 ÷ 8 = 131072</code> 次缓存未命中，
+      每次 60 ~ 100 ns，光等内存就是 <b>8 ~ 13 ms</b>；而按行遍历只有约 16 万次「有效访问」、
+      其中绝大多数命中 L1，总耗时不到 1 个周期 × 100 万次的量级。
+      实测结论很稳定：<b>同一个矩阵、同一个求和结果，按错误顺序遍历会慢 3 ~ 5 倍</b>。
+    </p>
+    <p>
+      这跟第 01 讲讲的时间复杂度并不矛盾：两种写法的<b>抽象操作次数完全一样</b>，
+      变的只是每次操作的常数因子，而常数因子里藏着 18 倍的缓存代价。
+      大 O 描述增长趋势，缓存决定实际快慢，工程优化往往就发生在后者。
+    </p>
+
+    <p>
+      回到语言层面，这个坑之所以常见，是因为「哪一维连续」并不统一：
+      <b>C / C++ 的行优先</b>把一行放在一起，而 <b>Fortran、MATLAB、以及 NumPy 的默认布局是列优先</b>。
+      同一个 <code>A[3][4]</code>，C 里 <code>A[1][2]</code> 落在 <code>(1×4 + 2)×L</code>，
+      Fortran 里落在 <code>(2×3 + 1)×L</code>——不是同一个位置。
+    </p>
+    <p>
+      NumPy 把这件事显式暴露出来：<code>np.array(a, order='C')</code> 是行优先（C order），
+      <code>np.asfortranarray</code> 与 <code>order='F'</code> 是列优先（Fortran order，F order）。
+      同一个矩阵两种布局，内存占用一模一样，但「按行求和」与「按列求和」谁快，
+      结果会整个反过来。检查一个数组到底是什么布局，靠 <code>.flags['C_CONTIGUOUS']</code>，
+      或者干脆看 <code>.strides</code>——<b>步长是理解布局最直接的方式</b>，
+      它比记「行优先还是列优先」更不容易搞错。
+    </p>
+    <p>
+      还有一条更真实的工程经验：<b>调 BLAS 时，「矩阵该不该转置」是一个性能问题，而不是风格问题。</b>
+      BLAS 为两种语言习惯提供了两套入口（<code>dgemm</code> 与 CBLAS 的
+      <code>CblasRowMajor</code> / <code>CblasColMajor</code>），LAPACK 则只有列优先版本。于是：
+    </p>
+    <ul>
+      <li><b>按底层布局调库</b>：需要行优先入口时用 CBLAS 的 RowMajor 包装，
+        代价是库内部可能再做一次隐式拷贝。</li>
+      <li><b>转置成库要的布局</b>：拷贝成本是 <code>2mn</code> 次读写。
+        一个 <code>5000 × 5000</code> 的矩阵要搬 <b>2.5 × 10<sup>7</sup></b> 个 <code>double</code>，
+        而同样规模的一次矩阵乘法约 <code>2n³ = 2.5 × 10<sup>11</sup></code> 次浮点运算——
+        <b>单次调用时转置成本只有万分之一，可以忽略</b>。</li>
+      <li><b>但会被调用次数放大</b>：迭代求解器里 SpMV 要跑几万次，
+        每次都先转置的话搬运量就与乘法本身的运算量同量级。
+        <b>这就是「一次性转换格式、之后反复用」的由来</b>。</li>
+    </ul>
+    <div class="note tip">
+      <span class="note-title">一行工程结论</span>
+      <b>存储顺序是一个「一次决定、长期受益」的选择</b>：决定之前先问清楚「谁会来遍历我、按哪个方向遍历」，
+      决定之后就别在中途换来换去——转置拷贝本身不贵，贵的是转置发生在热循环里面。
+    </div>
+
+    <h3 id="s9-2">6.9.2 对称矩阵的工程意义：一半内存，以及一半的麻烦</h3>
+
+    <p>
+      6.4 节说对称矩阵可以只存下三角，长度从 <code>n²</code> 降到 <code>n(n+1)/2</code>。
+      在考试里这是省一半空间；在工程里，这条性质经常是「算得动」和「算不动」的分界。
+      三个典型来源：
+    </p>
+    <ul>
+      <li><b>有限元 / 结构力学的刚度矩阵 <code>K</code></b>：单元之间的相互作用是对称的
+        （节点 i 对 j 的作用与 j 对 i 的作用成对出现），所以 <code>K</code> 天生对称。
+        一个三维实体网格动辄十万到百万个自由度，<code>K</code> 是这里最大的单个数据结构。</li>
+      <li><b>协方差矩阵</b>：<code>Cov(X<sub>i</sub>, X<sub>j</sub>) = Cov(X<sub>j</sub>, X<sub>i</sub>)</b>，
+        恒对称；PCA 要对它做特征分解。</li>
+      <li><b>距离矩阵 / 相似度矩阵</b>：<code>d(i,j) = d(j,i)</code> 恒成立，
+        聚类、最近邻、图嵌入里都要把它一次性算出来。</li>
+    </ul>
+    <p>算一个具体的数：</p>
+    <div class="formula">
+      <code>3.4 × 10<sup>5</sup></code> 个自由度、平均每行 15 个非零元的三维有限元刚度矩阵<br>
+      <span style="color:var(--danger)">按稠密矩阵整体存</span>：
+      <code>(3.4 × 10<sup>5</sup>)² × 8</code> 字节 ≈ <b>930 GB</b>（单机根本装不下）<br>
+      <span style="color:var(--ok)">按 CSR 稀疏整体存</span>：
+      <code>5.1 × 10<sup>6</sup></code> 个非零元 × 12 字节 ≈ <b>61 MB</b><br>
+      <span style="color:var(--ok)">再只存下三角</span>：约 <code>2.7 × 10<sup>6</sup></code> 个 × 12 字节 ≈ <b>32 MB</b>
+    </div>
+    <p>
+      从 930 GB 到 61 MB 是「稀疏」的功劳，属于 6.7 节；而从 61 MB 到 32 MB 才是<b>对称性</b>的功劳。
+      在后者的语境里，省下一半往往比看上去重要得多：<b>显存是 GPU 上最稀缺的资源</b>，
+      一个 24 GB 显存能装下的问题，只存一半就意味着<b>可以一次性多放一倍规模的网格</b>，
+      或者腾出空间同时容纳迭代求解所需的额外向量（Krylov 子空间每迭代一步就多一个向量）。
+      在分布式求解里同理：一半的内存占用＝一半的通信量，
+      而大规模并行求解的时间几乎全花在通信上。
+    </p>
+    <p>但对称压缩的利益不是白拿的，代价有三条，最后一条最坑：</p>
+    <ul>
+      <li><b>随机访问多一次分支</b>。读 <code>a[i][j]</code> 要先判断 <code>i ≥ j</code> 还是 <code>i &lt; j</code>，
+        非对角线元素绕道取 <code>a[j][i]</code>。对稠密矩阵，编译器基本能把这个分支预测掉，
+        代价很小；对稀疏矩阵就麻烦得多——</li>
+      <li><b>稀疏情形下「只存一半」会破坏 SpMV 的规律性</b>。CSR 的 <code>row_ptr</code> 本来能保证
+        「第 i 行是一段连续区间」，如果只保留下三角，
+        原来第 3 行的 <code>(3,1)</code> 与 <code>(3,2)</code> 这两个元素实际挂在第 1、2 行上，
+        按行做 <code>y = Ax</code> 时必须额外把它们的贡献散射回去（scatter），
+        访问模式立刻从「顺序前进」退化成「随机写 <code>y</code>」，并行度也掉下来。
+        <b>很多库因此选择「存整个矩阵、不利用对称性」——用 2 倍内存换算法简洁与稳定性能。</b></li>
+      <li><b>上三角 / 下三角的约定差异是最容易埋 bug 的地方</b>。<code>LAPACK</code> 的
+        <code>uplo</code> 参数、<code>scipy.linalg.eigh</code> 的 <code>lower=True</code>、
+        <code>numpy.linalg.cholesky</code>、各种有限元库的 <code>symmetric_storage</code> 开关，
+        每一家的「只存一半」都可能指不同的那一半。更糟的是：<b>把上三角当三角形下三角读，
+        在数学上依然是一个完整的、合法的对称矩阵</b>，程序不会崩、不会报错，
+        只会安静地算出一个错误答案。所以工程上的自检手段是固定的：
+        造一个已知答案的小矩阵（例如 <code>A = I</code> 或随机对称矩阵），
+        算出 <code>A - A<sup>T</sup></code> 的最大绝对值，它必须<b>恰好是 0</b>，
+        而不是「小于某个容差」。</li>
+    </ul>
+
+    <h3 id="s9-3">6.9.3 三对角与带状：用结构把复杂度降一档</h3>
+
+    <p>
+      6.6 节讲过三对角矩阵的长度是 <code>3n − 2</code>。它在数值计算里出现的频率高得离谱：
+    </p>
+    <ul>
+      <li><b>三次样条插值</b>：要让 <code>n + 1</code> 个点的分片三次多项式在内部结点处
+        二阶连续可导，每个内部点会写出一条只含相邻三个未知量的方程，
+        拼起来正好是三对角方程组。</li>
+      <li><b>一维热传导方程的隐式差分格式</b>：Crank–Nicolson 里每一个格点的新时刻值
+        只依赖自己和左右邻居，也是三对角。</li>
+      <li><b>常微分方程的两点边值问题</b>、<b>一维薛定谔方程的离散化</b>、<b>三次自然样条的边界条件</b>，
+        最后都归结到同一个形状。</li>
+    </ul>
+    <p>
+      给定三对角方程组，<b>Thomas 算法（追赶法）</b>做的其实就是高斯消元，
+      只不过因为第 <code>i</code> 行只有 3 个非零元，消元的每一行只花常数量时间：
+    </p>
+    <div class="formula">
+      追赶法（Thomas）：两趟扫描，<b>O(n)</b>，额外空间 <b>O(n)</b><br>
+      通用高斯消元（LU 分解）：<b>O(n³)</b> 时间、<b>O(n²)</b> 空间
+    </div>
+    <p>把 <code>n = 1000</code> 代进去看两个数字：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>算法</th><th>代价量级</th><th>n = 1000 时的实际数字</th></tr></thead>
+        <tbody>
+          <tr><td><b>追赶法</b></td><td><code>O(n)</code>、空间 <code>O(n)</code></td>
+            <td>约 <code>5n ≈ 5000</code> 次浮点运算、<code>4n ≈ 24 KB</code> 内存</td></tr>
+          <tr><td><b>通用高斯消元</b></td><td><code>O(n³)</code>、空间 <code>O(n²)</code></td>
+            <td>约 <code>n³/3 ≈ 3.3 × 10<sup>8</sup></code> 次浮点运算、<code>8 MB</code> 内存</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      运算量差 <b>6.7 万倍</b>，内存差 <b>340 倍</b>。但更要命的是<b>内存层级</b>：
+      24 KB 装得进 L1/L2 缓存，8 MB 只能待在主存；每次访问都要去主存取，
+      一个 <code>O(n³)</code> 算法的常数因子会被放大到几十倍。
+      <b>「利用结构把复杂度降一档」的收益，从来不只是渐近线好看，而是数据结构小到能装进缓存。</b>
+      这就是本章前半部分那些「省空间」的公式在工程里的真正价值。
+    </p>
+    <p>
+      把带再放宽一点，五对角、七对角的带状矩阵同样可以带状 LU 分解，
+      时间与空间都是 <code>O(n × b²)</code>（<code>b</code> 是带宽）：<b>带宽决定一切</b>。
+      这也是有限元做网格编号时要专门做「带宽最小化重排序」的原因——
+      同一套方程，把节点编号换一换，带宽可能从上千降到几十，求解时间跟着掉一个数量级。
+      顺带一提，这类「用结构换效率」的思路在第 13 讲也出现过：
+      区间 DP 用四边形不等式把 <code>O(n³)</code> 压到 <code>O(n²)</code>，
+      机制不同，动机一模一样。
+    </p>
+
+    <h3 id="s9-4">6.9.4 三种稀疏格式的工程分工：COO 建、CSR 算、CSC 按列、BSR 上 GPU</h3>
+
+    <p>
+      6.7.7 已经介绍过 CSR 的三个数组。但在工程里，问题不是「CSR 好不好」，
+      而是<b>「什么时候用哪一种」</b>——同一个稀疏矩阵在不同阶段会被换好几次格式：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>格式</th><th>结构</th><th>内存（每个非零元）</th><th>它存在的理由</th></tr></thead>
+        <tbody>
+          <tr><td><b>COO</b><br><span class="mini">坐标格式</span></td>
+            <td><code>row[] / col[] / val[]</code> 三个平行数组</td>
+            <td>3 个整数 + 1 个 double ≈ <b>20 字节</b></td>
+            <td><b>构建阶段</b>：三个数组各自 append 就行，好写、好并行，
+              而且天然允许元素乱序、允许重复（重复项一般做「求和合并」）</td></tr>
+          <tr><td><b>CSR</b><br><span class="mini">行压缩</span></td>
+            <td><code>val[] / col_idx[] / row_ptr[]</code></td>
+            <td>2 个整数 + 1 个 double ≈ <b>16 字节</b></td>
+            <td><b>计算阶段</b>：SpMV 的内层循环在 <code>val</code> / <code>col_idx</code> 上
+              严格顺序前进，缓存与预取器都满意，是稀疏 BLAS 的默认格式</td></tr>
+          <tr><td><b>CSC</b><br><span class="mini">列压缩</span></td>
+            <td><code>val[] / row_idx[] / col_ptr[]</code></td>
+            <td>同上 ≈ <b>16 字节</b></td>
+            <td><b>按列访问更频繁时用</b>：求转置只相当于换一次口径，
+              按列切片、按列做 <code>A<sup>T</sup>x</code> 都很顺（MATLAB 历史上就是列优先）</td></tr>
+          <tr><td><b>BSR</b><br><span class="mini">块稀疏</span></td>
+            <td>把非零元按 <code>r × c</code> 的小稠密块分组，
+              再对「块」套一层 CSR</td>
+            <td>取决于块大小，<code>2×2</code> 时与 CSR 相当</td>
+            <td><b>GPU 友好</b>：每个线程处理一个块，块内是稠密小矩阵，
+              用上了向量化和共享内存，算力/带宽比明显改善</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      这张表最关键的一行是<b>「格式转换本身有成本」</b>。COO 转 CSR 并不搬运数据，
+      只是重新索引，需要：
+    </p>
+    <div class="formula">
+      ① 一趟扫描统计每行非零元个数 <code>O(nnz)</code><br>
+      ② 对行计数做前缀和得到 <code>row_ptr[]</code> <code>O(m)</code><br>
+      ③ 第二趟扫描把每个元素放进它该在的位置 <code>O(nnz)</code><br>
+      合计 <code>O(nnz + m)</code>，<b>需要额外一趟完整的内存读写</b>——这是纯粹的搬运，没有产生任何计算价值。
+    </div>
+
+    <div class="figure fig-wide">
+      <svg viewBox="0 0 940 510" width="940" height="510" xmlns="http://www.w3.org/2000/svg">
+        <text x="20" y="24" fill="var(--text)" font-size="13.5" font-weight="700">COO → CSR 的转换与 SpMV：三元组按行分桶放进 values / colIdx，rowPtr 记住每行的起点</text>
+
+        <text x="26" y="48" fill="var(--text-soft)" font-size="11.5">① 原矩阵 A（5 × 5，nnz = 7）</text>
+        <g font-family="Consolas,monospace" font-size="11" text-anchor="middle">
+          <text x="38" y="66" fill="var(--text-faint)">j0</text>
+          <text x="62" y="66" fill="var(--text-faint)">j1</text>
+          <text x="86" y="66" fill="var(--text-faint)">j2</text>
+          <text x="110" y="66" fill="var(--text-faint)">j3</text>
+          <text x="134" y="66" fill="var(--text-faint)">j4</text>
+          <text x="18" y="86" text-anchor="end" fill="var(--text-faint)">i0</text>
+          <text x="18" y="110" text-anchor="end" fill="var(--text-faint)">i1</text>
+          <text x="18" y="134" text-anchor="end" fill="var(--text-faint)">i2</text>
+          <text x="18" y="158" text-anchor="end" fill="var(--text-faint)">i3</text>
+          <text x="18" y="182" text-anchor="end" fill="var(--text-faint)">i4</text>
+          <rect x="26" y="74" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="38" y="90" fill="var(--text)">4</text>
+          <rect x="50" y="74" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="62" y="90" fill="var(--text-faint)">0</text>
+          <rect x="74" y="74" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="86" y="90" fill="var(--text)">6</text>
+          <rect x="98" y="74" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="110" y="90" fill="var(--text-faint)">0</text>
+          <rect x="122" y="74" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="134" y="90" fill="var(--text-faint)">0</text>
+          <rect x="26" y="98" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="38" y="114" fill="var(--text-faint)">0</text>
+          <rect x="50" y="98" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="62" y="114" fill="var(--text)">5</text>
+          <rect x="74" y="98" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="86" y="114" fill="var(--text-faint)">0</text>
+          <rect x="98" y="98" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="110" y="114" fill="var(--text-faint)">0</text>
+          <rect x="122" y="98" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="134" y="114" fill="var(--text-faint)">0</text>
+          <rect x="26" y="122" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="38" y="138" fill="var(--text)">1</text>
+          <rect x="50" y="122" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="62" y="138" fill="var(--text-faint)">0</text>
+          <rect x="74" y="122" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="86" y="138" fill="var(--text-faint)">0</text>
+          <rect x="98" y="122" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="110" y="138" fill="var(--text)">7</text>
+          <rect x="122" y="122" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="134" y="138" fill="var(--text-faint)">0</text>
+          <rect x="26" y="146" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="38" y="162" fill="var(--text-faint)">0</text>
+          <rect x="50" y="146" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="62" y="162" fill="var(--text-faint)">0</text>
+          <rect x="74" y="146" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="86" y="162" fill="var(--text)">2</text>
+          <rect x="98" y="146" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="110" y="162" fill="var(--text-faint)">0</text>
+          <rect x="122" y="146" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="134" y="162" fill="var(--text-faint)">0</text>
+          <rect x="26" y="170" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="38" y="186" fill="var(--text-faint)">0</text>
+          <rect x="50" y="170" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="62" y="186" fill="var(--text-faint)">0</text>
+          <rect x="74" y="170" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="86" y="186" fill="var(--text-faint)">0</text>
+          <rect x="98" y="170" width="24" height="24" rx="3" fill="var(--panel)" stroke="var(--border)" stroke-width="1"/><text x="110" y="186" fill="var(--text-faint)">0</text>
+          <rect x="122" y="170" width="24" height="24" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.4"/><text x="134" y="186" fill="var(--text)">3</text>
+        </g>
+        <text x="26" y="212" fill="var(--text-faint)" font-size="11">25 个格子里只有 7 个非零 → 稀疏度 72%</text>
+
+        <text x="200" y="48" fill="var(--text-soft)" font-size="11.5">② COO：三元组列表</text>
+        <g font-family="Consolas,monospace" font-size="11.5" text-anchor="middle">
+          <text x="213" y="70" fill="var(--text-faint)">row</text>
+          <text x="257" y="70" fill="var(--text-faint)">col</text>
+          <text x="308" y="70" fill="var(--text-faint)">val</text>
+          <rect x="190" y="76" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="92" fill="var(--text)">0</text>
+          <rect x="234" y="76" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="92" fill="var(--text)">0</text>
+          <rect x="280" y="76" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="92" fill="var(--text)">4</text>
+          <rect x="190" y="100" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="116" fill="var(--text)">0</text>
+          <rect x="234" y="100" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="116" fill="var(--text)">2</text>
+          <rect x="280" y="100" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="116" fill="var(--text)">6</text>
+          <rect x="190" y="124" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="140" fill="var(--text)">1</text>
+          <rect x="234" y="124" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="140" fill="var(--text)">1</text>
+          <rect x="280" y="124" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="140" fill="var(--text)">5</text>
+          <rect x="190" y="148" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="164" fill="var(--text)">2</text>
+          <rect x="234" y="148" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="164" fill="var(--text)">0</text>
+          <rect x="280" y="148" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="164" fill="var(--text)">1</text>
+          <rect x="190" y="172" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="188" fill="var(--text)">2</text>
+          <rect x="234" y="172" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="188" fill="var(--text)">3</text>
+          <rect x="280" y="172" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="188" fill="var(--text)">7</text>
+          <rect x="190" y="196" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="212" fill="var(--text)">3</text>
+          <rect x="234" y="196" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="212" fill="var(--text)">2</text>
+          <rect x="280" y="196" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="212" fill="var(--text)">2</text>
+          <rect x="190" y="220" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="213" y="236" fill="var(--text)">4</text>
+          <rect x="234" y="220" width="46" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="257" y="236" fill="var(--text)">4</text>
+          <rect x="280" y="220" width="56" height="22" rx="3" fill="var(--bg-soft)" stroke="var(--border)"/><text x="308" y="236" fill="var(--text)">3</text>
+        </g>
+        <text x="200" y="266" fill="var(--text-faint)" font-size="11">好追加，但查 (i, j) 要扫全表 O(nnz)</text>
+
+        <line x1="350" y1="155" x2="392" y2="155" stroke="var(--brand)" stroke-width="2" marker-end="url(#mk-b)"/>
+        <text x="371" y="142" text-anchor="middle" fill="var(--brand)" font-size="10.5">按行分桶</text>
+
+        <text x="404" y="48" fill="var(--text-soft)" font-size="11.5">③ CSR：三个数组</text>
+        <g font-family="Consolas,monospace" font-size="11" text-anchor="middle">
+          <text x="366" y="68" fill="var(--text-faint)">p=0</text>
+          <text x="402" y="68" fill="var(--text-faint)">1</text>
+          <text x="438" y="68" fill="var(--text-faint)">2</text>
+          <text x="474" y="68" fill="var(--text-faint)">3</text>
+          <text x="510" y="68" fill="var(--text-faint)">4</text>
+          <text x="546" y="68" fill="var(--text-faint)">5</text>
+          <text x="582" y="68" fill="var(--text-faint)">6</text>
+
+          <path d="M336,102 L336,96 L372,96 L372,102" fill="none" stroke="var(--brand)" stroke-width="1.3"/>
+          <text x="376" y="94" fill="var(--brand)" font-size="10.5" text-anchor="start">i = 0</text>
+          <path d="M372,116 L372,110 L444,110 L444,116" fill="none" stroke="var(--brand)" stroke-width="1.3"/>
+          <text x="448" y="108" fill="var(--brand)" font-size="10.5" text-anchor="start">i = 1</text>
+          <path d="M444,130 L444,124 L516,124 L516,130" fill="none" stroke="var(--brand)" stroke-width="1.3"/>
+          <text x="520" y="122" fill="var(--brand)" font-size="10.5" text-anchor="start">i = 2</text>
+          <path d="M516,144 L516,138 L552,138 L552,144" fill="none" stroke="var(--brand)" stroke-width="1.3"/>
+          <text x="556" y="136" fill="var(--brand)" font-size="10.5" text-anchor="start">i = 3, 4</text>
+
+          <text x="322" y="174" text-anchor="end" fill="var(--text-soft)">values[]</text>
+          <rect x="336" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="354" y="173" fill="var(--text)">4</text>
+          <rect x="372" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="390" y="173" fill="var(--text)">6</text>
+          <rect x="408" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="426" y="173" fill="var(--text)">5</text>
+          <rect x="444" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="462" y="173" fill="var(--text)">1</text>
+          <rect x="480" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="498" y="173" fill="var(--text)">7</text>
+          <rect x="516" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="534" y="173" fill="var(--text)">2</text>
+          <rect x="552" y="154" width="36" height="28" rx="3" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.5"/><text x="570" y="173" fill="var(--text)">3</text>
+
+          <text x="322" y="222" text-anchor="end" fill="var(--text-soft)">colIdx[]</text>
+          <rect x="336" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="354" y="221" fill="var(--text)">0</text>
+          <rect x="372" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="390" y="221" fill="var(--text)">2</text>
+          <rect x="408" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="426" y="221" fill="var(--text)">1</text>
+          <rect x="444" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="462" y="221" fill="var(--text)">0</text>
+          <rect x="480" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="498" y="221" fill="var(--text)">3</text>
+          <rect x="516" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="534" y="221" fill="var(--text)">2</text>
+          <rect x="552" y="202" width="36" height="28" rx="3" fill="var(--panel)" stroke="var(--border-strong)" stroke-width="1.2"/><text x="570" y="221" fill="var(--text)">4</text>
+
+          <text x="322" y="288" text-anchor="end" fill="var(--text-soft)">rowPtr[]</text>
+          <rect x="336" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="354" y="287" fill="var(--text)">0</text>
+          <rect x="372" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="390" y="287" fill="var(--text)">2</text>
+          <rect x="408" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="426" y="287" fill="var(--text)">3</text>
+          <rect x="444" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="462" y="287" fill="var(--text)">5</text>
+          <rect x="480" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="498" y="287" fill="var(--text)">6</text>
+          <rect x="516" y="268" width="36" height="28" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="534" y="287" fill="var(--text)">7</text>
+        <text x="562" y="287" fill="var(--text-faint)" font-size="10.5" text-anchor="start">← 哨兵 = nnz</text>
+        </g>
+        <text x="180" y="322" fill="var(--text-faint)" font-size="11">rowPtr 是「每行起点」的前缀和：第 i 行就是 p ∈ [rowPtr[i], rowPtr[i+1]) 这一段。</text>
+
+        <text x="640" y="48" fill="var(--text-soft)" font-size="11.5">④ SpMV：y = A · x</text>
+        <text x="648" y="120" fill="var(--text-faint)" font-size="11.5">给定 x = (1, 2, 3, 4, 5)ᵀ</text>
+        <text x="648" y="146" fill="var(--text-soft)" font-size="11.5">y[0] = 4·x0 + 6·x2 = 4 + 18 =</text>
+        <text x="866" y="146" fill="var(--ok)" font-size="11.5" font-weight="700">22</text>
+        <text x="648" y="170" fill="var(--text-soft)" font-size="11.5">y[1] = 5·x1 = 10</text>
+        <text x="648" y="194" fill="var(--text-soft)" font-size="11.5">y[2] = 1·x0 + 7·x3 = 1 + 28 =</text>
+        <text x="866" y="194" fill="var(--ok)" font-size="11.5" font-weight="700">29</text>
+        <text x="648" y="218" fill="var(--text-soft)" font-size="11.5">y[3] = 2·x2 = 6</text>
+        <text x="648" y="242" fill="var(--text-soft)" font-size="11.5">y[4] = 3·x4 = 15</text>
+        <text x="648" y="274" fill="var(--text-faint)" font-size="11">每个 p 只做一次乘加；x[colIdx[p]] 是唯一的间接访问</text>
+        <text x="648" y="294" fill="var(--text-faint)" font-size="11">7 次乘加换掉稠密的 25 次，且内层 p 连续前进 → 缓存友好</text>
+
+        <g font-family="Consolas,monospace" font-size="11" text-anchor="middle">
+          <text x="744" y="340" fill="var(--text-soft)">y[] =</text>
+          <rect x="770" y="320" width="30" height="26" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="785" y="338" fill="var(--text)">22</text>
+          <rect x="802" y="320" width="30" height="26" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="817" y="338" fill="var(--text)">10</text>
+          <rect x="834" y="320" width="30" height="26" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="849" y="338" fill="var(--text)">29</text>
+          <rect x="866" y="320" width="30" height="26" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="881" y="338" fill="var(--text)">6</text>
+          <rect x="898" y="320" width="30" height="26" rx="3" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.4"/><text x="913" y="338" fill="var(--text)">15</text>
+        </g>
+
+        <text x="20" y="386" fill="var(--text-faint)" font-size="11.5">代价：rowPtr 额外占 m+1 个整数；结构一旦定下就不便插入——插入一个非零元会让它后面的位置整体后移。</text>
+        <text x="20" y="410" fill="var(--text-faint)" font-size="11.5">收益：只存 7 个非零元而不是 25 个格子；乘加次数从 m×n 降到 nnz，且内层在 values / colIdx 上顺序前进。</text>
+        <text x="20" y="434" fill="var(--text-faint)" font-size="11.5">工程流水线：<tspan fill="var(--brand)">COO 建</tspan> → <tspan fill="var(--ok)">计数 + 前缀和转 CSR</tspan> → <tspan fill="var(--accent)">CSR 反复算</tspan>。</text>
+        <text x="20" y="466" fill="var(--text-faint)" font-size="11.5">同一个矩阵换一种存法：内存一样，速度可能差几倍。</text>
+      </svg>
+      <figcaption>图 6-12　COO → CSR 的转换与 SpMV：三元组按行分桶放进 values / colIdx，rowPtr 划出每一行的区间</figcaption>
+    </div>
+
+    <p>
+      所以工程上的标准流水线是三段式，<b>每一段都只在必要的时候做一次</b>：
+    </p>
+    <div class="note tip">
+      <span class="note-title">稀疏矩阵的三段式流水线</span>
+      <b>① COO 建</b>（读文件、装配有限元单元、收集用户行为，来一条追加一条）→
+      <b>② 转成 CSR 算</b>（一次计数 + 前缀和，之后所有 SpMV / SpGEMM / 迭代求解都用它）→
+      <b>③ 需要按列时再转 CSC</b>，但要注意 CSC ↔ CSR 的互转就是一次转置，
+      成本同样是 <code>O(nnz)</code>，<b>不要在热循环里来回换</b>。<br>
+      如果用的是 GPU 且矩阵有明显的块结构（有限元、图神经网络的邻接块），
+      第二步可以改成「转 BSR」，一个块一个线程，反而比 CSR 更快。
+    </div>
+
+    <p>
+      把上面这张图的四步写成代码：先用三元组给一个 5 × 5 稀疏矩阵，
+      统计非零元个数 <code>cnt[]</code>，做前缀和得到 <code>rowPtr[]</code>，
+      再把每个元素填进它该在的位置得到 <code>values[]</code> 与 <code>colIdx[]</code>，
+      最后用 CSR 完成一次 <code>y = A·x</code>。
+      注意解压后的所有临时数组都是全局的、函数都是自由函数——考试和竞赛里不需要任何封装：
+    </p>
+
+    <pre data-lang="cpp" data-file="csr_spmv.cpp">/* ============================================================
+   csr_spmv.cpp —— COO → CSR 转换 + 稀疏矩阵乘向量 SpMV
+
+   输入：5 x 5 稀疏矩阵的三元组（行、列、值）
+   输出：CSR 的三个数组 values / colIdx / rowPtr，以及 y = A * x
+
+   编译： g++ -std=c++17 -O2 -o csr_spmv csr_spmv.cpp
+   ============================================================ */
+#include &lt;cstdio&gt;
+
+const int MAXN   = 100;    /* 行数上界 */
+const int MAXNNZ = 1000;   /* 非零元个数上界 */
+
+/* COO 三元组：行、列、值 */
+struct Triple { int row, col, val; };
+
+int values[MAXNNZ];      /* 非零元的值 */
+int colIdx[MAXNNZ];      /* 与 values 一一对应的列号 */
+int rowPtr[MAXN + 1];    /* 第 i 行的区间是 [rowPtr[i], rowPtr[i+1]) */
+
+/* ---------- COO -> CSR：计数 + 前缀和 + 按行放置 ---------- */
+void cooToCsr(const Triple t[], int nnz, int rows) {
+    for (int i = 0; i &lt;= rows; ++i) rowPtr[i] = 0;
+
+    /* 1) 统计每一行有几个非零元：先记在 rowPtr[row + 1] 上 */
+    for (int k = 0; k &lt; nnz; ++k) rowPtr[t[k].row + 1]++;
+
+    /* 2) 前缀和：rowPtr[i + 1] = 0..i 行的非零元总数，即第 i+1 行的起点 */
+    for (int i = 0; i &lt; rows; ++i) rowPtr[i + 1] += rowPtr[i];
+
+    /* 3) 再扫一遍三元组，把元素放进它该在的位置。
+          rowPtr[row] 先当写入游标，写一个就往右挪一格，
+          全部写完时它恰好等于第 row+1 行的起点 */
+    for (int k = 0; k &lt; nnz; ++k) {
+        int p = rowPtr[t[k].row]++;
+        values[p] = t[k].val;
+        colIdx[p] = t[k].col;
+    }
+
+    /* 4) 把游标整体右移一位还原成行起点，并补上哨兵 rowPtr[rows] = nnz */
+    for (int i = rows; i &gt; 0; --i) rowPtr[i] = rowPtr[i - 1];
+    rowPtr[0] = 0;
+}
+
+/* ---------- SpMV：y = A * x，按行扫描 CSR ---------- */
+void spmvCsr(int rows, const int x[], int y[]) {
+    for (int i = 0; i &lt; rows; ++i) {
+        int sum = 0;
+        /* 第 i 行的非零元就是 values[rowPtr[i] .. rowPtr[i+1] - 1] 这一段，
+           连续访问，不需要任何查找 */
+        for (int p = rowPtr[i]; p &lt; rowPtr[i + 1]; ++p)
+            sum += values[p] * x[colIdx[p]];
+        y[i] = sum;
+    }
+}
+
+int main() {
+    /* 5 x 5 稀疏矩阵，7 个非零元，按行优先给出三元组 */
+    const Triple coo[] = {
+        {0, 0, 4}, {0, 2, 6},
+        {1, 1, 5},
+        {2, 0, 1}, {2, 3, 7},
+        {3, 2, 2},
+        {4, 4, 3}
+    };
+    const int nnz = 7, rows = 5;
+    const int x[5] = {1, 2, 3, 4, 5};
+    int y[5];
+
+    cooToCsr(coo, nnz, rows);
+
+    printf("values  :");
+    for (int p = 0; p &lt; nnz; ++p) printf(" %2d", values[p]);
+    printf("\ncolIdx  :");
+    for (int p = 0; p &lt; nnz; ++p) printf(" %2d", colIdx[p]);
+    printf("\nrowPtr  :");
+    for (int i = 0; i &lt; rows; ++i) printf(" %2d", rowPtr[i]);
+    printf(" %2d", nnz);          /* 哨兵 rowPtr[rows] */
+    printf("\n");
+
+    spmvCsr(rows, x, y);
+    printf("x       :");
+    for (int i = 0; i &lt; rows; ++i) printf(" %2d", x[i]);
+    printf("\ny = A*x :");
+    for (int i = 0; i &lt; rows; ++i) printf(" %2d", y[i]);
+    printf("\n");
+    return 0;
+}
+
+/* 运行结果（g++ -std=c++17 -O2，与图 6-12 完全对应）：
+     values  :  4  6  5  1  7  2  3
+     colIdx  :  0  2  1  0  3  2  4
+     rowPtr  :  0  2  3  5  6  7
+     x       :  1  2  3  4  5
+     y = A*x : 22 10 29  6 15
+   手工核对第 0 行：y[0] = values[0]*x[colIdx[0]] + values[1]*x[colIdx[1]]
+                       = 4*x[0] + 6*x[2] = 4 + 18 = 22  ✔
+   注意 rowPtr[] 的长度是 rows + 1：多出来的那个哨兵 nnz = 7 让每行的区间
+   都能写成半开区间，内层循环因此少一个 if —— 这就是 CSR 比三元组表简洁的地方。 */</pre>
+
+    <h3 id="s9-5">6.9.5 SpMV 与真实系统：稀疏度 99.99% 意味着什么</h3>
+
+    <p>
+      把上面几种结构推到真实规模，看一组数字，就能理解为什么「稀疏」不是一个学术概念：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>系统</th><th>矩阵规模与稀疏度</th><th>稠密存储</th><th>CSR 存储</th></tr></thead>
+        <tbody>
+          <tr><td><b>PageRank</b><br><span class="mini">网页链接矩阵</span></td>
+            <td><code>6 × 10<sup>9</sup></code> 个网页、平均每个页面约 10 条出链<br>
+              矩阵共有 <code>3.6 × 10<sup>17</sup></code> 个格子，非零元 <code>6 × 10<sup>10</sup></code> 个<br>
+              <b>稀疏度 ≈ 99.99998%</b></td>
+            <td class="c-bad"><code>3.6 × 10<sup>17</sup> × 8</code> 字节<br>≈ <b>288 万 TB</b></td>
+            <td class="c-ok"><code>6 × 10<sup>10</sup> × 12</code> 字节<br>≈ <b>720 GB</b></td></tr>
+          <tr><td><b>有限元</b><br><span class="mini">刚度矩阵</span></td>
+            <td><code>3.4 × 10<sup>5</sup></code> 个自由度、平均每行约 15 个非零元<br>
+              非零元约 <code>5 × 10<sup>6</sup></code> 个，<b>稀疏度 &gt; 99.99%</b></td>
+            <td class="c-bad">≈ <b>930 GB</b></td>
+            <td class="c-ok">≈ <b>60 MB</b></td></tr>
+          <tr><td><b>推荐系统</b><br><span class="mini">用户–物品交互矩阵</span></td>
+            <td><code>10<sup>9</sup></code> 用户 × <code>10<sup>6</sup></code> 物品 = <code>10<sup>15</sup></code> 个格子<br>
+              平均每个用户 100 条行为 → 非零元 <code>10<sup>11</sup></code> 个<br>
+              <b>稀疏度 &gt; 99.99%</b></td>
+            <td class="c-bad"><code>10<sup>15</sup> × 8</code> 字节<br>≈ <b>800 万 TB</b></td>
+            <td class="c-ok"><code>10<sup>11</sup> × 12</code> 字节<br>≈ <b>1.2 TB</b></td></tr>
+          <tr><td><b>图算法</b><br><span class="mini">邻接矩阵</span></td>
+            <td>邻接矩阵就是天然的稀疏矩阵：第 <code>i</code> 行的非零元
+              就是顶点 <code>i</code> 的邻居 <code>O(deg(i))</code> 个<br>
+              社交图平均度约 200，<b>稀疏度 &gt; 99.99%</b></td>
+            <td class="c-bad">顶点数的平方</td>
+            <td class="c-ok">边数的两倍量级</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>「288 万 TB」与「720 GB」差了 400 万倍</b>，这不是优化问题，是「换一种存法才能存在」的问题。
+      而所有四个系统最终都要落到同一个算子——<b>SpMV：稀疏矩阵乘向量 <code>y = Ax</code></b>：
+    </p>
+    <ul>
+      <li><b>PageRank</b>：一次迭代 = 一次 SpMV + 一次向量归一化，
+        收敛要跑几十次迭代，稀疏链接矩阵 <code>G</code> 自然要用 CSR / CSC 存；
+        它同时也是第 08 讲图基础与第 09 讲图论算法里的老话题——<b>CSR 就是邻接表压平后的样子</b>。</li>
+      <li><b>有限元迭代求解</b>：共轭梯度法（CG）每步一次 SpMV，矩阵结构直接决定一次求解要多久。</li>
+      <li><b>推荐系统的召回与图神经网络</b>：用户-物品矩阵上的 <code>A x</code>
+        就是「按用户聚合物品向量」，本质是一次稀疏矩阵乘法。</li>
+      <li><b>图算法</b>：BFS 的一层扩散、Personalized PageRank、
+        图卷积的一跳聚合，都能写成一次 SpMV——稀疏矩阵确实是图算法的公共底座。</li>
+    </ul>
+    <div class="note exam">
+      <span class="note-title">为什么这四个系统都停在 SpMV 上</span>
+      因为 SpMV 的每一行非零元在 <code>row_ptr</code> 里是连续区间，
+      天然支持「按行并行」，而不同行的长度不同只是负载均衡问题，
+      不影响访问模式的规律性。稀疏矩阵真正难加速的不是 SpMV，
+      而是稀疏矩阵乘稀疏矩阵（SpGEMM）：输出规模事先未知、结构无法预测，
+      这也是它至今仍是研究热点的原因。
+    </div>
+
+    <h3 id="s9-6">6.9.6 稠密 vs 稀疏的临界点：稀疏格式不一定更快</h3>
+
+    <p>
+      到这里很容易得出一个错误结论：稀疏格式更省内存，所以应该总是用它。
+      <b>不对。</b>「省内存」和「更快」是两件事，本章最后这一小节专门拆开它。
+    </p>
+    <p>
+      先算纯内存的临界点。设矩阵 <code>m × n</code>、非零元 <code>nnz</code> 个：
+    </p>
+    <div class="formula">
+      稠密行优先：<code>m × n</code> 个 double<br>
+      CSR：<code>nnz</code> 个 double + <code>nnz</code> 个列号 + <code>(m + 1)</code> 个行指针<br>
+      → 用 4 字节整数、8 字节 double 折算成 double 个数：<code>1.5 × nnz + m / 2</code>
+    </div>
+    <p>
+      让两者相等：<code>mn ≈ 1.5 nnz + m/2</code>，
+      方阵情形下的解是 <code>密度 &lt; 1/1.5 ≈ 67%</code>，也就是<b>理论临界点约 67%</b>。
+      但这只是「内存打平」，还没算性能账。加上索引开销与访问模式损失，
+      实际工程经验值低得多：<b>密度超过 5% ~ 10% 时，稠密格式往往反而更快</b>。
+    </p>
+    <p>算一算具体的内存账，把临界点看得更清楚：</p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>矩阵</th><th>密度</th><th>稠密行优先</th><th>CSR</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td><code>10000 × 10000</code></td><td><b>1%</b></td>
+            <td>800 MB</td><td>约 12 MB</td><td class="c-ok">稀疏赢 66 倍</td></tr>
+          <tr><td><code>10000 × 10000</code></td><td><b>10%</b></td>
+            <td>800 MB</td><td>约 120 MB</td><td class="c-ok">稀疏赢 6.7 倍，性能已开始接近</td></tr>
+          <tr><td><code>10000 × 10000</code></td><td><b>50%</b></td>
+            <td>800 MB</td><td>约 600 MB</td><td class="c-warn">只赢 1.3 倍，但性能可能更慢</td></tr>
+          <tr><td><code>10000 × 10000</code></td><td><b>90%</b></td>
+            <td>800 MB</td><td>约 1080 MB</td><td class="c-bad">稀疏反而更费内存 + 更慢</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      为什么密度一高稀疏就可能更慢？因为<b>稠密格式能用上 BLAS</b>，而 BLAS 是几十年工程优化的结晶：
+      分块（blocking）让数据复用、SIMD 向量化一次算 4 ~ 8 个 <code>double</code>、
+      多线程并行。到了 SpMV 上，情形完全反过来——<b>SpMV 是典型的内存受限操作</b>，
+      算力用不上：
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>算子</th><th>每字节数据换来的浮点运算</th><th>实测能达到的峰值利用率</th></tr></thead>
+        <tbody>
+          <tr><td>稠密矩阵乘法（<code>dgemm</code>）</td><td>约 <b>16 ~ 32</b> 次</td>
+            <td class="c-ok">可达机器峰值的 <b>60% ~ 90%</b></td></tr>
+          <tr><td>稀疏 SpMV</td><td>约 <b>0.05</b> 次（12 字节换 2 次乘加）</td>
+            <td class="c-bad">通常只有峰值的 <b>1% ~ 5%</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      两个数量级的差距。所以工程上的判断顺序是：
+      <b>先看矩阵是不是真的稀疏（现成数字：低于 10% 才值得进入稀疏方案），
+      再看瓶颈是内存还是速度</b>。如果内存够、只要算得快，稠密 BLAS 经常是更好的选择——
+      甚至有人故意把稀疏矩阵<b>补零成稠密</b>再交给 BLAS，因为这样更快。
+    </p>
+    <p>还有两个更细的陷阱，考试和面试都很爱问：</p>
+    <ul>
+      <li><b>稀疏格式省的是内存，不是时间。</b>如果矩阵的非零元分布极其不规则
+        （比如每一行的列号都是随机的），<code>x[col_idx[p]]</code> 这一步会在整个
+        <code>x</code> 上乱跳，缓存几乎全部失效。此时 CSR 的 <code>nnz</code> 次乘加
+        每一次都等一次主存，<b>算下来可能比稠密的 <code>m × n</code> 次顺序乘加还慢</b>。
+        工程上对治的办法是按行排序、对矩阵做重排序（RCM / AMD）降低带宽、
+        或者干脆改数据布局（把 <code>x</code> 按列号重新编号）。</li>
+      <li><b>稀疏度必须说清楚分母。</b>「稀疏度 99.99%」指的是非零元占格子总数的比例，
+        但矩阵规模相差悬殊时这个比例没有可比性。<b>工程上更常用「平均每行非零元个数」
+        与 nnz 的绝对量</b>，因为它们直接对应内存占用与访存次数。</li>
+    </ul>
+
+    <h3 id="s9-7">6.9.7 一张工程选型表</h3>
+
+    <p>
+      最后把六种存储方式放进一张表。这张表不是用来背的，而是用来回答一个具体问题：
+      <b>我手上这个矩阵，现在处于哪个阶段，该选哪种存法。</b>
+    </p>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead>
+          <tr>
+            <th>存储格式</th><th>适用阶段</th><th>内存开销</th><th>随机访问</th>
+            <th>SpMV 效率</th><th>是否适合 GPU</th><th>典型库或系统</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>稠密行优先</b><br><span class="mini">C order</span></td>
+            <td>中小规模、结构密集；需要按行扫描（图像、逐行统计）</td>
+            <td><code>m × n</code> 个元素，最费内存</td>
+            <td class="c-ok"><code>O(1)</code>，地址一次乘加</td>
+            <td class="c-warn">稠密乘向量本身就不划算</td>
+            <td class="c-ok">适合：连续内存、合并访存</td>
+            <td>C / C++ 原生二维数组、NumPy 默认、cuBLAS 行主序接口</td>
+          </tr>
+          <tr>
+            <td><b>稠密列优先</b><br><span class="mini">Fortran / F order</span></td>
+            <td>数值线性代数主线：矩阵分解、BLAS / LAPACK 调用</td>
+            <td>同上</td>
+            <td class="c-ok"><code>O(1)</code>，公式换成 <code>(j×m + i)×L</code></td>
+            <td class="c-warn">同上</td>
+            <td class="c-ok">适合：与列主序 BLAS 无缝对接</td>
+            <td>BLAS / LAPACK、MATLAB、Fortran、<code>np.asfortranarray</code></td>
+          </tr>
+          <tr>
+            <td><b>COO</b><br><span class="mini">三元组</span></td>
+            <td><b>构建阶段</b>：读文件、装配、收集，随时追加</td>
+            <td>每元 3 整数 + 1 值 ≈ 20 字节</td>
+            <td class="c-bad">查 <code>(i,j)</code> 要扫 <code>O(nnz)</code></td>
+            <td class="c-bad">差：元素散乱、无行边界</td>
+            <td class="c-warn">一般：先转格式再用</td>
+            <td>SciPy <code>coo_matrix</code>、PETSc 装配阶段、PyTorch <code>sparse_coo</code></td>
+          </tr>
+          <tr>
+            <td><b>CSR</b><br><span class="mini">行压缩</span></td>
+            <td><b>计算阶段</b>：结构定下来后反复做乘法与迭代求解</td>
+            <td>每元 2 整数 + 1 值 ≈ 16 字节，另加 <code>m + 1</code></td>
+            <td class="c-warn">按行区间 <code>O(行内 nnz)</code>；按 <code>(i,j)</code> 定位要二分</td>
+            <td class="c-ok">最好：内层连续前进</td>
+            <td class="c-ok">很适合：每行一段、便于并行</td>
+            <td>SciPy <code>csr_matrix</code>、cuSPARSE、MKL、<code>scipy.sparse.linalg</code>、PageRank 类实现</td>
+          </tr>
+          <tr>
+            <td><b>CSC</b><br><span class="mini">列压缩</span></td>
+            <td>按列访问更频繁：<code>A<sup>T</sup>x</code>、按列切片、列主序生态</td>
+            <td>与 CSR 相同</td>
+            <td class="c-warn">按列区间 <code>O(列内 nnz)</code></td>
+            <td class="c-ok">好：转成 CSR 即得转置的 SpMV</td>
+            <td class="c-ok">适合（同 CSR）</td>
+            <td>MATLAB 稀疏矩阵、SciPy <code>csc_matrix</code>、SuiteSparse 部分工具</td>
+          </tr>
+          <tr>
+            <td><b>BSR</b><br><span class="mini">块稀疏</span></td>
+            <td>矩阵天然分块（有限元、多物理场、GNN 邻接块），或需要 GPU 加速</td>
+            <td>视块大小；块内零也存，通常比 CSR 略费</td>
+            <td class="c-warn">按块定位，块内 <code>O(1)</code></td>
+            <td class="c-ok">很好：块内是稠密核</td>
+            <td class="c-ok">最合适：向量化 + 共享内存</td>
+            <td>cuSPARSE <code>bsrmv</code>、PETSc <code>MATBAIJ</code>、MKL 块稀疏接口</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">工程视角小结：本章的六个公式在真实系统里各自对应什么</span>
+      <ol style="margin:6px 0 0">
+        <li><b>行优先 / 列优先的地址公式</b> → 决定遍历顺序快几倍，也决定「要不要转置给 BLAS」，
+          以及 NumPy 里 <code>C order</code> 与 <code>F order</code> 的取舍。</li>
+        <li><b>对称矩阵只存一半</b> → 刚度矩阵、协方差矩阵、距离矩阵的常规操作；
+          代价是下标映射多一条分支、稀疏情形下会打乱访问模式、上三角/下三角约定极易出错。</li>
+        <li><b>三对角压缩与 <code>3n − 2</code></b> → 样条插值、热传导隐式格式、边值问题的入口；
+          配上 Thomas 算法，把 <code>O(n³)</code> 变成 <code>O(n)</code>，这是「结构换复杂度」最经典的一课。</li>
+        <li><b>三元组顺序表</b> → 工程里的 COO：负责「建」，不负责「算」。</li>
+        <li><b>行逻辑链接的 <code>rpos[]</code></b> → 工程里的 CSR <code>row_ptr[]</code>：
+          负责「算」，SpMV 的 <code>O(nnz)</code> 全靠它把每行圈成一段连续区间。</li>
+        <li><b>十字链表</b> → 结构频繁增删时的选择；
+          如果只是想「按行也能按列」，第 10 讲讲过的哈希表（键为 <code>(i, j)</code> 的
+          <code>unordered_map</code>）在工程里同样常见，代价是失去顺序性。</li>
+      </ol>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">本节的一句话总结</span>
+      <b>压缩存储的工程本质，是「用一次固定的格式转换，换掉之后成千上万次访问里的浪费」。</b>
+      稠密、COO、CSR、CSC、BSR 之间没有优劣，只有「现在处在哪个阶段」；
+      真正需要判断的永远是那三个问题：<b>数据有多少个非零元、谁会按什么顺序访问它、
+      省下来的内存能不能真的换成时间。</b>
+    </div>
+
+    <h2 id="s10">6.10 本章小结、易错点与自测</h2>
+
+    <h3 id="s10-1">6.10.1 必须记住的六件事</h3>
     <div class="grid c2">
       <div class="card">
         <h4 style="margin-top:0">概念与公式</h4>
@@ -3476,7 +4225,7 @@ int main() {
       </div>
     </div>
 
-    <h3 id="s9-2">6.9.2 易错点清单</h3>
+    <h3 id="s10-2">6.10.2 易错点清单</h3>
 
     <div class="note danger">
       <span class="note-title">致命错误（一犯就全错）</span>
@@ -3511,7 +4260,7 @@ int main() {
       </ul>
     </div>
 
-    <h3 id="s9-3">6.9.3 考点提示</h3>
+    <h3 id="s10-3">6.10.3 考点提示</h3>
 
     <div class="note exam">
       <span class="note-title">历年高频考法</span>
@@ -3547,7 +4296,7 @@ int main() {
       </ol>
     </div>
 
-    <h3 id="s9-4">6.9.4 自测题（先自己做，再展开看答案）</h3>
+    <h3 id="s10-4">6.10.4 自测题（先自己做，再展开看答案）</h3>
 
     <details class="fold">
       <summary>1. 【地址计算】二维数组 <code>A[5][8]</code>，每个元素 4 字节，<code>LOC(a[0][0]) = 2000</code>。求 <code>a[3][6]</code> 在行优先和列优先下的地址。</summary>
@@ -3640,7 +4389,7 @@ int main() {
       </div>
     </details>
 
-    <h3 id="s9-5">6.9.5 配套编程练习</h3>
+    <h3 id="s10-5">6.10.5 配套编程练习</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>练习</th><th>任务</th><th>提示 / 验收标准</th></tr></thead>
