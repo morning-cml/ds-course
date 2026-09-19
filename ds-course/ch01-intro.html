@@ -648,14 +648,14 @@
     </div>
 
         <div class="figure">
-      <svg viewBox="0 0 900 470" width="900" height="470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字直接算出该去哪个桶">
+      <svg viewBox="0 0 900 492" width="900" height="492" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字直接算出该去哪个桶">
         <text x="20" y="26" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<tspan font-weight="700">直接算出</tspan>该去哪个桶</text>
 
         <rect x="20" y="42" width="860" height="44" rx="8" class="fg-box"/>
         <text x="34" y="61" class="fg-b">演示：4 个桶（编号 0～3），散列函数 h(key) = key % 4。把 key 丢进去，算出的余数就是它该待的桶号。</text>
         <text x="34" y="79" class="fg-b">下面往表里放 3 个 key：1001、1009、2002，看看它们各自去哪。</text>
 
-        <text x="30" y="110" class="fg-bm">① 由 key 算出桶号（一次取模，不需要任何比较）</text>
+        <text x="30" y="110" class="fg-b">① 由 key 算出桶号（一次取模，不需要任何比较）</text>
         <rect x="30" y="120" width="230" height="82" rx="8" class="fg-os"/>
         <text x="145" y="142" class="fg-tm">1001 % 4 = 1</text>
         <text x="145" y="164" class="fg-tm">1009 % 4 = 1</text>
@@ -664,25 +664,25 @@
         <line x1="264" y1="161" x2="316" y2="161" class="fg-eo" marker-end="url(#mk-ao)"/>
         <text x="290" y="152" class="fg-lm" text-anchor="middle">桶号</text>
 
-        <text x="326" y="110" class="fg-bm">② 桶数组：[0] 和 [3] 空着，1001 与 1009 撞进同一个桶</text>
-        <rect x="326" y="120" width="554" height="190" rx="8" class="fg-box"/>
+        <text x="32" y="114" class="fg-b">② 桶数组：[0] 和 [3] 空着，1001 与 1009 撞进同一个桶</text>
+        <rect x="326" y="126" width="554" height="192" rx="8" class="fg-box"/>
 
-        <rect x="338" y="128" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="146" class="fg-lm">[0]</text>
-        <text x="398" y="146" class="fg-lm">空</text>
+        <rect x="338" y="134" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="152" class="fg-lm">[0]</text>
+        <text x="398" y="152" class="fg-lm">空</text>
 
-        <rect x="338" y="162" width="46" height="26" rx="4" class="fg-rs"/><text x="361" y="180" class="fg-tm">[1]</text>
-        <rect x="392" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="452" y="180" class="fg-t">1001 张三</text>
-        <line x1="514" y1="175" x2="538" y2="175" class="fg-e" marker-end="url(#mk-ar)"/>
-        <rect x="540" y="162" width="120" height="26" rx="4" class="fg-rs"/><text x="600" y="180" class="fg-t">1009 李四</text>
-        <text x="668" y="180" class="fg-lm">← 挂成一条链</text>
-        <text x="392" y="206" class="fg-lm">两个 key 都算出 1，这叫<tspan fill="var(--danger)">冲突</tspan>；查 1009 要在这个桶里比 2 次</text>
+        <rect x="338" y="168" width="46" height="26" rx="4" class="fg-rs"/><text x="361" y="186" class="fg-tm">[1]</text>
+        <rect x="392" y="168" width="120" height="26" rx="4" class="fg-rs"/><text x="452" y="186" class="fg-t">1001 张三</text>
+        <line x1="514" y1="181" x2="538" y2="181" class="fg-e" marker-end="url(#mk-ar)"/>
+        <rect x="540" y="168" width="120" height="26" rx="4" class="fg-rs"/><text x="600" y="186" class="fg-t">1009 李四</text>
+        <text x="680" y="181" class="fg-lm">← 链</text>
+        <text x="392" y="210" class="fg-lm">两个 key 都算出 1，这叫<tspan fill="var(--danger)">冲突</tspan>；查 1009 要在这个桶里比 2 次</text>
 
         <rect x="338" y="222" width="46" height="26" rx="4" class="fg-bs"/><text x="361" y="240" class="fg-tm">[2]</text>
         <rect x="392" y="222" width="120" height="26" rx="4" class="fg-bs"/><text x="452" y="240" class="fg-t">2002 王五</text>
-        <text x="520" y="240" class="fg-lm">← 桶里只有它一个，比 1 次就找到</text>
+        <text x="392" y="264" class="fg-lm">桶里只有它一个，比 1 次就找到</text>
 
-        <rect x="338" y="258" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="276" class="fg-lm">[3]</text>
-        <text x="398" y="276" class="fg-lm">空</text>
+        <rect x="338" y="276" width="46" height="26" rx="4" class="fg-soft"/><text x="361" y="294" class="fg-lm">[3]</text>
+        <text x="398" y="294" class="fg-lm">空</text>
 
         <rect x="30" y="326" width="430" height="70" rx="8" class="fg-gs"/>
         <text x="44" y="348" class="fg-b"><tspan font-weight="700" fill="var(--ok)">优势</tspan>：定位一个 key 只要「算一次 %」+「看这一个桶」，</text>
@@ -694,8 +694,8 @@
         <text x="488" y="368" class="fg-b"><tspan font-weight="700" fill="var(--danger)">代价二</tspan>：元素是「乱」的，顺序性被放弃，</text>
         <text x="488" y="388" class="fg-b">不能做「取成绩 80～90 之间的学生」这类范围查询</text>
 
-        <text x="20" y="424" class="fg-b">所以散列存储是「用顺序性换常数级查找」：查单个 key 最快，但按顺序、按范围的需求它就无能为力了（第 10 讲细讲）。</text>
-        <text x="20" y="448" class="fg-lm">注：桶数取 4 只为画得下；真实实现里桶数是几万到几百万，且元素变多时会自动扩容。</text>
+        <text x="20" y="452" class="fg-b">所以散列存储是「用顺序性换常数级查找」：查单个 key 最快，但按顺序、按范围的需求它就无能为力了（第 10 讲细讲）。</text>
+        <text x="20" y="476" class="fg-l">注：桶数取 4 只为画得下；真实实现里桶数是几万到几百万，且元素变多时会自动扩容。</text>
       </svg>
       <figcaption>图 1-10　散列存储：由关键字直接算出桶号（O(1) 定位），代价是必须处理冲突、且放弃顺序性</figcaption>
     </div>
