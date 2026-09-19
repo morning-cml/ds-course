@@ -606,7 +606,7 @@
         <div class="figure">
       <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="索引存储：索引表保存 关键字到地址 的映射">
         <text x="24" y="28" class="fg-tb">索引存储 index storage：主表之外再建一张「关键字 → 地址」的小表</text>
-        <text x="24" y="52" class="fg-b">要查「学号 1003 的成绩」——不建索引的话，只能从第一条记录开始逐条比对，这叫<b>全表扫描</b>。</text>
+        <text x="24" y="52" class="fg-b">要查「学号 1003 的成绩」——不建索引的话，只能从第一条记录开始逐条比对，这叫<tspan font-weight="700">全表扫描</tspan>。</text>
 
         <text x="170" y="82" class="fg-bm">索引表（小，可常驻内存）</text>
         <text x="450" y="82" class="fg-bm">数据表 / 主表（大，真正的记录都在这儿）</text>
@@ -636,16 +636,16 @@
         <text x="343" y="196" class="fg-lm">一次取到</text>
 
         <text x="24" y="312" class="fg-b">★ 优势就在这个「小」字上：索引项只有「键 + 地址」十几个字节，而数据表每条记录可能几百字节。</text>
-        <text x="24" y="332" class="fg-b">　 查 100 万条记录时，不必读 100 万条记录——先在索引里<b>二分查找</b>（O(log k) ≈ 20 次比较）定位到键，</text>
-        <text x="24" y="352" class="fg-b">　 再按地址<b>只读 1 条</b>记录。代价：多一份索引空间，插入删除要同步维护索引。</text>
+        <text x="24" y="332" class="fg-b">　 查 100 万条记录时，不必读 100 万条记录——先在索引里<tspan font-weight="700">二分查找</tspan>（O(log k) ≈ 20 次比较）定位到键，</text>
+        <text x="24" y="352" class="fg-b">　 再按地址<tspan font-weight="700">只读 1 条</tspan>记录。代价：多一份索引空间，插入删除要同步维护索引。</text>
       </svg>
       <figcaption>图 1-9　索引存储：用一张「关键字 → 地址」的小索引表，把「读 n 条记录」变成「查索引 + 读 1 条」</figcaption>
     </div>
 
     <div class="figure">
       <svg viewBox="0 0 850 380" width="850" height="380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="散列存储：由关键字经散列函数直接算出桶位置">
-        <text x="24" y="28" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<b>直接算出</b>该去哪个桶</text>
-        <text x="24" y="52" class="fg-b">查找分两步：① 把 key 丢进散列函数 h(key) 算出桶号；② 只在这一个桶里找。桶号是<b>算出来的</b>，不需要比较、不需要扫描。</text>
+        <text x="24" y="28" class="fg-tb">散列存储 hash storage：不建索引、也不排序，由关键字<tspan font-weight="700">直接算出</tspan>该去哪个桶</text>
+        <text x="24" y="52" class="fg-b">查找分两步：① 把 key 丢进散列函数 h(key) 算出桶号；② 只在这一个桶里找。桶号是<tspan font-weight="700">算出来的</tspan>，不需要比较、不需要扫描。</text>
 
         <rect x="150" y="66" width="130" height="40" rx="6" class="fg-os"/><text x="215" y="92" class="fg-tm">key = 1001</text>
         <line x1="284" y1="86" x2="330" y2="86" class="fg-eo" marker-end="url(#mk-ao)"/>
@@ -667,7 +667,7 @@
         <rect x="386" y="240" width="128" height="26" rx="4" class="fg-rs"/><text x="450" y="258" class="fg-t">1003 → 王五</text>
         <text x="524" y="258" class="fg-lm" fill="var(--danger)">← 冲突：两个 key 都算出 3</text>
 
-        <text x="150" y="330" class="fg-b">★ 优势：定位一个 key 只需「算一次 %」+「看一个桶」，与记录总数 n <b>无关</b>——这是真正的 O(1)，比索引的 O(log k) 还快。</text>
+        <text x="150" y="330" class="fg-b">★ 优势：定位一个 key 只需「算一次 %」+「看一个桶」，与记录总数 n <tspan font-weight="700">无关</tspan>——这是真正的 O(1)，比索引的 O(log k) 还快。</text>
         <text x="150" y="350" class="fg-b">★ 代价一：不同 key 可能算出同一个桶（<tspan fill="var(--danger)">冲突</tspan>），桶里要再逐个比，或用链表串起来（上图 [3] 号桶）。</text>
         <text x="150" y="370" class="fg-b">★ 代价二：桶里元素是「乱」的，<tspan fill="var(--danger)">顺序性被彻底放弃</tspan>——不能范围查询、不能按序遍历。第 10 讲细讲。</text>
       </svg>
@@ -1089,6 +1089,128 @@ int main() {
     return 0;
 }
 </pre>
+
+    <p>
+      光看代码不容易体会差别，下面把<b>同一组操作</b>（<code>getElem</code> 和 <code>listInsert</code>）
+      用两种存储各写一遍，并让函数返回「实际访问 / 搬移了多少个元素」。
+      两边的函数签名、调用方式、打印结果完全一样，<b>变的只是内部那两行</b>：
+    </p>
+
+    <pre data-lang="cpp" data-file="list_two_impls.cpp">// list_two_impls.cpp —— 同一个 ADT，两种存储，差别全在内部那几行
+//
+// 左边（顺序存储）和右边（链式存储）对外提供的是**同一个**线性表：
+//   getElem(i)     取第 i 个元素
+//   listInsert(i,x) 在第 i 个位置插入 x
+// 而两者的内部完全是两回事：
+//   · 顺序存储：元素挤在一段连续内存里，下标相邻 = 地址相邻
+//   · 链式存储：每个结点散落在堆上，靠 next 指针串起来
+//
+// 为了把差别摆到明面上，这两个函数都**返回访问了几个元素**（真实计数，不是估算）。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+/* ══════════════════════════════════════════════════════════════
+   实现一：顺序存储 —— 全局数组，物理相邻
+   ══════════════════════════════════════════════════════════════ */
+namespace seq {
+    const int MAXN = 100005;
+    int dat[MAXN];
+    int n = 0;
+
+    void init() { n = 0; }
+    int  length() { return n; }
+
+    /* 取第 i 个：地址 = 首地址 + (i-1)*sizeof(int)，一次就算出来。
+       返回访问次数，永远是 1 —— 与 i、与表长 n 都无关。 */
+    int getElem(int i, int &amp;out) {
+        out = dat[i - 1];         // ← 就这一行，没有循环
+        return 1;                 // 访问了 1 个元素
+    }
+
+    /* 在第 i 个位置插入：为了保持「物理相邻」，dat[i-1..n-1] 必须整体后移。
+       返回实际搬移的元素个数 = n-i+1。 */
+    int listInsert(int i, int x) {
+        int moved = 0;
+        for (int k = n; k &gt;= i; --k) { dat[k] = dat[k - 1]; ++moved; }  // ← 成片搬移
+        dat[i - 1] = x;
+        ++n;
+        return moved;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   实现二：链式存储 —— 结点 + 指针，物理位置任意
+   ══════════════════════════════════════════════════════════════ */
+namespace link {
+    struct Node { int val; Node *nxt; };
+    Node *head = nullptr;         // 带头结点的单链表：head 本身不存数据
+
+    void init() {
+        head = new Node{0, nullptr};
+    }
+    int length() {
+        int c = 0;
+        for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c;
+        return c;
+    }
+
+    /* 取第 i 个：没有地址公式可用，只能从 head 出发一个结点一个结点地走。
+       返回走过的结点数 = i。 */
+    int getElem(int i, int &amp;out) {
+        int visited = 0;
+        Node *p = head;
+        for (int k = 1; k &lt;= i; ++k) { p = p-&gt;nxt; ++visited; }   // ← 顺着指针走
+        out = p-&gt;val;
+        return visited;
+    }
+
+    /* 在第 i 个位置插入：找到第 i-1 个结点后，只改两条指针。
+       返回……0：因为一个元素都没搬，只是把指针重新接了一下。 */
+    int listInsert(int i, int x) {
+        Node *p = head;
+        for (int k = 1; k &lt; i; ++k) p = p-&gt;nxt;      // 找位置本身要 O(n)，但这不是「搬移」
+        p-&gt;nxt = new Node{x, p-&gt;nxt};                 // ← 只改两条指针，元素一个都没动
+        return 0;
+    }
+}
+
+int main() {
+    const int N = 100000;         // 建一张 10 万长的表，两种实现装同样的数据
+    int v = 0;
+
+    seq::init();
+    for (int i = 1; i &lt;= N; ++i) seq::listInsert(seq::length() + 1, i);
+    link::init();
+    for (int i = 1; i &lt;= N; ++i) link::listInsert(link::length() + 1, i);
+
+    printf("表长 n = %d\n\n", N);
+
+    /* —— 对比一：按位查找（取正中间那个元素）—— */
+    int i = N / 2;
+    int a1 = seq::getElem(i, v), a2 = link::getElem(i, v);
+    printf("【getElem(%d)】取第 %d 个元素\n", i, i);
+    printf("  顺序存储：访问 %d 个元素（一次地址计算，与 i 无关）\n", a1);
+    printf("  链式存储：访问 %d 个元素（走了 %d 步，正比于 i）\n", a2, i);
+    printf("  → 链表慢 %.0f 倍，而且 i 越大差得越多\n\n", (double)a2 / a1);
+
+    /* —— 对比二：在表头插入（最坏位置）—— */
+    int m1 = seq::listInsert(1, 999);
+    int m2 = link::listInsert(1, 999);
+    printf("【listInsert(1, 999)】在表头插入\n");
+    printf("  顺序存储：搬移 %d 个元素（后面所有元素都要往后退一格）\n", m1);
+    printf("  链式存储：搬移 %d 个元素（只改两条指针）\n", m2);
+    printf("  → 这一次反过来了：链表一个元素都不用搬\n");
+    return 0;
+}
+</pre>
+
+    <div class="note exam">
+      <span class="note-title">考点　上机跑一遍，把这两行数字记住</span>
+      同一个 <code>getElem(i)</code>，顺序存储访问 <b>1</b> 个元素、链式存储访问 <b>i</b> 个；
+      同一个 <code>listInsert(1, x)</code>，顺序存储搬 <b>n</b> 个元素、链式存储搬 <b>0</b> 个。
+      <b>操作名一模一样，代价完全对称</b>——这正是「逻辑结构相同、存储结构不同」最直观的证据，
+      也再次印证了 1.4 节的结论：<b>按位查找链表慢 n 倍，已知位置插删链表快 n 倍</b>。
+    </div>
 
     <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
     <p>
