@@ -369,13 +369,14 @@ function runPage(page) {
   /* ---- 右侧感应抽屉的交互测试 ---- */
   const tocTests = [];
   const bodyEl = window.document.body;
-  const trigger = queryAll(window.document, ".toc-trigger")[0];
+  /* 注：不再查询 .toc-trigger —— course.js 早就改成「按鼠标坐标 + 滞回」判定开合，
+     页面上根本没有这个感应区元素了（见 course.css 里那段注释）。 */
   const drawer = queryAll(window.document, ".toc-drawer")[0];
   const btnToc = window.document.getElementById("btnToc");
   if (process.env.DS_DEBUG) {
     console.log("    [debug] body.children = " + bodyEl.children.map(c => c.tagName + "." + c.className).join(" | "));
     console.log("    [debug] drawer=" + (drawer ? "found" : "null") +
-      " trigger=" + (trigger ? "found" : "null") + " btnToc=" + (btnToc ? "found" : "null"));
+      " btnToc=" + (btnToc ? "found" : "null"));
   }
   if (drawer) {
     const entries = queryAll(window.document, ".toc-drawer-body a");

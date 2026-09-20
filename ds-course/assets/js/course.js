@@ -52,8 +52,6 @@
     return cur === undefined ? dflt : cur;
   };
 
-  DS.sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
-
   /* 渲染数学式里的 ^ 上标：2^n -> 2<sup>n</sup>；仅用于 .math / .formula */
   DS.mathHTML = function (s) {
     return String(s).replace(/\^\{?([^}\s]+)\}?/g, "<sup>$1</sup>")
@@ -583,7 +581,6 @@
       '    <button class="btn ghost" data-act="last">⏭ 末帧</button>' +
       '    <span class="speed">速度 <input type="range" min="1" max="10" value="6" data-act="speed"></span>' +
       '  </div>' : "") +
-      (this.opts.extraHTML || "") +
       "</div>";
 
     this.root.classList.add("viz");
@@ -707,43 +704,6 @@
 
   DS.Viz = Viz;
 
-  /* ====================== 静态 SVG 自动登记 ====================== */
-  /* 约定：#vizAuto 容器内的 <template data-viz="标题" data-sub="说明"> 会被展开成 Viz */
-  function autoViz() {
-    $$("template[data-viz]").forEach(function (tpl) {
-      var holder = document.createElement("div");
-      holder.className = "viz-auto-slot";
-      tpl.parentNode.insertBefore(holder, tpl);
-      var title = tpl.getAttribute("data-viz");
-      var sub = tpl.getAttribute("data-sub") || "";
-      var body = tpl.content ? tpl.content.cloneNode(true) : null;
-      var wrapsvg = body ? body.querySelector("svg") : null;
-      var viz = new Viz(holder, {
-        title: title, sub: sub,
-        build: function () {
-          return {
-            frames: [
-              {
-                desc: tpl.getAttribute("data-desc") || "静态图解",
-                draw: function (s) {
-                  var g = s.svg(10, 10);
-                  if (wrapsvg) g = wrapsvg.cloneNode(true);
-                  return g;
-                }
-              }
-            ]
-          };
-        }
-      });
-      if (viz.frames.length) { viz.go(0); }
-      $('[data-act="play"]', holder).style.display = "none";
-      $$(".viz-controls .btn", holder).forEach(function (b) {
-        if (b.getAttribute("data-act") !== "first") b.style.display = "none";
-      });
-      if ($(".viz-progress", holder)) $(".viz-progress", holder).style.display = "none";
-    });
-  }
-
   /* ====================== 步骤式静态图解（.steps） ====================== */
   function buildStepFigs() {
     $$("[data-steps]").forEach(function (box) {
@@ -822,7 +782,6 @@
     buildChrome();
     buildCodeBlocks();
     buildMath();
-    autoViz();
     buildStepFigs();
     bindKeys();
     // 页脚年份
