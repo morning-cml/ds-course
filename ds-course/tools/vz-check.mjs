@@ -20,60 +20,17 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
+/* 假 SVG、沙箱垫片与 loadViz() 与 frame-check、verify-stats 共用一份，见 lib-viz.mjs */
+import { ROOT, JS_DIR, SVG, loadViz } from "./lib-viz.mjs";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
-const JS_DIR = path.join(ROOT, "assets/js");
 const CSS = path.join(ROOT, "assets/css/course.css");
 
-/* ============================ 记录型假 SVG ============================ */
-function mkNode(name, attrs, text) {
-  const n = {
-    name,
-    attrs: Object.assign({}, attrs || {}),
-    text: text === undefined || text === null ? null : String(text),
-    children: [], style: {}, _cls: (attrs && attrs["class"]) || "",
-    appendChild(c) { if (c && c.__frag) { c.children.forEach((x) => this.appendChild(x)); return c; } this.children.push(c); return c; },
-    insertBefore(c) { this.children.unshift(c); return c; },
-    removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; },
-    setAttribute(k, v) { this.attrs[k] = String(v); if (k === "class") this._cls = String(v); },
-    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
-    hasAttribute(k) { return k in this.attrs; },
-    cloneNode() { return this; },
-    querySelector(sel) {
-      const isCls = String(sel).startsWith(".");
-      const want = String(sel).replace(/^\./, "");
-      const walk = (nd) => {
-        for (const ch of nd.children) {
-          if (isCls ? ch._cls.split(/\s+/).includes(want) : ch.name === sel) return ch;
-          const r = walk(ch); if (r) return r;
-        }
-        return null;
-      };
-      return walk(this);
-    },
-    querySelectorAll() { return []; },
-  };
-  Object.defineProperty(n, "firstChild", { get() { return this.children[0] || null; } });
-  return n;
-}
-
-const SVG = {
-  NS: "http://www.w3.org/2000/svg",
-  el: (n, a, t) => mkNode(n, a, t),
-  svg: (w, h) => mkNode("svg", { width: w, height: h }),
-  box: (x, y, w, h, cls, text, tc) => { const g = mkNode("g"); g.appendChild(mkNode("rect", { class: "vz-box " + (cls || "") })); if (text !== undefined && text !== null) g.appendChild(mkNode("text", { class: "vz-text " + (tc || "") }, text)); return g; },
-  circle: (cx, cy, r, cls, text, tc) => { const g = mkNode("g"); g.appendChild(mkNode("circle", { class: "vz-node " + (cls || "") })); if (text !== undefined && text !== null) g.appendChild(mkNode("text", { class: "vz-text " + (tc || "") }, text)); return g; },
-  text: (x, y, s, cls, a) => mkNode("text", { class: "vz-text " + (cls || ""), "text-anchor": a || "start" }, s),
-  label: (x, y, s, a) => mkNode("text", { class: "vz-label", "text-anchor": a || "start" }, s),
-  line: (a, b, c, d, cls) => mkNode("line", { class: "vz-edge " + (cls || "") }),
-  path: (d, cls) => mkNode("path", { class: "vz-edge " + (cls || "") }),
-  defs: (svg) => { const d = mkNode("defs"); svg.insertBefore(d, svg.firstChild); return svg; },
-  tree: () => mkNode("svg"),
-};
-
+/* ============================ 收集脚本实际用到的类名 ============================ */
 const BASES = ["vz-box", "vz-node", "vz-edge", "vz-text", "vz-label"];
-/** 把一个节点的 class 拆成 "基类" 与 "基类.状态"（CSS 里就是这么匹配的） */
+/** 把一个节点的 class 拆成「基类」与「基类.状态」两种键 —— CSS 里就是这么匹配的：
+ *    单个 vz-bucket            → 键 "vz-bucket"
+ *    组合 "vz-box warn"        → 键 "vz-box.warn"（同时也会记下 "vz-box"）
+ */
 function harvestNode(node, set) {
   const toks = String(node._cls || "").split(/\s+/).filter(Boolean);
   for (const t of toks) if (t.startsWith("vz-")) set.add(t);   // 独立类，如 vz-bucket / vz-dot
@@ -84,39 +41,17 @@ function harvestNode(node, set) {
   for (const c of node.children) harvestNode(c, set);
 }
 
-/* ============================ 跑一个 viz 脚本，收集实际用到的类 ============================ */
+/** 跑一个动画脚本，把它画每一帧时产生过的 vz-* 类全收集起来 */
 function classesUsedBy(file) {
   const used = new Set();
-  const collected = [];
-  const hosts = {};
-  const document = {
-    getElementById(id) {
-      if (!hosts[id]) hosts[id] = { id, children: [], style: {}, classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} }, appendChild(c) { this.children.push(c); return c; }, setAttribute() {}, getAttribute() { return null; } };
-      return hosts[id];
-    },
-    createElement: () => mkNode("div"), createElementNS: (ns, t) => mkNode(t),
-    addEventListener() {}, querySelector: () => null, querySelectorAll: () => [],
-  };
-  function Viz(root, opts) {
-    const host = typeof root === "string" ? document.getElementById(root) : root;
-    /* 这里只关心「帧被画出来时产生了哪些类名」，所以 build 交给脚本跑完，
-       把 frames 收下来即可 —— 不像 frame-check.mjs 那样还要比较每帧内容。 */
-    const res = opts && typeof opts.build === "function" ? opts.build({ frame() {}, svg: (w, h) => mkNode("svg", { width: w, height: h }) }) : null;
-    collected.push((res && res.frames) || []);
+  const { collected } = loadViz(file, false);      // 只跑 build 收帧，不比对内容
+  /* 逐帧真画一遍。单帧画失败不影响别的帧 —— 这里只做类名普查，不判帧的对错。 */
+  for (const v of collected) for (const fr of v.frames) {
+    try { harvestNode(fr.draw(SVG), used); } catch (e) { /* 单帧画失败不影响类名收集 */ }
   }
-  const sandbox = {
-    DS: { Viz, SVG, get: () => undefined, $: () => null, $$: () => [] },
-    document, window: { innerWidth: 1400, addEventListener() {} }, console,
-    setTimeout, clearTimeout, setInterval, clearInterval,
-  };
-  sandbox.window.document = document;
-  vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(file, "utf8"), sandbox, { filename: file });
-  /* 逐帧真画一遍，把每个元素身上的 vz-* 类收集起来。
-     单帧画失败不影响别的帧 —— 这里只做类名普查，不判帧的对错。 */
-  for (const frames of collected) for (const fr of frames) { try { harvestNode(fr.draw(SVG), used); } catch (e) { /* 单帧画失败不影响类名收集 */ } }
   return used;
 }
+
 
 /* ============================ course.css 里定义了哪些类 ============================ */
 /**

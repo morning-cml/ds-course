@@ -8,6 +8,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+/* 帧数要把动画脚本真跑一遍才数得出来，垫片与 loadViz 在 lib-viz.mjs 里（与 frame-check 共用） */
+import { countAll } from "./lib-viz.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const REPO = path.resolve(ROOT, "..");
@@ -40,6 +42,12 @@ for (const f of pages) {
 }
 const wan = (n) => (n / 10000).toFixed(1);   // 汉字数换成「万字」字符串，保留 1 位小数（公开文档就是按这个口径写的）
 
+/* 帧数：把 12 个动画脚本各跑一遍，数「动画个数」与「总帧数」。
+   文档里那行「81 个（逐帧渲染共 2567 帧）」的后半截就靠它把关 ——
+   任何一次动画改动都可能增减帧数（2026-09 就出现过：修好 ch05 的 π 数组后多了 2 帧，
+   而当时没人核对，README 里的 2565 一直挂到下次人工发现）。 */
+const counted = countAll();
+
 /* ---------- 逐项断言 ---------- */
 let bad = 0;   // 不一致 / 找不到字段的项数，决定退出码
 /**
@@ -68,13 +76,15 @@ const courseReadme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
 const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
 console.log("实测：正文 " + prose + " 汉字（≈" + wan(prose) + " 万）　代码注释 " + codeNotes +
-  "　C++ " + cpp + " 段　图解 " + fig + " 张　动画 " + viz + " 个\n");
+  "　C++ " + cpp + " 段　图解 " + fig + " 张　动画 " + viz + " 个" +
+  "　逐帧渲染共 " + counted.frames + " 帧（脚本里实有 " + counted.anims + " 个动画）\n");
 
 console.log("── 仓库根 README.md");
 check("root README", "README.md", rootReadme, [
   ["正文万字数", /约 ([\d.]+) 万字（另含代码内注释/, wan(prose)],
   ["代码注释万字数", /代码内注释约 ([\d.]+) 万字/, wan(codeNotes)],
   ["动画个数", /\*\*(\d+) 个\*\*（逐帧渲染/, viz],
+  ["动画总帧数", /逐帧渲染共 (\d+) 帧/, counted.frames],
   ["图解张数", /静态结构图解 \| (\d+) 张/, fig],
   ["C++ 段数", /C\+\+ 代码 \| (\d+) 段/, cpp],
 ]);
@@ -84,6 +94,8 @@ check("course README", "ds-course/README.md", courseReadme, [
   ["正文万字数", /\| 正文 \| 约 ([\d.]+) 万字（另含/, wan(prose)],
   ["代码注释万字数", /代码内注释约 ([\d.]+) 万字/, wan(codeNotes)],
   ["动画个数", /\| 可单步交互动画 \| (\d+) 个/, viz],
+  ["动画总帧数", /逐帧渲染共 (\d+) 帧/, counted.frames],
+  ["单文件方案的帧数", /个动画、(\d+) 帧同时建 DOM/, counted.frames],
   ["图解张数", /\| 静态结构图解 \| (\d+) 张/, fig],
   ["C++ 段数", /\| C\+\+ 代码 \| (\d+) 段/, cpp],
 ]);

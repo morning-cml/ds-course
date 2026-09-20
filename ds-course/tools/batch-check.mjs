@@ -9,6 +9,7 @@
  *   6. cpp-check.mjs    抽取所有 C++ 代码块交给 g++ 编译
  *   7. coverage-check.mjs  按需求清单核对知识点覆盖
  *   8. xref-check.mjs   正文里「见第 NN 讲」的讲次编号是否指对
+ *   9. verify-stats.mjs 公开文档（README / index.html）里的规模数字与实测是否一致
  *
  * 用法：node tools/batch-check.mjs
  */
@@ -28,6 +29,7 @@ const steps = [
   ["C++ 代码块编译", "cpp-check.mjs"],
   ["需求覆盖核对", "coverage-check.mjs"],
   ["交叉引用讲次校验", "xref-check.mjs"],
+  ["公开数字核对", "verify-stats.mjs"],
 ];
 
 /* results —— 收集每项的 [名称, 退出码]，全部跑完后再统一汇总（不提前中断，

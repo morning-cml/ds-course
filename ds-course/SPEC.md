@@ -25,7 +25,7 @@
    .\git-commit.ps1 "说明这次改了什么" -Push
    ```
 
-   脚本会先跑 `ds-course/tools/batch-check.mjs`（八项校验），**不通过就中止、不写历史**；
+   脚本会先跑 `ds-course/tools/batch-check.mjs`（九项校验），**不通过就中止、不写历史**；
    通过后提交、打 `vNNNN` 标签、并推到 GitHub。
    这样每一次修改在远端都有对应版本，随时可以按标签回退。
    **不要只提交不推送**——本地提交在误删目录时救不回来。

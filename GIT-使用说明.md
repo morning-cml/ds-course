@@ -134,7 +134,7 @@ git commit -m "说明"
 
 ```powershell
 cd ds-course
-node tools/batch-check.mjs      # 一次性跑完下面八项
+node tools/batch-check.mjs      # 一次性跑完下面九项
 node tools/check.mjs            # 结构完整性（文件、锚点、容器、转义）
 node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本 + 逐帧渲染所有动画
@@ -143,9 +143,39 @@ node tools/vz-check.mjs         # 动画用的 vz-* 状态类是否都在 course
 node tools/cpp-check.mjs        # 把每段 C++ 抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
+node tools/verify-stats.mjs     # 公开文档（README / index.html）里的规模数字与实测是否一致
 ```
 
 `cpp-check.mjs` 需要系统里有 `g++`（本机已具备）；其余几个只需要 Node.js。
+
+### 只改注释 / 做重构时：用「渲染指纹」证明行为没变
+
+补注释、抽函数、调格式这类改动**本来就不该影响画面**，但人眼比对几千行 diff 靠不住。
+这种情况跑指纹，一秒钟给出结论：
+
+```powershell
+cd ds-course
+node tools/frame-check.mjs --fingerprint    # ① 改动**之前**先跑一次，记下最后一行的「总指纹」
+# …… 开始改代码 ……
+node tools/frame-check.mjs --fingerprint    # ② 改完再跑一次
+```
+
+两次的**总指纹相同**，就说明 81 个动画、2567 帧真正画出来的内容（每帧的文字 + 颜色类）一字未变，
+可以放心提交；指纹不同就说明改动确实动到了画面，得回头看是哪一处。
+
+> 这个指纹是「当前代码算出来的值」，会随课件内容变化，所以**不要把它抄进文档**，
+> 每次改动前现场跑一遍、当场比对即可。
+
+`frame-check.mjs` 另外两个诊断开关（排查动画问题时用）：
+
+```powershell
+node tools/frame-check.mjs --report                  # 每个动画的「冻结帧数 / 文本不动比例」
+node tools/frame-check.mjs --dump viz-prim ch09-viz.js   # 把某动画几帧真正画出的文字打出来
+```
+
+`--dump` 是核对「第 0 帧的画面和它 desc 说的是不是一回事」最直接的办法 ——
+「draw 读了活变量、每一帧都画成最终态」这类 bug，别的检查（结构、语法、逐帧渲染）都抓不到，
+只有它能一眼看出来。详见 `ds-course/SPEC.md` 第 5.7 节。
 
 ## 私人材料：只在本地，绝不入库
 
