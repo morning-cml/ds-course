@@ -25,7 +25,7 @@
    .\git-commit.ps1 "说明这次改了什么" -Push
    ```
 
-   脚本会先跑 `ds-course/tools/batch-check.mjs`（十项校验），**不通过就中止、不写历史**；
+   脚本会先跑 `ds-course/tools/batch-check.mjs`（十一项校验），**不通过就中止、不写历史**；
    通过后提交、打 `vNNNN` 标签、并推到 GitHub。
    这样每一次修改在远端都有对应版本，随时可以按标签回退。
    **不要只提交不推送**——本地提交在误删目录时救不回来。
@@ -461,3 +461,6 @@ node tools/coverage-check.mjs    # 自动核对「哪些章有工程视角节」
       且该节含静态图解、可编译 C++、工程选型对比表
 - [ ] 正文里的「见第 NN 讲」与实际主题一致（`node tools/xref-check.mjs` 通过）
 - [ ] README / index.html 里的规模数字与实测一致（`node tools/verify-stats.mjs` 通过）
+- [ ] **能原样上线到静态托管**：路径大小写与磁盘一致、没有以 `/` 开头的绝对路径、
+      有 `index.html`（`node tools/deploy-check.mjs` 通过）。
+      本机是 Windows（不区分大小写），这几个问题在本地完全看不出来，一上线就是 404

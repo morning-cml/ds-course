@@ -128,7 +128,7 @@ ds-course/
 课件内容由多套脚本自动校验，改课件后可以跑一遍确认没有引入错误：
 
 ```bash
-node tools/batch-check.mjs      # 一键跑完下面十项
+node tools/batch-check.mjs      # 一键跑完下面十一项
 node tools/check.mjs            # 结构完整性：文件、锚点、容器、HTML 转义、代码块转义
 node tools/nav-check.mjs        # 校验 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本，并逐帧渲染所有动画，捕获运行时错误
@@ -139,6 +139,7 @@ node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都�
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 node tools/verify-stats.mjs     # 公开文档里的规模数字与实测是否一致
 node tools/print-check.mjs      # 代码配色：浅色/深色/打印三套配色是否都看得清（对比度 ≥ 4.5:1）
+node tools/deploy-check.mjs     # 上线自检：路径大小写、绝对路径、入口文件（Windows 查不出来的那些）
 node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码块 / 动画）
 ```
 
@@ -150,6 +151,35 @@ node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码�
 > 只改注释或做重构时，改动前后各跑一次，指纹一致就证明渲染行为没变。
 
 `cpp-check.mjs` 需要系统里有 `g++`；其余几个只需要 Node.js（无需安装任何依赖）。
+
+## 部署到网上（让学生随时打开）
+
+这套课件是**纯静态**的：没有构建步骤、没有服务端、没有外部 CDN，所有样式脚本都在
+`assets/` 里。所以它可以原样丢到任何静态托管上，学生用浏览器打开链接就能看。
+
+以 **Cloudflare Pages**（免费版就够：20000 个文件 / 单文件 25 MiB / 每月 500 次构建，
+本站约 60 个文件、4.65 MiB）为例：
+
+1. Cloudflare 控制台 → Workers & Pages → Create → Pages → **Connect to Git**，选中本仓库。
+2. 构建设置：
+   - **Framework preset**：`None`
+   - **Build command**：**留空**（不需要构建）
+   - **Build output directory**：`ds-course` ← 注意是仓库里的子目录，不是根目录
+3. 保存并部署，几十秒后会得到 `https://<项目名>.pages.dev`；之后每次 `git push` 都会自动重新发布。
+4. 想用自己的域名，在项目的 Custom domains 里加一条 CNAME 即可。
+
+几点提醒：
+
+- **上线前先跑 `node tools/deploy-check.mjs`**。本机是 Windows（不区分大小写），
+  而托管商都是 Linux（区分大小写），`assets/CSS/x.css` 这种笔误在本地完全正常、上线就 404。
+- 部署后反而**比本地双击打开更好用**：`file://` 下浏览器会禁用剪贴板 API
+  （代码块的「复制」按钮会退化成旧方案）、部分浏览器还会禁用 localStorage（主题选择记不住）；
+  HTTPS 下这两个限制都没有。
+- 部分国内网络访问 `*.pages.dev` 可能不稳定或较慢。若学生主要在国内，
+  可以考虑腾讯云 EdgeOne Pages、Gitee Pages，或把 `ds-course/` 整个目录打包发给学生
+  （课件本来就设计成离线可用，双击 `index.html` 即可）。
+- 仓库根目录的 `README.md`、`SPEC.md`、`tools/` 不会影响访问，但也会一起发布；
+  若只想发布课件内容，发布目录严格选 `ds-course` 即可。
 
 ## 学习建议
 
