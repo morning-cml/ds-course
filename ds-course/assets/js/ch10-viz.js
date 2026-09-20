@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch09-viz.js —— 查找与哈希表 · 交互动画（第 10 讲）
+   ch10-viz.js —— 查找与哈希表 · 交互动画（第 10 讲）
    依赖：assets/js/course.js 暴露的 DS.Viz / DS.SVG
    包含 6 个演示：
      1) viz-seq-search        顺序查找（朴素 / 哨兵 / 有序提前刹车）
@@ -708,6 +708,15 @@
     function snap(desc, key, h, cursors, cmp, phase) {
       var snapTab = table.slice();
       var cs = cursors.slice();
+      /* 关键：ASL 统计也必须在推帧时冻结。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（cmpSum / insertCmp / cmpEach），
+         每一帧的统计栏都会显示算法结束后的最终值。 */
+      var usedSnap = occupiedCount();
+      var doneSnap = [];
+      for (var d = 0; d < KEYS.length; d++) if (insertCmp[KEYS[d]] !== undefined) doneSnap.push(KEYS[d]);
+      var aslSnap = cmpSum;
+      var cmpEach = cmp;
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -715,13 +724,12 @@
           var i;
 
           /* 表头信息 */
-          var used = 0;
-          for (i = 0; i < M; i++) if (snapTab[i] !== null) used++;
+          var used = usedSnap;
           svg.appendChild(SVG.text(24, 24,
             "哈希表 m = " + M + "，H(k) = k mod " + M + "，线性探测 H_i = (H(k) + i) mod m",
             "vz-label", "start"));
           statLine(svg, 24, 46, "已存元素 n = " + used + "　装填因子 α = n/m = " + used + "/" + M +
-            " ≈ " + (used / M).toFixed(2) + "　累计比较次数 = " + cmp, "var(--text-faint)");
+            " ≈ " + (used / M).toFixed(2) + "　累计比较次数 = " + cmpEach, "var(--text-faint)");
 
           /* 当前 key 的公式 */
           if (key !== null && h >= 0) {
@@ -781,17 +789,16 @@
           }
 
           /* 已插入关键字列表 */
-          var doneKeys = [];
-          for (i = 0; i < KEYS.length; i++) if (insertCmp[KEYS[i]] !== undefined) doneKeys.push(KEYS[i]);
+          var doneKeys = doneSnap;
           statLine(svg, 24, y + 140, "已插入序列：" + (doneKeys.length ? doneKeys.join(", ") : "（尚无）"),
             "var(--text-soft)");
-          if (cmpSum > 0) {
-            statLine(svg, 24, y + 162, "成功 ASL（当前）= " + cmpSum + "/" + doneKeys.length + " ≈ " +
-              (cmpSum / doneKeys.length).toFixed(3) + "　（成功 ASL 的分母是元素个数 n）", "var(--brand)");
+          if (aslSnap > 0) {
+            statLine(svg, 24, y + 162, "成功 ASL（当前）= " + aslSnap + "/" + doneKeys.length + " ≈ " +
+              (aslSnap / doneKeys.length).toFixed(3) + "　（成功 ASL 的分母是元素个数 n）", "var(--brand)");
           }
 
           /* 末尾提示 */
-          var t2 = SVG.text(24, 380, "提示：42 插入时会一路探测 9→10→0→1→2→3→4→5，共 7 次比较 —— 这就是堆积的后果。",
+          var t2 = SVG.text(24, 380, "提示：42 插入时会一路探测 9→10→0→1→2→3→4→5，共 8 次比较 —— 这就是堆积的后果。",
             "vz-label", "start");
           t2.setAttribute("fill", "var(--danger)");
           svg.appendChild(t2);
@@ -1059,6 +1066,10 @@
       var seenL = [], seenQ = [];
       if (phL >= 0) for (var a = 0; a <= phL; a++) seenL.push(mod(h + a));
       if (phQ >= 0) for (var b = 0; b <= phQ; b++) seenQ.push(mod(h + delta(b)));
+      /* 关键：累计比较次数也必须在推帧时冻结。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（sumL / sumQ），每一帧都会显示算法结束后的最终累计值。 */
+      var sumLSnap = sumL, sumQSnap = sumQ;
 
       frames.push({
         desc: desc,
@@ -1091,7 +1102,7 @@
             svg.appendChild(SVG.label(x + BOX / 2, y1 + BOX + 16, String(i2), "middle"));
           }
           if (curL >= 0) drawPtr(svg, 30 + curL * PITCH + BOX / 2, y1 - 4, "i = " + phL, "var(--accent)");
-          statLine(svg, 30, y1 + 96, "已插入的数：" + kv(sL) + "　｜　成功比较次数累计 = " + sumL, "var(--text-soft)");
+          statLine(svg, 30, y1 + 96, "已插入的数：" + kv(sL) + "　｜　成功比较次数累计 = " + sumLSnap, "var(--text-soft)");
 
           /* ----- 平方探测 ----- */
           var t2 = SVG.text(24, y2 - 22, "② 平方探测  H_i = (H(k) ± i²) mod 11　（左右跳着找 → 不堆积）",
@@ -1113,7 +1124,7 @@
             drawPtr(svg, 30 + curQ * PITCH + BOX / 2, y2 - 4,
               "i = " + phQ + "，d = " + delta(phQ), "var(--accent)");
           }
-          statLine(svg, 30, y2 + 96, "已插入的数：" + kv(sQ) + "　｜　成功比较次数累计 = " + sumQ, "var(--text-soft)");
+          statLine(svg, 30, y2 + 96, "已插入的数：" + kv(sQ) + "　｜　成功比较次数累计 = " + sumQSnap, "var(--text-soft)");
 
           /* 底部对比 */
           var concl = SVG.text(24, 404,

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch03-viz.js —— 第 04 讲《队列及其应用》交互动画
+   ch04-viz.js —— 第 04 讲《队列及其应用》交互动画
    包含 6 个演示（每个演示一个 IIFE，容器不存在时自动跳过）：
      1. viz-queue-basic      普通顺序队列的假溢出
      2. viz-circular         循环队列入队出队（环形布局 + 判满判空）
@@ -95,7 +95,7 @@
         "front=" + st.front + "　rear=" + st.rear + "　元素个数=" + size +
         "　判满条件 rear==MaxSize → " + (full ? "报告「队满」" : "未满"),
         "sm " + (full ? "bad" : ""), "start"));
-      svg.appendChild(s.text(30, H - 26, note, "sm", "start"));
+      svg.appendChild(s.text(30, H - 26, st.note, "sm", "start"));
       return svg;
     }
 

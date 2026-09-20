@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch04-viz.js —— 串：KMP 与 BM 模式匹配 · 交互动画
+   ch05-viz.js —— 串：KMP 与 BM 模式匹配 · 交互动画
    依赖：assets/js/course.js 暴露的 DS.Viz / DS.SVG
    ========================================================================== */
 (function () {
@@ -56,16 +56,15 @@
 
     var S = "ABABABCABABABCABA", P = "ABABCABA";
     var n = S.length, m = P.length;
-    var frames = [], i = 0, j = 0, shift = 0;
+    var frames = [];
 
     function snap(desc, mi, mj, matched) {
+      /* 状态栏要印「到目前为止比较了多少次」，必须在此刻快照。
+         （原先印的是一个从未被赋值、恒为 0 的 shift，所以每一帧都写「累计比较次数 = 0」。） */
+      var cmpSnap = cmp;
       frames.push({
         desc: desc,
         draw: function (s) {
-          if (m > 8) {
-        /* 模式串太长时压缩格子宽度，保证画布能放下 */
-        BOX = 34; PITCH = BOX + 5;
-      }
           var svg = s.svg(880, 190);
           drawRow(svg, 24, S.split(""), {
             label: "S",
@@ -88,15 +87,18 @@
           if (mi >= 0) {
             drawPtr(svg, 46 + (mi + matched) * PITCH + BOX / 2, 96, "i", "var(--brand)");
             svg.appendChild(SVG.label(46, 176, "主串位置 i = " + (mi + matched) + "　模式串位置 j = " + matched +
-              "　起始对齐位置 = " + mi + "　累计比较次数 = " + shift, "start"));
+              "　起始对齐位置 = " + mi + "　累计比较次数 = " + cmpSnap, "start"));
           }
           return svg;
         }
       });
     }
 
-    snap("初始状态：模式串 P 左端与主串 S 的第 0 位对齐。i 和 j 都指向各自串的起点。", 0, 0, 0);
+    /* 计数器必须在第一个 snap 之前初始化 —— snap 里会立刻读 cmp 做快照，
+       声明写在后面的话第 0 帧会印出 undefined。 */
     var pos = 0, cmp = 0;
+
+    snap("初始状态：模式串 P 左端与主串 S 的第 0 位对齐。i 和 j 都指向各自串的起点。", 0, 0, 0);
     outer:
     while (pos <= S.length - P.length) {
       var k = 0;
@@ -131,13 +133,19 @@
 
     var P = "ABABAA";
     var n = P.length;
-    var pi = new Array(n).fill(-1);
+    var pi = new Array(n).fill(-1);   /* -1 = 还没算出来（画面上显示为 ?） */
+    pi[0] = 0;                        /* π[0] = 0：单个字符没有真前后缀 */
     var frames = [];
     var steps = 0;
 
     /* 核心：一个"前缀机器" S，它保存的是 -1, -1, 0, 0, 1, 2 ...
        S[j] = 长度 j 的子串 P[0..j-1] 的最长相等真前后缀长度 */
     function snap(desc, cur, base, matched) {
+      /* 关键：把「这一帧要画的 π 数组」在此刻深拷贝下来。
+         DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
+         若 draw 直接读活的 pi，画出来的永远是算法结束后的最终 π
+         （第 0 帧 desc 写着"目标…"，画面却已经是算完的 π）。 */
+      var piSnap = pi.slice();
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -183,7 +191,7 @@
           var y4 = 268;
           svg.appendChild(SVG.label(32, y4 + 16, "π[]", "end"));
           for (var q = 0; q < n; q++) {
-            var val = pi[q];
+            var val = piSnap[q];
             var cls2 = (q === cur) ? "active" : (val >= 0 ? "done" : "");
             svg.appendChild(SVG.box(46 + q * PITCH, y4, BOX, BOX, cls2,
               val < 0 ? "?" : String(val), /active|done/.test(cls2) ? "on" : ""));
@@ -222,7 +230,9 @@
       pi[i] = len;
       snap("记录：<b>π[" + i + "] = " + pi[i] + "</b>。" +
         (pi[i] > 0 ? "即 P[0.." + i + "] 的最长相等真前后缀是 \"" + P.slice(0, pi[i]) + "\"。" : ""),
-        i, i - pi[i], pi[i]);
+        /* 后缀窗口的起点：长度为 π[i] 的后缀是 P[i-π[i]+1 .. i]，
+           所以起点是 i-π[i]+1（此前写成 i-π[i]，整整早了一格，画出来的后缀是错的）。 */
+        i, pi[i] > 0 ? i - pi[i] + 1 : -1, pi[i]);
     }
 
     snap("全部求完：π = [" + pi.join(", ") + "]。<br>观察结果可以验证：π 的值只会「一次增加 1」，" +
@@ -260,6 +270,9 @@
     /* 画布：主串一行（固定不动），模式串一行（滑动），并把 j 的跳动画出来 */
     var OFFSET = 90;   // 模式串左端对应的"主串下标 0"的 x 坐标
     function snap(desc, si, pj, sFrom, pFrom, hiP, hiS) {
+      /* 关键：累计比较次数 cmp 与 j 回退次数 moves 是算法过程中被改写的活变量，
+         推帧时先存进快照，否则每一帧印出来的都是算法结束后的最终次数。 */
+      var cmpSnap = cmp, movesSnap = moves;
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -298,7 +311,7 @@
           drawPtr(svg, OFFSET + si * PITCH + BOX / 2, 21, "i=" + si, "var(--brand)");
           drawPtr(svg, OFFSET + (pFrom + Math.max(pj, 0)) * PITCH + BOX / 2, 125, "j=" + Math.max(pj, 0), "var(--accent)");
           svg.appendChild(SVG.label(OFFSET, 216,
-            "模式串起始对齐位 = " + pFrom + "　已匹配 " + Math.max(pj, 0) + " 个字符　累计比较 " + cmp + " 次　j 回退次数 " + moves, "start"));
+            "模式串起始对齐位 = " + pFrom + "　已匹配 " + Math.max(pj, 0) + " 个字符　累计比较 " + cmpSnap + " 次　j 回退次数 " + movesSnap, "start"));
           svg.appendChild(SVG.label(OFFSET, 238, "π = [" + pi.join(", ") + "]", "start"));
           return svg;
         }

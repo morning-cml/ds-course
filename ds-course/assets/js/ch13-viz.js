@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch12-viz.js —— 算法设计范式与动态规划 · 交互动画
+   ch13-viz.js —— 算法设计范式与动态规划 · 交互动画
    依赖：assets/js/course.js 暴露的 DS.Viz / DS.SVG
    包含 9 个演示：
      1) viz-paradigm-map    六范式选择决策流程
@@ -212,8 +212,13 @@
     var curRow = 1, curCol = 0, conflictList = [];
 
     function snapshot(desc, hiRow, hiCol, conflictRow, conflictCol, badDiag) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
+         若 draw 直接读 col / dg / udg / x / solutions / nodes / curRow 这些活变量，
+         画出来的就永远是算法结束后的最终态（第 0 帧显示完成图）。 */
       var c = col.slice(), d = dg.slice(), u = udg.slice(), xx = x.slice();
       var sols = solutions.slice();
+      var snapNodes = nodes, snapRow = curRow;
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -252,8 +257,8 @@
           /* 右侧状态面板 */
           var SX = X0 + N * CW + 22;
           svg.appendChild(SVG.text(SX, Y0 + 4, "递归状态", "vz-text", "start"));
-          svg.appendChild(SVG.label(SX, Y0 + 24, "当前递归深度 i = " + Math.min(curRow, N + 1) +
-            "　已访问结点 = " + nodes, "start"));
+          svg.appendChild(SVG.label(SX, Y0 + 24, "当前递归深度 i = " + Math.min(snapRow, N + 1) +
+            "　已访问结点 = " + snapNodes, "start"));
 
           svg.appendChild(SVG.label(SX, Y0 + 52, "x[1.." + N + "]（每行皇后所在列）", "start"));
           var xc = [];
@@ -367,8 +372,13 @@
     var curLevel = 0, curTry = -1, tried = [];
 
     function snap(desc, level, tryIdx, tryList) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来（含递归结点计数）。
+         DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
+         若 draw 直接读 used / cur / results / nodes 这些活变量，
+         画出来的就永远是算法结束后的最终态（第 0 帧显示完成图）。 */
       var uu = used.slice(), cu = cur.slice(), rs = results.slice();
       var tr = tryList ? tryList.slice() : [];
+      var snapNodes = nodes;
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -435,7 +445,7 @@
           }
 
           /* 统计 */
-          svg.appendChild(SVG.label(16, 306, "递归结点数 = " + nodes + "　（n! = 6 个叶子；交换法与选择法结点数相同）", "start"));
+          svg.appendChild(SVG.label(16, 306, "递归结点数 = " + snapNodes + "　（n! = 6 个叶子；交换法与选择法结点数相同）", "start"));
           svg.appendChild(SVG.label(400, 306, tr.length ? "本层尝试过的选择：" + tr.join(" → ") : "", "start"));
           return svg;
         }

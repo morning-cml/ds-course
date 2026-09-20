@@ -4,9 +4,11 @@
  *   1. check.mjs        结构与内容完整性（文件/锚点/容器/转义）
  *   2. nav-check.mjs    上一讲/下一讲链条与站内链接
  *   3. dom-sim.mjs      真实执行页面脚本 + 逐帧渲染全部动画（捕获运行时错误）
- *   4. cpp-check.mjs    抽取所有 C++ 代码块交给 g++ 编译
- *   5. coverage-check.mjs  按需求清单核对知识点覆盖
- *   6. xref-check.mjs   正文里「见第 NN 讲」的讲次编号是否指对
+ *   4. frame-check.mjs  动画帧状态：画面会不会冻结在最终态（draw 读活变量）
+ *   5. vz-check.mjs     动画用到的 vz-* 状态类是否都在 course.css 里有定义
+ *   6. cpp-check.mjs    抽取所有 C++ 代码块交给 g++ 编译
+ *   7. coverage-check.mjs  按需求清单核对知识点覆盖
+ *   8. xref-check.mjs   正文里「见第 NN 讲」的讲次编号是否指对
  *
  * 用法：node tools/batch-check.mjs
  */
@@ -18,6 +20,8 @@ const steps = [
   ["结构与内容检查", "check.mjs"],
   ["导航链条检查", "nav-check.mjs"],
   ["页面脚本 + 动画仿真", "dom-sim.mjs"],
+  ["动画帧状态检查", "frame-check.mjs"],
+  ["动画状态类检查", "vz-check.mjs"],
   ["C++ 代码块编译", "cpp-check.mjs"],
   ["需求覆盖核对", "coverage-check.mjs"],
   ["交叉引用讲次校验", "xref-check.mjs"],

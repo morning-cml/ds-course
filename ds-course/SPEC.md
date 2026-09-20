@@ -4,7 +4,14 @@
 
 ## 0. 绝对规则
 
-1. **不要新建 / 修改 `assets/css/course.css` 与 `assets/js/course.js`**。它们是全站公共资产，只允许使用其中已有的能力。
+1. **不要新建 / 修改 `assets/js/course.js`**。它是全站公共脚本，只允许使用其中已有的能力。
+   `assets/css/course.css` 是**公共样式的唯一来源**：动画需要新的状态类时，**加进 course.css**，
+   **不要在各章页面里用 `<style>` 打补丁**。
+   > 为什么立这条（2026-09 的事故）：早期 `.vz-box.warn / .dim` 没进 course.css，
+   > 于是 ch02/ch03/ch04/ch06/ch11 各自在页内补了一份，而 ch05/ch07/ch08/ch09/ch10/ch12/ch13
+   > 没补 —— 结果这些章的「冲突/交换」红色高亮、`dim` 淡出**完全不生效**，
+   > 且 `textCls="on"` 的白字落在浅色底上导致整格文字看不见。页内补丁是单点修复，
+   > 必然漏；公共样式才是唯一正确的落点。
 2. 每个章节页面放在根目录，文件名与下表完全一致；每章的动画脚本放 `assets/js/<chapter-id>.js`。
 3. 所有代码示例必须是 **C++**（C++11/14 可编译），禁止伪代码充当实现（讲思路时可以用文字或注释，但每章至少给完整可运行实现）。
 4. 页面必须能**纯离线双击打开**：不允许 CDN、不允许外链 JS/CSS/图片、不允许 `fetch`。所有图形用**内联 SVG** 或 Canvas 现场绘制。
@@ -18,7 +25,7 @@
    .\git-commit.ps1 "说明这次改了什么" -Push
    ```
 
-   脚本会先跑 `ds-course/tools/batch-check.mjs`（六项校验），**不通过就中止、不写历史**；
+   脚本会先跑 `ds-course/tools/batch-check.mjs`（八项校验），**不通过就中止、不写历史**；
    通过后提交、打 `vNNNN` 标签、并推到 GitHub。
    这样每一次修改在远端都有对应版本，随时可以按标签回退。
    **不要只提交不推送**——本地提交在误删目录时救不回来。
@@ -57,7 +64,7 @@
    `tools/check.mjs` 的页面清单。
 3. 全文替换「第 NN 讲」时注意两种口径：**页头讲次**要写本页自己的编号，
    **正文交叉引用**（"见第 07 讲"）指别的页面——不要一起 ±1。
-4. 改完立刻跑 `node tools/batch-check.mjs`（结构 + 导航 + 动画逐帧 + C++ 编译 + 需求覆盖）。
+4. 改完立刻跑 `node tools/batch-check.mjs`（结构 + 导航 + 动画逐帧 + **帧状态** + C++ 编译 + 需求覆盖 + 交叉引用）。
 
 ## 2. 页面骨架模板（照抄，只改标注处）
 
@@ -244,8 +251,26 @@ SVG.tree({ levels:[[1],[2,3],[4,5,6,7]], cls:{n0_0:'active', e1_0:'done'}, width
 
 **样式类（写到 `cls` 参数里，可组合，用空格分隔）：**
 `vz-box` / `vz-node` 基础外观；叠加状态类 → `active`（蓝，当前处理）、`compare`（橙，正在比较）、`done`（绿，已完成）、`warn`（红，冲突 / 交换）、`dim`（淡出，已排除）。
-文本类：文字默认 `vz-text`；当底色是实色时传 `textCls="on"` 变成白色。
-边 / 箭头：`vz-edge` 叠加 `active` / `done` / `dim`。
+边 / 箭头：`vz-edge` 叠加 `active` / `done` / `dim` / `compare` / `warn` / `danger` / `ghost`。
+
+**状态类清单（全部在 `course.css` 里，直接用，不要在页面里重复定义）：**
+
+| 元素 | 可用状态类 |
+|---|---|
+| `vz-box` | `active` `compare` `done` `warn` `dim` `ghost` `ok` `dash` `pivot` `hole` |
+| `vz-node` | `active` `compare` `done` `warn` `dim` |
+| `vz-edge` | `active` `done` `dim` `compare` `warn` `danger` `ghost` |
+| `vz-text` | `on` `sm` `lg` `big` `brand` `ok` `bad` `soft` `faint` `dim` |
+| 其它 | `vz-bucket`（分桶框）、`vz-dot`（链表指针域的小圆点） |
+
+**文字颜色（最容易踩的坑）：**
+
+- `vz-node` 的状态底色是**实色**（`var(--brand)` / `var(--ok)` …）→ 传 `textCls="on"` 得到白字，正确。
+- `vz-box` 的状态底色是 **`*-soft` 浅色**（浅色主题下接近白）→ 白色文字会**整格看不见**。
+  `course.css` 已用 `.vz-box + .vz-text.on { fill: var(--text); }` 兜住这种情况：
+  跟在 box 后面的文字自动改用正文色，跟在 circle 后面的仍是白字。
+  所以照 SPEC 示例写 `textCls="on"` 即可，**两种底色都安全，不需要页面再打补丁**。
+
 
 ### 5.6 静态 SVG 的写法
 
@@ -259,6 +284,43 @@ SVG.tree({ levels:[[1],[2,3],[4,5,6,7]], cls:{n0_0:'active', e1_0:'done'}, width
 ```
 
 **规则：** 颜色只用 `var(--panel)`、`var(--panel-2)`、`var(--bg-soft)`、`var(--text)`、`var(--text-soft)`、`var(--text-faint)`、`var(--border)`、`var(--border-strong)`、`var(--brand)`、`var(--brand-soft)`、`var(--ok)`、`var(--ok-soft)`、`var(--warn)`、`var(--warn-soft)`、`var(--danger)`、`var(--danger-soft)`、`var(--accent)`、`var(--accent-soft)`、`var(--purple)`。**不要写死 `#333` 这类颜色**，否则深色主题下会看不清。
+
+### 5.7 推帧必须「深拷贝快照」（最容易写出的一类 bug）
+
+`DS.Viz` 构造器是**先同步跑完** `opts.build()`（整个算法执行完、把所有帧 push 进 `frames`），
+**之后**才 `go(0)` 渲染第 0 帧。所以：
+
+> **`frame.draw` 里绝对不要直接读算法过程中会被改写的变量。**
+> 读到的将是算法**结束后**的值 —— 每一帧都画最终态，第 0 帧写着「初始化」却显示完成图。
+
+正确写法（在推帧那一刻把状态拷进闭包）：
+
+```js
+function snapshot(desc, opt) {
+  opt = opt || {};
+  var snap = {                       // ← 关键：此刻深拷贝
+    inT: inT.slice(),
+    low: low.slice(),
+    mst: mst.map(function (e) { return e.slice(); }),
+    total: total
+  };
+  frames.push({
+    desc: desc,
+    draw: function (s) {
+      /* 只读 snap.*，绝不读 inT / low / mst / total */
+      ...
+    }
+  });
+}
+```
+
+拷贝方式：数组 `x.slice()`；二维数组 `x.map(function (r) { return r.slice(); })`；
+对象 `JSON.parse(JSON.stringify(x))`；数字 / 字符串 / 布尔直接存进快照对象。
+`opt` 这类**每次调用新建**的参数对象不用拷。
+
+自检：`node tools/frame-check.mjs`（会按「相邻帧画面文本是否变化」的比例揪出冻结的动画）；
+必要时用 `node tools/frame-check.mjs --dump viz-xxx chNN-viz.js` 把某帧真正画出来的文字打出来，
+逐字对照它的 `desc`。
 
 ## 6. 容器 ID 命名约定
 
@@ -350,6 +412,9 @@ node tools/coverage-check.mjs    # 自动核对「哪些章有工程视角节」
 - [ ] 没有外链资源
 - [ ] `.pager` 的上一讲 / 下一讲链接指向真实存在的文件
 - [ ] 动画能播放、能单步、desc 描述与画面一致
+- [ ] **动画的每一帧都画「当时」的状态，而不是算法跑完后的最终态**（`node tools/frame-check.mjs` 通过）
+- [ ] **用到的 `vz-*` 状态类都在 `course.css` 里有定义**（`node tools/vz-check.mjs` 通过；
+      动画的类名是拼字符串产生的，静态查不出来，必须跑这个工具）
 - [ ] 深色主题下所有自绘图形仍然清晰（颜色全部用 CSS 变量）
 - [ ] JS 无语法错误（`node --check assets/js/chNN-viz.js` 通过）
 - [ ] **有独立数据结构主题的章节，都已交付「工程视角」一节**（第 8 节），

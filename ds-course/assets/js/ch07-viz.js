@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch06-viz.js —— 第 07 讲 树与二叉树 · 交互动画
+   ch07-viz.js —— 第 07 讲 树与二叉树 · 交互动画
    依赖：assets/js/course.js 暴露的 DS.Viz / DS.SVG
 
    本文件包含 9 个独立演示（每个都先 getElementById 取容器，取不到就跳过）：
@@ -29,6 +29,15 @@
     var t = SVG.text(x, y, str, cls || "", anchor || "start");
     if (weight) t.setAttribute("font-weight", weight);
     return t;
+  }
+
+  /* 浅拷贝一个「名字 → 标记」的对象。
+     DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，所以推帧时必须给
+     done / codes 这类被算法逐步改写的活对象留一份快照，draw 只读快照。 */
+  function cloneFlags(o) {
+    var r = {};
+    for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) r[k] = o[k];
+    return r;
   }
 
   /* ----------------------------------------------------------------------
@@ -200,37 +209,42 @@
     var frames = [], done = {}, visited = [];
     var W = 900, PW = 196;
 
-    function one(s, stack, active) {
-      var svg = drawTree(s, W - PW, root, { active: active, done: done },
+    /* done / visited 都是遍历过程中被逐步改写的活变量，
+       这里只接收「该帧的快照」，画面上才不会一上来就是走完的最终结果。 */
+    function one(s, stack, active, doneSnap, visitedSnap) {
+      var svg = drawTree(s, W - PW, root, { active: active, done: doneSnap },
         { gapX: 44, gapY: 68, title: KIND[kind] + '遍历（' + ORDER[kind] + '）· 绿色 = 已输出' });
       var H = parseInt(svg.getAttribute("height"), 10) || 400;
       if (H < 460) { H = 460; svg.setAttribute("height", H); svg.setAttribute("viewBox", "0 0 " + (W - PW) + " " + H); }
       svg.appendChild(SVG.line(W - PW - 14, 6, W - PW - 14, H - 6, "dim"));
       drawStack(s, svg, W - PW + 18, 356, stack, 26, "递归调用栈（底 → 顶）");
-      drawSeq(s, svg, 62, H - 92, 30, HERO_LEVEL.split(''), visited, '结果序列');
+      drawSeq(s, svg, 62, H - 92, 30, HERO_LEVEL.split(''), visitedSnap, '结果序列');
       return svg;
     }
 
     steps.forEach(function (stp) {
       if (stp.type === 'call') {
+        var callDone = cloneFlags(done), callVisited = visited.slice();
         frames.push({
           desc: '进入结点 <b>' + stp.name + '</b>：' + KIND[kind] + '遍历的次序是 <code>' +
             ORDER[kind] + '</code>' + meaning() + '。先把 ' + stp.name +
             ' 压入递归栈（相当于「记住回来以后还要干什么」）。',
-          draw: function (s) { return one(s, stp.stack, stp.name); }
+          draw: function (s) { return one(s, stp.stack, stp.name, callDone, callVisited); }
         });
       } else if (stp.type === 'visit') {
         visited = visited.concat([stp.name]);
         done[stp.name] = true;
+        var visitDone = cloneFlags(done), visitVisited = visited.slice();
         frames.push({
           desc: '★ <b>访问结点 ' + stp.name + '</b>——它是' + KIND[kind] +
             '序列的第 ' + visited.length + ' 个元素。所谓「访问」就是把它追加到结果序列里。',
-          draw: function (s) { return one(s, stp.stack, stp.name); }
+          draw: function (s) { return one(s, stp.stack, stp.name, visitDone, visitVisited); }
         });
       } else {
+        var retDone = cloneFlags(done), retVisited = visited.slice();
         frames.push({
           desc: '结点 ' + stp.name + ' 的子树已经全部处理完，从递归栈中弹出，函数返回上一层。',
-          draw: function (s) { return one(s, stp.stack, null); }
+          draw: function (s) { return one(s, stp.stack, null, retDone, retVisited); }
         });
       }
     });
@@ -239,7 +253,7 @@
       desc: '<b>' + KIND[kind] + '遍历完成！</b>序列是 <code>' + visited.join('') +
         '</code>。<br>每个结点恰好被访问一次，时间 <b>O(n)</b>；额外空间是递归栈的深度，' +
         '即树高 O(h)，最坏（斜树）退化为 O(n)。',
-      draw: function (s) { return one(s, [], null); }
+      draw: function (s) { return one(s, [], null, cloneFlags(done), visited.slice()); }
     });
 
     function meaning() {
@@ -282,10 +296,13 @@
     function snap(desc, active) {
       var names = q.map(function (n) { return n.name; });
       var got = visited.slice();
+      /* done 是「出队即访问」时被改写的活对象，必须在这里快照，
+         否则每一帧画出来的都是全部结点已访问（全绿）的最终状态。 */
+      var doneSnap = cloneFlags(done);
       frames.push({
         desc: desc,
         draw: function (s) {
-          var svg = drawTree(s, W - PW, root, { active: active, done: done },
+          var svg = drawTree(s, W - PW, root, { active: active, done: doneSnap },
             { gapX: 44, gapY: 68, title: '层序遍历 · 出队即访问，访问即把两个孩子入队' });
           var H = parseInt(svg.getAttribute("height"), 10) || 400;
           if (H < 460) { H = 460; svg.setAttribute("height", H); svg.setAttribute("viewBox", "0 0 " + (W - PW) + " " + H); }
@@ -503,9 +520,9 @@
       return { map: map, list: list, width: maxX - minX + gapX, minX: minX, maxD: maxD };
     }
 
-    /* 把整片森林画成一排小树 */
-    function drawForest(s, W, footer) {
-      var laid = forest.map(function (root) {
+    /* 把整片森林画成一排小树。trees 是**该帧的**森林快照，不是活变量 forest */
+    function drawForest(s, W, footer, trees) {
+      var laid = trees.map(function (root) {
         var L = layoutHuff(root, 36, 58);
         return { root: root, L: L, w: Math.max(70, L.width + 16), d: L.maxD };
       });
@@ -555,11 +572,15 @@
 
     function snap(desc) {
       var cnt = forest.length, acc = wpl;
+      /* 关键：森林是「每合并一次就整片重建」的活变量（forest = forest.filter(...)），
+         推帧时把这一帧的森林深拷贝下来，draw 只读快照，
+         否则每帧画出来的都是只剩一棵树的最终森林。 */
+      var forestSnap = JSON.parse(JSON.stringify(forest));
       frames.push({
         desc: desc,
         draw: function (s) {
           return drawForest(s, 852, '森林中当前有 ' + cnt + ' 棵树　|　累计 WPL = ' + acc +
-            '　|　所有叶子权值之和 = ' + TOTAL);
+            '　|　所有叶子权值之和 = ' + TOTAL, forestSnap);
         }
       });
     }
@@ -653,7 +674,8 @@
 
     var frames = [], codes = {}, doneLeaves = {}, W = 900, H = 470;
 
-    function drawHuff(s, w, st) {
+    /* st 是本帧的路径状态；leaves 是**本帧的**「已确定编码的叶子」快照 */
+    function drawHuff(s, w, st, leaves) {
       st = st || {};
       var L = layout(ROOT, 58, 62);
       var Hh = (L.depth + 1) * 62 + 46;
@@ -680,7 +702,7 @@
         var p = L.map[node.name], cls = "";
         if (st.at && st.at.name === node.name) cls = "active";
         else if (st.leafName === node.name) cls = "warn";
-        else if (!node.left && !node.right && doneLeaves[node.name]) cls = "done";
+        else if (!node.left && !node.right && leaves[node.name]) cls = "done";
         svg.appendChild(SVG.circle(p.x + pad, p.y, R - 2, cls,
           node.ch ? node.ch : String(node.w), /active|warn|done/.test(cls) ? "on" : ""));
         if (node.ch) {
@@ -698,13 +720,14 @@
       return svg;
     }
 
-    function drawTable(s, svg, x, y, hilite) {
+    /* codeMap 是**本帧的**编码表快照（codes 是逐步写满的活对象，不能直接读） */
+    function drawTable(s, svg, x, y, hilite, codeMap) {
       var head = ['字符', '频率', '编码', '码长'];
       head.forEach(function (cell, j) {
         svg.appendChild(SVG.box(x + j * 74, y, 70, 24, "active", cell, "on"));
       });
       CHARS.forEach(function (c, i) {
-        var code = codes[c];
+        var code = codeMap[c];
         var cls = (hilite === c) ? "compare" : (code ? "done" : "");
         var on = /compare|done/.test(cls) ? "on" : "";
         svg.appendChild(SVG.box(x, y + (i + 1) * 26, 70, 24, cls, c, on));
@@ -731,9 +754,9 @@
       '这就是「前缀编码」的来源，也是它能被唯一译码的原因。', function (s) {
         var svg = s.svg(W, H);
         svg.setAttribute("viewBox", "0 0 " + W + " " + H);
-        svg.appendChild(drawHuff(s, 556, {}));
+        svg.appendChild(drawHuff(s, 556, {}, {}));
         svg.appendChild(put(s, 578, 26, '编码表（逐步生成）', "start", "vz-label", "700"));
-        drawTable(s, svg, 578, 40, null);
+        drawTable(s, svg, 578, 40, null, {});
         return svg;
       });
 
@@ -753,12 +776,15 @@
             : '左子树已处理完，回到这个结点，改走<b>右</b>分支，前缀追加一个 <b>1</b>。');
       }
       var snapshot = st;
+      /* 关键：codes / doneLeaves 是逐步写满的活对象，推帧时各留一份快照，
+         否则第 0 帧的编码表就已经是全部字符的最终编码了。 */
+      var codesSnap = cloneFlags(codes), leavesSnap = cloneFlags(doneLeaves);
       frame(desc, function (s) {
         var svg = s.svg(W, H);
         svg.setAttribute("viewBox", "0 0 " + W + " " + H);
-        svg.appendChild(drawHuff(s, 556, snapshot));
+        svg.appendChild(drawHuff(s, 556, snapshot, leavesSnap));
         svg.appendChild(put(s, 578, 26, '编码表（绿色 = 已确定）', "start", "vz-label", "700"));
-        drawTable(s, svg, 578, 40, snapshot.leafCh || null);
+        drawTable(s, svg, 578, 40, snapshot.leafCh || null, codesSnap);
         return svg;
       });
     });
@@ -770,9 +796,9 @@
       function (s) {
         var svg = s.svg(W, H);
         svg.setAttribute("viewBox", "0 0 " + W + " " + H);
-        svg.appendChild(drawHuff(s, 556, {}));
+        svg.appendChild(drawHuff(s, 556, {}, cloneFlags(doneLeaves)));
         svg.appendChild(put(s, 578, 26, '最终编码表', "start", "vz-label", "700"));
-        drawTable(s, svg, 578, 40, null);
+        drawTable(s, svg, 578, 40, null, cloneFlags(codes));
         var y0 = 250;
         svg.appendChild(put(s, 578, y0, '总位数对比（越短越好）', "start", "vz-label", "700"));
         svg.appendChild(SVG.box(578, y0 + 12, 160, 26, "done", "赫夫曼 80 位", "on"));
@@ -821,7 +847,20 @@
       return d;
     }
 
-    function makeDraw(st) {
+    /* st 是本帧的高亮状态；parSnap / setsSnap 是**本帧的** parent 数组与集合个数快照。
+       parent 数组被 union / 路径压缩逐步改写，draw 直接读活的 par 只会画出最终形态。 */
+    function makeDraw(st, parSnap, setsSnap) {
+      /* 快照版的找根 / 求深度：只读这一帧的 parent 数组，不碰活变量 */
+      function rootIn(x) {
+        var g = 0;
+        while (parSnap[x] !== x && g++ < 40) x = parSnap[x];
+        return x;
+      }
+      function depthIn(x) {
+        var d = 0, g = 0;
+        while (parSnap[x] !== x && g++ < 40) { x = parSnap[x]; d++; }
+        return d;
+      }
       return function (s) {
         var svg = s.svg(W, H);
         svg.setAttribute("viewBox", "0 0 " + W + " " + H);
@@ -830,11 +869,11 @@
         /* 按集合分组，从左到右排布 */
         var seen = {}, groups = [];
         for (var i = 0; i < N; i++) {
-          var r = rootOf(i);
+          var r = rootIn(i);
           if (seen[r]) continue;
           seen[r] = true;
           var mem = [];
-          for (var k = 0; k < N; k++) if (rootOf(k) === r) mem.push(k);
+          for (var k = 0; k < N; k++) if (rootIn(k) === r) mem.push(k);
           groups.push({ root: r, members: mem });
         }
         groups.sort(function (a, b) { return a.root - b.root; });
@@ -842,9 +881,9 @@
         var pos = {}, x0 = 46;
         groups.forEach(function (g) {
           var maxD = 0;
-          g.members.forEach(function (a) { maxD = Math.max(maxD, depthOf(a)); });
+          g.members.forEach(function (a) { maxD = Math.max(maxD, depthIn(a)); });
           for (var d = 0; d <= maxD; d++) {
-            var lv = g.members.filter(function (a) { return depthOf(a) === d; });
+            var lv = g.members.filter(function (a) { return depthIn(a) === d; });
             lv.sort(function (a, b) { return a - b; });
             lv.forEach(function (a, j) {
               pos[a] = { x: x0 + j * PX + 40, y: TOP + d * PY };
@@ -860,9 +899,9 @@
 
         /* 边 */
         for (var v = 0; v < N; v++) {
-          if (par[v] === v || !pos[v] || !pos[par[v]]) continue;
-          var a = pos[v], b = pos[par[v]];
-          var onPath = st.path && st.path.indexOf(v) >= 0 && st.path.indexOf(par[v]) >= 0;
+          if (parSnap[v] === v || !pos[v] || !pos[parSnap[v]]) continue;
+          var a = pos[v], b = pos[parSnap[v]];
+          var onPath = st.path && st.path.indexOf(v) >= 0 && st.path.indexOf(parSnap[v]) >= 0;
           var cls = onPath ? "active" : (st.newEdge === v ? "done" : "");
           svg.appendChild(SVG.line(a.x, a.y + R - 6, b.x, b.y - R + 6, cls));
         }
@@ -876,7 +915,7 @@
           else if (st.warn && st.warn.indexOf(u) >= 0) cls2 = "warn";
           svg.appendChild(SVG.circle(p.x, p.y, R - 2, cls2, u,
             /active|compare|warn/.test(cls2) ? "on" : ""));
-          if (par[u] === u) svg.appendChild(put(s, p.x, p.y - R - 3, "根", "middle", "vz-label", "700"));
+          if (parSnap[u] === u) svg.appendChild(put(s, p.x, p.y - R - 3, "根", "middle", "vz-label", "700"));
         }
 
         /* 双亲数组 */
@@ -887,12 +926,12 @@
         for (var q = 0; q < N; q++) {
           var cx = 60 + q * 82;
           var changed = st.changed && st.changed.indexOf(q) >= 0;
-          var ccl = changed ? "warn" : (par[q] === q ? "compare" : "");
+          var ccl = changed ? "warn" : (parSnap[q] === q ? "compare" : "");
           svg.appendChild(SVG.label(cx + 25, ay - 6, String(q), "middle"));
-          svg.appendChild(SVG.box(cx, ay, 50, 30, ccl, String(par[q]),
+          svg.appendChild(SVG.box(cx, ay, 50, 30, ccl, String(parSnap[q]),
             /warn|compare/.test(ccl) ? "on" : ""));
         }
-        svg.appendChild(put(s, 60, ay + 62, '当前集合个数 = ' + sets +
+        svg.appendChild(put(s, 60, ay + 62, '当前集合个数 = ' + setsSnap +
           '　|　橙色 = 本步被改动的元素　|　结点上方的「根」表示它是集合代表元',
           "start", "vz-label"));
         return svg;
@@ -900,7 +939,9 @@
     }
 
     function snap(desc, st) {
-      frames.push({ desc: desc, draw: makeDraw(st || {}) });
+      /* 关键：推帧时把这一帧的 parent 数组与集合个数深拷贝/存值下来 */
+      var parSnap = par.slice(), setsSnap = sets;
+      frames.push({ desc: desc, draw: makeDraw(st || {}, parSnap, setsSnap) });
     }
 
     function doUnion(x, y) {
@@ -960,8 +1001,9 @@
       if (op[0] === 'u') doUnion(op[1], op[2]); else doFind(op[1]);
     });
 
-    snap('<b>演示结束。</b>请对照画面上的 parent 数组核对最终有三个集合：' +
-      '{0,1,2,3}（根 0）、{4,5,7}（根 4）、{6}（根 6）。<br>' +
+    snap('<b>演示结束。</b>请对照画面上的 parent 数组核对最终有两个集合：' +
+      '{0,1,2,3}（根 0）、{4,5,6,7}（根 4）——最后一次 <code>union(5, 7)</code> 把 ' +
+      '{4,5} 与 {6,7} 也合并了。<br>' +
       '复杂度：<b>只做按秩合并</b>或<b>只做路径压缩</b>时，单次操作是 O(log n)；' +
       '<b>两者同时使用</b>时均摊复杂度降到 <b>O(α(n))</b>——α 是反阿克曼函数，' +
       '在 n &lt; 10<sup>80</sup> 时 α(n) ≤ 4，<b>实际就是常数</b>。' +

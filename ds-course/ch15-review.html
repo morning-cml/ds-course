@@ -8,8 +8,7 @@
 <script>window.DS_PAGE = { id: 'ch15', title: '综合自测与速查手册' };</script>
 <script src="assets/js/course.js" defer></script>
 <style>
-  .kbd { font-family:var(--mono); font-size:12px; border:1px solid var(--border-strong);
-         border-bottom-width:2px; border-radius:5px; padding:1px 6px; background:var(--panel-2); }
+  /* .kbd 自 2026-09 起已收进 course.css 公共样式，本页不再重复定义。 */
   .quiz-q { font-weight:700; margin:22px 0 6px; }
   .cheat { font-size:13.5px; }
   .cheat th { position:sticky; top:0; }
@@ -766,8 +765,9 @@ int main() {
     <h2 id="s6">15.6 模拟自测卷</h2>
 
     <p class="lede" style="color:var(--text-soft)">
-      共 16 题，满分 100 分（选择题 10×2 + 填空题 5 空×2 + 计算与作图 4×10 + 算法设计 2×10），
-      建议 120 分钟内完成。答案与解析在每题下方折叠，请先做完再看。
+      共 16 题，满分 94 分（选择题 10×2 + 填空题 7 空×2 + 计算与作图 4×10 + 算法设计 2×10），
+      建议 120 分钟内完成。选择题、计算与作图、算法设计题的答案与解析都在题下折叠，请先做完再看；
+      填空题的答案直接给出，当作默写清单用。
     </p>
 
     <h3 id="s6-1">一、选择题（每题 2 分，共 20 分）</h3>
@@ -856,7 +856,7 @@ while (i &lt;= n) { s += i; i *= 3; }</pre>
       希尔排序不稳定且复杂度与增量有关。口诀：<b>快些选堆</b>不稳定。</p>
     </div></details>
 
-    <h3 id="s6-2">二、填空题（每空 2 分，共 20 分）</h3>
+    <h3 id="s6-2">二、填空题（每空 2 分，共 14 分）</h3>
     <ol>
       <li>一个具有 n 个顶点的无向连通图，至少有 <b>n−1</b> 条边；至多有 <b>n(n−1)/2</b> 条边。</li>
       <li>在含 n 个元素的有序表中进行折半查找，查找成功的平均查找长度约为 <b>log₂(n+1) − 1</b>。</li>

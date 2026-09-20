@@ -134,10 +134,12 @@ git commit -m "说明"
 
 ```powershell
 cd ds-course
-node tools/batch-check.mjs      # 一次性跑完下面六项
+node tools/batch-check.mjs      # 一次性跑完下面八项
 node tools/check.mjs            # 结构完整性（文件、锚点、容器、转义）
 node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本 + 逐帧渲染所有动画
+node tools/frame-check.mjs      # 动画帧状态：画面会不会「冻结在最终态」
+node tools/vz-check.mjs         # 动画用的 vz-* 状态类是否都在 course.css 里有定义
 node tools/cpp-check.mjs        # 把每段 C++ 抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错

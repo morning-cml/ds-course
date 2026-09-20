@@ -125,19 +125,26 @@ ds-course/
 
 ## 校验工具（可选）
 
-课件内容由三套脚本自动校验，改课件后可以跑一遍确认没有引入错误：
+课件内容由多套脚本自动校验，改课件后可以跑一遍确认没有引入错误：
 
 ```bash
-node tools/batch-check.mjs      # 一键跑完下面六项
+node tools/batch-check.mjs      # 一键跑完下面八项
 node tools/check.mjs            # 结构完整性：文件、锚点、容器、HTML 转义、代码块转义
 node tools/nav-check.mjs        # 校验 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本，并逐帧渲染所有动画，捕获运行时错误
+node tools/frame-check.mjs      # 动画帧状态：画面会不会「冻结在最终态」（draw 读了活变量）
+node tools/vz-check.mjs         # 动画用到的 vz-* 状态类是否都在 course.css 里有定义
 node tools/cpp-check.mjs        # 把课件里每段 C++ 代码抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都讲到了（含「工程视角」小节硬检查）
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码块 / 动画）
 node tools/verify-stats.mjs     # 核对本页那张规模表与实测是否一致
 ```
+
+> `frame-check.mjs` 还可以当调试工具用：
+> `node tools/frame-check.mjs --report` 打印每个动画的「相邻帧文本不动比例」，
+> `node tools/frame-check.mjs --dump viz-prim ch09-viz.js` 把某个动画若干帧**真正画出来的文字**打出来，
+> 用来核对「第 0 帧的画面和它 desc 说的是不是一回事」。
 
 `cpp-check.mjs` 需要系统里有 `g++`；其余几个只需要 Node.js（无需安装任何依赖）。
 

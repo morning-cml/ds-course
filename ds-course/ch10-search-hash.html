@@ -10,8 +10,7 @@
 <script src="assets/js/ch10-viz.js" defer></script>
 <style>
   /* 页面专用微调（≤60 行） */
-  .kbd { font-family: var(--mono); font-size: 12.5px; padding: 1px 6px; border-radius: 5px;
-         background: var(--bg-soft); border: 1px solid var(--border); }
+  /* .kbd 自 2026-09 起已收进 course.css 公共样式，本页不再重复定义。 */
   .asl-key { font-weight: 800; color: var(--brand); }
   .mini { font-size: 12.5px; color: var(--text-faint); }
   .steps-lab { font-size: 13px; color: var(--text-soft); margin: 6px 0 0; }
@@ -4391,9 +4390,9 @@ int main() {
       结构选错，代码再漂亮也救不回来。
     </p>
 
-    <h2 id="s10">10.10 本章小结、易错点与自测</h2>
+    <h2 id="s9">10.9 本章小结、易错点与自测</h2>
 
-    <h3 id="s10-1">10.10.1 必须记住的十二件事</h3>
+    <h3 id="s9-1">10.9.1 必须记住的十二件事</h3>
     <div class="grid c2">
       <div class="card">
         <h4 style="margin-top:0">查找基础</h4>
@@ -4429,7 +4428,7 @@ int main() {
       </div>
     </div>
 
-    <h3 id="s10-2">10.10.2 易错点清单</h3>
+    <h3 id="s9-2">10.9.2 易错点清单</h3>
     <div class="note danger">
       <span class="note-title">易错点 1：ASL 的分母用错</span>
       成功 ASL 除以 <b>n</b>（元素个数）；哈希表失败 ASL 除以 <b>m</b>（表长）；
@@ -4492,7 +4491,7 @@ int main() {
       </ul>
     </div>
 
-    <h3 id="s10-3">10.10.3 自测题（6 题，答案折叠）</h3>
+    <h3 id="s9-3">10.9.3 自测题（6 题，答案折叠）</h3>
 
     <details class="fold">
       <summary>1. 对有序表 a[0..10]（n = 11）做折半查找，请画出判定树，并求 <code>ASL<sub>成功</sub></code> 与 <code>ASL<sub>不成功</sub></code>。</summary>
@@ -4671,7 +4670,7 @@ struct custom_hash {
       </div>
     </details>
 
-    <h3 id="s10-4">10.10.4 配套编程练习</h3>
+    <h3 id="s9-4">10.9.4 配套编程练习</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>练习</th><th>任务</th><th>提示 / 验收标准</th></tr></thead>

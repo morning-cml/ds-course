@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ch08-viz.js —— 第 09 讲 图论算法：生成树与最短路径 · 交互动画
+   ch09-viz.js —— 第 09 讲 图论算法：生成树与最短路径 · 交互动画
    依赖：assets/js/course.js 暴露的 DS.Viz / DS.SVG
 
    本文件里出现的所有数组、矩阵、集合关系都是「算法现场算出来」的，
@@ -143,32 +143,44 @@
     /* 把「当前这一步」的状态画出来 */
     function snapshot(desc, opt) {
       opt = opt || {};
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
+         若 draw 直接读 inT / low / clo / mst / total 这些活变量，
+         画出来的就永远是算法结束后的最终态（第 0 帧显示完成图）。 */
+      var snap = {
+        inT: inT.slice(),
+        low: low.slice(),
+        clo: clo.slice(),
+        mst: mst.map(function (e) { return e.slice(); }),
+        total: total
+      };
       frames.push({
         desc: desc,
         draw: function (s) {
           resetGraph();
           var i;
-          for (i = 0; i < 7; i++) if (inT[i]) setNode(i, "active");
+          for (i = 0; i < 7; i++) if (snap.inT[i]) setNode(i, "active");
           if (opt.pick >= 0) setNode(opt.pick, "done");
-          setEdgeSet(mst, "done");
-          if (opt.cand !== undefined && opt.cand >= 0) markEdge(clo[opt.cand], opt.cand, "compare");
+          setEdgeSet(snap.mst, "done");
+          if (opt.cand !== undefined && opt.cand >= 0) markEdge(snap.clo[opt.cand], opt.cand, "compare");
           if (opt.newEdge) markEdge(opt.newEdge[0], opt.newEdge[1], "done");
-          if (opt.dead !== undefined && opt.dead >= 0) markEdge(clo[opt.dead], opt.dead, "dim");
+          if (opt.dead !== undefined && opt.dead >= 0) markEdge(snap.clo[opt.dead], opt.dead, "dim");
           var svg = drawGraph(s, {
-            foot: "生成树顶点数 = " + mst.length + "　已选边 = " + mst.length + " 条　当前总权值 = " + total
+            foot: "生成树顶点数 = " + snap.inT.filter(Boolean).length +
+              "　已选边 = " + snap.mst.length + " 条　当前总权值 = " + snap.total
           });
           var vals = [];
-          for (i = 0; i < 7; i++) vals.push(low[i] === INF ? "∞" : String(low[i]));
+          for (i = 0; i < 7; i++) vals.push(snap.low[i] === INF ? "∞" : String(snap.low[i]));
           arrRow(svg, 66, 386, vals, function (k) {
-            if (inT[k]) return "done";
+            if (snap.inT[k]) return "done";
             if (opt.cand === k) return "compare";
             if (opt.pick === k) return "active";
             return "";
           }, 44, 24, "lowcost", true);
           var cl = [];
-          for (i = 0; i < 7; i++) cl.push(inT[i] ? "—" : (clo[i] < 0 ? "—" : String(clo[i])));
+          for (i = 0; i < 7; i++) cl.push(snap.inT[i] ? "—" : (snap.clo[i] < 0 ? "—" : String(snap.clo[i])));
           arrRow(svg, 66, 430, cl, function (k) {
-            return opt.cand === k ? "compare" : (inT[k] ? "done" : "");
+            return opt.cand === k ? "compare" : (snap.inT[k] ? "done" : "");
           }, 44, 24, "closest", true);
           return svg;
         }
@@ -235,14 +247,16 @@
     var sorted = EDGES.slice().sort(function (a, b) { return a.w - b.w || a.u - b.u; });
     var port = [0, 1, 2, 3, 4, 5, 6];          // 并查集父指针
     function find(x) { while (port[x] !== x) x = port[x] = port[port[x]]; return x; }
+    /* 在任意一份父指针数组上找根（画图时用快照，避免渲染去改活状态） */
+    function findIn(p, x) { while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; }
 
     var frames = [], picked = [], rejected = [], total = 0;
 
-    /* 小格子：画一个并查集森林 */
-    function drawUF(svg, s) {
+    /* 小格子：画一个并查集森林。p 是**该帧的**父指针快照 */
+    function drawUF(svg, p) {
       var groups = {}, i;
       for (i = 0; i < 7; i++) {
-        var r = find(i);
+        var r = findIn(p.slice(), i);           // 再拷一份，格式压缩不污染快照本身
         (groups[r] = groups[r] || []).push(i);
       }
       var roots = Object.keys(groups).sort(function (a, b) { return a - b; });
@@ -256,15 +270,24 @@
     }
 
     function snapshot(desc, cur) {
+      /* 关键：推帧时深拷贝该帧的状态（含并查集父指针），draw 只读快照。
+         DS.Viz 先跑完 build() 再逐帧渲染，读活变量会画成最终态。 */
+      var snap = {
+        picked: picked.map(function (e) { return e.slice(); }),
+        rejected: rejected.map(function (e) { return e.slice(); }),
+        total: total,
+        port: port.slice()
+      };
       frames.push({
         desc: desc,
         draw: function (s) {
           resetGraph();
-          setEdgeSet(picked, "done");
-          setEdgeSet(rejected, "dim");
+          setEdgeSet(snap.picked, "done");
+          setEdgeSet(snap.rejected, "dim");
           if (cur >= 0) markEdge(sorted[cur].u, sorted[cur].v, "compare");
           var svg = drawGraph(s, {
-            foot: "已采纳 " + picked.length + " 条边　累计权值 = " + total + "　还需要 " + (6 - picked.length) + " 条"
+            foot: "已采纳 " + snap.picked.length + " 条边　累计权值 = " + snap.total +
+              "　还需要 " + (6 - snap.picked.length) + " 条"
           });
           /* 排序后的边列表：分两行小格子 */
           var i, list = [];
@@ -272,13 +295,13 @@
           var cls = function (k) {
             if (k === cur) return "compare";
             var e = sorted[k];
-            for (var j = 0; j < picked.length; j++) if (picked[j][0] === e.u && picked[j][1] === e.v) return "done";
-            for (var m = 0; m < rejected.length; m++) if (rejected[m][0] === e.u && rejected[m][1] === e.v) return "dim";
+            for (var j = 0; j < snap.picked.length; j++) if (snap.picked[j][0] === e.u && snap.picked[j][1] === e.v) return "done";
+            for (var m = 0; m < snap.rejected.length; m++) if (snap.rejected[m][0] === e.u && snap.rejected[m][1] === e.v) return "dim";
             return "";
           };
           arrRow(svg, 20, 386, list.slice(0, 6), cls, 104, 24, "排序后的边", true);
           arrRow(svg, 20, 440, list.slice(6), function (k) { return cls(k + 6); }, 104, 24, "（续）", true);
-          drawUF(svg, s);
+          drawUF(svg, snap.port);
           return svg;
         }
       });
@@ -292,8 +315,11 @@
       var e = sorted[i], ru = find(e.u), rv = find(e.v);
       var head = "第 " + (i + 1) + " 条边 <b>(" + e.u + "," + e.v + ")</b>，权值 <b>" + e.w + "</b>：";
       if (ru !== rv) {
+        /* 注意：members() 必须**在合并之前**求值，否则 ru 与 rv 已经并到一起，
+           描述里会印出两个一模一样的集合，跟「不同集合 → 采纳」自相矛盾。 */
+        var memU = members(ru), memV = members(rv);
         port[ru] = rv; picked.push([e.u, e.v]); total += e.w;
-        snapshot(head + "两端点分别属于集合 {" + members(ru) + "} 与 {" + members(rv) + "}，<b>不同集合 → 采纳</b>，" +
+        snapshot(head + "两端点分别属于集合 {" + memU + "} 与 {" + memV + "}，<b>不同集合 → 采纳</b>，" +
           "合并两个集合。累计权值 = <b>" + total + "</b>，已选 " + picked.length + " 条边。", i);
       } else {
         rejected.push([e.u, e.v]);
@@ -353,37 +379,40 @@
     function snapshot(desc, opt) {
       opt = opt || {};
       var sptSnap = spt.slice();          // 快照：避免后面的帧污染前面的图
+      /* dist / done / pre 同样必须快照：它们是逐轮被改写的活变量，
+         不拷的话每一帧都会画出「全部确定完」的最终表格。 */
+      var snap = { dist: dist.slice(), done: done.slice(), pre: pre.slice() };
       frames.push({
         desc: desc,
         draw: function (s) {
           resetGraph();
           var i;
-          for (i = 0; i < 7; i++) if (done[i]) setNode(i, "done");
+          for (i = 0; i < 7; i++) if (snap.done[i]) setNode(i, "done");
           if (opt.cur !== undefined && opt.cur >= 0) setNode(opt.cur, "active");
           for (i = 0; i < opt.upd.length; i++) setNode(opt.upd[i], "compare");
           setEdgeSet(sptSnap, "done");
           if (opt.relax) for (i = 0; i < opt.relax.length; i++) markEdge(opt.relax[i][0], opt.relax[i][1], "compare");
           var svg = drawGraph(s, {
-            txtOf: function (k) { return dist[k] === INF ? "∞" : String(dist[k]); },
+            txtOf: function (k) { return snap.dist[k] === INF ? "∞" : String(snap.dist[k]); },
             foot: "圆内数字 = 当前最短距离估计 dist[]　绿色顶点 = 已确定最短路（visited = √）"
           });
           var i2, ds = [];
-          for (i2 = 0; i2 < 7; i2++) ds.push(dist[i2] === INF ? "∞" : String(dist[i2]));
+          for (i2 = 0; i2 < 7; i2++) ds.push(snap.dist[i2] === INF ? "∞" : String(snap.dist[i2]));
           arrRow(svg, 66, 386, ds, function (k) {
             if (opt.upd.indexOf(k) >= 0) return "compare";
             if (opt.cur === k) return "active";
-            if (done[k]) return "done";
+            if (snap.done[k]) return "done";
             return "";
           }, 44, 22, "dist", true);
           var vs = [], ps = [];
           for (i2 = 0; i2 < 7; i2++) {
-            vs.push(done[i2] ? "√" : "");
-            ps.push(done[i2] && pre[i2] >= 0 ? String(pre[i2]) : "—");
+            vs.push(snap.done[i2] ? "√" : "");
+            ps.push(snap.done[i2] && snap.pre[i2] >= 0 ? String(snap.pre[i2]) : "—");
           }
           arrRow(svg, 66, 428, vs, function (k) {
-            return done[k] ? "done" : (opt.cur === k ? "active" : "");
+            return snap.done[k] ? "done" : (opt.cur === k ? "active" : "");
           }, 44, 22, "visited", true);
-          arrRow(svg, 66, 470, ps, function (k) { return done[k] ? "done" : ""; }, 44, 22, "pre", true);
+          arrRow(svg, 66, 470, ps, function (k) { return snap.done[k] ? "done" : ""; }, 44, 22, "pre", true);
           return svg;
         }
       });
@@ -488,11 +517,14 @@
       return svg;
     }
 
+    /* 初始矩阵：推帧时就把 D 拷下来（若把 D.map 写进 draw，渲染发生在整个 build
+       之后，拷到的会是最终矩阵 —— 第 0 帧就显示结果）。 */
+    var d0 = D.map(function (r) { return r.slice(); });
     frames.push({
       desc: "<b>初始矩阵</b>：<code>dist[i][j]</code> 就是邻接矩阵——直接有边就是边权，没有边是 ∞，" +
         "<code>dist[i][i] = 0</code>。此时「只允许不中转」，即路径必须是一条边。",
       draw: function (s) {
-        return drawMatrix(s, D.map(function (r) { return r.slice(); }), -1, null,
+        return drawMatrix(s, d0, -1, null,
           "k = 0 开始：依次允许用顶点 0、1、2、…、6 作为中转点");
       }
     });
@@ -510,13 +542,14 @@
         }
       }
       (function (kk, ch, c, det) {
+        var dSnap = D.map(function (r) { return r.slice(); });   /* ← 推帧时快照，别放进 draw */
         frames.push({
           desc: "<b>k = " + kk + "</b>：允许经过顶点 <b>" + kk + "</b> 中转（表格中蓝底的" +
             "第 " + kk + " 行与第 " + kk + " 列）。对每个 (i,j) 判断 <code>dist[i][k] + dist[k][j] &lt; dist[i][j]</code>。" +
             (c ? "本轮更新了 <b>" + c + "</b> 个格子（橙色）：" + det.join("；") :
               "本轮<b>没有任何格子变小</b>——经过 " + kk + " 中转都占不到便宜。"),
           draw: function (s) {
-            return drawMatrix(s, D.map(function (r) { return r.slice(); }), kk, ch,
+            return drawMatrix(s, dSnap, kk, ch,
               "已允许的中转点：0 … " + kk + "　本轮更新 " + c + " 个格子");
           }
         });
@@ -524,11 +557,12 @@
     }
 
     var finalRow = D[0].map(function (x) { return x === INF ? "∞" : x; }).join(", ");
+    var dFinal = D.map(function (r) { return r.slice(); });
     frames.push({
       desc: "<b>k 走到 6，矩阵不再变化，算法结束。</b>此时 <code>dist[i][j]</code> 就是 i 到 j 的真实最短距离。" +
         "第 0 行 <code>[" + finalRow + "]</code> 正好等于从 0 出发跑一遍 Dijkstra 得到的 dist 数组——两种算法互相验证。",
       draw: function (s) {
-        return drawMatrix(s, D.map(function (r) { return r.slice(); }), 6, null, "最终的全源最短路径矩阵：任意两点之间的距离都在表里");
+        return drawMatrix(s, dFinal, 6, null, "最终的全源最短路径矩阵：任意两点之间的距离都在表里");
       }
     });
 
@@ -560,13 +594,13 @@
 
     var removed = [], queue = [], order = [], frames = [];
 
-    function drawNet(s, cur, activeE) {
+    function drawNet(s, cur, activeE, st) {
       var svg = s.svg(680, 380);
       var k;
       for (k = 0; k < E.length; k++) {
         var e = E[k], cls = "";
-        if (removed.indexOf(E[k][0]) >= 0) cls = activeE && activeE.indexOf(k) >= 0 ? "compare" : "dim";
-        if (order.indexOf(e[0]) >= 0 && order.indexOf(e[1]) >= 0 && cls === "") cls = "done";
+        if (st.removed.indexOf(E[k][0]) >= 0) cls = activeE && activeE.indexOf(k) >= 0 ? "compare" : "dim";
+        if (st.order.indexOf(e[0]) >= 0 && st.order.indexOf(e[1]) >= 0 && cls === "") cls = "done";
         var dx = PX[e[1]] - PX[e[0]], dy = PY[e[1]] - PY[e[0]];
         var len = Math.sqrt(dx * dx + dy * dy);
         var x1 = PX[e[0]] + dx / len * 24, y1 = PY[e[0]] + dy / len * 24;
@@ -575,28 +609,35 @@
       }
       for (k = 0; k < n; k++) {
         var c = "";
-        if (removed.indexOf(k) >= 0) c = "dim";
-        if (queue.indexOf(k) >= 0) c = "compare";
+        if (st.removed.indexOf(k) >= 0) c = "dim";
+        if (st.queue.indexOf(k) >= 0) c = "compare";
         if (cur === k) c = "active";
-        if (order.indexOf(k) >= 0 && queue.indexOf(k) < 0 && cur !== k) c = "done";
+        if (st.order.indexOf(k) >= 0 && st.queue.indexOf(k) < 0 && cur !== k) c = "done";
         svg.appendChild(SVG.circle(PX[k], PY[k], 22, c, String(k),
           /active|done|warn|compare/.test(c) ? "on" : ""));
-        svg.appendChild(SVG.label(PX[k], PY[k] - 30, "in=" + indeg[k], "middle"));
+        svg.appendChild(SVG.label(PX[k], PY[k] - 30, "in=" + st.indeg[k], "middle"));
       }
       return svg;
     }
 
     function snapshot(desc, cur, activeE) {
+      /* indeg / removed / queue / order 都是逐轮改写的活变量，必须在此刻快照 */
+      var st = {
+        indeg: indeg.slice(),
+        removed: removed.slice(),
+        queue: queue.slice(),
+        order: order.slice()
+      };
       frames.push({
         desc: desc,
         draw: function (s) {
-          var svg = drawNet(s, cur, activeE);
-          arrRow(svg, 66, 330, indeg.map(String), function (k) {
+          var svg = drawNet(s, cur, activeE, st);
+          arrRow(svg, 66, 330, st.indeg.map(String), function (k) {
             if (cur >= 0 && E[cur] && E[cur][1] === k) return "compare";
-            return indeg[k] === 0 ? "done" : "";
+            return st.indeg[k] === 0 ? "done" : "";
           }, 44, 24, "入度 indeg", true);
-          svg.appendChild(SVG.text(16, 300, "队列 queue：[ " + queue.join(", ") + " ]　　" +
-            "输出序列 topo：[ " + order.join(", ") + " ]", "vz-text", "start"));
+          svg.appendChild(SVG.text(16, 300, "队列 queue：[ " + st.queue.join(", ") + " ]　　" +
+            "输出序列 topo：[ " + st.order.join(", ") + " ]", "vz-text", "start"));
           return svg;
         }
       });
@@ -635,7 +676,8 @@
           : "只输出了 " + order.length + " 个顶点，还剩 " + (n - order.length) + " 个没输出——说明图里<b>存在环</b>！") +
         "用队列得到的顺序不唯一；若把队列换成<b>小根堆</b>，就能得到字典序最小的拓扑序。",
       draw: function (s) {
-        var svg = drawNet(s, -1, null);
+        var st = { indeg: indeg.slice(), removed: removed.slice(), queue: [], order: order.slice() };
+        var svg = drawNet(s, -1, null, st);
         svg.appendChild(SVG.text(16, 300, "拓扑序：[ " + order.join(" → ") + " ]", "vz-text", "start"));
         return svg;
       }
@@ -841,7 +883,7 @@
     var dist = [0, INF, INF, INF, INF];
     var frames = [], round = 0;
 
-    function drawNet(s, hiE, doneRound) {
+    function drawNet(s, hiE, doneRound, distSnap) {
       var svg = s.svg(660, 420), k;
       for (k = 0; k < E.length; k++) {
         var e = E[k], cls = hiE === k ? "compare" : "";
@@ -852,23 +894,24 @@
           (PX[e[0]] + PX[e[1]]) / 2 + 14, (PY[e[0]] + PY[e[1]]) / 2 - 6);
       }
       for (k = 0; k < n; k++) {
-        var c = dist[k] === INF ? "dim" : (k === 0 ? "done" : "active");
-        svg.appendChild(SVG.circle(PX[k], PY[k], 26, c, dist[k] === INF ? "∞" : String(dist[k]),
+        var c = distSnap[k] === INF ? "dim" : (k === 0 ? "done" : "active");
+        svg.appendChild(SVG.circle(PX[k], PY[k], 26, c, distSnap[k] === INF ? "∞" : String(distSnap[k]),
           /active|done|warn|compare/.test(c) ? "on" : ""));
         svg.appendChild(SVG.label(PX[k], PY[k] - 34, "v" + k, "middle"));
       }
-      var i;
-      arrRow(svg, 66, 356, dist.map(function (x) { return x === INF ? "∞" : String(x); }),
-        function (k) { return dist[k] === INF ? "dim" : "done"; }, 62, 26, "dist", true);
+      arrRow(svg, 66, 356, distSnap.map(function (x) { return x === INF ? "∞" : String(x); }),
+        function (k) { return distSnap[k] === INF ? "dim" : "done"; }, 62, 26, "dist", true);
       svg.appendChild(SVG.text(560, 366, "已完成", "vz-label", "start"));
       svg.appendChild(SVG.text(560, 384, doneRound + " / " + (n - 1) + " 轮", "vz-label", "start"));
       return svg;
     }
 
+    /* 第 0 帧：dist 的初始状态也要快照（draw 在整个 build 之后才跑） */
+    var distInit = dist.slice();
     frames.push({
       desc: "<b>Bellman-Ford 初始化</b>：<code>dist[0] = 0</code>，其余为 ∞。核心动作只有一句话：" +
         "<b>每一轮把所有的边都松弛一遍</b>（不做任何挑选）。",
-      draw: function (s) { return drawNet(s, -1, 0); }
+      draw: function (s) { return drawNet(s, -1, 0, distInit); }
     });
 
     for (var r = 1; r <= n - 1; r++) {
@@ -883,28 +926,30 @@
         }
       }
       (function (rr, ch, det2, rd) {
+        var distSnap = dist.slice();          /* ← 推帧时快照本轮结束后的 dist */
         frames.push({
           desc: "<b>第 " + rr + " 轮</b>：按固定顺序扫描全部 " + E.length + " 条边。" +
             (det2.length ? "发生松弛的边：" + det2.join("；") : "本轮<b>所有边都没能松弛</b>——dist 已经收敛。"),
           draw: function (s) {
-            var svg = drawNet(s, ch.length ? ch[ch.length - 1] : -1, rd);
+            var svg = drawNet(s, ch.length ? ch[ch.length - 1] : -1, rd, distSnap);
             svg.appendChild(SVG.text(16, 404, "本轮更新 " + ch.length + " 次" +
               (ch.length ? "（边序号 " + ch.join(",") + "）" : "") +
-              "　dist = [" + dist.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]", "vz-label", "start"));
+              "　dist = [" + distSnap.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]", "vz-label", "start"));
             return svg;
           }
         });
       })(r, changed, det, r);
     }
 
+    var distFinal = dist.slice();
     frames.push({
       desc: "<b>n − 1 = 4 轮结束</b>，最终 <code>dist = [" + dist.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]</code>。" +
         "为什么最多 n−1 轮就够？任何一条最短路径最多经过 n 个顶点、n−1 条边；" +
         "第 1 轮至少能确定「只含 1 条边」的最短路，第 r 轮至少能确定「含 r 条边」的最短路，所以 n−1 轮足以覆盖所有情况。" +
         "<br>实战中再加一轮扫描：如果还能松弛，就说明存在<b>从源点可达的负环</b>。",
       draw: function (s) {
-        var svg = drawNet(s, -1, n - 1);
-        svg.appendChild(SVG.text(16, 404, "最终 dist = [" + dist.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]，第 2 轮起就没有再更新过", "vz-label", "start"));
+        var svg = drawNet(s, -1, n - 1, distFinal);
+        svg.appendChild(SVG.text(16, 404, "最终 dist = [" + distFinal.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]，第 2 轮起就没有再更新过", "vz-label", "start"));
         return svg;
       }
     });

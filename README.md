@@ -71,10 +71,12 @@ ds-course/
 ## 校验工具（改课件后建议跑一遍）
 
 ```bash
-node tools/batch-check.mjs      # 一键跑完下面六项
+node tools/batch-check.mjs      # 一键跑完下面八项
 node tools/check.mjs            # 结构完整性：文件、锚点、容器对应、HTML 转义
 node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本，并逐帧渲染所有动画，捕获运行时错误
+node tools/frame-check.mjs      # 动画帧状态：画面会不会「冻结在最终态」
+node tools/vz-check.mjs         # 动画用到的 vz-* 状态类是否都在 course.css 里有定义
 node tools/cpp-check.mjs        # 把每段 C++ 代码抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都讲到（含「工程视角」小节硬检查）
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错

@@ -408,10 +408,19 @@
     var frames = [];
     /* st: {step, aMark, aRing, cntMark, outRing, ptrI, ptrV, msg1, msg2} */
     function snap(desc, st) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（cnt / out2 / ocol），画出来的永远是算法结束后的最终态。 */
+      var sp = {
+        cnt: cnt.slice(),
+        out2: out2.slice(),
+        ocol: ocol.slice()
+      };
       frames.push({
         desc: desc,
         draw: function (s) {
           var svg = s.svg(W, H);
+          var sc = sp.cnt, so = sp.out2, soc = sp.ocol;
           var chips = ["① 统计频次 O(n)", "② 求前缀和 O(k)", "③ 倒序放置 O(n)"];
           for (var c = 0; c < 3; c++) {
             chip(svg, 96 + c * 246, 16, 230, 32, chips[c],
@@ -430,7 +439,7 @@
 
           tag(svg, 56, 266, "cnt", "var(--text-soft)", "middle", 14);
           row(svg, BX, 250, K, function (i) { return (st.cntMark && st.cntMark[i]) || ""; }, {
-            box: BW, pitch: BP, texts: cnt,
+            box: BW, pitch: BP, texts: sc,
             labels: function (i) { return "v = " + i; }
           });
           if (st.ptrV !== null && st.ptrV !== undefined && st.ptrV >= 0) {
@@ -439,7 +448,7 @@
 
           tag(svg, 60, 396, "out", "var(--text-soft)", "middle", 14);
           row(svg, BX, 380, n, function (i) { return (st.outMark && st.outMark[i]) || ""; }, {
-            box: BW, pitch: BP, texts: out2, colors: ocol,
+            box: BW, pitch: BP, texts: so, colors: soc,
             labels: function (i) { return "[" + i + "]"; },
             rings: st.outRing
           });
@@ -594,10 +603,18 @@
     var frames = [];
     /* st: {phase, i, k, j, out, collectFrom, head, headColor, msg1, msg2} */
     function snap(desc, st) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（buckets / bk），画出来的永远是算法结束后的最终态。 */
+      var sp = {
+        buckets: buckets.map(function (e) { return e.slice(); }),
+        bk: bk.slice()
+      };
       frames.push({
         desc: desc,
         draw: function (s) {
           var svg = s.svg(W, H);
+          var sBuckets = sp.buckets, sBk = sp.bk;
 
           note(svg, 16, 20, "数据：10 个 [0, 1) 上的实数　　分桶规则：k = ⌊x · m⌋（m = 5 个桶）");
           if (st.head) tag(svg, 16, 42, st.head, st.headColor || "var(--brand)", "start", 13.5);
@@ -632,13 +649,13 @@
               "stroke-width": active ? 2 : 1.2
             }));
             var texts = [];
-            for (var t2 = 0; t2 < buckets[k].length; t2++) texts.push(f2(buckets[k][t2]));
+            for (var t2 = 0; t2 < sBuckets[k].length; t2++) texts.push(f2(sBuckets[k][t2]));
             row(svg, BX, y, texts.length, function (i2) {
               return (st.phase === "sort" && st.k === k && st.j === i2) ? "compare" : "";
             }, { box: BBOX, pitch: BP, texts: texts });
-            tag(svg, 868, y + 32, buckets[k].length + " 个",
-              buckets[k].length ? "var(--text-soft)" : "var(--text-faint)", "end", 12, 400);
-            totalCmp += bk[k];
+            tag(svg, 868, y + 32, sBuckets[k].length + " 个",
+              sBuckets[k].length ? "var(--text-soft)" : "var(--text-faint)", "end", 12, 400);
+            totalCmp += sBk[k];
           }
           tag(svg, 24, 444, "桶内比较次数合计 = " + totalCmp + " 次（数据越均匀，桶内比较越少）",
             "var(--text-soft)", "start", 12.5, 400);
@@ -1189,13 +1206,17 @@
     var frames = [], cmp = 0, outList = [];
     /* st: {hlKids, hlNode, pathLeaf, hlPath, msg1..3} */
     function snap(desc, st) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（val / win / outList），画出来的永远是算法结束后的最终态。 */
+      var sVal = val.slice(), sWin = win.slice(), sOut = outList.slice();
       frames.push({
         desc: desc,
         draw: function (s) {
           var svg = s.svg(W, H);
           note(svg, 16, 20, "胜者树（winner tree）：叶子 = 参赛数据，内部结点 = 这一小场比赛的胜者（实现里存的是胜者所在的叶子下标）");
 
-          function built(t) { return win[t] !== -1 || st.hlNode === t; }
+          function built(t) { return sWin[t] !== -1 || st.hlNode === t; }
 
           /* 边 */
           for (var t = 2; t <= 2 * n - 1; t++) {
@@ -1209,8 +1230,8 @@
           /* 内部结点 */
           for (var t2 = 1; t2 < n; t2++) {
             if (!built(t2)) continue;
-            var pp = pos(t2), w = win[t2];
-            var shown = (w >= 0) ? ((val[w] === INF) ? "∞" : val[w]) : "?";
+            var pp = pos(t2), w = sWin[t2];
+            var shown = (w >= 0) ? ((sVal[w] === INF) ? "∞" : sVal[w]) : "?";
             var ncls = (st.hlNode === t2) ? "compare" : "done";
             svg.appendChild(SVG.circle(pp.x, pp.y, R, ncls, shown, nodeOn(ncls)));
             if (w >= 0) {
@@ -1224,9 +1245,9 @@
             var hotKid = st.hlKids && (st.hlKids[0] === n + i || st.hlKids[1] === n + i);
             var cls = "";
             if (hotKid) cls = "compare";
-            else if (val[n + i] === INF) cls = "dim";
+            else if (sVal[n + i] === INF) cls = "dim";
             else if (st.pathLeaf === i) cls = "active";
-            var txt = (val[n + i] === INF) ? "∞" : val[n + i];
+            var txt = (sVal[n + i] === INF) ? "∞" : sVal[n + i];
             svg.appendChild(SVG.circle(lp.x, lp.y, R, cls, txt, nodeOn(cls)));
             tag(svg, lp.x, lp.y + R + 14, "[" + i + "]",
               hotKid ? "var(--accent)" : "var(--text-faint)", "middle", 10.5, 400);
@@ -1236,11 +1257,11 @@
           tag(svg, 16, 398, "输出序列", "var(--text-soft)", "start", 13, 400);
           for (var o = 0; o < n; o++) {
             var x = 110 + o * 62;
-            if (o < outList.length) svg.appendChild(SVG.box(x, 376, 50, 34, "done", outList[o], ""));
+            if (o < sOut.length) svg.appendChild(SVG.box(x, 376, 50, 34, "done", sOut[o], ""));
             else dashBox(svg, x, 376, 50, 34, "");
           }
-          if (outList.length) {
-            tag(svg, 110 + outList.length * 62 + 6, 398, "← 第 " + outList.length + " 小",
+          if (sOut.length) {
+            tag(svg, 110 + sOut.length * 62 + 6, 398, "← 第 " + sOut.length + " 小",
               "var(--ok)", "start", 12, 400);
           }
 
@@ -1567,6 +1588,10 @@
     var frames = [];
     /* st: {phase, i, j, k, arr, colors, rings, hl, revLabel, runs, treeMsg, msg1..5} */
     function snap(desc, st) {
+      /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
+         DS.Viz 会先跑完整个 build() 再逐帧渲染，
+         若 draw 直接读活变量（辅助数组 T），画出来的永远是算法结束后的最终态。 */
+      var sT = T.slice();
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -1590,8 +1615,8 @@
             tag(svg, 16, 220, "T", "var(--text-soft)", "middle", 14);
             for (var i2 = 0; i2 < n; i2++) {
               var x2 = BX + i2 * BP;
-              if (T[i2] === null || T[i2] === undefined) dashBox(svg, x2, 198, BW, BW, "");
-              else svg.appendChild(SVG.box(x2, 198, BW, BW, (i2 === st.k - 1) ? "warn" : "done", T[i2], ""));
+              if (sT[i2] === null || sT[i2] === undefined) dashBox(svg, x2, 198, BW, BW, "");
+              else svg.appendChild(SVG.box(x2, 198, BW, BW, (i2 === st.k - 1) ? "warn" : "done", sT[i2], ""));
               svg.appendChild(SVG.label(x2 + BW / 2, 198 + BW + 16, "[" + i2 + "]", "middle"));
             }
             ptr(svg, BX + st.k * BP + BW / 2, 190, "k=" + st.k, "var(--purple)");

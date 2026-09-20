@@ -220,7 +220,7 @@
             <td>答案就是 <code>n − π[n-1]</code>。想清楚为什么「不完整」的循环节也成立。</td>
           </tr>
           <tr>
-            <td>P3435</td><td>OKR-A Horrible Poem</td><td><span class="diff d5">提高+/省选−</span></td><td>循环节 + 字符串哈希</td>
+            <td>P3538</td><td>OKR-A Horrible Poem</td><td><span class="diff d5">提高+/省选−</span></td><td>循环节 + 字符串哈希</td>
             <td>判断区间是否为周期串，用哈希 O(1) 比较；枚举循环节长度时只需枚举质因子。</td>
           </tr>
           <tr>
@@ -501,8 +501,9 @@ int main() {
             <td>经典题：把 Floyd 的最外层 k 变成「按时间逐个解禁村庄」，深刻理解 k 的物理含义（中转点集合）。</td>
           </tr>
           <tr>
-            <td>P3371 类似题</td><td>负环判定（搜索「负环」「SPFA 判负环」）</td><td><span class="diff d4">普及+/提高</span></td><td>Bellman-Ford / SPFA</td>
-            <td>若某个点入队次数 ≥ n，则存在负环。也可以用「最短路径边数 ≥ n」来判定。</td>
+            <td>P3385</td><td>【模板】负环</td><td><span class="diff d4">普及+/提高</span></td><td>Bellman-Ford / SPFA</td>
+            <td>若某个点入队次数 ≥ n，则存在负环。也可以用「最短路径边数 ≥ n」来判定。
+              （想练手也可以站内搜索「负环」「SPFA 判负环」找更多同类题。）</td>
           </tr>
         </tbody>
       </table>
@@ -581,7 +582,7 @@ vector&lt;int&gt; pre;                      // 路径还原：pre[v] = 最短路
 void dijkstra(int src) {
     dist.assign(n + 1, LINF);
     pre.assign(n + 1, 0);
-    /* 小根堆：pair 的 first 是距离，默认按 first 比较；greater<> 让它变成小根堆 */
+    /* 小根堆：pair 的 first 是距离，默认按 first 比较；greater&lt;&gt; 让它变成小根堆 */
     priority_queue&lt;pair&lt;long long, int&gt;, vector&lt;pair&lt;long long, int&gt;&gt;, greater&lt;&gt;&gt; pq;
     dist[src] = 0;
     pq.push({0, src});
@@ -796,10 +797,10 @@ g++ brute.cpp -O2 -o brute.exe
 g++ mine.cpp  -O2 -o mine.exe
 g++ gen.cpp   -O2 -o gen.exe
 for /l %%i in (1,1,1000) do (
-    gen.exe > in.txt
-    brute.exe < in.txt > brute.out
-    mine.exe  < in.txt > mine.out
-    fc brute.out mine.out > nul
+    gen.exe &gt; in.txt
+    brute.exe &lt; in.txt &gt; brute.out
+    mine.exe  &lt; in.txt &gt; mine.out
+    fc brute.out mine.out &gt; nul
     if errorlevel 1 (
         echo **************** 第 %%i 组数据 WA 了！****************
         type in.txt

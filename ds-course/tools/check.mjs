@@ -113,16 +113,26 @@ for (const page of PAGES) {
   }
   if (!containers.length && /ch0[1-9]|ch1[0-2]/.test(page)) warn("该章没有交互动画容器");
 
-  // 5. 代码块转义检查（含 &lt; 的块视为已正确转义；否则块内不应出现裸的 <xxx）
+  // 5. 代码块转义检查：块内所有 < 都必须写成 &lt;
+  //    ⚠ 老写法是「块里只要出现过 &lt; 或 &gt; 就整块跳过」，有漏洞：
+  //      一个块内既有正确转义、又漏了某个裸 < 时会被整块放行。
+  //      2026-09 用逐字符判定重写后，查出 4 处漏网的裸 <（ch12 / ch14）。
   const pres = [...html.matchAll(/<pre[^>]*data-lang[^>]*>([\s\S]*?)<\/pre>/gi)];
-  let badPre = 0;
+  const badPre = [];
   for (const p of pres) {
     const body = p[1];
-    if (/&lt;|&gt;/.test(body)) continue;
-    if (/<[a-zA-Z_]/.test(body)) { badPre++; continue; }
-    if (/<(?!\/)/.test(body) && /#include|cout|cin|vector|template/.test(body)) badPre++;
+    const scan = /&lt;|<|&gt;/g;
+    let m2, badAt = -1;
+    while ((m2 = scan.exec(body)) !== null) {
+      if (m2[0] === "<") { badAt = m2.index; break; }
+    }
+    if (badAt >= 0) {
+      const file = (p[0].match(/data-file="([^"]+)"/) || [])[1] || "(未命名)";
+      const line = body.slice(0, badAt).split("\n").length;
+      badPre.push(`${file} 第 ${line} 行`);
+    }
   }
-  if (badPre) err(`${badPre} 个代码块存在未转义的 < （应写成 &lt;）`);
+  if (badPre.length) err(`${badPre.length} 个代码块存在未转义的 < （应写成 &lt;）：` + badPre.slice(0, 4).join("；"));
   else ok(`${pres.length} 个代码块转义正常`);
 
   // 6. 语法检查

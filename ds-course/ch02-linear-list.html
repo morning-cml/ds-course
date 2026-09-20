@@ -25,13 +25,9 @@
   .fig-er   { stroke: var(--danger); stroke-width: 2.2; fill: none; }
   .fig-dash { stroke: var(--border-strong); stroke-width: 1.2; stroke-dasharray: 5 4; fill: none; }
 
-  /* ---------- 动画里用到的补充状态类（course.css 只定义了部分） ---------- */
-  .vz-box.warn { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2.4; }
-  .vz-box.dim  { opacity: .35; }
-  .vz-edge.compare { stroke: var(--accent); stroke-width: 2.6; }
-  .vz-edge.danger  { stroke: var(--danger); stroke-width: 2.6; stroke-dasharray: 6 4; }
-  .vz-edge.ghost   { stroke: var(--text-faint); stroke-width: 1.4; stroke-dasharray: 5 4; opacity: .8; }
-  .vz-dot  { fill: var(--text-soft); }
+  /* ---------- 动画里用到的补充状态类 ----------
+     2026-09 起 .vz-box.warn/.dim、.vz-edge.compare/.danger/.ghost、.vz-dot
+     已收进 course.css 公共样式，本页不再重复定义。 */
   .ptr-pre { fill: var(--ok);     font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
   .ptr-cur { fill: var(--brand);  font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
   .ptr-nxt { fill: var(--accent); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }

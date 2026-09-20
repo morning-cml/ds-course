@@ -9,17 +9,9 @@
 <script src="assets/js/course.js" defer></script>
 <script src="assets/js/ch06-viz.js" defer></script>
 <style>
-  /* 本页专用样式：补齐 course.css 里没有定义的 viz 状态类，全部沿用公共 CSS 变量 */
-  .vz-box.warn  { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2.4; }
-  .vz-box.dim   { opacity: .35; }
-  .vz-box.ghost { fill: var(--bg-soft); stroke: var(--border); stroke-dasharray: 4 3; }
-  .vz-text.sm   { font-size: 11px; }
-  .vz-text.big  { font-size: 15px; font-weight: 700; }
-  .vz-text.ok   { fill: var(--ok); }
-  .vz-text.bad  { fill: var(--danger); }
-  .vz-text.brand{ fill: var(--brand); }
-  .vz-text.pur  { fill: var(--purple); }
-  .viz-desc code { background: var(--bg-soft); padding: 0 4px; border-radius: 4px; }
+  /* 本页专用样式。viz 状态类（.vz-box.warn/.dim/.ghost、
+     .vz-text.sm/.big/.ok/.bad/.brand/.pur、.viz-desc code）自 2026-09 起
+     已收进 course.css 公共样式，本页不再重复定义。 */
   .mx-cmp td:first-child { white-space: nowrap; }
   .fig-wide svg { width: 100%; height: auto; }
 </style>
