@@ -65,12 +65,15 @@
 
   /* ==========================================================================
      1) 六范式选择决策流程
+     容器：<div id="viz-paradigm-map">
      ========================================================================== */
   (function paradigmMap() {
     var host = document.getElementById("viz-paradigm-map");
     if (!host) return;
 
     /* 每个结点：{id, x, y, w, h, title, sub, cls} */
+    /* NODES = 流程图的所有结点：id 是它的名字（边表用它连线），x/y 是左上角坐标，w/h 是框的大小，
+       title / sub 是框里的两行文字，cls 是这个框固定的配色（不代表状态）。 */
     var NODES = [
       { id: "start", x: 300, y: 20, w: 220, h: 44, title: "拿到一个问题",
         sub: "解空间有多大？子问题重叠吗？", cls: "active" },
@@ -97,6 +100,7 @@
       { id: "memo", x: 60, y: 446, w: 200, h: 46, title: "记忆化搜索 → 递推",
         sub: "O(2ⁿ) 降到 O(状态数)", cls: "warn" }
     ];
+    /* EDGES = 有向边表，每条边写成 [起点 id, 终点 id, 分支上的文字]。 */
     var EDGES = [
       ["start", "small", "n 小"], ["start", "div", "想拆"], ["start", "greedy", "想贪"],
       ["small", "back", "要全部解"], ["div", "dc", "不重叠"], ["div", "overlap", "重叠"],
@@ -104,6 +108,8 @@
       ["dp", "memo", "写不出递推"], ["greedy", "gr", "能证明"], ["div", "bb", "只要最优解"]
     ];
 
+    /* 帧数组：build() 里被同步填满，之后才逐帧渲染；每帧只高亮一个结点 / 一条边，
+       高亮信息由 snap 的参数直接带进闭包，所以这里不需要额外的快照。 */
     var frames = [];
     function snap(desc, hiNode, hiEdge) {
       frames.push({
@@ -197,25 +203,39 @@
 
   /* ==========================================================================
      2) N 皇后 · 回溯搜索全过程
+     容器：<div id="viz-nqueen">
      ========================================================================== */
   (function nqueen() {
     var host = document.getElementById("viz-nqueen");
     if (!host) return;
 
+    /* N = 棋盘阶数（N = 4 时解只有 2 个，手动看得完）。下面所有数组都是 **1 基**：行、列都从 1 数到 N。 */
     var N = 4;
     var frames = [];
+    /* col[j]      = 第 j 列是否已经被占（下标 1..N）；
+       dg[i-j+N]   = 主对角线（左上→右下）是否被占 —— 同一条主对角线上 i−j 恒定，加 N 是为了把负数扳成 0..2N；
+       udg[i+j]    = 副对角线（右上→左下）是否被占 —— 同一条副对角线上 i+j 恒定；
+       x[i]        = 第 i 行的皇后放在第几列（0 表示这一行还没放）；
+       这四组量都会被回溯就地改写，所以每帧画的是 snapshot 里拷下来的副本。 */
     var col = new Array(N + 1).fill(false);
     var dg = new Array(2 * N + 2).fill(false);       // 主对角线 i-j+N
     var udg = new Array(2 * N + 2).fill(false);      // 副对角线 i+j
     var x = new Array(N + 1).fill(0);                // x[i] = 第 i 行皇后所在列
+    /* solutions = 已经找到的解，每找到一个就把 x 的副本 push 进去；nodes = 搜索树已经访问过的结点**个数**。 */
     var solutions = [], nodes = 0;
+    /* curRow / curCol = 当前正在尝试的行、列（画面上标出来）；conflictList 是预留的冲突列表，
+       本文件声明后没有使用（冲突信息改用 snapshot 的参数逐帧传）。 */
     var curRow = 1, curCol = 0, conflictList = [];
 
+    /* 推一帧。hiRow / hiCol = 本帧正在尝试的格子（画成 active）；
+       conflictRow / conflictCol = 发生冲突的格子（画成 warn），badDiag = 是否画那个 ✗ 标记。 */
     function snapshot(desc, hiRow, hiCol, conflictRow, conflictCol, badDiag) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
          DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
          若 draw 直接读 col / dg / udg / x / solutions / nodes / curRow 这些活变量，
          画出来的就永远是算法结束后的最终态（第 0 帧显示完成图）。 */
+      /* c / d / u / xx / sols / snapNodes / snapRow = **该帧的快照**：列占用、两条对角线占用、棋盘、解的列表、
+         已访问结点数、当前行号。build() 会先跑完，draw 里读活变量只会看到搜索结束后的最终状态。 */
       var c = col.slice(), d = dg.slice(), u = udg.slice(), xx = x.slice();
       var sols = solutions.slice();
       var snapNodes = nodes, snapRow = curRow;
@@ -357,25 +377,35 @@
 
   /* ==========================================================================
      2) 全排列 · 排列树回溯生成
+     容器：<div id="viz-permutation">
      ========================================================================== */
   (function permutation() {
     var host = document.getElementById("viz-permutation");
     if (!host) return;
 
+    /* A = 待排列的集合；n = 元素个数（下面所有下标都是 **0 基**）。 */
     var A = [1, 2, 3];
     var n = A.length;
+    /* used[i] = A[i] 这个数有没有被用过；cur = 当前正在拼的这个排列（长度就是递归深度）；
+       results = 已经拼好的完整排列；nodes = 搜索树已访问的结点个数；
+       它们都在搜索过程中变化，所以每帧画的是 snap 里拷的快照。 */
     var used = new Array(n).fill(false);
     var cur = [];
     var results = [];
     var frames = [];
     var nodes = 0;
+    /* curLevel = 当前递归到第几层（0 基）、curTry = 本层正在尝试第几个候选（-1 = 没有）、
+       tried = 本层已经试过的候选列表，只用于画面高亮。 */
     var curLevel = 0, curTry = -1, tried = [];
 
+    /* 推一帧。level / tryIdx / tryList = 本帧要展示的递归层、正在尝试的候选、已试过的候选。 */
     function snap(desc, level, tryIdx, tryList) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来（含递归结点计数）。
          DS.Viz 会先同步跑完整个 build()、之后才逐帧渲染，
          若 draw 直接读 used / cur / results / nodes 这些活变量，
          画出来的就永远是算法结束后的最终态（第 0 帧显示完成图）。 */
+      /* uu / cu / rs / tr / snapNodes = **该帧的快照**：占用标记、当前排列、已完成的排列、
+         本层已试候选、结点计数。 */
       var uu = used.slice(), cu = cur.slice(), rs = results.slice();
       var tr = tryList ? tryList.slice() : [];
       var snapNodes = nodes;
@@ -498,16 +528,22 @@
 
   /* ==========================================================================
      3) 01 背包 · 二维 dp 表逐格填表
+     容器：<div id="viz-knapsack01">
      ========================================================================== */
   (function knapsack01() {
     var host = document.getElementById("viz-knapsack01");
     if (!host) return;
 
+    /* n = 物品件数、V = 背包容量上限（也是 dp 表的列数 − 1）；
+       w[i] / v[i] = 第 i 件物品的重量、价值 —— 下标 **1 基**（0 号是占位的 0，方便写成 dp[i-1]）。 */
     var n = 4, V = 8;
     var w = [0, 2, 3, 4, 5];
     var v = [0, 3, 4, 5, 6];
 
     /* 先算出完整的二维 dp 表（正确值） */
+    /* dp = 完整的二维表，**两个维度的含义**：dp[i][j] = 只考虑前 i 件物品、容量不超过 j 时能拿到的最大价值；
+       第 0 行/列是全 0 的边界（不放物品、容量为 0）。整张表在上面的循环里一次算完，
+       动画只负责一格一格“揭开”它（揭开进度由 snap 的参数 uptoRow / uptoCol 决定，不需要快照）。 */
     var dp = [];
     for (var i = 0; i <= n; i++) dp.push(new Array(V + 1).fill(0));
     for (var i2 = 1; i2 <= n; i2++)
@@ -517,12 +553,16 @@
       }
 
     var frames = [];
+    /* cols / rowHead = 表格的列标题（容量 j = 0..V）与行标题（i = 0 表示不放物品，其余带 w、v）。 */
     var cols = [];
     for (var c = 0; c <= V; c++) cols.push(String(c));
     var rowHead = ["i=0 无物品"];
     for (var r = 1; r <= n; r++) rowHead.push("i=" + r + " (w=" + w[r] + ",v=" + v[r] + ")");
 
     /* 每帧只显示"已经算到"的格子 */
+    /* 推一帧。uptoRow / uptoCol = 已经算到哪一格（这之后的格子画成空的 dim）；
+       hiRow / hiCol = 本帧正在算的格子；srcRow / srcCol = 转移用到的来源格子（dp[i-1][j] 或 dp[i-1][j-w[i]]）；
+       extra(svg) 可以再补画说明。 */
     function snap(desc, uptoRow, uptoCol, hiRow, hiCol, srcRow, srcCol, extra) {
       frames.push({
         desc: desc,
@@ -606,11 +646,13 @@
 
   /* ==========================================================================
      4) 完全背包 vs 01 背包 · 一维数组循环方向对比
+     容器：<div id="viz-knapsack-full">
      ========================================================================== */
   (function knapsackFull() {
     var host = document.getElementById("viz-knapsack-full");
     if (!host) return;
 
+    /* V = 容量上限；w / v 同 01 背包（1 基，0 号占位）；n = 物品件数。 */
     var V = 8;
     var w = [0, 2, 3, 4, 5];
     var v = [0, 3, 4, 5, 6];
@@ -619,11 +661,17 @@
     var frames = [];
 
     /* 一维数组状态：f01（倒序）与 fFull（正序），都从全 0 开始 */
+    /* 一维滚动数组（下标 = 容量 j，0..V）：f01 用**倒序**枚举容量（每件物品最多用一次），
+       fFull 用**正序**枚举容量（每件物品可以用无限次）—— 两个数组唯一的区别就是这个循环方向。
+       它们被逐格改写，所以每帧画的是 mk 里拷的快照。 */
     var f01 = new Array(V + 1).fill(0);
     var fFull = new Array(V + 1).fill(0);
+    /* 当前的两对高亮下标：[被读取的格子, 被写入的格子]；-1 表示这一帧不标。 */
     var cur01 = [-1, -1], curFull = [-1, -1];
 
+    /* 推一帧。item = 正在处理第几件物品（0 = 还没有），j01 / jFull = 两边当前处理的容量下标，note = 底部说明。 */
     function mk(desc, item, j01, jFull, note) {
+      /* a / b / c01 / cFull / it = **该帧的快照**：两张一维表的副本、两对高亮下标、当前物品号。 */
       var a = f01.slice(), b = fFull.slice();
       var c01 = cur01.slice(), cFull = curFull.slice();
       var it = item;
@@ -741,17 +789,23 @@
 
   /* ==========================================================================
      5) LIS · O(n log n) 的 tails[] 二分更新
+     容器：<div id="viz-lis">
      ========================================================================== */
   (function lis() {
     var host = document.getElementById("viz-lis");
     if (!host) return;
 
+    /* A = 演示序列（只读）；n = 长度；tails 见下面 snap 的说明。 */
     var A = [10, 9, 2, 5, 3, 7, 101, 18];
     var n = A.length;
+    /* tails = LIS 的 O(n log n) 解法维护的辅助数组：tails[len-1] = 「所有长度为 len 的上升子序列中，
+       结尾元素的最小值」—— 注意它不是任何一条具体的 LIS，长度才是答案；它会被不断替换/追加（活变量）。 */
     var tails = [];
     var frames = [];
 
+    /* 推一帧。curIdx = 正在处理的 A 的下标；lo / hi / mid = 二分区间与中点（-1 = 不在二分）；action = 本步说明。 */
     function snap(desc, curIdx, lo, hi, mid, action) {
+      /* tt / ci / l / h / m / ac / arr = **该帧的快照**（tails 与 A 的副本 + 下标参数）。 */
       var tt = tails.slice(), ci = curIdx, l = lo, h = hi, m = mid, ac = action;
       var arr = A.slice();
       frames.push({
@@ -864,14 +918,19 @@
 
   /* ==========================================================================
      6) LCS · 二维 dp 表填表 + 回溯出公共子序列
+     容器：<div id="viz-lcs">
      ========================================================================== */
   (function lcs() {
     var host = document.getElementById("viz-lcs");
     if (!host) return;
 
+    /* SA / SB = 两条待比较的字符串；n = SA.length、m = SB.length。 */
     var SA = "ABCBDAB", SB = "BDCABA";
     var n = SA.length, m = SB.length;
 
+    /* dp 的**两个维度**：dp[i][j] = SA 的前 i 个字符与 SB 的前 j 个字符的最长公共子序列长度，
+       所以 i、j 是「长度」而不是「下标」（比较字符时要写 SA[i-1]、SB[j-1]，这是最容易错一位的地方）；
+       第 0 行/列是全 0 边界。表先一次算完，动画只按 upto 参数逐格揭开。 */
     var dp = [];
     for (var i = 0; i <= n; i++) dp.push(new Array(m + 1).fill(0));
     for (var i2 = 1; i2 <= n; i2++)
@@ -881,6 +940,7 @@
       }
 
     var frames = [];
+    /* cols / rowHead = 表格的列标题（SB 的每个字符）与行标题（SA 的每个字符），第 0 行/列是空串边界。 */
     var cols = [""];
     for (var c = 0; c < m; c++) cols.push(SB[c]);
     cols[0] = "j=0";
@@ -888,6 +948,9 @@
     for (var r = 0; r < n; r++) rowHead.push(SA[r]);
 
     /* upto: 已填到哪一格；pathMode: 是否已进入回溯阶段 */
+    /* 推一帧。uptoRow / uptoCol = 已经填到哪一格；hiR / hiC = 本帧高亮的格子；
+       srcR / srcC = 转移来源的格子；pathCells = 回溯路径上的格子列表（数组，调用处 slice 传进来）；
+       lcsText = 已收集到的公共子序列文字（回溯阶段是倒序的）。 */
     function snap(desc, uptoRow, uptoCol, hiR, hiC, srcR, srcC, pathCells, lcsText) {
       frames.push({
         desc: desc,
@@ -953,6 +1016,8 @@
       n, m, n, m, -1, -1, null, "");
 
     /* 回溯 */
+    /* 回溯阶段的双指针：pi / pj 从右下角 (n, m) 出发往左上走；
+       path = 走过的格子 [i, j] 列表；chars = 沿途收集到的字符（**倒序**，最后要 reverse 才是答案）。 */
     var pi = n, pj = m, path = [], chars = [];
     while (pi > 0 && pj > 0) {
       path.push([pi, pj]);
@@ -993,31 +1058,45 @@
 
   /* ==========================================================================
      7) 区间 DP · 石子合并（按区间长度从小到大填表）
+     容器：<div id="viz-stone-merge">
      ========================================================================== */
   (function stoneMerge() {
     var host = document.getElementById("viz-stone-merge");
     if (!host) return;
 
+    /* a = 每堆石子的数量（下标 0 基）；n = 堆数。 */
     var a = [4, 1, 3, 2];
     var n = a.length;
+    /* pre[i] = 前 i 堆石子的总数（前缀和，pre[0] = 0），数组长度 n+1；
+       下面 sum(l, r) = pre[r] − pre[l-1] 就是区间 [l, r] 的石子总数 —— 注意 l、r 是 **1 基**的堆号。 */
     var pre = [0];
     for (var t = 0; t < n; t++) pre.push(pre[t] + a[t]);
     function sum(l, r) { return pre[r] - pre[l - 1]; }
 
+    /* INF = 取最小值时的初始“无穷大”（1e9 远大于任何可能代价，且加和不会溢出）。 */
     var INF = 1e9;
+    /* f 的**两个维度**：f[i][j] = 把第 i 堆到第 j 堆合并成一堆的最小代价（i、j 都是 1 基堆号，i ≤ j）；
+       转移 f[i][j] = min over k ( f[i][k] + f[k+1][j] ) + sum(i..j)，边界 f[i][i] = 0；
+       为了让 k+1 不越界，开成 (n+2)×(n+2)。它是活变量，每帧画的是 snap 里拷的副本。 */
     var f = [];
     for (var i = 0; i <= n + 1; i++) f.push(new Array(n + 2).fill(0));
+    /* done[i][j] = 这个区间算完了没有（画面靠它决定这一格是数字还是空白）；对角线 f[i][i] 一开始就算完。 */
     var done = [];                     /* done[i][j] 标记该区间是否已算完 */
     for (var i2 = 0; i2 <= n + 1; i2++) done.push(new Array(n + 2).fill(false));
     for (var k = 1; k <= n; k++) { f[k][k] = 0; done[k][k] = true; }
 
     var frames = [];
+    /* cols / rowHead = 表格的列标题（j = 0..n）与行标题（i = 1..n，带上这堆的石子数）。 */
     var cols = [];
     for (var c = 0; c <= n; c++) cols.push(c === 0 ? "j=0" : ("j=" + c));
     var rowHead = ["i=0"];
     for (var r = 1; r <= n; r++) rowHead.push("i=" + r + " (" + a[r - 1] + ")");
 
+    /* 推一帧。hiI / hiJ = 本帧正在算的格子；src1 / src2 = 枚举切分点时的左右两个子区间（[i,k] 与 [k+1,j]）；
+       curLen = 当前枚举的区间长度（画面顶部显示用）。 */
     function snap(desc, hiI, hiJ, src1, src2, curLen) {
+      /* ff / dd = **该帧的快照**：DP 表与“已算完”标记的二维深拷贝。
+         f 会随着三重循环不断被填，draw 里读活变量只会看到算完的整张表。 */
       var ff = f.map(function (row) { return row.slice(); });
       var dd = done.map(function (row) { return row.slice(); });
       frames.push({
@@ -1109,11 +1188,13 @@
 
   /* ==========================================================================
      8) 状压 DP · TSP
+     容器：<div id="viz-tsp-dp">
      ========================================================================== */
   (function tspDp() {
     var host = document.getElementById("viz-tsp-dp");
     if (!host) return;
 
+    /* n = 城市个数（城市编号 0..n-1，位编号与之一致）；dist = 城市间的距离矩阵，dist[i][j] 与 dist[j][i] 对称。 */
     var n = 4;
     var dist = [
       [0, 10, 15, 20],
@@ -1121,10 +1202,15 @@
       [15, 35, 0, 30],
       [20, 25, 30, 0]
     ];
+    /* FULL = 全部城市都访问过的 mask（n 位全 1，即 1111₂）；INF = 不可达的初始值 1e9。 */
     var FULL = (1 << n) - 1;
     var INF = 1e9;
 
     /* 先算出每个状态的最终值，动画只负责"按顺序展示转移" */
+    /* dp 的**两个维度**：dp[mask][i] = 已经访问的城市集合是 mask、当前停在城市 i 时的最小路程；
+       mask 是**位掩码**，第 j 位为 1 表示城市 j 已访问（所以 mask 最大 2ⁿ−1 = FULL）；
+       pre[mask][i] = 该最优值是从哪个城市转移来的（-1 = 没有前驱），最后靠它倒推路径；
+       初始化 dp[1][0] = 0（只访问了城市 0、就在城市 0），其余全是 INF。 */
     var dp = [], pre = [];
     for (var i = 0; i < (1 << n); i++) {
       dp.push(new Array(n).fill(INF));
@@ -1133,8 +1219,12 @@
     dp[1][0] = 0;
 
     var frames = [];
+    /* shown = 状态是否已经确定的标记表（mask → true）。本文件只往里写、没有再读，
+       画面显示哪些 mask 行是由下面 order 数组决定的。 */
     var shown = {};                 /* 状态是否已经确定 */
 
+    /* maskStr(mask) = 把 mask 写成高位在左的二进制字符串（如 5 → "0101"）；
+       maskSet(mask) = 写成集合形式（如 5 → "{0,2}"）。两者都只用于画面文字。 */
     function maskStr(mask) {
       var s = "";
       for (var b = n - 1; b >= 0; b--) s += ((mask >> b) & 1) ? "1" : "0";
@@ -1146,7 +1236,12 @@
       return "{" + r.join(",") + "}";
     }
 
+    /* 推一帧。curMask / curI = 出发状态（mask, i）；nMask / nJ = 要转移到的状态（加入城市 j）；
+       cand = 候选路程 dp[curMask][curI] + dist[curI][nJ]；isNew = 候选是否比原值更优；
+       order = 已经出现过的 mask 列表（画面按它列行）。 */
     function snap(desc, curMask, curI, nMask, nJ, cand, isNew, order) {
+      /* d = **该帧的 dp 表快照**（逐行深拷贝），画面上的状态表、候选值全都读它；
+         cm / ci / nm / nj / cd / isnew / ord 同理是把本帧的参数固定下来。 */
       var d = dp.map(function (row) { return row.slice(); });
       var cm = curMask, ci = curI, nm = nMask, nj = nJ, cd = cand, isnew = isNew;
       var ord = (order || []).slice();
@@ -1226,6 +1321,8 @@
       });
     }
 
+    /* order = 已经在画面上出现过的 mask（初始只有 mask = 1，即“只访问了城市 0”），
+       每产生一个新状态就把它的 mask 追加进来，画面按 mask 递增列出这些行。 */
     var order = [1];
     snap("状压 DP 解 TSP（4 个城市）。用整数 <b>mask 的二进制位</b>表示「已访问的城市集合」：" +
       "第 j 位为 1 表示城市 j 已经访问过。<br>状态 <code>dp[mask][i]</code> = 已访问集合为 mask、" +
@@ -1256,11 +1353,14 @@
       }
     }
 
+    /* 收尾：ans = 走遍所有城市再回到城市 0 的最小总路程；last = 最后一站的城市编号。 */
     var ans = INF, last = -1;
     for (var q2 = 0; q2 < n; q2++)
       if (dp[FULL][q2] + dist[q2][0] < ans) { ans = dp[FULL][q2] + dist[q2][0]; last = q2; }
 
     /* 还原路径 */
+    /* 路径还原：mm 是从 FULL 开始往回消的 mask，cc 是当前城市（沿 pre 往前退，-1 表示到头了）；
+       path 收集到的城市是**倒序**的，最后 reverse() 一次才成正序。 */
     var path = [], mm = FULL, cc = last;
     while (cc !== -1) {
       path.push(cc);

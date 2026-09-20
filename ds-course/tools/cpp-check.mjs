@@ -9,6 +9,9 @@
  * 因此这里把编译器输出重定向到临时文件再读回。
  *
  * 用法：node tools/cpp-check.mjs [页面文件名...]
+ *
+ * 退出码：0 = 没有编译失败（找不到编译器、或沙箱导致无法判定时一律按 0 放行）；
+ *        1 = 至少 1 个代码块编译失败
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -16,8 +19,9 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const ARGS = process.argv.slice(2);
+const ARGS = process.argv.slice(2);   // 命令行给出的页面文件名；为空则扫描全部 HTML
 
+/* 编译器候选表：按顺序探测，第一个 --version 能跑通的就用它（找不到就整体跳过） */
 function findCompiler() {
   const cands = ["g++", "clang++", "C:\\msys64\\mingw64\\bin\\g++.exe"];
   for (const c of cands) {
@@ -33,13 +37,13 @@ const unescapeHtml = (s) => s
   .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
   .replace(/&amp;/g, "&");
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dscpp-"));
-const pages = ARGS.length ? ARGS : fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).sort();
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dscpp-"));   // 本次运行专用的临时目录，存放 bNN.cpp 与编译器日志
+const pages = ARGS.length ? ARGS : fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).sort();   // 实际扫描的页面清单
 
-let total = 0, ok = 0, fail = 0, skipped = 0;
-const failures = [];
-const multiFile = [];
-const review = [];
+let total = 0, ok = 0, fail = 0, skipped = 0;   // 代码块总数 / 编译通过 / 编译失败 / 跳过（非 C++、多文件示例、环境受限）
+const failures = [];    // 编译失败的明细 {page, file, err}，用于打印每条失败的首行错误
+const multiFile = [];   // 因缺自定义头文件而跳过的块名（多文件教学示例，属预期）
+const review = [];      // 拿不到编译器输出、无法判定的块 {page, file}，待人工确认
 
 for (const page of pages) {
   const fp = path.join(ROOT, page);
@@ -48,33 +52,35 @@ for (const page of pages) {
   const blocks = [...html.matchAll(/<pre[^>]*data-lang="(?:cpp|c\+\+)"[^>]*>([\s\S]*?)<\/pre>/gi)];
   if (!blocks.length) continue;
 
-  let pageOk = 0, pageSkip = 0;
-  const pageFails = [];
+  let pageOk = 0, pageSkip = 0;   // 本页编译通过数 / 跳过数（跳过 = 非 C++ 文件、多文件示例、环境受限）
+  const pageFails = [];           // 本页编译失败的 data-file 名列表
 
   blocks.forEach((m, i) => {
-    const src = m[0];
-    const file = (src.match(/data-file="([^"]+)"/) || [])[1] || `block${i + 1}.cpp`;
-    let code = unescapeHtml(m[1]).replace(/^\n+|\s+$/g, "");
-    total++;
+    const src = m[0];   // 整个 <pre ...>…</pre> 原文（用来读 data-file 属性）
+    const file = (src.match(/data-file="([^"]+)"/) || [])[1] || `block${i + 1}.cpp`;   // 代码块对应的文件名（无 data-file 时按块序号命名）
+    let code = unescapeHtml(m[1]).replace(/^\n+|\s+$/g, "");   // 还原实体并去掉首尾空白的真实代码
+    total++;   // 代码块总数加一（含后面会被跳过的）
 
     // 非 C++ 内容（例如 .bat 脚本）跳过
     if (/\.(bat|sh|py|txt)$/i.test(file)) { skipped++; pageSkip++; return; }
 
-    const hasInc = /#include/.test(code);
-    const hasMain = /\bint\s+main\s*\(/.test(code);
+    const hasInc = /#include/.test(code);              // 是否自带头文件（自带说明是完整程序）
+    const hasMain = /\bint\s+main\s*\(/.test(code);    // 是否含 main
     // 片段（没有头文件也没有 main 的零散语句）单独判定
     const fragment = !hasInc && !hasMain;
+    /* 送进编译器的源码：自带 #include 的原样编译；
+       否则补上 bits/stdc++.h 并把零散语句包进一个函数里，让「只有语句」的教学片段也能单独过语法检查 */
     const wrapped = hasInc
       ? code
       : "#include <bits/stdc++.h>\nusing namespace std;\n" +
         "[[maybe_unused]] static void __ds_wrap(void) {\n" + code + "\n}\n";
 
-    const cpp = path.join(tmp, `b${total}.cpp`);
-    const log = path.join(tmp, `b${total}.log`);
+    const cpp = path.join(tmp, `b${total}.cpp`);   // 还原出的待编译源文件
+    const log = path.join(tmp, `b${total}.log`);   // 编译器 stderr 的落盘位置（沙箱禁用管道，只能走文件）
     fs.writeFileSync(cpp, wrapped, "utf8");
 
-    let errText = "";
-    let compiled = false;
+    let errText = "";         // 编译器报错文本（空 = 没拿到输出）
+    let compiled = false;     // 本次是否通过语法检查
     try {
       // 关键：stdio 全部走文件/忽略，绝不用管道（沙箱会 EPERM）
       execFileSync(CXX, ["-fsyntax-only", "-std=c++17", "-w", "-fpermissive", cpp],
@@ -94,7 +100,7 @@ for (const page of pages) {
       } catch (e2) { /* 编译失败返回非 0，属正常 */ }
       errText = fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "";
     }
-    if (compiled) { ok++; pageOk++; return; }
+    if (compiled) { ok++; pageOk++; return; }   // 编译通过：总通过数与本页通过数各加一
     // 课件中刻意拆成多文件的教学示例（自带引号包含的自定义头文件）：缺头文件属预期，跳过
     if (/fatal error:.*\.h.*No such file/i.test(errText)) {
       skipped++; pageSkip++; multiFile.push(file); return;

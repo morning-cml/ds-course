@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  var SVG = DS.SVG;
+  var SVG = DS.SVG;                               // 全页共用的 SVG 工具集：svg/box/text/label/el/line/path 都在它上面
 
   /* 数值显示：整数就不带小数点，否则保留两位 */
   function fmt(v) {
@@ -30,13 +30,16 @@
 
     var CAP = 8;                    /* 数组容量 MaxSize */
     var arr = [];                   /* 栈内容，arr[0] 是栈底 */
-    var top = -1;
-    var frames = [];
-    var no = 0;
+    var top = -1;                   /* 栈顶元素的下标 —— 不是元素个数！-1 = 空栈（栈内共有 top + 1 个元素）；
+                                       入栈先 ++top 再写入，出栈先取值再 --top，顺序写反就会丢数据 */
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
+    var no = 0;                                    // 步骤序号计数器：tag() 每调用一次 +1，只写进 <b>第 N 步</b> 文字，不参与绘制
 
     function tag(html) { no++; return '<b>第 ' + no + ' 步</b>　' + html; }
 
     /* 画一帧：数组 + top 指针 + 状态行 */
+    /* render 的入参全是「当帧快照」：cells = 这一刻的栈内容数组，tp = 这一刻的 top，
+       hi = 高亮配置 {cell: 格子下标, cls: 类名}（null = 不高亮），banner = 顶部横幅文字。 */
     function render(s, cells, tp, hi, banner) {
       var W = 720, H = 268, cw = 62, chh = 50, x0 = 62, y0 = 72;
       var svg = s.svg(W, H);
@@ -76,7 +79,7 @@
     }
 
     function snap(desc, hi, short) {
-      var cells = arr.slice(), tp = top, h = hi || null, bn = short;
+      var cells = arr.slice(), tp = top, h = hi || null, bn = short;   // 推帧这一刻抓快照：draw 里只读这四个量，绝不读 arr/top
       frames.push({
         desc: desc,
         draw: function (s) { return render(s, cells, tp, h, bn); }
@@ -97,7 +100,7 @@
     snap(tag('GetTop(S)：只读取 <code>S[' + top + '] = ' + arr[top] + '</code>，<b>不改变 top</b>。取栈顶与出栈的区别就在这一句。'),
       { cell: top, cls: 'compare' }, 'GetTop(S)：读到 ' + arr[top] + '，top 不变');
 
-    var v1 = arr[top];
+    var v1 = arr[top];              // 先把栈顶值存进局部量：出栈的写法是「先取值、再 --top」（C 里对应 Pop(&S, &e) 的 e）
     snap(tag('Pop(&amp;S, &amp;e)：先把 <code>S[' + top + '] = ' + v1 + '</code> 交给 e，再 <code>--top</code>（top 变成 ' + (top - 1) + '）。注意顺序：先取值、后减下标。'),
       { cell: top, cls: 'warn' }, 'Pop(&S, &e)：取出 ' + v1 + '，top 减 1');
     top--;
@@ -107,7 +110,7 @@
       { cell: top, cls: 'warn' }, 'Pop(&S, &e)：取出 ' + v2 + '，top 减 1');
     top--;
 
-    var pushes2 = [9, 42];
+    var pushes2 = [9, 42];          // 第二次入栈的 2 个值：会盖掉刚出栈留下的「废数据」，用于演示 top 之外的内容无效
     for (var q = 0; q < pushes2.length; q++) {
       top++; arr[top] = pushes2[q];
       snap(tag('Push(&amp;S, ' + pushes2[q] + ')：新元素直接盖掉刚才的「废数据」，top = ' + top + '。'),
@@ -117,7 +120,7 @@
     snap(tag('StackEmpty(S)：<code>top = ' + top + ' ≥ 0</code>，返回 <b>false</b>（栈非空）。判空只看 top，不看数组内容。'),
       null, 'StackEmpty(S)：top ≥ 0 → false');
 
-    var drained = 0;
+    var drained = 0;                // 已经弹出的次数（1 基），只用于「第 N 次 Pop」的文字
     while (top >= 0) {
       var vv = arr[top];
       drained++;
@@ -144,16 +147,20 @@
     var host = document.getElementById('viz-brackets');
     if (!host) return;
 
-    var CASES = [
+    var CASES = [                   /* 4 个测试用例，每个都从空栈从头扫一遍；所有用例的帧依次追加进同一个 frames */
       { s: '{[()]}', note: '完全匹配的正确串' },
       { s: '([)]',   note: '情形二：类型不匹配' },
       { s: '(()',    note: '情形三：左括号多余' },
       { s: '())',    note: '情形一：右括号多余' }
     ];
-    var OPEN = '([{';
-    var PAIR = { ')': '(', ']': '[', '}': '{' };
-    var frames = [];
+    var OPEN = '([{';               // 左括号集合：indexOf(ch) >= 0 就说明当前字符是左括号
+    var PAIR = { ')': '(', ']': '[', '}': '{' };   // 右括号 → 它该配对的左括号；比较时拿 PAIR[ch] 和栈顶比
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
+    /* render 的入参全是「当帧快照」：str = 当前用例的输入串（同一用例内不变），
+       i = 正在扫描的字符下标（-1 表示「没有当前字符」：开头准备 / 扫描结束两种情况都用它），
+       stack = 这一刻的栈内容副本（栈底在前），status = 底部状态行文字，
+       sc = 状态类别：既决定 status 的颜色（ok 绿 / warn 红 / 其余蓝），又决定当前格子的高亮色（缺省 compare 橙）。 */
     function render(s, str, i, stack, status, sc) {
       var W = 720, H = 306, cw = 40, chh = 44, x0 = 40, y0 = 58;
       var svg = s.svg(W, H);
@@ -193,7 +200,7 @@
     }
 
     function snap(str, i, stack, status, sc, desc) {
-      var s2 = stack.slice(), st = status, c2 = sc;
+      var s2 = stack.slice(), st = status, c2 = sc;   // 快照：栈拷一份；status/sc 是字符串，按值存即可
       frames.push({
         desc: desc,
         draw: function (s) { return render(s, str, i, s2, st, c2); }
@@ -201,7 +208,7 @@
     }
 
     for (var c = 0; c < CASES.length; c++) {
-      var str = CASES[c].s, stack = [], failed = false;
+      var str = CASES[c].s, stack = [], failed = false;   // 每个用例独立重来：新栈 + failed；failed 一旦为 true 就停止扫描
       snap(str, -1, stack, '准备扫描', '', '<b>测试串 ' + (c + 1) + '：<code>' + str + '</code></b>（' + CASES[c].note +
         '）。规则：遇左括号入栈；遇右括号则与栈顶比较，能配成一对就弹出，否则失败。');
 
@@ -257,17 +264,19 @@
     var host = document.getElementById('viz-base-convert');
     if (!host) return;
 
-    var N = 156, BASE = 2;
+    var N = 156, BASE = 2;          // 被转换的十进制数（本例 156）与目标进制；改这两个数就换一道题
+    /* steps[k] = 第 k 次短除法的记录 {from: 被除数, q: 商, r: 余数}，下标 0 基：
+       下标 0 是第一次除法、得到的是二进制最低位；steps.length 就是二进制数的位数。 */
     var steps = [];
     for (var x = N; x > 0;) {
       var q = Math.floor(x / BASE), r = x % BASE;
       steps.push({ from: x, q: q, r: r });
       x = q;
     }
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
     var stack = [];      /* 余数栈 */
     var out = [];        /* 已弹出的数字：高位在前 */
-    var no = 0;
+    var no = 0;                                    // 步骤序号计数器：tag() 每调用一次 +1，只写进 <b>第 N 步</b> 文字，不参与绘制
 
     function tag(html) { no++; return '<b>第 ' + no + ' 步</b>　' + html; }
 
@@ -305,7 +314,7 @@
     }
 
     function snap(desc, stepIdx, banner) {
-      var st = stack.slice(), ot = out.slice(), si = stepIdx, bn = banner;
+      var st = stack.slice(), ot = out.slice(), si = stepIdx, bn = banner;   // 快照：余数栈、输出序列各拷一份；stepIdx = 本帧高亮竖式的哪一步（-1 = 都不高亮）
       frames.push({
         desc: desc,
         draw: function (s) { return render(s, si, st, ot, bn); }
@@ -356,12 +365,15 @@
     var host = document.getElementById('viz-infix-to-postfix');
     if (!host) return;
 
-    var TOKENS = ['3', '+', '4', '*', '2', '-', '(', '1', '+', '5', ')', '^', '2', '/', '3'];
+    var TOKENS = ['3', '+', '4', '*', '2', '-', '(', '1', '+', '5', ')', '^', '2', '/', '3'];   // 中缀表达式切好的 token 序列（下标 0 基，输入指针 i 就是它的下标）
+    /* 同一符号在栈内 / 栈外有两个优先级（isp / icp），判断规则是「栈顶的 isp ≥ 当前符号的 icp 就弹栈」。
+       两表取值故意不同，为的是表达结合性与括号：^ 的 icp(7) > isp(6)，所以连续 ^ 不弹（右结合）；
+       ( 的 isp(1) 最低，保证它下面的运算符在配对成功之前一个都不会被弹出。 */
     var ISP = { '+': 3, '-': 3, '*': 5, '/': 5, '^': 6, '(': 1 };   /* 栈内优先级 */
     var ICP = { '+': 2, '-': 2, '*': 4, '/': 4, '^': 7, '(': 6 };   /* 栈外优先级 */
-    var frames = [];
-    var stack = [], out = [];
-    var no = 0;
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
+    var stack = [], out = [];       // stack = 运算符栈（画面上栈底在下），out = 输出序列（后缀式，先输出的在左边）
+    var no = 0;                                    // 步骤序号计数器：tag() 每调用一次 +1，只写进 <b>第 N 步</b> 文字，不参与绘制
 
     function tag(html) { no++; return '<b>第 ' + no + ' 步</b>　' + html; }
     function isNum(t) { return /^[0-9]+(\.[0-9]+)?$/.test(t); }
@@ -409,7 +421,7 @@
     }
 
     function snap(i, n1, n2, desc) {
-      var st = stack.slice(), ot = out.slice(), ii = i, a = n1 || '', b = n2 || '';
+      var st = stack.slice(), ot = out.slice(), ii = i, a = n1 || '', b = n2 || '';   // 快照：栈与输出序列各拷一份；i = 本帧扫描下标（-1 = 未在扫描/收尾）；n1 蓝色行、n2 灰色行
       frames.push({ desc: desc, draw: function (s) { return render(s, ii, st, ot, a, b); } });
     }
 
@@ -434,7 +446,7 @@
       }
 
       if (t === ')') {
-        var popped = [];
+        var popped = [];            // 本次右括号从栈里弹出的运算符（按弹出顺序；被丢弃的左括号不算在内）
         while (stack.length && stack[stack.length - 1] !== '(') {
           var o1 = stack.pop(); popped.push(o1); out.push(o1);
         }
@@ -447,14 +459,14 @@
       }
 
       /* 普通运算符 */
-      var top0 = stack.length ? stack[stack.length - 1] : null;
+      var top0 = stack.length ? stack[stack.length - 1] : null;   // 栈顶运算符（null = 栈空）：只用来拼说明文字，真正的弹栈在下面的 while
       var noteA;
       if (!top0) noteA = '运算符栈为空 → ' + t + ' 直接入栈';
       else noteA = '比较：栈顶 ' + top0 + ' 的 isp = ' + ISP[top0] + '，' + t + ' 的 icp = ' + ICP[t] +
                    ' → ' + (ISP[top0] >= ICP[t] ? 'isp ≥ icp，弹出栈顶' : 'isp < icp，不弹，直接入栈');
       if (t === '^') noteA += '（^ 右结合：icp > isp，栈顶同为 ^ 时也不弹）';
 
-      var cm = [];
+      var cm = [];                  // 本次被弹出并追加到输出序列的运算符（用于文字说明）
       while (stack.length && ISP[stack[stack.length - 1]] >= ICP[t]) {
         var o2 = stack.pop(); cm.push(o2); out.push(o2);
       }
@@ -489,15 +501,17 @@
     var host = document.getElementById('viz-postfix-eval');
     if (!host) return;
 
-    var TOKENS = ['3', '4', '2', '*', '+', '1', '5', '+', '2', '^', '3', '/', '-'];
-    var frames = [];
+    var TOKENS = ['3', '4', '2', '*', '+', '1', '5', '+', '2', '^', '3', '/', '-'];   // 后缀形式的 token 序列（已经排好序，扫描时不需要优先级表）
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
     var st = [];      /* 操作数栈 */
     var log = [];     /* 运算日志 */
-    var no = 0;
+    var no = 0;                                    // 步骤序号计数器：tag() 每调用一次 +1，只写进 <b>第 N 步</b> 文字，不参与绘制
 
     function tag(html) { no++; return '<b>第 ' + no + ' 步</b>　' + html; }
     function isNum(t) { return /^[0-9]+(\.[0-9]+)?$/.test(t); }
 
+    /* render 的入参是当帧快照：stackArr / logArr 已经拷好；i = 当前扫描下标（-1 = 收尾）；
+       cur = 右侧那行「当前动作」说明，curCls 决定它的颜色；note = 右下角小字提示。 */
     function render(s, i, stackArr, logArr, cur, curCls, note) {
       var W = 780, H = 380, tw = 44, th = 36, x0 = 24;
       var svg = s.svg(W, H);
@@ -538,7 +552,7 @@
     }
 
     function snap(i, cur, curCls, note, desc) {
-      var sa = st.slice(), la = log.slice(-6), ii = i, c = cur, cc = curCls, nt = note;
+      var sa = st.slice(), la = log.slice(-6), ii = i, c = cur, cc = curCls, nt = note;   // 快照：栈拷一份；日志只留最近 6 条（面板放不下更多）
       frames.push({ desc: desc, draw: function (s) { return render(s, ii, sa, la, c, cc, nt); } });
     }
 
@@ -553,7 +567,7 @@
           tag('读入操作数 <code>' + t + '</code> → <b>压入操作数栈</b>。操作数永远是被动的：先存起来，等运算符来取。'));
         continue;
       }
-      var b = st.pop(), a = st.pop(), v;
+      var b = st.pop(), a = st.pop(), v;   // ⚠ 顺序是关键：先弹出的是右操作数 b，后弹出的是左操作数 a，必须算 a 运算符 b
       if (t === '+') v = a + b;
       else if (t === '-') v = a - b;
       else if (t === '*') v = a * b;
@@ -568,7 +582,7 @@
           '</code>，再把 ' + fmt(v) + ' 压回栈中。'));
     }
 
-    var res = st.length ? st[st.length - 1] : NaN;
+    var res = st.length ? st[st.length - 1] : NaN;   // 扫描结束时栈顶就是整个表达式的值（NaN 只是兜底，合法后缀式不会走到）
     snap(-1, '栈中只剩一个数：' + fmt(res) + '　→ 这就是整个表达式的值', 'ok', '验算：3+4*2=11，(1+5)^2/3=12，11-12=-1',
       tag('<b>求值完成</b>：扫描结束时栈里恰好剩下一个数 <code>' + fmt(res) +
         '</code>，它就是表达式的值。用中缀验算：3+4×2 = 11，(1+5)² ÷ 3 = 12，11 − 12 = <b>−1</b>，一致 ✓'));
@@ -587,16 +601,20 @@
     var host = document.getElementById('viz-monotonic-stack');
     if (!host) return;
 
-    var A = [2, 1, 5, 6, 2, 3, 1];
-    var n = A.length;
+    var A = [2, 1, 5, 6, 2, 3, 1];  // 题目数组（下标 0 基）；改成别的序列就能换一道题
+    var n = A.length;               // 元素个数 = 下标上界 + 1；后面所有循环都写成 k < n
+    /* ans[k] = 右边第一个比 A[k] 大的「值」（注意存的是值，不是下标）；
+       还没结算时是 null（画成 ·），最终仍无解则写 -1（画成灰格）。 */
     var ans = [];
     for (var z = 0; z < n; z++) ans.push(null);
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
     var stk = [];       /* 下标栈，栈内下标对应的值单调不增 */
-    var no = 0;
+    var no = 0;                                    // 步骤序号计数器：tag() 每调用一次 +1，只写进 <b>第 N 步</b> 文字，不参与绘制
 
     function tag(html) { no++; return '<b>第 ' + no + ' 步</b>　' + html; }
 
+    /* render 的入参是当帧快照：i = 当前扫描下标（-1 = 不在扫描），note = 数组上方那行蓝色说明，
+       hi = {ansCell: 要蓝色高亮的 ans 格子下标}（-1 或 null = 不高亮）。 */
     function render(s, i, stkArr, ansArr, note, hi) {
       var W = 780, H = 384, cw = 64, x0 = 40, gap = 70;
       var svg = s.svg(W, H);
@@ -647,7 +665,7 @@
     }
 
     function snap(i, note, hi, desc) {
-      var sa = stk.slice(), aa = ans.slice(), ii = i, nt = note, h = hi || null;
+      var sa = stk.slice(), aa = ans.slice(), ii = i, nt = note, h = hi || null;   // 快照：下标栈与 ans 各拷一份（ans 会被就地改写）
       frames.push({ desc: desc, draw: function (s) { return render(s, ii, sa, aa, nt, h); } });
     }
 
@@ -659,9 +677,9 @@
         tag('考察 <code>i = ' + i + '</code>，A[' + i + '] = <b>' + A[i] +
           '</b>。while 循环：只要栈不空且 <code>A[栈顶] &lt; A[i]</code>，就说明栈顶那个位置「找到了」下一个更大元素。'));
 
-      var poppedAny = false;
+      var poppedAny = false;        // 本轮有没有弹出过：一次都没弹时补一帧「不需要弹出」的说明
       while (stk.length && A[stk[stk.length - 1]] < A[i]) {
-        var j = stk.pop();
+        var j = stk.pop();          // 被 A[i] 「结算」掉的下标 j：它的下一个更大元素正是 A[i]
         ans[j] = A[i];
         poppedAny = true;
         snap(i, '弹出下标 ' + j + '（A[' + j + '] = ' + A[j] + ' < ' + A[i] + '）→ ans[' + j + '] = ' + A[i],

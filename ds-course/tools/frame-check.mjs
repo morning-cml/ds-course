@@ -39,6 +39,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import crypto from "node:crypto";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JS_DIR = path.join(ROOT, "assets/js");
@@ -191,12 +192,18 @@ function loadViz(file, hook) {
   };
   sandbox.window.document = document;
   if (hook) {
+    /* __onFramePushed —— 钩子回调：帧刚被 push 进数组时，趁算法还在这一帧的现场立刻画一次，
+       结果按「帧对象」存进 t0（Map 用对象身份做键，跨 vm 边界仍是同一个引用）。
+       画挂了就存一个带 \u0000 的哨兵串，后面比对时自然不相等 → 会被报出来。 */
     sandbox.__onFramePushed = (f) => {
       try { t0.set(f, renderAll(f.draw(SVG))); } catch (e) { t0.set(f, "\u0000ERR:" + e.message); }
     };
   }
   vm.createContext(sandbox);
   if (hook) {
+    /* 在沙箱里替换 Array.prototype.push：原样调用原 push，再对新增的每一项看看
+       是不是「帧」（有 draw 函数），是就叫回调。
+       必须在沙箱**内部**取 [].constructor.prototype —— 见上面那段注释的坑。 */
     vm.runInContext(`(function(){
       var proto = [].constructor.prototype;   /* 本 realm 的 Array.prototype */
       var orig = proto.push;
@@ -217,16 +224,44 @@ function loadViz(file, hook) {
 /* ============================ 文本启发式阈值 ============================ */
 /* 由 --report 在 81 个动画上校准过：健康动画普遍 < 0.6，纯高亮动画可到 1.0。
    因此这个阈值只用于「精确法不可用」时兜底 + 提示，不做主判据。 */
-const HEUR_WARN = 0.6;
-const MIN_PAIRS = 5;
+const HEUR_WARN = 0.6;    // 相邻帧「文本不动但 desc 不同」的比例 ≥ 此值 → 判警告
+const MIN_PAIRS = 5;      // 相邻帧对少于这么多就不判（帧太少，比例没有统计意义）
 
 /* ============================ 主流程 ============================ */
 const args = process.argv.slice(2);
-const REPORT = args.includes("--report");
-const only = args.filter((a) => !a.startsWith("--"));
+const REPORT = args.includes("--report");            // 只打印每个动画的指标（用于校准阈值）
+const only = args.filter((a) => !a.startsWith("--")); // 命令行里给的脚本名（限定只检查这几个）
 
-/* --dump <viz-id> <脚本名> */
-const dumpIdx = args.indexOf("--dump");
+/* --fingerprint：把每个动画每一帧真正画出来的内容（文字 + 颜色类）算成一个指纹。
+   用途：只改注释/重构、不该改变渲染结果时，前后各跑一次比对指纹，
+        指纹一致就证明「行为没变」。 */
+if (args.includes("--fingerprint")) {
+  const files2 = fs.readdirSync(JS_DIR).filter((f) => /^ch\d\d-viz\.js$/.test(f)).sort();
+  const total = crypto.createHash("sha256");
+  for (const f of files2) {
+    const perFile = crypto.createHash("sha256");
+    let vizzes;
+    try { vizzes = loadViz(path.join(JS_DIR, f), false).collected; }
+    catch (e) { console.log(`${f}  <执行失败: ${e.message}>`); continue; }
+    let frames = 0;
+    for (const v of vizzes) {
+      perFile.update(v.id + "\u0001");
+      for (const fr of v.frames) {
+        frames++;
+        perFile.update(String(fr.desc) + "\u0002");
+        try { perFile.update(renderAll(fr.draw(SVG))); } catch (e) { perFile.update("ERR:" + e.message); }
+        perFile.update("\u0003");
+      }
+    }
+    const h = perFile.digest("hex").slice(0, 16);
+    total.update(f + ":" + h + "\u0004");
+    console.log(`${f.padEnd(16)} 动画 ${String(vizzes.length).padStart(2)} 帧 ${String(frames).padStart(4)}  指纹 ${h}`);
+  }
+  console.log("\n总指纹 " + total.digest("hex").slice(0, 32));
+  process.exit(0);
+}
+
+/* --dump <viz-id> <脚本名> */const dumpIdx = args.indexOf("--dump");
 if (dumpIdx >= 0) {
   const wantId = args[dumpIdx + 1];
   const fileArg = args[dumpIdx + 2] || null;
@@ -254,24 +289,32 @@ if (dumpIdx >= 0) {
 const files = (only.length ? only : fs.readdirSync(JS_DIR).filter((f) => /^ch\d\d-viz\.js$/.test(f)).sort())
   .map((f) => path.join(JS_DIR, path.basename(f)));
 
-let totalViz = 0, fails = 0, warns = 0, undecided = 0;
+/* 总计与三份清单，供最后汇总打印 */
+let totalViz = 0;               // 检查过的动画总数
+let fails = 0;                  // 判失败的动画数（有冻结帧 / 执行失败）
+let warns = 0;                  // 判警告的动画数（仅启发式下可能出现）
+let undecided = 0;              // 精确法不可用、退回启发式的脚本数
 const failList = [], warnList = [], undecidedList = [];
 
 console.log("动画帧状态检查（精确法：push 时刻 vs build 结束后，同一帧画出来是否相同）\n");
 
 for (const file of files) {
   const base = path.basename(file);
+  /* plain  —— 正常跑一遍：拿去和 t0 比，得到「渲染时是不是已经变了」
+     hooked —— 装了 push 钩子跑一遍：提供 t0（push 那一刻的画面） */
   let plain, hooked;
   try { plain = loadViz(file, false); }
   catch (e) { console.log(`✗ ${base}  执行失败: ${e.message}`); fails++; failList.push(`${base} 执行失败`); continue; }
 
-  const rows = [];
-  let useExact = true, exactNote = "";
+  const rows = [];              // 本脚本每个动画的结果行，供 --report 或摘要打印
+  let useExact = true;          // 精确法是否可用；一旦发现干扰就置 false，改用启发式
+  let exactNote = "";           // 不可用的原因，会打印出来
   try { hooked = loadViz(file, true); }
   catch (e) { useExact = false; exactNote = "装钩子后执行失败: " + e.message; }
 
   if (useExact) {
-    // 逐动画比对两遍的帧数与 desc，确认「提前渲染」没有干扰算法
+    /* 自检：两遍的帧数与 desc 必须一致。
+       「提前渲染」若改了算法状态（draw 有副作用），帧数就会变 —— 那种情况下 t0 不可信，必须退回启发式。 */
     const hp = new Map(hooked.collected.map((v) => [v.id, v]));
     for (const v of plain.collected) {
       const h = hp.get(v.id);
@@ -287,20 +330,22 @@ for (const file of files) {
   for (const v of plain.collected) {
     totalViz++;
     const n = v.frames.length;
-    if (n < 2) { rows.push([v.id, n, "—", "—", "skip"]); continue; }
+    if (n < 2) { rows.push([v.id, n, "—", "—", "skip"]); continue; }   // 单帧图无从判断
 
     if (useExact) {
-      /* ---- 精确法 ---- */
+      /* ---- 精确法：逐帧比 t0 与 t1 ----
+         frozen —— 画的是最终态的帧数（本工具要抓的就是它）
+         nondet —— 同一帧连画两次结果都不同（画面本身不确定），这类帧跳过不判，避免误报 */
       const h = hooked.collected.find((x) => x.id === v.id);
       let frozen = 0, nondet = 0;
-      const samples = [];
+      const samples = [];       // 记几个冻结帧的下标，报错时给出例子
       for (let i = 0; i < n; i++) {
         const f = v.frames[i];
         const t1a = safeRender(f);
         const t1b = safeRender(f);
-        if (t1a === null) continue;
+        if (t1a === null) continue;                       // 这一帧画不出来（另有 draw 抛异常的检查管）
         if (t1a !== t1b) { nondet++; continue; }          // 画面本身不确定，跳过
-        const t0v = hooked.t0.get(h.frames[i]);
+        const t0v = hooked.t0.get(h.frames[i]);           // 注意取的是 hooked 那一遍的帧对象（键就是它）
         if (t0v === undefined) continue;
         if (t0v !== t1a) { frozen++; if (samples.length < 4) samples.push(i); }
       }
@@ -311,9 +356,10 @@ for (const file of files) {
       }
       rows.push([v.id, n, frozen + "/" + n, nondet ? "不确定 " + nondet : "—", st]);
     } else {
-      /* ---- 文本启发式兜底 ---- */
+      /* ---- 文本启发式兜底：只看文字，忽略颜色 ----
+         texts/descs —— 每一帧的「文字签名」与描述；same/pairs 统计「文字没变但描述变了」的比例 */
       const texts = [], descs = [];
-      let bad = null;
+      let bad = null;           // 第一帧画失败的帧号
       for (let i = 0; i < n; i++) {
         const t = safeRender(v.frames[i]);
         if (t === null) { bad = i; break; }
@@ -344,6 +390,7 @@ for (const file of files) {
         `  其它=${String(r[3]).padStart(8)}  ${r[4]}`);
     }
   } else {
+    /* 摘要行：✓ 全好 / ! 只有警告或无法判定 / ✗ 有冻结 */
     const bad = rows.filter((r) => r[4] === "fail" || r[4] === "err");
     const wn = rows.filter((r) => r[4] === "warn");
     const mark = bad.length ? "✗" : (wn.length || !useExact ? "!" : "✓");

@@ -10,9 +10,10 @@
 (function () {
   "use strict";
 
-  var SVG = DS.SVG;
+  var SVG = DS.SVG;                             // 全页共用的 SVG 工具集：svg/box/text/label/el/line/path 都在它上面
 
   /* ---------------- 小工具：自由着色的文本（内联样式可覆盖 .vz-text 的 CSS） ---------------- */
+  /* txt 的 opt：{cls 类名, anchor 对齐, fill 填充色, size 字号, weight 字重}，都可不传。 */
   function txt(svg, x, y, str, opt) {
     opt = opt || {};
     var t = SVG.text(x, y, str, opt.cls || "", opt.anchor || "start");
@@ -24,6 +25,8 @@
   }
 
   /* 手画箭头的连线：竖直 / 水平两种方向，避免依赖 <marker> 的 id */
+  /* (x1,y1) → (x2,y2)，color 是线条+箭头的颜色；dash 传 stroke-dasharray（如 "5 4"），不传就是实线。
+     方向自动判断：|x2 − x1| < 1.5 当竖直画，否则当水平画。 */
   function arrow(svg, x1, y1, x2, y2, color, dash) {
     var ln = SVG.line(x1, y1, x2, y2, "");
     ln.style.stroke = color;
@@ -47,19 +50,27 @@
      1) 行优先 vs 列优先
      ========================================================================== */
   (function rowVsCol() {
+    /* 页面容器 #viz-row-vs-col：同一个 A[3][4] 分别按行优先、列优先压平成一维内存带，逐格显示 k 与地址。 */
     var host = document.getElementById("viz-row-vs-col");
     if (!host) return;
 
-    var M = 3, N = 4, L = 4, BASE = 1000;
+    var M = 3, N = 4, L = 4, BASE = 1000;    // M = 行数、N = 列数（矩阵 A[3][4]）；L = 每个元素的字节数；
+                                             // BASE = 首地址 LOC(a[0][0])。⚠ 行优先公式乘的是 N（列数），列优先乘的是 M（行数），最容易记混
     var CW = 74, CH = 40, GX = 70, GY = 70;              /* 二维网格 */
     var MW = 64, MH = 46, MX = 48, MY = 244;             /* 一维内存带 */
 
+    /* rowList / colList = 两种「压平顺序」的坐标清单（元素是 [i,j]）：行优先是逐行从左到右，列优先是逐列从上到下。
+       它们只是把遍历顺序定下来，真正算出 k 的是推帧脚本里的 k = i*N + j / k = j*M + i。 */
     var rowList = [], colList = [], i, j;
     for (i = 0; i < M; i++) for (j = 0; j < N; j++) rowList.push([i, j]);
     for (j = 0; j < N; j++) for (i = 0; i < M; i++) colList.push([i, j]);
 
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
+    /* pushFrame 的参数：mode = "row" / "col"（决定用哪条 k 公式、以及整体配色）；
+       ci / cj = 本帧要高亮成蓝色的二维格子（-1 = 首尾帧，不指任何格子）；
+       filled = 此刻已经填好的内存带（下标就是线性下标 k，值是该格放的 [i,j]）；
+       k = 本帧的线性下标（-1 = 无）。filled 上还挂了一个自定义属性 filled.cur 用来传「当前格」。 */
     function pushFrame(desc, mode, ci, cj, filled, k) {
       var snapshot = filled.slice();
       snapshot.cur = k;                     /* slice() 不会带上自定义属性，手动补上 */
@@ -68,7 +79,7 @@
         draw: function (s) {
           var W = 860, H = 452, svg = s.svg(W, H);
           var isRow = (mode === "row");
-          var hot = isRow ? "var(--brand)" : "var(--accent)";
+          var hot = isRow ? "var(--brand)" : "var(--accent)";   // 本帧主题色：行优先蓝、列优先橙，标题/连线/公式统一用它
 
           txt(svg, 16, 26, isRow ? "① 行优先 Row-Major（C / C++ 采用）"
                                  : "② 列优先 Column-Major（Fortran / MATLAB 采用）",
@@ -155,6 +166,8 @@
       "压平的顺序有两种约定，先看最常用的<b>行优先</b>：先把第 0 行的 4 个元素从左到右放好，" +
       "再放第 1 行……", "row", -1, -1, [], -1);
 
+    /* 下面是「行优先」的推帧脚本：filled 是被不断写入的活数组（filled[k] = [i,j]），
+       每一帧由 pushFrame 立刻拷贝成快照；filled.cur 记录当前正在放的格子。 */
     (function () {
       var filled = [];
       filled.cur = -1;
@@ -177,6 +190,7 @@
       "注意内存带是重新开始填的，同一个数组、同样的 12 个元素，只是排列顺序变了。",
       "col", -1, -1, [], -1);
 
+    /* 同样的一套脚本，换成「列优先」顺序（k = j*M + i），filled 重新从空开始。 */
     (function () {
       var filled = [];
       filled.cur = -1;
@@ -206,23 +220,29 @@
      2) 对称矩阵的下标映射与对称性
      ========================================================================== */
   (function symmetricMap() {
+    /* 页面容器 #viz-symmetric-map：5 阶对称矩阵只存下三角，逐格演示 k = i(i+1)/2 + j 与 (i,j)↔(j,i) 的对称性。 */
     var host = document.getElementById("viz-symmetric-map");
     if (!host) return;
 
-    var N = 5;
+    var N = 5;                                     // 矩阵阶数 n = 5（5×5 方阵）；下三角 + 对角线共 n(n+1)/2 = 15 个元素
     var CW = 64, CH = 42, GX = 60, GY = 80;        /* 矩阵网格 */
     var AW = 64, AH = 30, AX = 500, AY = 80;       /* 一维数组（阶梯状） */
 
+    /* val(i,j) = i×10 + j：纯粹造一个好认的显示值（十位是行号、个位是列号），不是真实数据；调用时一律传 i ≥ j。 */
     function val(i, j) { return i * 10 + j; }      /* i >= j 时的值 */
 
     /* 下三角（含对角线）按行优先的顺序 */
+    /* lower = 下三角按行优先排列的坐标清单（元素 [i,j]，长度 15）。它的顺序恰好与 k = i(i+1)/2 + j 递增一致，
+       所以「搬完前 count 个」就等于「sa[0..count−1] 已填好」。 */
     var lower = [], i, j;
     for (i = 0; i < N; i++) for (j = 0; j <= i; j++) lower.push([i, j]);
 
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
+    /* pushFrame 的参数：ci / cj = 本帧访问的格子（-1 = 首尾帧）；k = 该格在 sa 里的下标（-1 = 无）；
+       count = 已经存好的元素个数（用来把矩阵里已搬完的格子画绿）；sa = 一维数组内容（按 k 索引）。 */
     function pushFrame(desc, ci, cj, k, count, sa) {
-      var snapSA = sa.slice();
+      var snapSA = sa.slice();                     // 快照：sa 是后面还会继续写的活数组，推帧时先拷一份
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -302,7 +322,7 @@
       "下面逐个元素搬运，每一步都会同时标出它的镜像位置，观察两者算出的 k 是否相同。",
       -1, -1, -1, 0, []);
 
-    var sa = [], cnt = 0;
+    var sa = [], cnt = 0;                          // sa = 压缩后的一维数组（长度 15，按 k 索引）；cnt = 已经存好的元素个数
     lower.forEach(function (p) {
       var i = p[0], j = p[1];
       var k = (i >= j) ? (i * (i + 1) / 2 + j) : (j * (j + 1) / 2 + i);
@@ -335,24 +355,27 @@
      3) 三对角矩阵的带状压缩
      ========================================================================== */
   (function tridiagonal() {
+    /* 页面容器 #viz-tridiagonal：6 阶三对角矩阵只存 |i − j| ≤ 1 的三条对角线，逐行演示 k = 2i + j 的来历。 */
     var host = document.getElementById("viz-tridiagonal");
     if (!host) return;
 
-    var N = 6;
+    var N = 6;                                     // 矩阵阶数 n = 6；带内元素共 3n − 2 = 16 个
     var CW = 52, CH = 40, GX = 50, GY = 80;        /* 矩阵网格 */
     var AW = 64, AH = 30, AX = 480, AY = 80;       /* 一维数组（阶梯状） */
 
-    function val(i, j) { return i * 10 + j; }
-    function inBand(i, j) { return Math.abs(i - j) <= 1; }
+    function val(i, j) { return i * 10 + j; }      // 只是好认的显示值（十位 = 行号、个位 = 列号），不是真实数据
+    function inBand(i, j) { return Math.abs(i - j) <= 1; }   // (i,j) 是否落在三条对角线带内：带内才存储，带外一律当 0
     /* 第 i 行在 sa 中的起始下标与元素个数 */
     function rowStart(i) { return (i === 0) ? 0 : 3 * i - 1; }
     function rowCount(i) { return (i === 0 || i === N - 1) ? 2 : 3; }
 
-    var total = 3 * N - 2;
-    var frames = [];
+    var total = 3 * N - 2;                         // sa 的长度 = 3n − 2 = 16（首行 2 个 + 中间 n−2 行各 3 个 + 末行 2 个）
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
+    /* pushFrame 的参数：ci / cj = 本帧要高亮的矩阵格子（-1 = 首尾帧）；ck = 对应的 sa 下标（-1 = 无）；
+       sa = 一维数组内容（按 k 索引）。 */
     function pushFrame(desc, ci, cj, ck, sa) {
-      var snap = sa.slice();
+      var snap = sa.slice();                       // 快照：sa 是活数组，推帧时先拷一份
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -432,11 +455,11 @@
       "第 0 行 2 个、中间各行 3 个、最后一行 2 个，所以「前 i 行有多少个」要分情况数。",
       -1, -1, -1, []);
 
-    var sa = [];
+    var sa = [];                                   // 压缩后的一维数组（长度 total = 16，按 k 索引）
     for (var i = 0; i < N; i++) {
       var st = rowStart(i), cnt = rowCount(i);
       for (var t = 0; t < cnt; t++) {
-        var j = (i === 0) ? t : (i - 1 + t);
+        var j = (i === 0) ? t : (i - 1 + t);   // 行内第 t 个元素对应的列号：第 0 行从 j = 0 起，其余行从 j = i−1 起
         var k = st + t;
         sa[k] = val(i, j);
         pushFrame("第 " + i + " 行：a[" + i + "][" + j + "] 存入 sa[" + k + "]。", i, j, k, sa);
@@ -458,13 +481,14 @@
      4) 稀疏矩阵 → 三元组顺序表
      ========================================================================== */
   (function sparseTriplet() {
+    /* 页面容器 #viz-sparse-triplet：按行优先扫一遍稀疏矩阵，非零元依次追加进三元组顺序表 data[]。 */
     var host = document.getElementById("viz-sparse-triplet");
     if (!host) return;
 
-    var MU = 5, NU = 6;
+    var MU = 5, NU = 6;                              // 矩阵的行数 MU、列数 NU（5 × 6 = 30 个元素，其中 7 个非零元）
     var CW = 48, CH = 40, GX = 62, GY = 76;          /* 矩阵网格 */
     var TX = 430, TY = 76, RH = 30;                  /* 三元组表 */
-    var COLW = [56, 56, 66, 76];
+    var COLW = [56, 56, 66, 76];                     // 三元组表四列的宽度（序号 / row / col / value），逐列累加就是每列的 x
 
     /* 稀疏矩阵：0 表示零元素 */
     var A = [
@@ -475,10 +499,12 @@
       [0, 2, 0, 0, 0, 9]
     ];
 
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
+    /* pushFrame 的参数：ci / cj = 正在扫描的格子（-1 = 首尾帧）；triples = 已收集的三元组 [[row,col,value], …]，
+       它的下标就是表里的「序号」（0 基）；第 5 个参数 done（= 已收集个数）传了但 draw 从没用过，实际以 triples.length 为准。 */
     function pushFrame(desc, ci, cj, triples, done) {
-      var snap = triples.slice();
+      var snap = triples.slice();   // 快照：这里浅拷贝就够 —— 每条三元组 push 进数组后不会再被改写
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -515,7 +541,7 @@
             svg.appendChild(SVG.box(hx, TY, COLW[h] - 4, RH, "done", head[h], "on"));
             hx += COLW[h];
           }
-          for (var t = 0; t < 7; t++) {
+          for (var t = 0; t < 7; t++) {   // 表里固定画 7 行：这个矩阵正好 7 个非零元，还没填到的行画成灰
             var y2 = TY + RH * (t + 1);
             var rec = snap[t];
             var vals = rec ? [String(t), String(rec[0]), String(rec[1]), String(rec[2])] : [String(t), "", "", ""];
@@ -543,7 +569,7 @@
       });
     }
 
-    var triples = [];
+    var triples = [];                              // 三元组顺序表：每条是 [行号, 列号, 值]（行优先扫描顺序入表），长度 tu = 7
     pushFrame("把稀疏矩阵转成三元组表：按<b>行优先</b>顺序扫描整个矩阵，" +
       "遇到非零元就追加一条 (row, col, value)，遇到 0 直接跳过。", -1, -1, triples, 0);
 

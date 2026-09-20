@@ -21,6 +21,7 @@
   "use strict";
   var SVG = DS.SVG;
 
+  /* 全篇数组格子的统一尺寸：格子边长 46px、格间距 8px、步距 54px、第一格左边缘 X0 = 44。 */
   var BOX = 46, GAP = 8, PITCH = BOX + GAP, X0 = 44;
 
   /* ============================ 通用小工具 ============================ */
@@ -112,6 +113,8 @@
   }
 
   /* marks：marksFrom(n, fn) */
+  /* marksFrom(n, fn) = 生成 { 下标: 类名 } 的着色表（fn(i) 返回空串的下标就不会出现在表里）；
+     本文件所有 snap 的标记参数都是这个形状。 */
   function marksFrom(n, fn) {
     var m = {};
     for (var i = 0; i < n; i++) {
@@ -137,15 +140,19 @@
 
   /* ==========================================================================
      演示 1：3 元素决策树 —— 从叶子往根搭树，读出「至少 3 次比较」
+     容器：<div id="viz-decision-tree">
      ========================================================================== */
   (function decisionTree() {
     var host = document.getElementById("viz-decision-tree");
     if (!host) return;
 
+    /* 画布尺寸；NODE_W/NODE_H = 内部结点（比较）的框，LEAF_W/LEAF_H = 叶子（输出排列）的框。 */
     var W = 880, H = 476;
     var NODE_W = 88, NODE_H = 32, LEAF_W = 66, LEAF_H = 30;
 
     /* 6 个叶子 = 3! 种输出排列（字典序放置，方便数「已放下几个」） */
+    /* LEAVES[t] = 一个叶子：t = 该输出排列的字符串（如 "abc"），x/y = 画布坐标。
+       数组顺序 = 字典序，所以「已放下前 st.leaves 个」就是「已放下的叶子**个数**」（不是下标）。 */
     var LEAVES = [
       { t: "abc", x: 140, y: 252 },
       { t: "acb", x: 288, y: 348 },
@@ -155,6 +162,8 @@
       { t: "cba", x: 800, y: 348 }
     ];
     /* 5 个内部结点 = 5 次比较（内部结点总数就是这棵树用到的比较次数） */
+    /* NODES = 内部结点（一次比较）：id 是它的名字，q 是判断式，d 是深度（0 基）——
+       深度 d 的结点建好，意味着它上面还挂着 3 − d 层；内部结点总数就是这棵树的比较次数。 */
     var NODES = [
       { id: "root", q: "a < b ？", x: 440, y: 62, d: 0 },
       { id: "nL", q: "b < c ？", x: 240, y: 158, d: 1 },
@@ -163,6 +172,7 @@
       { id: "nRR", q: "b < c ？", x: 740, y: 252, d: 2 }
     ];
     /* 边：[父结点 id, 子结点 id, 分支标签] */
+    /* EDGES = 边表，每条边写成 [父结点 id, 子结点 id, 分支标签]（树形结构全靠它画出来）。 */
     var EDGES = [
       ["root", "nL", "<（真）"], ["root", "nR", "≥（假）"],
       ["nL", "abc", "<"], ["nL", "nLL", "≥"],
@@ -200,7 +210,12 @@
       return o;
     }
 
+    /* 帧数组：build() 里被同步填满，之后才逐帧渲染；draw 只能读推帧时就定下来的值。 */
     var frames = [];
+    /* 推一帧。st 是**每次调用新建**的参数对象，所以不用拷贝：
+       st.nodes = 已经建好的内部结点集合（{id: true}）、st.leaves = 已经放下的叶子**个数**、
+       st.hlNode / hlLeaf / hlEdge = 本帧要高亮的结点 / 叶子 / 边，st.pathEdges / pathLeaf = 当前判定路径，
+       st.nodeCls = 高亮结点用的类名，st.msg1 / msg2（含颜色）是底部结论区的文字。 */
     function snap(desc, st) {
       frames.push({
         desc: desc,
@@ -262,6 +277,7 @@
       });
     }
 
+    /* NONE = 共享的空集合（“一个结点都没建好”），避免每次都新建空对象。 */
     var NONE = {};
 
     snap("要说明「3 个元素排序至少要比较 3 次」，先把<b>所有可能的输出</b>摆出来：" +
@@ -388,29 +404,44 @@
 
   /* ==========================================================================
      演示 2：计数排序三步 —— 频次 → 前缀和 → 倒序放置（稳定性）
+     容器：<div id="viz-counting">
      ========================================================================== */
   (function countingSort() {
     var host = document.getElementById("viz-counting");
     if (!host) return;
 
+    /* BW = 格子宽、BP = 步距、BX = 三行（A / cnt / out）共用的左起点。 */
     var W = 880, H = 528;
     var BW = 48, BP = 62, BX = 96;
 
+    /* A0 = 演示数据（只读）；ID 和 COL 是同一批元素的两个“面子”：
+       ID[i] = 第 i 个元素的身份标签（4a / 4b、3a / 3b），专为演示稳定性而加；
+       COL[i] = 它在画面上的配色（同值的元素同色，一眼能看出谁是谁）。 */
     var A0 = [4, 1, 3, 4, 3, 2];
     var ID = ["4a", "1", "3a", "4b", "3b", "2"];
     var COL = ["--purple", "", "--brand", "--purple", "--brand", ""];
+    /* n = 元素个数；K = **值域大小**（值取 0..K-1），也就是计数数组的长度 —— 注意它和 n 是两回事。 */
     var n = A0.length, K = 5;
 
+    /* cnt = 计数数组，**下标就是元素值**（不是位置！）：第 ① 步存频次，第 ② 步原地变成前缀和，
+       此后 cnt[v] = 「值 ≤ v 的元素个数」= 值 v 的输出区间上界（开区间）；
+       out2 = 输出数组（长度 n，先填 ""）、ocol = 输出格子的配色（跟着元素身份走）。
+       这三个都会被算法就地改写，所以每帧画的是 snap 里拷下来的快照。 */
     var A = A0.slice(), cnt = [], out2 = [], ocol = [];
     for (var q = 0; q < K; q++) cnt.push(0);
     for (var q2 = 0; q2 < n; q2++) { out2.push(""); ocol.push(""); }
 
     var frames = [];
     /* st: {step, aMark, aRing, cntMark, outRing, ptrI, ptrV, msg1, msg2} */
+    /* 推一帧。st 每次新建、不用拷贝（字段见下面那行注释）：
+       st.step = 走到第几步（0/1/2 = 频次 / 前缀和 / 放置），st.aMark / aRing / cntMark / outRing = 各行标记，
+       st.ptrI / ptrV = 指向 A 的下标 i 和指向 cnt 的值 v（-1 = 不画指针）。 */
     function snap(desc, st) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
          DS.Viz 会先跑完整个 build() 再逐帧渲染，
          若 draw 直接读活变量（cnt / out2 / ocol），画出来的永远是算法结束后的最终态。 */
+      /* sp = **该帧的快照**：cnt / out2 / ocol 三份拷贝。
+         build() 早就跑完了，draw 里读活变量会每一帧都画成排好序的终态。 */
       var sp = {
         cnt: cnt.slice(),
         out2: out2.slice(),
@@ -576,6 +607,7 @@
 
   /* ==========================================================================
      演示 3：桶排序 —— 分桶 → 桶内插入排序 → 按桶号收集
+     容器：<div id="viz-bucket">
      ========================================================================== */
   (function bucketSort() {
     var host = document.getElementById("viz-bucket");
@@ -585,6 +617,7 @@
     var ABOX = 54, AP = 66, AX = 84;
     var BBOX = 54, BP = 66, BX = 240;
 
+    /* A0 = 10 个 [0,1) 之间的小数（只读）；M = 桶的个数 5（桶 k 装 [k/M, (k+1)/M) 区间的数据）。 */
     var A0 = [0.78, 0.17, 0.39, 0.26, 0.72, 0.94, 0.21, 0.12, 0.68, 0.33];
     var M = 5, n = A0.length;
 
@@ -595,17 +628,25 @@
       return t.join(", ");
     }
 
+    /* buckets[k] = 桶 k 里的元素（数组）；bk[k] = 桶 k 内插入排序的累计比较次数。
+       两者都是活变量，每帧画的是 snap 里拷的快照。 */
     var buckets = [], bk = [];
     for (var b = 0; b < M; b++) { buckets.push([]); bk.push(0); }
+    /* emptyOut = 长度 n、全 null 的“空输出数组”，收集阶段之前一直用它占位。 */
     var emptyOut = [];
     for (var e = 0; e < n; e++) emptyOut.push(null);
 
     var frames = [];
     /* st: {phase, i, k, j, out, collectFrom, head, headColor, msg1, msg2} */
+    /* 推一帧。st 每次新建、不用拷贝：st.phase = "dist"/"sort"/"collect"（分桶 / 桶内排序 / 收集），
+       st.i / st.k / st.j = 当前的元素下标 / 桶号 / 桶内下标（-1 = 不画），st.out = 本帧要画的输出数组，
+       st.collectFrom = 已收集个数，st.head / headColor / msg* = 文案。 */
     function snap(desc, st) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
          DS.Viz 会先跑完整个 build() 再逐帧渲染，
          若 draw 直接读活变量（buckets / bk），画出来的永远是算法结束后的最终态。 */
+      /* sp = **该帧的快照**：逐桶深拷贝的 buckets + bk 的拷贝。桶内容会被后续插入排序改写，
+         不拷的话每一帧都会画出排好序的最终桶。 */
       var sp = {
         buckets: buckets.map(function (e) { return e.slice(); }),
         bk: bk.slice()
@@ -702,6 +743,7 @@
           msg1: "桶 " + kk + " 目前有 " + buckets[kk].length + " 个元素" });
     }
 
+    /* loads = 各桶的元素个数（只用于文案，画面上不随帧变化）。 */
     var loads = [];
     for (var l = 0; l < M; l++) loads.push(buckets[l].length);
     snap("分桶完成：各桶元素个数 = <b>[" + loads.join(", ") + "]</b>。" +
@@ -753,6 +795,7 @@
       }
     }
 
+    /* bkTotal = 所有桶内比较次数的合计（用于和 O(n²) 的朴素排序对照）。 */
     var bkTotal = 0;
     for (var bt = 0; bt < M; bt++) bkTotal += bk[bt];
 
@@ -765,6 +808,8 @@
         msg1: "桶内比较总次数 = " + bkTotal + " 次" });
 
     /* ---------- ③ 收集 ---------- */
+    /* outArr = 收集结果，按桶号从小到大依次追加（长度就是已收集个数）；
+       padded() 把它补满到 n 个（补 null），因为画格子的行需要定长。 */
     var outArr = [];
     function padded() {
       var t = outArr.slice();
@@ -811,6 +856,7 @@
 
   /* ==========================================================================
      演示 4：鸡尾酒排序 vs 普通冒泡 —— 同一组数据上下并排
+     容器：<div id="viz-cocktail">
      ========================================================================== */
   (function cocktail() {
     var host = document.getElementById("viz-cocktail");
@@ -819,12 +865,18 @@
     var W = 880, H = 444;
     var BW = 48, BP = 62, BX = 168;
 
+    /* A0 = 精心挑的数据：只有 1 在末尾，普通冒泡要把它一路搬到最前面（n−1 趟），
+       而鸡尾酒排序反向那一趟就能一步到位 —— 差异一眼可见。 */
     var A0 = [2, 3, 4, 5, 6, 7, 8, 1];
     var n = A0.length;
+    /* SORTED = A0 的升序副本，用来判断“某个位置是否已经就位”。 */
     var SORTED = A0.slice().sort(function (a, b) { return a - b; });
 
     /* 鸡尾酒：正向一趟 + 反向一趟；某一趟没有发生交换就收工 */
     function cocktailTrace(src) {
+      /* 轨迹生成器的局部状态：a = 工作副本；lo / hi = 左右两个边界（**闭区间** [lo, hi] 之外已经就位）；
+         pass = 趟号（1 基，正向一趟 + 反向一趟各算一趟）；cmp / swp = 累计比较、交换次数；
+         tr = 轨迹数组，每个元素 {arr: 这一趟此刻的数组快照, dir: 1 正向 / −1 反向, pass, i, j, vi, vj, doSw, cmp, swp, lo, hi}。 */
       var a = src.slice(), lo = 0, hi = n - 1, pass = 0, cmp = 0, swp = 0, tr = [];
       var guard = 0;
       while (lo < hi && guard++ < 40) {
@@ -856,12 +908,14 @@
       for (var t = 0; t < tr.length; t++) {
         swpByPass[tr[t].pass] = (swpByPass[tr[t].pass] || 0) + (tr[t].doSw ? 1 : 0);
       }
+      /* check = 该步所在的这一趟是否“一次交换都没有”（确认趟），后面统计有效趟数时要把确认趟排除。 */
       for (var t2 = 0; t2 < tr.length; t2++) tr[t2].check = (swpByPass[tr[t2].pass] === 0);
       return tr;
     }
 
     /* 普通冒泡：每趟把一个最大值推到末尾，共 n − 1 趟 */
     function bubbleTrace(src) {
+      /* 普通冒泡的轨迹：n−1 趟、每趟把最大值顶到末尾；doneFrom = 该步之后已经就位的区间起点。 */
       var a = src.slice(), pass = 0, cmp = 0, swp = 0, tr = [];
       for (var p = 0; p < n - 1; p++) {
         pass++;
@@ -877,9 +931,13 @@
       return tr;
     }
 
+    /* 先把两种算法的完整轨迹都跑出来：cTr / bTr = 鸡尾酒、普通冒泡的轨迹数组；
+       cCmp / bCmp、cSwp / bSwp = 各自的最终比较次数、交换次数（取轨迹最后一“步”的累计值）。 */
     var cTr = cocktailTrace(A0), bTr = bubbleTrace(A0);
     var cCmp = cTr[cTr.length - 1].cmp, bCmp = bTr[bTr.length - 1].cmp;
     var cSwp = cTr[cTr.length - 1].swp, bSwp = bTr[bTr.length - 1].swp;
+    /* 四个统计量：bPasses = 冒泡的总趟数；cAll = 鸡尾酒的总趟数（含确认趟）；
+       cUse = 去掉确认趟后的有效趟数；cCmpEff = 最后一步有效工作时的累计比较次数。 */
     var bPasses = 0, cUse = 0, cAll = 0, cCmpEff = 0;
     for (var q1 = 0; q1 < bTr.length; q1++) bPasses = Math.max(bPasses, bTr[q1].pass);
     for (var q2 = 0; q2 < cTr.length; q2++) {
@@ -1015,6 +1073,7 @@
 
   /* ==========================================================================
      演示 5：梳排序 —— gap ÷ 1.3 逐轮收缩，gap = 1 时冒泡收尾
+     容器：<div id="viz-comb">
      ========================================================================== */
   (function combSort() {
     var host = document.getElementById("viz-comb");
@@ -1023,11 +1082,16 @@
     var W = 880, H = 366;
     var BW = 48, BP = 62, BX = 96;
 
+    /* A0 = 演示数据；SORTED = 它的升序副本（判断哪些位置已经就位）。 */
     var A0 = [8, 4, 2, 1, 7, 3, 9, 5, 6, 0];
     var n = A0.length;
     var SORTED = A0.slice().sort(function (a, b) { return a - b; });
 
     /* 先跑一遍真实算法，把每一步都记下来 */
+    /* 先跑一遍真实算法并逐步记录：steps[k] = 一步的记录
+       （kind = "cmp" 一次比较 / "round" 一轮结束；带 gap / round / i / j / vi / vj / doSw /
+       以及累计 cmp / swp、本轮 rCmp / rSwp、本轮是否发生过交换 swapped、当时的数组快照 arr）；
+       gapSeq = 依次用到的增量值（n → ⌊n/1.3⌋ → … → 1，去掉相邻重复）。 */
     var steps = [], gapSeq = [n];
     (function () {
       var a = A0.slice(), gap = n, swapped = true, cmp = 0, swp = 0, round = 0;
@@ -1050,6 +1114,7 @@
       }
     })();
 
+    /* totalCmp / totalSwp = 全程比较、交换次数（= 最后一步记录里的累计值）。 */
     var totalCmp = steps[steps.length - 1].cmp, totalSwp = steps[steps.length - 1].swp;
 
     var frames = [];
@@ -1178,37 +1243,49 @@
 
   /* ==========================================================================
      演示 6：锦标赛排序（胜者树）—— 建树 n−1 次比较，重赛 log n 次
+     容器：<div id="viz-tournament">
      ========================================================================== */
   (function tournament() {
     var host = document.getElementById("viz-tournament");
     if (!host) return;
 
+    /* R = 结点半径；YS[d] = 第 d 层结点的 y 坐标（d 从 0 = 根开始）。 */
     var W = 880, H = 520;
     var R = 21;
     var YS = [46, 138, 230, 322];
 
+    /* A0 = 8 个参赛数据（n = 8，正好是一棵满二叉树）；INF = 哨兵“无穷大”，空位用它。 */
     var A0 = [3, 1, 4, 1, 5, 9, 2, 6];
     var n = A0.length;
     var INF = Infinity;
 
+    /* pos(t) 把结点编号 t 换算成画布坐标：d = ⌊log₂t⌋ 是它的层号，k = t − 2^d 是该层第几个。 */
     function pos(t) {
       var d = Math.floor(Math.log(t) / Math.log(2));
       var k = t - Math.pow(2, d);
       return { x: W * (2 * k + 1) / Math.pow(2, d + 1), y: YS[d], d: d };
     }
 
+    /* 胜者树的两个数组，长度都是 2n、**下标 1 基**（tree[0] 不用）：
+       val[t] = 结点 t 上存的值；win[t] = 该子树的胜者所在的**叶子下标**（-1 = 这场还没比）；
+       叶子是 t = n..2n−1（val[n+j] = A0[j]），内部结点 t = 1..n−1，根是 win[1]。 */
     var val = [], win = [];
     (function () {
       for (var i = 0; i < 2 * n; i++) { val.push(INF); win.push(-1); }
       for (var j = 0; j < n; j++) { val[n + j] = A0[j]; win[n + j] = n + j; }
     })();
 
+    /* cmp = 比较次数（建树 n−1 次 + 每次重赛 log n 次）；outList = 已经输出的元素（升序）。
+       st 每次新建、不用拷贝：st.hlKids / hlNode = 要高亮的两个孩子、父结点，
+       st.pathLeaf / hlPath = 当前重赛走的路径。 */
     var frames = [], cmp = 0, outList = [];
     /* st: {hlKids, hlNode, pathLeaf, hlPath, msg1..3} */
     function snap(desc, st) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
          DS.Viz 会先跑完整个 build() 再逐帧渲染，
          若 draw 直接读活变量（val / win / outList），画出来的永远是算法结束后的最终态。 */
+      /* sVal / sWin / sOut = **该帧的快照**：树上的值、胜者下标、已输出列表。
+         这三个在 build() 里一直变，draw 只读快照（下面统一用 sVal / sWin / sOut）。 */
       var sVal = val.slice(), sWin = win.slice(), sOut = outList.slice();
       frames.push({
         desc: desc,
@@ -1288,6 +1365,8 @@
         msg3: "省的是后续：取走最小值后只需沿它走过的路径重赛 ⌈log₂n⌉ = 3 次" });
 
     /* ---------- 建树：自底向上 ---------- */
+    /* 建树的处理顺序：内部结点从 7 号一路倒着比到 1 号（自底向上、自右向左），
+       这样每个结点比赛时它的两个孩子都已经有胜者了。 */
     var buildOrder = [7, 6, 5, 4, 3, 2, 1];
     for (var bi = 0; bi < buildOrder.length; bi++) {
       var t3 = buildOrder[bi];
@@ -1310,6 +1389,7 @@
           msg2: "结点 " + t3 + " 的胜者 = 叶子 [" + (winner - n) + "]，值 " + wTxt });
     }
 
+    /* champion = 冠军所在的叶子下标（根 win[1] 里存的就是它）；它的值就是全局最小值。 */
     var champion = win[1];
     snap("建树完成！根结点给出的胜者是叶子 <b>[" + (champion - n) + "] = " + val[champion] + "</b>，" +
       "它就是整个数组的最小值。建树一共用了 <b>7 = n − 1</b> 次比较 —— " +
@@ -1385,16 +1465,21 @@
 
   /* ==========================================================================
      演示 7：内省排序（Introsort）—— 快排主干 + 小区间插排 + 深度超限转堆排
+     容器：<div id="viz-introsort">
      ========================================================================== */
   (function introsort() {
     var host = document.getElementById("viz-introsort");
     if (!host) return;
 
     var W = 880, H = 528;
+    /* 三个关键常量：N32 = 元素个数 32；LIMIT = 递归深度上限 2⌊log₂n⌋ = 10（超过就改堆排兜底）；
+       THRESH = 小区间阈值 16（区间长度 ≤ 16 就交给插入排序 —— 小规模下插排常数最小）。 */
     var N32 = 32, LIMIT = 2 * Math.floor(Math.log(N32) / Math.log(2)), THRESH = 16;
+    /* A0 = 1..32 的**已有序**数组：对“取首元素作枢轴”的快排来说这就是最坏输入。 */
     var A0 = [];
     for (var z = 1; z <= N32; z++) A0.push(z);      /* 已经有序 = 最坏输入 */
 
+    /* MODES = 三种模式（快排主干 / 插入排序 / 堆排序兜底）的显示名与颜色，用 st.mode 当键。 */
     var MODES = {
       quick: { name: "快速排序（主干）", color: "var(--brand)" },
       ins: { name: "插入排序（长度 ≤ 16）", color: "var(--ok)" },
@@ -1403,6 +1488,9 @@
 
     var frames = [];
     /* st: {mode, depth, lo, hi, trace, grid, gridMarks, msg1, msg2} */
+    /* 推一帧。st 每次新建、不用拷贝：st.mode = 当前模式键，st.depth = 剩余深度预算，
+       st.lo / st.hi = 当前区间（**左闭右开** [lo, hi)），st.trace = 已发生的划分记录，
+       st.grid / st.gridMarks = 要画的数组片段与它的标记，st.msg* = 文案。 */
     function snap(desc, st) {
       frames.push({
         desc: desc,
@@ -1463,6 +1551,7 @@
       });
     }
 
+    /* gridOf(lo, hi) = 取出区间 [lo, hi) 的元素做画面上的“格子”（最多 24 个，多了画不下）。 */
     function gridOf(lo, hi) {
       var g = [];
       for (var i = lo; i < hi && g.length < 24; i++) g.push(A0[i]);
@@ -1475,6 +1564,7 @@
       return m;
     }
 
+    /* trace = 划分过程记录，每项 {d: 剩余深度, lo, hi, len, mode, note}；画面上那排小格子读的就是它。 */
     var trace = [];
     snap("先看一个「对手刻意构造」的输入：<b>A = [1, 2, 3, …, 32] 已经完全有序</b>，" +
       "而划分策略取<b>区间第一个元素作枢轴</b>（不少教科书版本就是这么写的）。" +
@@ -1485,6 +1575,8 @@
         msg1Color: "var(--brand)",
         msg2: "长度 32 大于阈值 16 → 用快排划分；只要深度没耗尽就一直递归下去" });
 
+    /* 模拟递归的状态：lo / hi = 当前区间（左闭右开）；depth = 剩余深度预算（每划分一次减 1）；
+       frags = 已经产生的“长度 1 碎片”个数（它们全部走插入排序分支）。 */
     var lo = 0, hi = N32, depth = LIMIT, frags = 0;
     while (hi - lo > THRESH && depth > 0) {
       var len = hi - lo;
@@ -1519,6 +1611,7 @@
         msg1Color: "var(--danger)",
         msg2: "堆排不递归 → 深度不再增长，最坏情况的 O(n²) 被彻底堵死" });
 
+    /* heapLo / heapHi = 深度用尽时那个区间（左闭右开）—— 它就是要交给堆排序兜底的部分。 */
     var heapLo = lo, heapHi = hi;
     snap("堆排第一步：<b>建堆</b>。把区间 [" + heapLo + ", " + heapHi + ") 的 " + (heapHi - heapLo) +
       " 个元素看成一棵完全二叉树，自底向上做「下沉」调整，得到一个<b>大顶堆</b>：" +
@@ -1571,6 +1664,7 @@
 
   /* ==========================================================================
      演示 8：2-路归并 → 原地归并（手摇算法）→ k 路归并与败者树
+     容器：<div id="viz-merge-two">
      ========================================================================== */
   (function mergeTwo() {
     var host = document.getElementById("viz-merge-two");
@@ -1579,18 +1673,25 @@
     var W = 880, H = 480;
     var BW = 46, BP = 60, BX = 190;
 
+    /* A0 = 两个长度 3 的有序段拼起来的数组；MID = 2 → 左段 [0, 2]、右段 [3, 5]（都是闭区间）。 */
     var A0 = [1, 4, 7, 2, 3, 9];     /* 两个长度 3 的有序段 */
     var n = A0.length, MID = 2;      /* 左段 [0, 2]，右段 [3, 5] */
 
+    /* A = 工作副本；T = 归并用的辅助数组（初值全 null = 这一格还没写过）。 */
     var A = A0.slice();
     var T = [null, null, null, null, null, null];
 
     var frames = [];
     /* st: {phase, i, j, k, arr, colors, rings, hl, revLabel, runs, treeMsg, msg1..5} */
+    /* 推一帧。st 每次新建、不用拷贝：st.phase = "merge"/"inplace"/"kway" 决定画哪一段，
+       st.i / st.j / st.k = 双指针与写入位置（-1 = 不画），st.arr = 本帧要画的数组，
+       st.colors / rings / hl = 配色、圈标、高亮下标，st.revLabel = 手摇那一段的标注，
+       st.runs / treeMsg = k 路归并的四段首与胜者树说明，st.msg1..5 = 底部文字。 */
     function snap(desc, st) {
       /* 关键：把「这一帧要画的状态」在此刻深拷贝下来。
          DS.Viz 会先跑完整个 build() 再逐帧渲染，
          若 draw 直接读活变量（辅助数组 T），画出来的永远是算法结束后的最终态。 */
+      /* sT = **该帧的快照**：辅助数组 T 的拷贝（T 会被不断写入，draw 里读活变量只会看到最终结果）。 */
       var sT = T.slice();
       frames.push({
         desc: desc,
@@ -1697,6 +1798,8 @@
         msg1Color: "var(--brand)",
         msg2: "指针：i = 0（左段头）、j = 3（右段头）、k = 0（T 的写入位置）" });
 
+    /* 标准 2-路归并的三个指针：i 指左段头、j 指右段头、k 指 T 里下一个要填的位置（都是下标）；
+       cmp = 比较次数（上界是 L + R − 1 = 5）。 */
     var i = 0, j = MID + 1, k = 0, cmp = 0;
     while (i <= MID && j <= n - 1) {
       cmp++;
@@ -1719,6 +1822,7 @@
           msg2: "已确定 " + k + " / " + n + " 个元素的最终次序" });
     }
 
+    /* tailName = 先取完的是哪一段，只用于文案；剩下的那一段整体照搬进 T，不再比较。 */
     var tailName = (i > MID) ? "右段" : "左段";
     if (i > MID) { while (j <= n - 1) { T[k] = A[j]; j++; k++; } }
     else { while (i <= MID) { T[k] = A[i]; i++; k++; } }
@@ -1734,6 +1838,8 @@
         msg3: "内存紧张的场景（外排序缓冲区、嵌入式）就想要「不用辅助数组」的归并 —— 手摇算法出场" });
 
     /* ---------- 原地归并：手摇算法（三次反转） ---------- */
+    /* rev(arr, l, r) = 把闭区间 [l, r] 就地反转，返回**新数组**（不改原数组）。
+       手摇算法就是靠它做三次反转来实现两块交换的。 */
     function rev(arr, l, r) {
       var b = arr.slice();
       while (l < r) { var t = b[l]; b[l] = b[r]; b[r] = t; l++; r--; }
@@ -1754,6 +1860,7 @@
         msg3: "一般情形还要配合「二分定位」找出该换哪两块，并对两个子问题递归，总移动次数 O(n log n)",
         msg4: "好处：辅助空间从 O(n) 降到 O(1)；代价：元素移动次数变多 —— 典型的以时间换空间" });
 
+    /* s1 / s2 / s3 = 三次反转之后各自的数组（每一份都只用于它那一帧，等价于快照）。 */
     var s1 = rev(A0, 1, 2);
     snap("第 1 次反转：把左块 [4, 7] 就地反转 → <b>[7, 4]</b>，数组变成 [" + s1.join(", ") + "]。",
       { phase: "inplace", arr: s1, colors: ["", "--brand", "--brand", "--accent", "--accent", ""],
@@ -1789,6 +1896,7 @@
         msg3: "本例恰好一次手摇就到位；一般情形需要「二分定位 + 反复手摇」递归进行" });
 
     /* ---------- k 路归并与败者树 ---------- */
+    /* runs1 = k = 4 个归并段（外排序里的 run），每段是一个递增数组；画面上只取它们的段首。 */
     var runs1 = [[1, 5], [2, 6], [3, 7], [4, 8]];
     snap("把 2 路推广到 <b>k 路归并</b>：外排序里内存装不下全部数据，" +
       "我们只能把 k 个有序段（归并段 run）的<b>当前首元素</b>同时拿在内存里，反复取其中最小的输出。" +
@@ -1802,6 +1910,7 @@
         msg3: "所以需要一个「从 k 个候选里 O(log k) 取最小」的结构 —— 胜者树 / 败者树",
         msg4: "看右上：4 个段首 1、2、3、4，扫描比较 3 次才选出 1；下一个元素又要重新扫 3 次" });
 
+    /* runs2 = 段 1 的段首 1 被取走之后的同一组归并段（它露出了下一个元素 5）。 */
     var runs2 = [[5], [2, 6], [3, 7], [4, 8]];
     snap("换成<b>胜者树</b>：把 4 个段首放到 4 个叶子上，内部结点记下每场比赛的胜者。" +
       "取走最小值（段 1 的 1）之后，只需要<b>沿它走过的路径重赛</b>：" +

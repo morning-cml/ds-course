@@ -11,6 +11,8 @@
  *   2. 再把页头 doc-head 区块里的讲次改成该页真实讲次
  *
  * 用法：node tools/fix-lecture-numbers.mjs [--apply]
+ *
+ * 退出码：恒为 0；不加 --apply 时只预览不写盘（加 --apply 才会改文件）
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,6 +20,8 @@ import path from "node:path";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const APPLY = process.argv.includes("--apply");
 
+/* 页面清单：每项 = [文件名, 该页真实讲次]。
+   ⚠ 第 2 列用来改写页头 doc-head，必须与该页实际讲次一致；新增一讲就补一行。 */
 const PAGES = [
   ["ch01-intro.html",          1],
   ["ch02-linear-list.html",    2],
@@ -36,9 +40,9 @@ const PAGES = [
   ["ch15-review.html",        15]
 ];
 
-const fmt = (n) => "第 " + String(n).padStart(2, "0") + " 讲";
+const fmt = (n) => "第 " + String(n).padStart(2, "0") + " 讲";   // 统一的讲次写法（两位补零）
 
-let changed = 0;
+let changed = 0;   // 内容有变化的文件数（不加 --apply 时也统计，用于预览提示）
 for (const [file, lec] of PAGES) {
   const fp = path.join(ROOT, file);
   if (!fs.existsSync(fp)) { console.log("跳过（不存在）: " + file); continue; }
@@ -46,7 +50,7 @@ for (const [file, lec] of PAGES) {
   let out = src;
 
   /* 1) 全文「第 NN 讲」整体 -1 */
-  let undo = 0;
+  let undo = 0;   // 本页被撤销 +1 的引用条数
   out = out.replace(/第\s*(\d{1,2})\s*讲/g, (m, num) => {
     const v = parseInt(num, 10);
     if (v < 1 || v > 15) return m;
@@ -55,25 +59,25 @@ for (const [file, lec] of PAGES) {
   });
 
   /* 2) 页头 doc-head 区块内的讲次改成该页真实讲次 */
-  const headRe = /(<div class="doc-head">[\s\S]*?<div class="kicker">)([\s\S]*?)(<\/div>)/;
+  const headRe = /(<div class="doc-head">[\s\S]*?<div class="kicker">)([\s\S]*?)(<\/div>)/;   // 捕获 2 就是 kicker 里的文字
   const m = out.match(headRe);
-  let headFrom = "", headTo = "";
+  let headFrom = "", headTo = "";   // 改写前后的页头文字（仅用于打印对比）
   if (m) {
     headFrom = m[2].replace(/<[^>]+>/g, "").trim();
     let inner = m[2];
     if (/第\s*\d{1,2}\s*讲/.test(inner)) {
       // 保留前缀（例如「线性结构 · 」）
       inner = inner.replace(/第\s*\d{1,2}\s*讲/, fmt(lec));
-    } else if (/讲义\s*\d+/.test(inner)) {
+    } else if (/讲义\s*\d+/.test(inner)) {                       // 老格式「讲义 N」
       inner = inner.replace(/讲义\s*\d+/, fmt(lec));
     } else {
-      inner = fmt(lec);
+      inner = fmt(lec);                                          // 完全没有讲次信息：直接写入正确讲次
     }
     headTo = inner.replace(/<[^>]+>/g, "").trim();
     out = out.replace(headRe, "$1" + inner + "$3");
   }
 
-  const diff = out !== src;
+  const diff = out !== src;   // 本页是否有实际改动
   if (diff) changed++;
   console.log((diff ? "✓ " : "· ") + file.padEnd(24) +
     `撤销 ${undo} 处 +1，页头 [${headFrom}] → [${headTo || "（无 doc-head）"}]`);

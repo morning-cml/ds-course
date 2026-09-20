@@ -3,6 +3,8 @@
  * verify-stats.mjs —— 交叉核对「公开文档里写的数字」与「实测数字」是否一致
  * 这是 stats.mjs 的配套校验：防止 README / index.html 里的规模表再次过期。
  * 用法：node tools/verify-stats.mjs
+ *
+ * 退出码：0 = 所有公开数字与实测一致；1 = 至少 1 处不符，或文档里找不到对应字段
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -19,14 +21,15 @@ function plainText(html) {
 }
 
 /* ---------- 实测 ---------- */
+/* 统计范围：index 之外的全部章节页（index 自身的 hero 数字不算进规模） */
 const pages = ["index.html", ...fs.readdirSync(ROOT).filter(f => /^ch\d\d-.*\.html$/.test(f)).sort()];
-let prose = 0, codeNotes = 0, cpp = 0, fig = 0, viz = 0;
+let prose = 0, codeNotes = 0, cpp = 0, fig = 0, viz = 0;   // 正文汉字 / 代码内注释汉字 / C++ 段数 / 图解张数 / 动画个数 的累计值
 for (const f of pages) {
   const html = fs.readFileSync(path.join(ROOT, f), "utf8");
-  const blocks = [...html.matchAll(/<pre[^>]*data-lang="cpp"[^>]*>([\s\S]*?)<\/pre>/g)].map(m => m[1]);
-  const codePlain = plainText(blocks.join(""));
-  const allPlain = plainText(html);
-  const isIndex = f === "index.html";
+  const blocks = [...html.matchAll(/<pre[^>]*data-lang="cpp"[^>]*>([\s\S]*?)<\/pre>/g)].map(m => m[1]);   // 本页 C++ 代码块内容
+  const codePlain = plainText(blocks.join(""));   // 代码块纯文本（用于扣掉代码里的汉字）
+  const allPlain = plainText(html);               // 整页纯文本
+  const isIndex = f === "index.html";             // index 的正文/图解不计入「讲义」规模
   if (!isIndex) {
     prose += han(allPlain) - han(codePlain);
     codeNotes += han(codePlain);
@@ -35,10 +38,17 @@ for (const f of pages) {
     viz += (html.match(/id="viz-/g) || []).length;
   }
 }
-const wan = (n) => (n / 10000).toFixed(1);
+const wan = (n) => (n / 10000).toFixed(1);   // 汉字数换成「万字」字符串，保留 1 位小数（公开文档就是按这个口径写的）
 
 /* ---------- 逐项断言 ---------- */
-let bad = 0;
+let bad = 0;   // 不一致 / 找不到字段的项数，决定退出码
+/**
+ * 按 patterns 逐条把「文档里写的数字」与实测值比对。
+ * @param {string} label   打印用的分组名（如 "root README"）
+ * @param {string} file    出错信息里显示的文档路径
+ * @param {string} text    文档全文
+ * @param {Array}  patterns 每项 = [字段描述, 只捕获数字的组(第 1 组)的正则, 实测期望值]
+ */
 const check = (label, file, text, patterns) => {
   for (const [desc, re, expected] of patterns) {
     const m = text.match(re);

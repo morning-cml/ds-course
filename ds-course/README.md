@@ -142,9 +142,11 @@ node tools/verify-stats.mjs     # 核对本页那张规模表与实测是否一�
 ```
 
 > `frame-check.mjs` 还可以当调试工具用：
-> `node tools/frame-check.mjs --report` 打印每个动画的「相邻帧文本不动比例」，
+> `node tools/frame-check.mjs --report` 打印每个动画的详细指标，
 > `node tools/frame-check.mjs --dump viz-prim ch09-viz.js` 把某个动画若干帧**真正画出来的文字**打出来，
-> 用来核对「第 0 帧的画面和它 desc 说的是不是一回事」。
+> 用来核对「第 0 帧的画面和它 desc 说的是不是一回事」；
+> `node tools/frame-check.mjs --fingerprint` 输出**所有动画全部帧的渲染指纹** ——
+> 只改注释或做重构时，改动前后各跑一次，指纹一致就证明渲染行为没变。
 
 `cpp-check.mjs` 需要系统里有 `g++`；其余几个只需要 Node.js（无需安装任何依赖）。
 

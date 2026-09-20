@@ -15,8 +15,10 @@
    ========================================================================== */
 (function () {
   "use strict";
-  var SVG = DS.SVG;
+  var SVG = DS.SVG;                             // 全页共用的 SVG 工具集：svg/box/text/label/el/line/path 都在它上面
 
+  /* 下面两个是本文件 9 个演示共用的排版常量（单位 px）：R = 结点圆的半径（局部的 R-2 / R-3 都是它的小改款）；
+     GAPX = 相邻「中序槽位」的水平间距，layout() 用它给结点分 x 坐标，值太小树会挤在一起。 */
   var R = 20;          // 结点半径
   var GAPX = 46;       // 相邻「中序位置」的水平间距
 
@@ -58,6 +60,7 @@
       walk(nd.right, d + 1);
     })(root, 0);
 
+    /* 返回值补充：order 是结点的中序名字序列（第 k 个结点就占第 k 个水平槽位），depth 是最深层号（0 基，根 = 0）。 */
     return { map: map, order: order, depth: depth };
   }
 
@@ -68,6 +71,8 @@
        opt : { gapX, gapY, title, edgeLabel(childName,parentName,k), showSub }
      ---------------------------------------------------------------------- */
   function drawTree(s, W, root, st, opt) {
+    /* st 的补充：active 是结点名字符串（null = 不高亮任何结点）；done / warn / cmp / dim 是「名字 → true」的对象。
+       同一个结点若被多个表命中，按 active > warn > cmp > done > dim 的先后取色（见下面 nodes() 的 if 链）。 */
     opt = opt || {}; st = st || {};
     var gx = opt.gapX || GAPX, gy = opt.gapY || 74;
     var L = layout(root, gx, gy);
@@ -120,6 +125,7 @@
   }
 
   /* 结果显示条：把「已经输出」的序列画成一排小格子 */
+  /* full = 完整序列（决定画几个格子），got = 已经输出的那一段：前 got.length 个格子填绿并写上字符。 */
   function drawSeq(s, svg, x, y, size, full, got, label) {
     svg.appendChild(SVG.label(x - 10, y + size * 0.68, label, "end"));
     for (var i = 0; i < full.length; i++) {
@@ -130,6 +136,7 @@
   }
 
   /* 队列：左端是队首 */
+  /* items = 队列里的名字数组（items[0] 是队首，画成蓝色；后面的按顺序往右排），空队列时画一个灰色的「空」。 */
   function drawQueue(s, svg, x, y, items, size, label) {
     svg.appendChild(SVG.label(x, y - 8, label, "start"));
     if (!items.length) {
@@ -144,6 +151,7 @@
   }
 
   /* 栈：items[0] 在栈底，最后一项在栈顶 */
+  /* yBottom = 栈底那条基准线的 y（格子从下往上长）；栈顶那格画成蓝色，其余绿色。 */
   function drawStack(s, svg, x, yBottom, items, size, label) {
     svg.appendChild(SVG.label(x, yBottom - size * 5 - 14, label, "start"));
     if (!items.length) {
@@ -161,6 +169,7 @@
   /* ======================================================================
      二、主角树（图 7-9）：A( B( D, E( G, · ) ), C( ·, F ) )
      ====================================================================== */
+  /* 每次调用都返回一棵全新的主角树对象，9 个演示各用各的，互不干扰。 */
   function heroTree() {
     return {
       name: 'A',
@@ -172,13 +181,13 @@
       right: { name: 'C', left: null, right: { name: 'F', left: null, right: null } }
     };
   }
-  var HERO_LEVEL = 'ABCDEFG';
+  var HERO_LEVEL = 'ABCDEFG';   // 主角树的层序（= 7 个结点），结果序列条按它的字符数画格子
 
   /* ======================================================================
      三、前序 / 中序 / 后序遍历（用显式栈模拟递归，逐帧展开）
      ====================================================================== */
-  var ORDER = { pre: 'DLR', in: 'LDR', post: 'LRD' };
-  var KIND = { pre: '先序', in: '中序', post: '后序' };
+  var ORDER = { pre: 'DLR', in: 'LDR', post: 'LRD' };   // 三种次序的缩写：D = 访问根、L = 左子树、R = 右子树；recSteps 按它决定谁先谁后
+  var KIND = { pre: '先序', in: '中序', post: '后序' };   // 缩写 → 中文名（标题与描述文字里用）
 
   /* 把递归过程展开成步骤序列：
      {type:'call'|'visit'|'ret', name, stack:[自底向上的名字数组]} */
@@ -201,14 +210,17 @@
     return steps;
   }
 
+  /* 这个函数被 3 个容器复用：#viz-preorder（先序）、#viz-inorder（中序）、#viz-postorder（后序）。 */
   function makeTraversalViz(host, kind) {
     if (!host) return;
 
     var root = heroTree();
     var steps = recSteps(root, kind);
-    var frames = [], done = {}, visited = [];
-    var W = 900, PW = 196;
+    var frames = [], done = {}, visited = [];   // done = 「名字 → true」的已输出标记（画绿）；visited = 已输出的名字序列（按访问先后）
+    var W = 900, PW = 196;                      // W = 总画布宽，PW = 右侧信息栏宽度（左边 W − PW 留给树）
 
+    /* one() 的入参：stack = 本帧的递归栈快照（栈底在前），active = 要高亮成蓝色的结点名（null = 无），
+       doneSnap / visitedSnap = 本帧的「已输出」标记与结果序列快照。 */
     /* done / visited 都是遍历过程中被逐步改写的活变量，
        这里只接收「该帧的快照」，画面上才不会一上来就是走完的最终结果。 */
     function one(s, stack, active, doneSnap, visitedSnap) {
@@ -233,7 +245,7 @@
         });
       } else if (stp.type === 'visit') {
         visited = visited.concat([stp.name]);
-        done[stp.name] = true;
+        done[stp.name] = true;      // 「访问」= 追加进结果序列 + 标记已输出；这两个活变量每帧都要先快照
         var visitDone = cloneFlags(done), visitVisited = visited.slice();
         frames.push({
           desc: '★ <b>访问结点 ' + stp.name + '</b>——它是' + KIND[kind] +
@@ -256,7 +268,7 @@
       draw: function (s) { return one(s, [], null, cloneFlags(done), visited.slice()); }
     });
 
-    function meaning() {
+    function meaning() {            // 本遍历次序的口诀文字（根左右 / 左根右 / 左右根），拼进 desc 用
       return kind === 'pre' ? '（根 → 左 → 右）'
         : kind === 'in' ? '（左 → 根 → 右）' : '（左 → 右 → 根）';
     }
@@ -285,13 +297,15 @@
   /* ======================================================================
      四、层序遍历（队列驱动）
      ====================================================================== */
+  /* 页面容器 #viz-levelorder：层序遍历，队列 FIFO 保证「同层先于下一层」。 */
   (function levelOrder() {
     var host = document.getElementById('viz-levelorder');
     if (!host) return;
 
     var root = heroTree();
-    var frames = [], q = [root], done = {}, visited = [], guard = 0;
-    var W = 900, PW = 196;
+    var frames = [], q = [root], done = {}, visited = [], guard = 0;   // q = 队列（存结点对象本身，q[0] 是队首）；
+    // done = 已访问标记（画绿）；visited = 已访问的名字序列；guard = 轮数护栏（最多 40 轮，防意外死循环）
+    var W = 900, PW = 196;                      // W = 总画布宽，PW = 右侧信息栏宽度
 
     function snap(desc, active) {
       var names = q.map(function (n) { return n.name; });
@@ -317,9 +331,9 @@
     snap('层序遍历<b>不使用递归</b>，而是借助一个<b>队列</b>。初始时只有根结点 <b>A</b> 入队。', null);
 
     while (q.length && guard++ < 40) {
-      var p = q.shift();
+      var p = q.shift();            // 出队（q[0] 是队首）；「出队即访问」—— 这就是层序的次序保证
       visited.push(p.name); done[p.name] = true;
-      var added = [];
+      var added = [];               // 本轮新入队的孩子名字（只用于文字）
       if (p.left) { q.push(p.left); added.push(p.left.name); }
       if (p.right) { q.push(p.right); added.push(p.right.name); }
       snap('<b>' + p.name + ' 出队并访问</b>：它是队首，也就是「当前层里最靠左的未访问结点」。' +
@@ -342,21 +356,28 @@
   /* ======================================================================
      五、由「先序 + 中序」逐帧还原二叉树
      ====================================================================== */
+  /* 页面容器 #viz-tree-rebuild：由「先序 + 中序」逐帧还原二叉树。 */
   (function rebuild() {
     var host = document.getElementById('viz-tree-rebuild');
     if (!host) return;
 
-    var PRE = 'ABDECFG'.split(''), IN = 'DBEAFCG'.split('');
-    var posOf = {};
+    var PRE = 'ABDECFG'.split(''), IN = 'DBEAFCG'.split('');   // 先序、中序序列（字符数组）；算法只读它们，从不改写
+    var posOf = {};                 // 字符 → 它在中序里的下标（哈希表）：把「在中序里找根」从 O(n) 降到 O(1)
     IN.forEach(function (c, i) { posOf[c] = i; });
 
-    var built = {}, rsteps = [], nullCnt = 0;
+    var built = {}, rsteps = [], nullCnt = 0;   // built = 已经建好的结点表（名字 → 结点对象，结点之间用 left/right 互指，
+                                                // 画图时直接拿 built['A'] 当整棵树的入口）；
+                                                // rsteps = 预先算好的步骤序列（每步记下本步的区间、根、挂到谁身上）；
+                                                // nullCnt = 空区间的个数（最后那句文字用）
 
-    function mk(name) {
+    function mk(name) {             // 取或新建一个结点对象：同名结点只会建一次，built 里不会有重复
       if (!built[name]) built[name] = { name: name, left: null, right: null };
       return built[name];
     }
 
+    /* dfs 的参数：pl..pr 是先序闭区间、il..ir 是中序闭区间（下标都含两端）；
+       parent / side 表示「这棵子树要挂到 parent 的哪一边」（'L' / 'R'，根那层两个都是 null）；
+       depth 只往下传、函数体里从没读过（历史遗留）。 */
     (function dfs(pl, pr, il, ir, parent, side, depth) {
       if (pl > pr || il > ir) {
         nullCnt++;
@@ -376,8 +397,10 @@
       dfs(pl + leftLen + 1, pr, k + 1, ir, rv, 'R', depth + 1);
     })(0, PRE.length - 1, 0, IN.length - 1, null, null, 0);
 
-    var frames = [], W = 900, H = 500;
+    var frames = [], W = 900, H = 500;   // 画布尺寸固定：上半是 PRE / IN 两行序列，下半是已经建出来的树
 
+    /* seqRow 的参数：arr = 序列数组；lo / hi = 本帧要橙色高亮的区间（闭区间，lo > hi 表示空区间 → 整行画灰）；
+       hit = 额外单独标一个下标（颜色由 hitCls 给，传 -1 / -2 表示不标）。 */
     function seqRow(s, svg, x, y, name, arr, lo, hi, hit, hitCls) {
       svg.appendChild(SVG.label(x - 12, y + 22, name, "end"));
       for (var i = 0; i < arr.length; i++) {
@@ -391,6 +414,8 @@
       }
     }
 
+    /* one() 每帧重画整张画布：st = 本帧对应的 rsteps 记录（null = 收尾帧，不画区间信息）；
+       last = true 时画收尾统计（建了多少结点、遇到多少空区间）。 */
     function one(s, st, last) {
       var svg = s.svg(W, H);
       svg.setAttribute("viewBox", "0 0 " + W + " " + H);
@@ -411,7 +436,7 @@
         return svg;
       }
 
-      var L = layout(built['A'], 58, 56);
+      var L = layout(built['A'], 58, 56);   // 直接拿 built['A'] 当整棵树的入口：A 一定是第一步就建好的根
       var pad = Math.max(60, (W - (L.order.length - 1) * 58) / 2);
       Object.keys(built).forEach(function (nm) {
         var nd = built[nm], p = L.map[nm];
@@ -481,22 +506,24 @@
   /* ======================================================================
      六、赫夫曼树构造（逐帧合并 + 实时 WPL）
      ====================================================================== */
+  /* 页面容器 #viz-huffman-build：赫夫曼树构造，每步合并两个最小权值的树，并实时累计 WPL。 */
   (function huffmanBuild() {
     var host = document.getElementById('viz-huffman-build');
     if (!host) return;
 
-    var CH = ['a', 'b', 'c', 'd', 'e', 'f'];
-    var W0 = [2, 3, 4, 7, 8, 9];
-    var TOTAL = 0; W0.forEach(function (x) { TOTAL += x; });
+    var CH = ['a', 'b', 'c', 'd', 'e', 'f'];          // 6 个字符
+    var W0 = [2, 3, 4, 7, 8, 9];                      // 它们各自的权值（频率）；改 CH / W0 这两行就换一组数据
+    var TOTAL = 0; W0.forEach(function (x) { TOTAL += x; });   // 叶子权值之和 = 33（= 最终根权值，也是校验用的常数）
 
     /* 森林里直接放【结点对象】，结点用 left / right 直接引用子结点。
        （不要用「名字 -> 坐标」的查表，中间状态最容易查不到而报 undefined） */
+    /* 每个结点的字段：{ w 权值, ch 字符（合并出来的内部结点是空串）, left, right }。 */
     var forest = [];
     CH.forEach(function (c, i) {
       forest.push({ w: W0[i], ch: c, left: null, right: null });
     });
 
-    var frames = [], wpl = 0;
+    var frames = [], wpl = 0;   // wpl = 累计 WPL（= 所有合并出的新结点权值之和）；它是活变量，每帧由 snap 按值存下来
 
     /* ------------------------------------------------------------------
        给一棵树算坐标：按【中序】顺序给每个结点分配一个水平槽位。
@@ -515,6 +542,8 @@
         next++;
         walk(nd.right, d + 1);
       })(root, 0);
+      /* 返回 { map, list, width, minX, maxD }：list 是中序结点数组，width = 内容宽度（这棵小树占多宽），
+         minX = 最左结点的 x（平移到目标区间时用），maxD = 最大层号（0 基）。 */
       var xs = list.map(function (nd) { return map.get(nd).x; });
       var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
       return { map: map, list: list, width: maxX - minX + gapX, minX: minX, maxD: maxD };
@@ -522,6 +551,7 @@
 
     /* 把整片森林画成一排小树。trees 是**该帧的**森林快照，不是活变量 forest */
     function drawForest(s, W, footer, trees) {
+      /* laid[k] = 第 k 棵小树的排版结果 { root 树根, L 布局, w 它在画布上占的宽度, d 它的层数 }。 */
       var laid = trees.map(function (root) {
         var L = layoutHuff(root, 36, 58);
         return { root: root, L: L, w: Math.max(70, L.width + 16), d: L.maxD };
@@ -571,7 +601,7 @@
     }
 
     function snap(desc) {
-      var cnt = forest.length, acc = wpl;
+      var cnt = forest.length, acc = wpl;   // 按值存下这两个数字：此刻森林里还有几棵树、累计 WPL 是多少
       /* 关键：森林是「每合并一次就整片重建」的活变量（forest = forest.filter(...)），
          推帧时把这一帧的森林深拷贝下来，draw 只读快照，
          否则每帧画出来的都是只剩一棵树的最终森林。 */
@@ -595,7 +625,7 @@
       return [forest[idx[0]], forest[idx[1]]];
     }
 
-    function weights() {
+    function weights() {            // 当前森林各棵树根权值、升序拼成的一行文字（只用于描述）
       return forest.map(function (t) { return t.w; }).sort(function (a, b) { return a - b; })
         .join(', ');
     }
@@ -604,17 +634,17 @@
       '组成一个森林（6 棵树）。赫夫曼算法的规则只有一句话：<b>每次取出权值最小的两棵树，合并成一棵新树。</b>' +
       '累计 WPL 从 0 开始。');
 
-    var step = 0;
+    var step = 0;                   // 合并轮次（1 基），6 个字符一共要合并 5 轮
     while (forest.length > 1) {
       step++;
-      var pair = twoMin(), a = pair[0], b = pair[1];
+      var pair = twoMin(), a = pair[0], b = pair[1];   // ⚠ a / b 是「两棵树的结点对象」，不是权值；取权值要写 a.w
       snap('第 ' + step + ' 步 · 挑选：当前森林的根权值是 { ' + weights() +
         ' }，其中最小的两个是 <b>' + a.w + '</b> 和 <b>' + b.w + '</b>。');
 
-      var nn = { w: a.w + b.w, ch: '', left: a, right: b };
-      forest = forest.filter(function (t) { return t !== a && t !== b; });
+      var nn = { w: a.w + b.w, ch: '', left: a, right: b };   // 新合并出的内部结点：权值 = 两个子根之和；ch 为空表示它不是叶子
+      forest = forest.filter(function (t) { return t !== a && t !== b; });   // 整片森林重建（摘掉 a、b，放回 nn），不是原地改
       forest.push(nn);
-      wpl += a.w + b.w;
+      wpl += a.w + b.w;             // WPL 的增加量正好等于新结点的权值（所有叶子整体下移一层的代价）
 
       snap('第 ' + step + ' 步 · 合并：新建一个根结点，权值 = ' + a.w + ' + ' + b.w + ' = <b>' +
         (a.w + b.w) + '</b>，把 ' + a.w + ' 作为左子树、' + b.w + ' 作为右子树，放回森林。<br>' +
@@ -638,14 +668,16 @@
   /* ======================================================================
      七、赫夫曼编码表生成 + 与等长编码对比
      ====================================================================== */
+  /* 页面容器 #viz-huffman-code：沿赫夫曼树左 0 右 1 生成编码表，并与 3 位等长编码比总位数。 */
   (function huffmanCode() {
     var host = document.getElementById('viz-huffman-code');
     if (!host) return;
 
     /* 与 7.8.4 节完全一致的赫夫曼树：合并序列 2+3=5 → 4+5=9 → 7+8=15 → 9+9=18 → 15+18=33 */
-    function N(name, w, ch, l, r) {
+    function N(name, w, ch, l, r) {   // 结点工厂：name 是唯一标识（内部结点叫 m5 / m9a…），ch 只有叶子才有
       return { name: name, w: w, ch: ch || '', left: l || null, right: r || null };
     }
+    /* 手工照上面的合并序列搭好的树：n2..n9 是 6 个叶子，m5 / m9a / m15 / m18 / m33 是合并出的内部结点。 */
     var n2 = N('a', 2, 'a'), n3 = N('b', 3, 'b'), n4 = N('c', 4, 'c');
     var n7 = N('d', 7, 'd'), n8 = N('e', 8, 'e'), n9 = N('f', 9, 'f');
     var m5 = N('m5', 5, '', n2, n3);
@@ -654,11 +686,14 @@
     var m18 = N('m18', 18, '', n9, m9a);
     var ROOT = N('m33', 33, '', m15, m18);
 
-    var WEIGHT = { a: 2, b: 3, c: 4, d: 7, e: 8, f: 9 };
+    var WEIGHT = { a: 2, b: 3, c: 4, d: 7, e: 8, f: 9 };   // 字符 → 频率（编码表第二列显示的就是它）
     var TOTALW = 33, FIXED = 3;      /* 6 个字符 → ⌈log2 6⌉ = 3 位等长编码 */
-    var CHARS = ['a', 'b', 'c', 'd', 'e', 'f'];
+    // ↑ TOTALW（全文总字符数）与 FIXED（等长码长）声明后没被引用：最后那帧的 80 / 99 是直接写死的数字
+    var CHARS = ['a', 'b', 'c', 'd', 'e', 'f'];            // 编码表里六行的显示顺序
 
     /* 深度优先走一遍：每次「到达结点 / 转向右分支 / 到达叶子」都产生一步 */
+    /* trace 的元素有两种：到达叶子是 { leaf, code }；在内部结点处是 { at, code, dir }
+       （dir 0 = 准备往左走，1 = 左子树走完、改往右走）。 */
     var trace = [];
     (function dfs(node, code) {
       if (!node) return;
@@ -672,9 +707,11 @@
       dfs(node.right, code + '1');
     })(ROOT, '');
 
-    var frames = [], codes = {}, doneLeaves = {}, W = 900, H = 470;
+    var frames = [], codes = {}, doneLeaves = {}, W = 900, H = 470;   // codes = 字符 → 编码（逐步写满）；
+    // doneLeaves = 结点名 → true（这个叶子是否已确定编码）；两者都是活对象，每帧必须快照
 
     /* st 是本帧的路径状态；leaves 是**本帧的**「已确定编码的叶子」快照 */
+    /* st 有两种形态：走在内部结点时是 { at, dir(0 左 / 1 右), code 当前前缀 }；到达叶子时是 { code, leafName, leafCh }。 */
     function drawHuff(s, w, st, leaves) {
       st = st || {};
       var L = layout(ROOT, 58, 62);
@@ -721,6 +758,7 @@
     }
 
     /* codeMap 是**本帧的**编码表快照（codes 是逐步写满的活对象，不能直接读） */
+    /* 参数：hilite = 本帧要标橙的字符（null = 不标），codeMap = 本帧的编码表快照（某个字符还没编码就画 ?）。 */
     function drawTable(s, svg, x, y, hilite, codeMap) {
       var head = ['字符', '频率', '编码', '码长'];
       head.forEach(function (cell, j) {
@@ -738,6 +776,8 @@
       });
     }
 
+    /* 本演示专用的小封装：build(s, svg) 里自己建真正的画布并返回；
+       开头那个 s.svg(1, 1) 只是被丢弃的占位参数（历史遗留），画面上用的是 build 的返回值。 */
     function frame(desc, build) {
       frames.push({
         desc: desc,
@@ -775,7 +815,7 @@
           '</code>。' + (t.dir === 0 ? '沿<b>左</b>分支向下走，前缀追加一个 <b>0</b>。'
             : '左子树已处理完，回到这个结点，改走<b>右</b>分支，前缀追加一个 <b>1</b>。');
       }
-      var snapshot = st;
+      var snapshot = st;            // st 是这一轮新建的对象，不会再被改写，所以直接存引用即可，不用拷贝
       /* 关键：codes / doneLeaves 是逐步写满的活对象，推帧时各留一份快照，
          否则第 0 帧的编码表就已经是全部字符的最终编码了。 */
       var codesSnap = cloneFlags(codes), leavesSnap = cloneFlags(doneLeaves);
@@ -826,22 +866,23 @@
   /* ======================================================================
      八、并查集：union / find（含路径压缩）
      ====================================================================== */
+  /* 页面容器 #viz-dsu：并查集 union / find（双亲表示法 + 按秩合并 + 路径压缩）。 */
   (function dsu() {
     var host = document.getElementById('viz-dsu');
     if (!host) return;
 
-    var N = 8;
-    var par = [], rnk = [];
+    var N = 8;                      // 元素个数，编号 0..7
+    var par = [], rnk = [];         // par[i] = i 的双亲下标（par[i] === i 表示 i 是根）；rnk[i] = 秩，只有根结点这一项有意义
     for (var i = 0; i < N; i++) { par.push(i); rnk.push(0); }
-    var sets = N, frames = [];
+    var sets = N, frames = [];      // sets = 当前集合（树）的个数：初始 8 个，每次成功 union 减 1
     var W = 900, H = 430;
 
-    function rootOf(x) {
+    function rootOf(x) {            // 沿双亲指针走到根（g < 40 只是防死循环的护栏）
       var g = 0;
       while (par[x] !== x && g++ < 40) x = par[x];
       return x;
     }
-    function depthOf(x) {
+    function depthOf(x) {           // 结点 x 到根的步数 = 它在树里的层号（0 基）
       var d = 0, g = 0;
       while (par[x] !== x && g++ < 40) { x = par[x]; d++; }
       return d;
@@ -850,6 +891,8 @@
     /* st 是本帧的高亮状态；parSnap / setsSnap 是**本帧的** parent 数组与集合个数快照。
        parent 数组被 union / 路径压缩逐步改写，draw 直接读活的 par 只会画出最终形态。 */
     function makeDraw(st, parSnap, setsSnap) {
+      /* st 的字段（都是本帧的高亮指令）：active 蓝色结点；path 查找路径（路径上的结点橙、边蓝）；
+         warn 红色结点；changed 本步被改动的 parent 数组元素；newEdge 本步新加那条边的子结点；pathText 左上角那行字。 */
       /* 快照版的找根 / 求深度：只读这一帧的 parent 数组，不碰活变量 */
       function rootIn(x) {
         var g = 0;
@@ -945,7 +988,7 @@
     }
 
     function doUnion(x, y) {
-      var rx = rootOf(x), ry = rootOf(y);
+      var rx = rootOf(x), ry = rootOf(y);   // 两个元素所在集合的根；rx === ry 说明本来就是同一个集合
       if (rx === ry) {
         snap('<code>union(' + x + ', ' + y + ')</code>：<code>find(' + x + ') = ' + rx +
           '</code>、<code>find(' + y + ') = ' + ry + '</code>，<b>两个根相同</b>，' +
@@ -953,12 +996,12 @@
           { warn: [x, y], active: rx });
         return;
       }
-      var big = rnk[rx] < rnk[ry] ? ry : rx;
-      var small = (big === rx) ? ry : rx;
-      var changed = [small];
+      var big = rnk[rx] < rnk[ry] ? ry : rx;   // 按秩合并：big = 秩大的那个根（留下当新根）；秩相等时约定 rx 当根
+      var small = (big === rx) ? ry : rx;      // small = 要被挂到 big 下面的根
+      var changed = [small];                   // 本步 parent 数组被改动的下标（画面上用橙框标出）
       par[small] = big;
-      if (rnk[big] === rnk[small]) { rnk[big]++; changed.push(big); }
-      sets--;
+      if (rnk[big] === rnk[small]) { rnk[big]++; changed.push(big); }   // 只有秩相等时新根的秩才 +1
+      sets--;                                  // 成功合并一次，集合个数减一
       snap('合并 <b>' + x + '</b> 与 <b>' + y + '</b> 所在的集合：<code>find(' + x + ') = ' +
         rx + '</code>（秩 ' + rnk[rx] + '）、<code>find(' + y + ') = ' + ry + '</code>（秩 ' +
         rnk[ry] + '）。<br><b>按秩合并</b>：把秩小的根 <b>' + small + '</b> 挂到秩大的根 <b>' +
@@ -968,14 +1011,14 @@
     }
 
     function doFind(x) {
-      var path = [x], cur = x;
+      var path = [x], cur = x;      // path = 从 x 一路到根的结点序列（从下往上，含两端）；cur = 当前走到的结点
       while (par[cur] !== cur) { cur = par[cur]; path.push(cur); }
       snap('<code>find(' + x + ')</code> 第 1 阶段 · 找根：沿着双亲指针一路向上。' +
         '路径是 <b>' + path.join(' → ') + '</b>，终点（根）是 <b>' + cur + '</b>。<br>' +
         '判断两个元素是否属于同一集合，只需要比较它们的根是否相同。',
         { active: x, path: path.slice(), warn: [cur], pathText: 'find 路径：' + path.join(' → ') });
 
-      var changed = [];
+      var changed = [];             // 本步被路径压缩改掉双亲的结点（不含根自己）
       for (var i = 0; i < path.length - 1; i++) {
         if (par[path[i]] !== cur) { par[path[i]] = cur; changed.push(path[i]); }
       }
@@ -996,6 +1039,7 @@
       '每个结点都是一棵只有根的树 → 森林里共 <b>8</b> 棵树。<br>' +
       '并查集用<b>双亲表示法的森林</b>表示「集合的集合」：每棵树是一个集合，树根是代表元。', {});
 
+    /* 脚本化的操作序列：'u' = union(后两个参数)，'f' = find(第二个参数)；改这张表就换一套演示流程。 */
     [['u', 0, 1], ['u', 2, 3], ['u', 1, 3], ['u', 4, 5], ['u', 6, 7],
      ['f', 3], ['u', 5, 7], ['f', 3], ['f', 7]].forEach(function (op) {
       if (op[0] === 'u') doUnion(op[1], op[2]); else doFind(op[1]);
@@ -1019,11 +1063,13 @@
   /* ======================================================================
      九、树 → 二叉树（左孩子右兄弟）转换
      ====================================================================== */
+  /* 页面容器 #viz-tree-to-binary：普通树 → 二叉树（左孩子右兄弟），加线 → 抹线 → 旋转。 */
   (function treeToBinary() {
     var host = document.getElementById('viz-tree-to-binary');
     if (!host) return;
 
     /* 原树：A(B(E,F), C, D(G))，与 7.7.1 节的图一致 */
+    /* 注意这里是「普通树」的表示法：孩子放在 children 数组里（可以有任意多个），不是二叉树的 left / right。 */
     var T = {
       name: 'A', children: [
         { name: 'B', children: [{ name: 'E', children: [] }, { name: 'F', children: [] }] },
@@ -1031,7 +1077,8 @@
         { name: 'D', children: [{ name: 'G', children: [] }] }
       ]
     };
-    var all = [], kids = {}, pname = {};
+    var all = [], kids = {}, pname = {};   // all = 所有结点对象（先序顺序）；kids = 名字 → 孩子数组（就是 nd.children）；
+                                           // pname = 名字 → 父亲名字（根 A 没有这一项）
     (function collect(nd, p) {
       all.push(nd); kids[nd.name] = nd.children;
       if (p) pname[nd.name] = p.name;
@@ -1056,9 +1103,9 @@
     }
 
     /* ---------- 二叉树布局：左孩子下移一层，右兄弟留在同一层 ---------- */
-    var binRoot = { name: 'A', left: null, right: null }, bIdx = { A: binRoot };
+    var binRoot = { name: 'A', left: null, right: null }, bIdx = { A: binRoot };   // bIdx = 名字 → 二叉树里对应的那个结点（先登记，好让孩子挂上来）
     (function buildBin(nd) {
-      var p = bIdx[nd.name], prev = null;
+      var p = bIdx[nd.name], prev = null;   // p = 当前结点在二叉树里的那个结点；prev = 上一个兄弟（它的 right 要指向下一个兄弟）
       nd.children.forEach(function (c, i) {
         var node = { name: c.name, left: null, right: null };
         bIdx[c.name] = node;
@@ -1083,11 +1130,12 @@
     }
 
     /* ---------- 左图：原树（可叠加兄弟虚线与"已抹掉"的淡色边） ---------- */
-    var linkAll = {};
+    var linkAll = {};               // 兄弟虚线开关表：名字 → true 表示「它到下一个兄弟」这条虚线要画（初始全开）
     all.forEach(function (nd) { nd.children.forEach(function (c) { linkAll[c.name] = true; }); });
-    var hideAll = {};
+    var hideAll = {};               // 抹线表：除长子外的孩子名字 → true（第 2 步「抹线」时这些父子边画成淡色）
     all.forEach(function (nd) { nd.children.forEach(function (c, i) { if (i > 0) hideAll[c.name] = true; }); });
 
+    /* 左图（原树）：link = 兄弟虚线开关表，hide = 抹线表（true 的父子边画淡），hl = 要高亮成蓝色的结点名表。 */
     function drawGeneral(s, W, H, link, hide, title, hl) {
       hl = hl || {};
       var L = layGeneral(T, 56, 62);
@@ -1122,6 +1170,7 @@
       return svg;
     }
 
+    /* 右图（二叉树）：hl = 要高亮成红色的结点名表；左指针边画蓝、右指针边画绿。 */
     function drawBinary(s, W, H, title, hl) {
       hl = hl || {};
       var L = layBinary(112, 60);
@@ -1151,7 +1200,7 @@
     }
 
     var frames = [];
-    var W1 = 430, W2 = 450, HH = 400;
+    var W1 = 430, W2 = 450, HH = 400;   // W1 = 左图（原树）宽度、W2 = 右图（二叉树）宽度、HH = 两图共用的高度
 
     /* 帧 1：原树 */
     frames.push({
@@ -1214,6 +1263,7 @@
     });
 
     /* 帧 5..：逐个结点讲解对应关系 */
+    /* 要核对的 (父结点, 第一个孩子) 清单；第二个元素是 null 表示该结点是叶子（只讲它在二叉树里的身份）。 */
     [['A', 'B'], ['B', 'E'], ['C', null], ['D', 'G'], ['E', 'F']].forEach(function (pr) {
       var parent = pr[0], firstKid = pr[1];
       var desc;
@@ -1227,8 +1277,8 @@
           (pname[parent] ? '「' + pname[parent] + ' 的第 ' + (kids[pname[parent]].map(function (c) { return c.name; }).indexOf(parent) + 1) + ' 个孩子」' : '结点') +
           '，它在二叉树里的身份由<b>右指针</b>决定：若它有下一个兄弟，就挂在那个兄弟的左边。';
       }
-      var hl = {}; hl[parent] = true;
-      var showKid = firstKid;
+      var hl = {}; hl[parent] = true;   // 只高亮当前正在核对的这个结点（左右两图同时标出）
+      var showKid = firstKid;           // 声明后没被用过（历史遗留）：真正用到的是上面的 hl
       frames.push({
         desc: desc,
         draw: function (s) {

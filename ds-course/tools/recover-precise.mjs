@@ -11,20 +11,23 @@
  * 再与磁盘上现有文件的体积对比做校验。
  *
  * 用法：node tools/recover-precise.mjs [--apply]
+ *
+ * 退出码：恒为 0（不加 --apply 只预览不写盘；即使出现「多个会话产出同名文件」也只警告）
  */
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 
-const APPLY = process.argv.includes("--apply");
+const APPLY = process.argv.includes("--apply");     // 加 --apply 才写回 assets/js/
 const ROOT = path.resolve(import.meta.dirname, "..");
-const SESS = "C:\\Users\\test\\.dsh\\sessions\\--C-Users-test-Desktop-~5BB6~6559--";
-const ZSTD = "C:\\msys64\\mingw64\\bin\\zstd.exe";
-const OUT = path.join(os.tmpdir(), "ds-precise");
+const SESS = "C:\\Users\\test\\.dsh\\sessions\\--C-Users-test-Desktop-~5BB6~6559--";   // DSH 会话记录目录
+const ZSTD = "C:\\msys64\\mingw64\\bin\\zstd.exe";   // 解压多帧 zstd 用的可执行文件
+const OUT = path.join(os.tmpdir(), "ds-precise");   // 备用输出目录
 fs.mkdirSync(OUT, { recursive: true });
 
-/* 各章应加载的脚本（与页面 <script> 引用一致） */
+/* 各章应加载的脚本（与页面 <script> 引用一致）——键 = 讲次编号，值 = 该讲对应的动画脚本名。
+   这是「从会话头部注释里的『第 NN 讲』反推目标文件名」的查表依据。 */
 const TARGET = {
   2: "ch02-viz.js", 3: "ch03-viz.js", 4: "ch04-viz.js", 5: "ch05-viz.js",
   6: "ch06-viz.js", 7: "ch07-viz.js", 8: "ch08-viz.js", 9: "ch09-viz.js",
@@ -33,7 +36,7 @@ const TARGET = {
 
 /* 关键：会话记录里同一个工具调用会出现多次（同 id 的重复行）。
    必须先按调用 id 去重，否则同一个 edit 会被重复应用——第二次就找不到 old_string 了。 */
-function collectOps(val, out, seen) {
+function collectOps(val, out, seen) {   // val = 任意 JSON 节点，out = 收集到的写操作，seen = 已见过的调用键集合（用于去重）
   if (!val || typeof val !== "object") return;
   if (Array.isArray(val)) { val.forEach(v => collectOps(v, out, seen)); return; }
   if (typeof val.name === "string" && val.arguments !== undefined) {
@@ -48,33 +51,33 @@ function collectOps(val, out, seen) {
   for (const k in val) collectOps(val[k], out, seen);
 }
 
-const sessions = fs.readdirSync(SESS).filter(d =>
+const sessions = fs.readdirSync(SESS).filter(d =>   // 有会话记录的会话目录
   fs.statSync(path.join(SESS, d)).isDirectory() &&
   fs.existsSync(path.join(SESS, d, "session.v3.jsonl.zstd")));
 
 console.log("逐会话精确恢复：\n");
-const results = [];
+const results = [];   // 每个会话一条 {session, origName, target, content, ok, miss, bytes}
 
 for (const d of sessions) {
-  const tmp = path.join(os.tmpdir(), "p-" + d + ".jsonl");
+  const tmp = path.join(os.tmpdir(), "p-" + d + ".jsonl");   // 本会话解压出来的 jsonl
   // 关键：stdio 全部忽略、由 zstd 自己写文件，避免 PowerShell 管道把二进制
   // 按本地代码页解码，导致中文全部变成乱码（乱码还会破坏 JS 里的嵌套引号）
   execFileSync(ZSTD, ["-d", "-f", "-q", "-o", tmp, path.join(SESS, d, "session.v3.jsonl.zstd")], { stdio: "ignore" });
   const lines = fs.readFileSync(tmp, "utf8").split("\n").filter(Boolean);
   fs.unlinkSync(tmp);
 
-  const ops = [];
-  const seen = new Set();
+  const ops = [];          // 本会话中针对 *_viz.js 的写操作（已去重，按顺序）
+  const seen = new Set();  // 去重键集合
   for (const line of lines) { let o; try { o = JSON.parse(line); } catch (e) { continue; } collectOps(o, ops, seen); }
-  const writes = ops.filter(o => typeof o.a.content === "string").length, edits = ops.length - writes;
+  const writes = ops.filter(o => typeof o.a.content === "string").length, edits = ops.length - writes;   // 全文写入数 / 增量编辑数
   if (!ops.length) continue;
 
   // 重放：只针对同一个文件（每个会话只会写一个 viz 脚本）
-  let cur = null, ok = 0, miss = 0;
+  let cur = null, ok = 0, miss = 0;   // cur = 重放结果，ok = 成功应用数，miss = old_string 找不到的次数
   for (const op of ops) {
     const a = op.a;
     if (typeof a.content === "string") { cur = a.content; ok++; continue; }
-    const oldS = a.old_string !== undefined ? a.old_string : a.old_str;
+    const oldS = a.old_string !== undefined ? a.old_string : a.old_str;   // 兼容两种字段名
     const newS = a.new_string !== undefined ? a.new_string : a.new_str;
     if (cur !== null && typeof oldS === "string" && cur.includes(oldS)) {
       cur = a.replace_all ? cur.split(oldS).join(newS) : cur.replace(oldS, newS);
@@ -84,17 +87,17 @@ for (const d of sessions) {
   if (cur === null) { console.log(`  ${d.slice(0,8)}…  没有 write，跳过`); continue; }
 
   // 从头部注释里的原始文件名判断它本来叫什么（最可靠：改名后 +1 即可）
-  const head = cur.split("\n").slice(0, 12).join("\n");
-  const origName = (head.match(/\b(ch\d\d)-viz\.js\b/) || [])[1];
-  let target = "(未识别)";
+  const head = cur.split("\n").slice(0, 12).join("\n");   // 文件头 12 行（注释里通常写着原始文件名/讲次）
+  const origName = (head.match(/\b(ch\d\d)-viz\.js\b/) || [])[1];   // 头部注释里的 chNN
+  let target = "(未识别)";   // 最终认定的目标文件名
   if (origName) {
     const num = parseInt(origName.slice(2), 10) + 1;      // ch00→ch01 … ch12→ch13
     target = "ch" + String(num).padStart(2, "0") + "-viz.js";
   } else {
-    let m = head.match(/第\s*(\d{1,2})\s*讲/);
+    let m = head.match(/第\s*(\d{1,2})\s*讲/);   // 退路：用头部里的「第 NN 讲」查 TARGET 表
     if (m) target = TARGET[parseInt(m[1], 10)] || "(未识别)";
   }
-  const bytes = Buffer.byteLength(cur, "utf8");
+  const bytes = Buffer.byteLength(cur, "utf8");   // 重放结果体积（用于与磁盘现有文件对比）
   results.push({ session: d, origName, target, content: cur, ok, miss, bytes });
   console.log(`  ${d.slice(0,8)}…  ${ops.length} 个操作（write ${writes} / edit ${edits}），重放成功 ${ok} 失败 ${miss}` +
     `  ${origName || "?"} → ${target}  ${bytes} 字节`);
@@ -102,15 +105,15 @@ for (const d of sessions) {
 
 /* 校验：每个目标脚本只能来自一个会话，且讲次自洽 */
 console.log("\n映射检查：");
-const byTarget = new Map();
+const byTarget = new Map();   // 目标文件名 → 产出它的会话列表（多于 1 个就是冲突）
 for (const r of results) {
   if (!byTarget.has(r.target)) byTarget.set(r.target, []);
   byTarget.get(r.target).push(r);
 }
-let bad = 0;
+let bad = 0;   // 冲突的目标文件数（多个会话产出同名文件）
 for (const [t, list] of [...byTarget.entries()].sort()) {
   const disk = path.join(ROOT, "assets/js", t);
-  const diskSize = fs.existsSync(disk) ? fs.statSync(disk).size : 0;
+  const diskSize = fs.existsSync(disk) ? fs.statSync(disk).size : 0;   // 磁盘上现有文件的字节数（0 = 不存在）
   const flag = list.length > 1 ? "⚠ 多个会话产出同名文件" : "";
   console.log(`  ${t.padEnd(14)} ← 会话 ${list.map(x=>x.session.slice(0,8)).join(",")}  重放体积 ${list.map(x=>x.bytes).join(",")}  磁盘 ${diskSize} ${flag}`);
   if (list.length > 1) bad++;

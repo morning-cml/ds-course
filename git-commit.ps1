@@ -26,9 +26,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = $PSScriptRoot
+$repoRoot = $PSScriptRoot          # 本脚本所在目录 = 仓库根（家教/）；后面所有路径都从它拼
 Set-Location $repoRoot
 
+# 四个带颜色的输出助手，只是为了在终端里一眼分清「信息 / 成功 / 失败 / 警告」
 function Info($t) { Write-Host $t -ForegroundColor Cyan }
 function Good($t) { Write-Host $t -ForegroundColor Green }
 function Bad($t)  { Write-Host $t -ForegroundColor Red }
@@ -41,6 +42,7 @@ if (-not (Test-Path (Join-Path $repoRoot ".git"))) {
 }
 
 # ---------- 1. 有没有改动 ----------
+# $changes —— `git status --porcelain` 的每一行（形如 " M ds-course/xxx.html"），空数组表示工作区干净
 $changes = @(git status --porcelain)
 if ($changes.Count -eq 0) {
     Warn "没有需要提交的改动。"
@@ -55,10 +57,11 @@ if ($DryRun) {
 }
 
 # ---------- 2. 先校验，再提交 ----------
+# 这一步是「不把坏状态写进历史」的关键：batch-check 不过就直接退出，绝不提交
 if (-not $SkipCheck) {
-    $checkScript = Join-Path $repoRoot "ds-course\tools\batch-check.mjs"
+    $checkScript = Join-Path $repoRoot "ds-course\tools\batch-check.mjs"   # 八项全量校验的入口
     if (Test-Path $checkScript) {
-        Info "`n正在运行全量校验（结构 / 导航 / 动画逐帧 / C++ 编译 / 需求覆盖）…"
+        Info "`n正在运行全量校验（结构 / 导航 / 动画逐帧 / 帧状态 / 状态类 / C++ 编译 / 需求覆盖 / 交叉引用）…"
         & node $checkScript
         if ($LASTEXITCODE -ne 0) {
             Bad "`n校验未通过（退出码 $LASTEXITCODE），已中止提交。"
@@ -73,27 +76,27 @@ if (-not $SkipCheck) {
 
 # ---------- 3. 提交 ----------
 git add -A
-$stamp = Get-Date -Format "yyyy-MM-dd HH:mm"
-$subject = "$Message ($stamp)"
+$stamp = Get-Date -Format "yyyy-MM-dd HH:mm"   # 时间戳，附加到提交信息末尾，便于看历史时定位
+$subject = "$Message ($stamp)"                 # 最终的提交信息
 git commit -q -m $subject
 if ($LASTEXITCODE -ne 0) { Bad "提交失败"; exit 1 }
-$hash = (git rev-parse --short HEAD)
+$hash = (git rev-parse --short HEAD)           # 新提交的短哈希，打印出来方便回退时引用
 Good "已提交：$hash  $subject"
 
 # ---------- 4. 打标签（取现有最大编号 +1，避免跳号或重号） ----------
 if (-not $NoTag) {
-    $existing = @(git tag --list "v[0-9][0-9][0-9][0-9]")
-    $max = -1
+    $existing = @(git tag --list "v[0-9][0-9][0-9][0-9]")   # 已有的 vNNNN 标签
+    $max = -1                                              # 当前最大编号；-1 表示还没有任何 vNNNN 标签
     foreach ($t in $existing) {
-        $s = "$t".Trim()
-        $num = 0
+        $s = "$t".Trim()                                   # 去掉可能的空白
+        $num = 0                                           # TryParse 的输出参数
         if ($s.Length -ge 2 -and [int]::TryParse($s.Substring(1), [ref]$num)) {
             if ($num -gt $max) { $max = $num }
         }
     }
-    $tag = "v" + ($max + 1).ToString("0000")
+    $tag = "v" + ($max + 1).ToString("0000")               # 本次要打的标签，如 v0032
     Info "现有 $($existing.Count) 个标签，最大编号 v$($max.ToString('0000'))，本次使用 $tag"
-    git tag -a $tag -m $subject
+    git tag -a $tag -m $subject                            # 附注标签（-a），信息与提交一致
     if ($LASTEXITCODE -eq 0) { Good "已打标签：$tag" } else { Warn "打标签失败：$tag" }
 }
 
@@ -103,7 +106,7 @@ if ($Push) {
         Warn "没有配置远端，跳过推送。可先执行：git remote add origin <仓库地址>"
     } else {
         Info "`n正在推送到 origin…"
-        git push origin HEAD --tags
+        git push origin HEAD --tags                        # 分支与标签一起推；标签要单独带 --tags
         if ($LASTEXITCODE -eq 0) { Good "已推送（含标签）" } else { Warn "推送失败，本地提交仍然安全，稍后可重试 git push" }
     }
 }

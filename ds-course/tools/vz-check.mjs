@@ -99,6 +99,8 @@ function classesUsedBy(file) {
   };
   function Viz(root, opts) {
     const host = typeof root === "string" ? document.getElementById(root) : root;
+    /* 这里只关心「帧被画出来时产生了哪些类名」，所以 build 交给脚本跑完，
+       把 frames 收下来即可 —— 不像 frame-check.mjs 那样还要比较每帧内容。 */
     const res = opts && typeof opts.build === "function" ? opts.build({ frame() {}, svg: (w, h) => mkNode("svg", { width: w, height: h }) }) : null;
     collected.push((res && res.frames) || []);
   }
@@ -110,23 +112,31 @@ function classesUsedBy(file) {
   sandbox.window.document = document;
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(file, "utf8"), sandbox, { filename: file });
+  /* 逐帧真画一遍，把每个元素身上的 vz-* 类收集起来。
+     单帧画失败不影响别的帧 —— 这里只做类名普查，不判帧的对错。 */
   for (const frames of collected) for (const fr of frames) { try { harvestNode(fr.draw(SVG), used); } catch (e) { /* 单帧画失败不影响类名收集 */ } }
   return used;
 }
 
 /* ============================ course.css 里定义了哪些类 ============================ */
+/**
+ * 从一段 CSS 文本里抓出所有类名，产出两种键：
+ *   "vz-box"        —— 单类选择器 .vz-box
+ *   "vz-box.warn"   —— 复合选择器 .vz-box.warn（状态类就是这么写的）
+ * @param onlyVz true 时只抓 vz- 开头的（用于 course.css）；false 时抓全部（用于页面样式）
+ */
 function harvest(cssText, onlyVz) {
   const set = new Set();
   const re = onlyVz ? /\.(vz-[a-z-]+)(?:\.([a-z0-9-]+))?/g : /\.([a-z][a-z0-9-]*)(?:\.([a-z0-9-]+))?/g;
   for (const m of cssText.matchAll(re)) set.add(m[2] ? m[1] + "." + m[2] : m[1]);
   return set;
 }
-const defined = harvest(fs.readFileSync(CSS, "utf8"), true);
+const defined = harvest(fs.readFileSync(CSS, "utf8"), true);   // course.css 里的 vz-* 类（唯一权威）
 
 /** 各页 <style> 里定义的类（只用于放行「页内自有的非 vz- 类」，例如 ch02 的 .ptr-cur） */
 const pageDefined = new Map();      // 章前缀（ch02）→ Set(类名)
 for (const f of fs.readdirSync(ROOT).filter((x) => /^ch\d\d-.*\.html$/.test(x))) {
-  const pre = f.slice(0, 4);
+  const pre = f.slice(0, 4);        // 文件名前 4 个字符就是章号，如 "ch02-linear-list.html" → "ch02"
   const t = fs.readFileSync(path.join(ROOT, f), "utf8");
   const set = pageDefined.get(pre) || new Set();
   for (const sm of t.matchAll(/<style>([\s\S]*?)<\/style>/g)) for (const c of harvest(sm[1], false)) set.add(c);
@@ -150,30 +160,32 @@ function isDefined(cls, pagePre) {
 
 /* ============================ 主流程 ============================ */
 const files = fs.readdirSync(JS_DIR).filter((f) => /^ch\d\d-viz\.js$/.test(f)).sort();
-let bad = 0, totalClasses = 0;
-const allUsed = new Map();      // class → Set(脚本名)
+let bad = 0;                    // 有问题的脚本个数；>0 则以 1 退出（让 batch-check 汇总报错）
+const allUsed = new Map();      // class → Set(用到它的脚本名)，用于最后汇总「谁用了这个类」
 
 console.log("动画状态类检查：脚本运行时实际产生的 vz-* 类是否都在 course.css 里有定义\n");
 console.log(`course.css 已定义 ${defined.size} 个类\n`);
 
 for (const f of files) {
-  let used;
+  let used;                     // 这个脚本运行时出现过的全部 vz-* 类
   try { used = classesUsedBy(path.join(JS_DIR, f)); }
   catch (e) { console.log(`✗ ${f}  执行失败: ${e.message}`); bad++; continue; }
   /* 一个类算「有定义」的条件：course.css 里写了 .vz-box.warn 这种复合选择器，
      或者写了 .ptr-cur / .vz-label 这种单类选择器 —— 两者都能给元素上样式
      （元素的 class 列表里本来就有 vz-text，所以 .ptr-cur 一样命中）。 */
-  const pagePre = f.slice(0, 4);
+  const pagePre = f.slice(0, 4);              // 本脚本对应的章号，用来查该页的页内样式
   const missing = [...used].filter((c) => !isDefined(c, pagePre)).sort();
   for (const c of used) { if (!allUsed.has(c)) allUsed.set(c, new Set()); allUsed.get(c).add(f); }
   if (missing.length) { bad++; console.log(`✗ ${f.padEnd(14)} 缺定义: ${missing.join(", ")}`); }
   else console.log(`✓ ${f.padEnd(14)} 用到 ${used.size} 个类，全部有定义`);
 }
 
+/* 汇总：只要没有任何一个脚本能给它提供样式，就算「用到但没定义」 */
 const usedButUndefined = [...allUsed.keys()].filter((c) => {
   const owners = [...allUsed.get(c)];
   return !owners.some((o) => isDefined(c, o.slice(0, 4)));
 }).sort();
+/* 反向提示：course.css 里定义了、但当前没有任何动画用到的类（储备，不算问题） */
 const neverUsed = [...defined].filter((c) => !allUsed.has(c) && !allUsed.has(c.slice(c.indexOf(".") + 1)));
 console.log("\n" + "═".repeat(66));
 if (usedButUndefined.length) {

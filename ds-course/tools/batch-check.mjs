@@ -15,7 +15,10 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
-const dir = import.meta.dirname;
+const dir = import.meta.dirname;          // tools/ 目录的绝对路径（从这里找下面各个脚本）
+
+/* 要依次跑的检查项：[显示名, 脚本文件名]。
+   想加一项检查，只需：写好 tools/xxx.mjs、在这里加一行、并保证「有问题时 exit 1」。 */
 const steps = [
   ["结构与内容检查", "check.mjs"],
   ["导航链条检查", "nav-check.mjs"],
@@ -27,12 +30,15 @@ const steps = [
   ["交叉引用讲次校验", "xref-check.mjs"],
 ];
 
+/* results —— 收集每项的 [名称, 退出码]，全部跑完后再统一汇总（不提前中断，
+   这样一次运行就能看到所有问题，而不是修一个跑一次）。 */
 const results = [];
 for (const [name, file] of steps) {
   console.log("\n" + "═".repeat(66));
   console.log("▶ " + name + "  (" + file + ")");
   console.log("═".repeat(66));
-  // 沙箱下不能用管道捕获子进程输出：继承 stdio，直接打到终端
+  /* r.status —— 子进程退出码：0 = 通过，非 0 = 该项有问题（各脚本自己定义失败条件）。
+     沙箱下不能用管道捕获子进程输出（会 EPERM），所以用 stdio:"inherit" 直接打到终端。 */
   const r = spawnSync(process.execPath, [path.join(dir, file)], { stdio: "inherit" });
   results.push([name, r.status]);
 }
@@ -40,7 +46,7 @@ for (const [name, file] of steps) {
 console.log("\n" + "═".repeat(66));
 console.log("汇总");
 console.log("═".repeat(66));
-let bad = 0;
+let bad = 0;                              // 失败的检查项个数；>0 时本脚本也以 1 退出，让 git-commit.ps1 中止
 for (const [name, code] of results) {
   console.log((code === 0 ? "✓ " : "✗ ") + name + (code === 0 ? " 通过" : " 存在问题（退出码 " + code + "）"));
   if (code !== 0) bad++;

@@ -16,16 +16,24 @@
   var SVG = DS.SVG;
 
   /* ======================= 0. 固定示例图的数据 ======================= */
+  /* POS[v] = 顶点 v 的画布坐标 [x, y]（逻辑坐标，绘制时还要乘 drawGraph 的 scale）。
+     下标 0 基，就是顶点编号 0..10：前 8 个属于示例图 G，8/9/10 只给连通分量动画用。 */
   var POS = [
     [96, 64], [300, 50], [520, 78], [644, 236],
     [470, 350], [200, 356], [62, 214], [330, 190],
     [592, 392], [656, 466], [104, 452]      /* 8 / 9 / 10 仅供连通分量演示 */
   ];
+  /* EX = 示例图 G 的边表，每条无向边只存一次、且保证 u < v，共 9 条（即页面上说的 e = 9）。
+     数组顺序就是动画里逐条处理的顺序；“无向”由代码显式补对称格 / 反向边体现，边表本身不存两份。 */
   var EX = [[0, 1], [0, 6], [1, 2], [1, 7], [2, 3], [3, 4], [4, 5], [5, 6], [5, 7]];
+  /* EX2 = 连通分量动画专用的 G′ 的边表：G 的 9 条 + 1 条 (8,9)。孤立点 10 不出现在任何边里。 */
   var EX2 = EX.concat([[8, 9]]);
+  /* NV / NV2 = G 与 G′ 的顶点**个数**（不是最大下标！合法顶点编号是 0..NV-1）。 */
   var NV = 8, NV2 = 11;
 
   function range(n) { var r = [], i; for (i = 0; i < n; i++) r.push(i); return r; }
+  /* ek(a,b) = 无向边的规范 key（小的在前，如 "1-7"），全篇用它给边做索引；cp(o) = 深拷贝。
+     推帧时之所以必须 cp()：DS.Viz 会先同步跑完整个 build()，draw 到很久以后才执行（SPEC 5.7）。 */
   function ek(a, b) { return a < b ? a + "-" + b : b + "-" + a; }
   function cp(o) { return JSON.parse(JSON.stringify(o)); }
   function buildAdj(n, edges) {
@@ -34,7 +42,9 @@
     a.forEach(function (l) { l.sort(function (x, y) { return x - y; }); });
     return a;
   }
+  /* ADJ = G 的邻接表：ADJ[u] = 顶点 u 的邻接点数组，已按编号升序 —— DFS / BFS 的访问顺序由它决定。 */
   var ADJ = buildAdj(NV, EX);
+  /* ADJ2 = G′ 的邻接表，含义同 ADJ，只是多了顶点 8/9/10。 */
   var ADJ2 = buildAdj(NV2, EX2);
 
   /* ======================= 1. 绘图小工具 ======================= */
@@ -144,13 +154,17 @@
 
   /* ==========================================================================
      动画 1：邻接矩阵的建立过程
+     容器：<div id="viz-graph-matrix">
      ========================================================================== */
   (function vizMatrix() {
     var host = document.getElementById("viz-graph-matrix");
     if (!host) return;
 
+    /* A = 8×8 的邻接矩阵，A[u][v] = 1 表示存在边 (u,v)；初始全 0，算法过程中被就地改写。
+       所以推帧时必须深拷贝成快照（下面 snap 里的 Ac），draw 里绝不能直接读 A。 */
     var A = [], i, j;
     for (i = 0; i < NV; i++) { var r0 = []; for (j = 0; j < NV; j++) r0.push(0); A.push(r0); }
+    /* 帧数组：build() 里被同步填满，之后 DS.Viz 才逐帧调用 frame.draw —— 所以 draw 只能读推帧那一刻的快照 */
     var frames = [];
 
     function eclass(cur, written) {
@@ -163,7 +177,11 @@
       return m;
     }
 
+    /* snap(...) 推一帧。cur = 当前正在处理的边在 EX 里的下标（0 基；-1 = 还没开始，= EX.length = 全部处理完）；
+       written = 这条边的两格是否已经写完 —— 同一条边分“定位”“写入”两帧演示，靠它区分。 */
     function snap(desc, cur, written) {
+      /* Ac = 该帧的邻接矩阵快照（深拷贝）；m = 该帧的边着色表（绿 = 已写进矩阵、蓝 = 本次正在处理）。
+         这两个都是快照：build() 早已跑完，draw 里读活变量 A 的话每帧都会画成最终态。 */
       var Ac = cp(A), m = eclass(cur, written);
       frames.push({
         desc: desc,
@@ -216,17 +234,27 @@
 
   /* ==========================================================================
      动画 2：邻接表 / 链式前向星的构建过程
+     容器：<div id="viz-graph-list">
      ========================================================================== */
   (function vizList() {
     var host = document.getElementById("viz-graph-list");
     if (!host) return;
 
+    /* head[u] = 顶点 u 的出边链的“头边结点下标”，-1 表示空链表（教科书里的 head 数组）。
+       注意它存的是 to/nxt 数组的下标，不是顶点号。 */
     var head = [], i;
     for (i = 0; i < NV; i++) head.push(-1);
+    /* 边结点池：to[i] = 第 i 个边结点的弧头顶点号；nxt[i] = 同链下一个边结点的下标（-1 = 链尾）；
+       w[i] = 边权，本图无权所以恒为 1，留着只为对应教科书里的 addEdge(u,v,w) 模板。 */
     var to = [], nxt = [], w = [];
+    /* idx = 下一个可用的边结点下标，同时也就等于“已插入的边结点个数”（无向图跑完 = 2e = 18） */
     var frames = [], idx = 0;
 
+    /* snap(...) 推一帧。curEdge = 当前处理到 EX 的第几条边（0 基，-1 = 还没开始）；
+       curArc = 本条边正在插入的那个边结点下标（-1 = 这帧不强调任何结点）；note1/note2 = 图上两行说明文字。 */
     function snap(desc, curEdge, curArc, note1, note2) {
+      /* st = 该帧的快照：head/to/nxt 三个数组此刻的副本 + 已插入的边结点个数 n。
+         draw 里只读 st.*，不能读 head/to/nxt —— build() 先跑完，读到的是最终链表。 */
       var st = { head: head.slice(), to: to.slice(), nxt: nxt.slice(), n: to.length };
       var m = {};
       if (curEdge >= 0 && curEdge < EX.length) m[ek(EX[curEdge][0], EX[curEdge][1])] = "active";
@@ -318,17 +346,28 @@
 
   /* ==========================================================================
      动画 3：DFS 深度优先遍历（含递归栈、访问序列、树边 / 回边）
+     容器：<div id="viz-dfs">
      ========================================================================== */
   (function vizDFS() {
     var host = document.getElementById("viz-dfs");
     if (!host) return;
 
     var frames = [];
+    /* 算法状态（下标一律 0 基 = 顶点编号）：
+       vis[u]    = u 是否已被访问；order = 访问序列，也就是入栈的先后顺序；
+       stack     = 递归栈内容，栈底在左、栈顶在右；
+       tree/back = 树边、回边的列表，元素是 ek() 生成的 "a-b" 边 key；
+       edgeType  = 边 key → "tree" / "back" 的分类表：无向图每条边在邻接表里出现两次，靠它避免重复判定；
+       curV      = 当前正在访问的顶点（画面上的蓝点），-1 = 此刻不在任何顶点上；
+       skipped   = “跳过父结点”的提示只演示一次，所以它是 0/1 开关，不是计数。
+       绘制状态：vCls[v] / eCls[ek(u,v)] = 顶点、边的着色类名。 */
     var vis = [], vCls = {}, eCls = {}, order = [], stack = [];
     var tree = [], back = [], edgeType = {}, curV = -1, skipped = 0;
     for (var t = 0; t < NV; t++) vis.push(false);
 
     function snap(desc) {
+      /* st = 该帧快照：顶点/边着色表、访问序列、递归栈、树边/回边列表、当前顶点。
+         draw 只读 st.*；直接读 vis/order 会每帧都画成最终态（build() 先跑完）。 */
       var st = {
         vCls: cp(vCls), eCls: cp(eCls), order: order.slice(), stack: stack.slice(),
         tree: tree.slice(), back: back.slice(), cur: curV
@@ -422,15 +461,22 @@
 
   /* ==========================================================================
      动画 4：BFS 广度优先遍历（队列 + 分层 + dist）
+     容器：<div id="viz-bfs">
      ========================================================================== */
   (function vizBFS() {
     var host = document.getElementById("viz-bfs");
     if (!host) return;
 
+    /* 算法状态（下标 0 基 = 顶点号）：vis[v] = 是否已入过队；
+       dist[v] = 源点 0 到 v 的最短边数（-1 = 还没到达）；pre[v] = BFS 树上的前驱（-1 = 源点或未到达）；
+       order = 出队顺序（= BFS 访问序列）；queue = 队列内容，队头在左、队尾在右；
+       treeE = BFS 生成树的边 key 列表；curV = 正在出队的顶点，-1 = 队列空；
+       绘制状态：vCls、eCls 同上。 */
     var frames = [], vis = [], dist = [], pre = [], vCls = {}, eCls = {}, order = [], queue = [], curV = -1, treeE = [];
     for (var t = 0; t < NV; t++) { vis.push(false); dist.push(-1); pre.push(-1); }
 
     function snap(desc) {
+      /* st = 该帧快照：着色表、访问序列、队列、dist、当前顶点、生成树边表。draw 只读 st.*。 */
       var st = {
         vCls: cp(vCls), eCls: cp(eCls), order: order.slice(), queue: queue.slice(),
         dist: dist.slice(), cur: curV, tree: treeE.slice()
@@ -526,16 +572,26 @@
 
   /* ==========================================================================
      动画 5：连通分量的计算（G' = G + (8,9) + 孤立点 10）
+     容器：<div id="viz-connected">
      ========================================================================== */
   (function vizConnected() {
     var host = document.getElementById("viz-connected");
     if (!host) return;
 
+    /* 算法状态（顶点按 G′ 的 11 个算，下标 0 基）：
+       vis[u] = u 是否已归属某个分量；comp[u] = u 所属分量编号（0 基，-1 = 还没归属）；
+       comps  = 已发现的分量列表，comps[k] = 分量 k 的成员顶点数组（按发现顺序 push，画面里才排序显示）；
+       cur    = 本帧要高亮的顶点，-1 = 不高亮；绘制状态 vCls[v] = 顶点着色类名。 */
     var frames = [], vis = [], comp = [], comps = [], cur = -1, vCls = {};
     for (var t = 0; t < NV2; t++) { vis.push(false); comp.push(-1); }
+    /* COMPCLS[k] = 分量编号 k 用的颜色类名（画面上的 ①蓝 ②橙 ③绿）。
+       comp[] 里存的是 0 基编号 k，显示时才写成 k+1。 */
     var COMPCLS = ["active", "compare", "done"];
 
+    /* snap(desc, compCount, edgeHi)：compCount = 此刻已发现的连通分量**个数**（不是下标！），
+       edgeHi = 本帧要高亮的边 key → 类名。 */
     function snap(desc, compCount, edgeHi) {
+      /* st = 该帧快照：顶点着色、visited、comp、分量成员表、当前顶点、分量个数、高亮边。draw 只读 st.*。 */
       var st = { vCls: cp(vCls), vis: vis.slice(), comp: comp.slice(), comps: cp(comps), cur: cur, cnt: compCount, eh: edgeHi || {} };
       frames.push({
         desc: desc,
@@ -582,6 +638,7 @@
 
     snap("初始状态：visited[] 全为 false，comp[] 全为 -1，连通分量个数 cnt = 0。", 0);
 
+    /* cnt = 已经发现的连通分量个数（发现一个就 ++，初值 0）；下面 ci = cnt - 1 才是 0 基分量编号。 */
     var cnt = 0, i;
     for (i = 0; i < NV2; i++) {
       if (vis[i]) continue;
@@ -622,17 +679,25 @@
 
   /* ==========================================================================
      动画 6：无权图 BFS 单源最短路（dist[] 更新 + 路径还原）
+     容器：<div id="viz-bfs-shortest">
      ========================================================================== */
   (function vizShortest() {
     var host = document.getElementById("viz-bfs-shortest");
     if (!host) return;
 
+    /* SRC / DST = 演示用的源点和终点（顶点号，0 基）；取 0 和 4 是因为它们之间的最短路恰好 3 条边、看得清。 */
     var SRC = 0, DST = 4;
+    /* 算法状态：vis[v] = 是否已入队；dist[v] = 源点到 v 的最短边数（-1 = 未到达）；
+       pre[v] = 前驱顶点（-1 = 源点或未到达）；queue = BFS 队列；cur = 正在出队的顶点（-1 = 无）；
+       绘制状态：vCls / eCls 着色表；
+       path = 路径还原的中间结果 —— 它是**从终点倒推到源点**的顺序，最后 reverse() 一次才是正序；
+       pathEdges = 最短路径上的边 key → 类名；done = 路径是否已还原完毕（控制画面文案）。 */
     var frames = [], vis = [], dist = [], pre = [], vCls = {}, eCls = {}, queue = [], cur = -1;
     var path = [], pathEdges = {}, done = false;
     for (var t = 0; t < NV; t++) { vis.push(false); dist.push(-1); pre.push(-1); }
 
     function snap(desc) {
+      /* st = 该帧快照：vis/dist/pre、着色表、队列、当前顶点、path、路径边、done 标志。draw 只读 st.*。 */
       var st = {
         vis: vis.slice(), dist: dist.slice(), pre: pre.slice(), vCls: cp(vCls), eCls: cp(eCls),
         queue: queue.slice(), cur: cur, path: path.slice(), pe: cp(pathEdges), done: done

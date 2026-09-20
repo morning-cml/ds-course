@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  var SVG = DS.SVG;
+  var SVG = DS.SVG;                               // 全页共用的 SVG 工具集：svg/box/text/label/el/line/path 都在它上面
 
   /* ====================== 公共绘制小工具 ====================== */
 
@@ -38,6 +38,9 @@
   }
 
   /* 带颜色选择的箭头 */
+  /* 箭头颜色 → marker id 对照表（marker 由上面的 defsEx 注册）。
+     plain=灰（默认边）、brand=蓝（当前操作）、ok=绿（正确/已完成）、warn=红（错误/断链）、acc=橙（强调）。
+     值是现成的 url(#...)，直接当 arrow()/pathArrow() 的 mark 参数用。 */
   var MARK = {
     plain: "url(#vz-arrow)",
     brand: "url(#vz-arrow-a)",
@@ -58,7 +61,7 @@
     return e;
   }
 
-  var BOX_H = 36;
+  var BOX_H = 36;                                 // 结点矩形统一高度（px）：本文件所有纵向坐标都由它推算，如 ROW + BOX_H = 结点下沿
 
   /* 单链表结点：左半数据域 + 右半指针域（带一个代表指针的小圆点） */
   function lnode(svg, x, y, val, cls, w) {
@@ -115,7 +118,7 @@
   }
 
   /* 矩形边界上朝目标点的那一点（用来画出贴边的箭头） */
-  function edgePoint(cx, cy, hw, hh, tx, ty) {
+  function edgePoint(cx, cy, hw, hh, tx, ty) {     // hw/hh 是矩形的半宽/半高（不是宽高）；返回从 (cx,cy) 朝 (tx,ty) 射到矩形边上的点
     var dx = tx - cx, dy = ty - cy;
     if (dx === 0 && dy === 0) return { x: cx, y: cy };
     var t = Math.min(
@@ -126,6 +129,8 @@
   }
 
   /* 统一的 Viz 构造入口 */
+  /* frames 参数是「已经 push 完毕的帧数组」：DS.Viz 会先同步跑完 build()，之后才逐帧渲染，
+     所以每一帧要画什么，必须在它被 push 的那一刻就全部定下来。 */
   function mount(id, title, sub, frames) {
     var host = document.getElementById(id);
     if (!host) return null;
@@ -139,15 +144,23 @@
      演示 1：顺序表插入
      ================================================================== */
   (function seqInsert() {
+    /* 对应页面容器 #viz-seq-insert：顺序表在位序 4 插入 50，看元素如何从后往前让位，以及 len / moves 的变化。 */
     var host = document.getElementById('viz-seq-insert');
     if (!host) return;
 
-    var CAP = 8;
+    var CAP = 8;                                   // 顺序表容量（= data 数组长度，固定 8 格）：本例表尾还有空位，不需要扩容
+    /* INS 是待插入的值；IPOS 是插入位置（位序，1 基）；IDX 是同一位置的数组下标（0 基）。 */
     var INS = 50, IPOS = 4, IDX = IPOS - 1;          // 位序 4 → 下标 3
+    /* data   顺序表的底层数组，长度恒为 CAP（8）；下标 ≥ len 的格子存 null，画面里画成灰格（不属于线性表）。
+       len    当前表长 = 元素「个数」，不是下标上限（最后一个元素的下标是 len−1）；插入时先写元素、最后才 ++len。
+       moves  累计的元素移动次数（判断复杂度用；本例共 3 次，等于 n − i + 1）。
+       frames 帧数组：snap() 每调用一次就 push 一帧，全部在 build() 返回前同步跑完。 */
     var data, len, moves, frames = [];
 
     function snap(desc, hl) {
-      var D = data.slice(), L = len, M = moves, H = hl || {};
+      /* 关键：推帧这一刻就把算法状态拷成「当帧快照」。DS.Viz 先同步跑完整个 build() 才逐帧渲染，
+         若 draw 里直接读 data/len/moves，每一帧都会画成算法结束后的最终态。 */
+      var D = data.slice(), L = len, M = moves, H = hl || {};   // D/L/M = 本帧的数组副本/表长/移动次数，H = 本帧高亮配置
       frames.push({
         desc: desc,
         draw: function (s) {
@@ -161,6 +174,8 @@
             var x = x0 + k * (bw + gap);
             var cls = "";
             var val = (D[k] === null || D[k] === undefined) ? "·" : String(D[k]);
+            /* H 的各键（自上而下，命中第一个就定色）：write/dst 绿、src 橙、target 蓝、shift 列出的下标整批橙；
+               超出表长的格子最后统一画灰。H.note 是面板上方的蓝色提示句。 */
             if (H.write === k) cls = "done";
             else if (H.dst === k) cls = "done";
             else if (H.src === k) cls = "compare";
@@ -189,6 +204,7 @@
       });
     }
 
+    /* 复位到初始局面：len = 6 的升序表（下标 0..5），moves 归零，并清空 frames（重播时不会残留上一次的帧）。 */
     function reset() {
       data = [21, 32, 45, 58, 66, 79, null, null];
       len = 6; moves = 0; frames = [];
@@ -249,6 +265,7 @@
      演示 2：单链表插入（含错误顺序对比）
      ================================================================== */
   (function singlyInsert() {
+    /* 对应页面容器 #viz-singly-insert：单链表插入的「先连后断」，最后两帧演示顺序写反导致断链。 */
     var host = document.getElementById('viz-singly-insert');
     if (!host) return;
 
@@ -256,13 +273,16 @@
     var HX = 20, HW = 76;                 // 头结点
     var NX = [116, 236, 356, 476];        // 数据结点左边界
     var NW = 88, ROW = 70, SROW = 168;    // 主行 y / s 行 y
-    var NULLX = 596;
-    var VALS = [12, 34, 56, 78];
+    var NULLX = 596;                       // 末尾 NULL 框的左边界 x（与数据结点同一行）
+    var VALS = [12, 34, 56, 78];           // 4 个数据结点的值：下标 0..3 对应画面标签 a1..a4（标签号 = 下标 + 1）
     var IPOS = 3;                          // 在位序 3 插入 99 → p 为第 2 个结点（34）
 
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     /* cfg: {pStep:0..2, s:false|true, sNext:null|3|'self', pNext:3|'s', lost:bool, selfLoop:bool, err:bool, hlS:bool, hlP:bool} */
+    /* 补充：pStep 是「1 基结点号」——pStep = k 表示 p 停在下标 k−1 的结点上，0 或 >4 表示这帧不画 p。
+       q 是要画成红色(warn)的结点下标；hlHead 高亮头结点；selfLoop 画 s 的自环；err 切到「错误顺序」配色；
+       lost 追加内存泄漏提示；sNext = 3 表示本帧已画出「s->next 指到下标 3」。（原文列的 hlS/hlP 实际没被 draw 用到。） */
     function snap(desc, cfg) {
       frames.push({
         desc: desc,
@@ -401,13 +421,16 @@
      演示 3：单链表删除（按位删除 + 后继覆盖法）
      ================================================================== */
   (function singlyDelete() {
+    /* 对应页面容器 #viz-singly-delete：按位删除（保存 q → 跨过 q → 释放 q），以及只给待删结点指针时的 O(1) 后继覆盖法。 */
     var host = document.getElementById('viz-singly-delete');
     if (!host) return;
 
+    /* 屏幕布局：HX/HW 头结点左边界与宽度；NX[k] 是第 k 个数据结点的左边界（下标 0 基，不是中心 x）；
+       NW 数据结点宽；ROW 结点上沿 y；NULLX 末尾 NULL 框的左边界。 */
     var HX = 20, HW = 76;
     var NX = [116, 236, 356, 476];
     var NW = 88, ROW = 84, NULLX = 596;
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     /* cfg:
        mode    : 'index' | 'cover'
@@ -418,6 +441,9 @@
        note    : 额外提示
        title   : 顶部标题
     */
+    /* 补充：nx[k] 是「下标 k 的 next 指向」表（-1 = 指向 NULL，null = 这帧不画这条边）；
+       vals 是当帧显示值，可以不等于 V —— 后继覆盖法就是靠它把 34 显示成 56；
+       hl 要高亮的边起点下标，arcLabel 是画在跨结点弧线旁的说明文字。 */
     function snap(desc, cfg) {
       frames.push({
         desc: desc,
@@ -431,8 +457,8 @@
           lnode(svg, HX, ROW, "∅", "", HW);
           svg.appendChild(SVG.label(HX + HW / 2, ROW - 8, "head（头结点）", "middle"));
 
-          var EX = cfg.exists || [true, true, true, true];
-          var nx = cfg.nx || [1, 2, 3, -1];
+          var EX = cfg.exists || [true, true, true, true];   // 缺省：4 个结点都还在；false 的槽位画灰
+          var nx = cfg.nx || [1, 2, 3, -1];                  // 缺省：线性链 0→1→2→3→NULL
 
           for (i = 0; i < 4; i++) {
             var cls = "";
@@ -508,7 +534,7 @@
       svg.appendChild(SVG.label(x + NW / 2, y + BOX_H + 16, "结点" + (i + 1), "middle"));
     }
 
-    var V = [12, 34, 56, 78];
+    var V = [12, 34, 56, 78];             // 4 个结点的原始值（下标 0..3 ↔ 画面上的「结点 1..4」）
 
     /* ---------- 第一部分：按位删除（删位序 3，即结点 56） ---------- */
     snap("单链表：<code>head -&gt; 12 -&gt; 34 -&gt; 56 -&gt; 78 -&gt; NULL</code>。目标：删除位序 <b>3</b> 的结点。",
@@ -580,15 +606,21 @@
      演示 4：单链表反转（pre / cur / nxt 三指针）
      ================================================================== */
   (function reverse() {
+    /* 对应页面容器 #viz-reverse：单链表反转的 pre / cur / nxt 三指针迭代法，每轮四步、边翻边走。 */
     var host = document.getElementById('viz-reverse');
     if (!host) return;
 
-    var VALS = [1, 2, 3, 4];
+    var VALS = [1, 2, 3, 4];              // 原链表 4 个结点的值，下标 0..3
     var CX = [110, 226, 342, 458];        // 结点中心 x
+    /* BW 结点宽；ROW 结点上沿 y；NULLX 是预留的 NULL 端点 x，实际上没被用到 —— draw 里用 `void NULLX;`
+       显式吞掉它避免「未使用变量」，真正画 NULL 靠的是 next 边的路径末端 + 文字「NULL」。 */
     var BW = 76, ROW = 70, NULLX = 552;
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     /* cfg: {pre, cur, nxt, nextOf:[...], headTarget, flip, done} */
+    /* 补充：以上位置量都是结点下标（-1 = NULL 或「不画」）。headTarget = head 箭头指向的结点；
+       flip = 本帧刚掉头的 next 边起点下标（画绿）；done = true 表示整条链已反转完（全部结点画绿）；
+       cur = -1 是循环结束帧（cur 已走出链尾）。nextOf 是数组，所以 snap() 里先 slice 成 NO 再进 draw。 */
     function snap(desc, cfg) {
       var NO = cfg.nextOf.slice();
       frames.push({
@@ -653,6 +685,8 @@
       });
     }
 
+    /* 算法状态（会被循环就地改写）：nextOf[k] = 结点 k 现在的 next 指向哪个下标，-1 表示 NULL；
+       pre / cur / nxt 是三根指针所在的结点下标（-1 = NULL / 未定），round 是第几轮（1 基）。 */
     var nextOf = [1, 2, 3, -1];
     var pre = -1, cur = 0, nxt = -1, round = 1;
 
@@ -693,24 +727,29 @@
      演示 5：快慢指针判环（Floyd）+ 环入口
      ================================================================== */
   (function cycle() {
+    /* 对应页面容器 #viz-cycle：Floyd 快慢指针判环 + 第二阶段「表头与相遇点同步走」找环入口。 */
     var host = document.getElementById('viz-cycle');
     if (!host) return;
 
     /* 链表：0→1→2→3→4→5→6→7→8→5（环入口是 5，尾长 a = 5，环长 b = 4） */
-    var NXT = [1, 2, 3, 4, 5, 6, 7, 8, 5];
+    var NXT = [1, 2, 3, 4, 5, 6, 7, 8, 5];   // 静态 next 表：NXT[k] = 结点 nk 的后继下标（全程不改），末项 5 表示 n8 指回环入口
     var P = [
       { x: 110, y: 250 }, { x: 180, y: 250 }, { x: 250, y: 250 },
       { x: 320, y: 250 }, { x: 390, y: 250 },
       { x: 470, y: 250 },                                   // 环入口
       { x: 590, y: 140 }, { x: 710, y: 250 }, { x: 590, y: 360 }  // 环
     ];
+    /* P[k] = 结点 nk 的圆心坐标（下标即结点号，0 基）；HW/HH 是 edgePoint 裁剪边用的「半宽/半高」，
+       不是结点尺寸 —— 故意取得比圆的半径 17 略宽，好让箭头端点停在圆外留出空隙。 */
     var HW = 27, HH = 17;
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     function clip(i, j) { return edgePoint(P[i].x, P[i].y, HW, HH, P[j].x, P[j].y); }
     function clipTo(i, tx, ty) { return edgePoint(P[i].x, P[i].y, HW, HH, tx, ty); }
 
     /* cfg: {slow, fast, phase, a, b, k, meet, entry, note} */
+    /* 补充：slow/fast（第一阶段）与 a/b（第二阶段）都是结点下标，-1 = 这帧不画该标记；phase 1 = 快慢指针、
+       2 = 找入口；meet = 相遇点下标，entry = 环入口下标（画绿）；k 只写进文字，draw 不读它；line2 是面板第三行。 */
     function snap(desc, cfg) {
       frames.push({
         desc: desc,
@@ -781,8 +820,10 @@
     snap("出发前：slow 与 fast 都指向表头结点 0。fast 每次走 2 步、slow 每次走 1 步。",
       { phase: 1, slow: 0, fast: 0, note: "t = 0　slow = n0　fast = n0", line2: "若链表无环，fast 会先撞上 NULL；若有环，fast 会先进环并绕圈。" });
 
+    /* 第一阶段的活状态：slow/fast 是当前结点下标，t 是已走轮数（1 基），meet 是相遇点下标（-1 = 还没相遇）。
+       它们只用来拼 desc 文字；每帧真正画的量都通过 snap 的 cfg 按值传过去（数字是值拷贝，安全）。 */
     var slow = 0, fast = 0, t = 0, meet = -1;
-    while (t < 40) {
+    while (t < 40) {                                          // 40 是防死循环的安全上限（本例必然相遇，用不到）
       t++;
       slow = NXT[slow];
       fast = NXT[NXT[fast]];
@@ -801,13 +842,15 @@
         line2: "含义：从相遇点走 b−c 步回到入口，再多绕整圈仍在入口；从表头走 a 步也到入口。" });
 
     /* ---------- 第二阶段 ---------- */
+    /* 第二阶段的活状态：a = ptr1 当前结点下标（从表头出发），b = ptr2 当前结点下标（从相遇点出发），k = 已走步数。
+       ⚠ 注意同名不同义：讲解文字里的 a / b 指的是「尾长 / 环长」这两个数学符号，不是这里的指针位置。 */
     var a = 0, b = meet, k = 0;
     snap("第二阶段开始：<code>ptr1 = head</code>（结点 0），<code>ptr2 = meet</code>（结点 " + meet + "），" +
          "两个指针都每次走 1 步。依据 <code>a = (m−1)·b + (b − c)</code>，它们必然在环入口会合。",
       { phase: 2, a: a, b: b, note: "ptr1 = n" + a + "　ptr2 = n" + b + "　k = 0",
         line2: "这一步不需要任何额外空间，仍然是 O(1)。" });
 
-    while (a !== b && k < 40) {
+    while (a !== b && k < 40) {                               // k < 40 同上：防死循环的安全上限
       a = NXT[a];
       b = NXT[b];
       k++;
@@ -829,13 +872,14 @@
      演示 6：双向链表插入四条指针的顺序（附错误顺序与删除）
      ================================================================== */
   (function doubly() {
+    /* 对应页面容器 #viz-doubly：双向链表插入时四条指针的修改顺序，附错误顺序对比与删除。 */
     var host = document.getElementById('viz-doubly');
     if (!host) return;
 
     var SLOT = [90, 250, 410, 570];       // 四个结点的左边界
-    var DW = 100, ROW = 150, NULLX = 700;
+    var DW = 100, ROW = 150, NULLX = 700;  // DW = 结点总宽（prior 32 + data 36 + next 32）；ROW 结点上沿 y；NULLX 右端 NULL 框左边界
     var VALS = [12, 34, 99, 56];          // 槽位 2 是待插入的新结点 99
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     /* cfg:
        exists : [bool x4]
@@ -848,6 +892,8 @@
        pIdx   : 标注 p
        title  : 顶部标题
     */
+    /* 补充：nx[k] / pr[k] 的取值是 {下标 | -1 指向 NULL | null 这帧不画这条边}；exists[k] = false 的槽位画成虚线空位；
+       sIdx / qIdx / coverIdx 分别是「标 s」「标 q」「画成橙色」的槽位下标；vals 缺省时用 VALS。 */
     function snap(desc, cfg) {
       frames.push({
         desc: desc,
@@ -932,7 +978,7 @@
       });
     }
 
-    var base = [true, true, false, true];
+    var base = [true, true, false, true];  // 初始三结点是否存在：槽位 2 空着，留给第 2 步 new 出来的 s
 
     snap("初始双向链表（不带哨兵，两端用 NULL 表示）：<code>NULL ⇄ 12 ⇄ 34 ⇄ 56 ⇄ NULL</code>。" +
          "每个结点有 3 个域：<b>prior | data | next</b>。上面一行箭头是 next（向右），下面一行是 prior（向左）。",

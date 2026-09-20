@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-/** verify-drawer.mjs —— 确认右侧导航抽屉的新增功能都已落到代码里 */
+/**
+ * verify-drawer.mjs —— 确认右侧导航抽屉的新增功能都已落到代码里
+ *
+ * 做法：对 assets/js/course.js 与 assets/css/course.css 做正则特征检查
+ *（不执行代码、不开浏览器），只回答「这条功能还在不在源码里」。
+ * 用法：node tools/verify-drawer.mjs
+ *
+ * 退出码：0 = 全部特征命中；1 = 至少 1 条缺失（通常是函数/类名被改名了）
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -7,6 +15,8 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const js = fs.readFileSync(path.join(ROOT, "assets/js/course.js"), "utf8");
 const css = fs.readFileSync(path.join(ROOT, "assets/css/course.css"), "utf8");
 
+/* 检查清单：每项 = [功能描述, 是否命中]。
+   加一条检查就照这个二元组写一行：右边给个正则（或正则组合）的布尔结果即可。 */
 const checks = [
   ["右侧边缘把手 .toc-tab 已创建", /className = "toc-tab"/.test(js)],
   ["把手可点击打开抽屉", /tab\.addEventListener\("click"/.test(js)],
@@ -23,7 +33,7 @@ const checks = [
   ["抽屉开合动画仍由 toc-hover / toc-open 驱动", /body\.toc-hover \.toc-drawer/.test(css) && /body\.toc-open\s+\.toc-drawer/.test(css)],
 ];
 
-let ok = 0;
+let ok = 0;   // 命中的检查条数
 for (const [name, pass] of checks) { console.log((pass ? "✓ " : "✗ ") + name); if (pass) ok++; }
 console.log(`\n通过 ${ok}/${checks.length}`);
 process.exit(ok === checks.length ? 0 : 1);

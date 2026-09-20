@@ -18,6 +18,7 @@
   "use strict";
 
   var SVG = DS.SVG;
+  /* 无穷大。这里用真正的 Infinity 而不是 0x3f3f3f3f：全篇只有 7 个顶点，加法不可能溢出，直接用 ∞ 更直观 */
   var INF = Infinity;
 
   /* ==========================================================================
@@ -63,8 +64,12 @@
   }
 
   /* ---------------- 贯穿全章的示例图 ---------------- */
+  /* VX[k] / VY[k] = 顶点 k 的圆心坐标（下标 0 基 = 顶点号）。
+     7 个顶点手工摆成上下两排（上排 0..3、下排 4..6），画布固定 700×460，剩下的高度留给底部三行数组。 */
   var VX = [110, 240, 370, 500, 110, 240, 370];
   var VY = [90, 90, 90, 90, 330, 330, 330];
+  /* W = 7×7 的权值矩阵（邻接矩阵）：W[u][v] = 边 (u,v) 的权，没有边 = INF，对角线 = 0。
+     下面这份全 0 只是占位，紧接着的 initW() 会把它填成真正的权值。 */
   var W = [
     [0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0],
@@ -74,6 +79,9 @@
     [0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0]
   ];
+  /* EDGES = 示例图的边表，每条无向边只存一次（共 11 条）。
+     w = 边权；lx / ly = 权值文字的落点，null 表示用两端点中点自动算 ——
+     少数边的中点会压在别的边上，所以手工挪开（这就是那几个非 null 的由来）。 */
   var EDGES = [
     { u: 0, v: 1, w: 2, lx: null, ly: 56 },
     { u: 0, v: 2, w: 3, lx: null, ly: 56 },
@@ -87,7 +95,10 @@
     { u: 3, v: 5, w: 5, lx: null, ly: 296 },
     { u: 4, v: 6, w: 5, lx: null, ly: 296 }
   ];
+  /* ADJ[u] = 顶点 u 的邻接点数组（由 initW 填充）。注意它**没有排序**，顺序就是 EDGES 的顺序。 */
   var ADJ = [[], [], [], [], [], [], []];
+  /* initW()：模块加载时先把 W 和 ADJ 建好（全章 7 个动画共用这张图，只建一次）。
+     它与动画无关，也不是某一帧的状态。 */
   (function initW() {
     var i;
     for (i = 0; i < 7; i++) for (var j = 0; j < 7; j++) W[i][j] = (i === j ? 0 : INF);
@@ -98,6 +109,9 @@
     }
   })();
 
+  /* NODE_CLS / EDGE_CLS = 全局的「绘制状态」着色表：NODE_CLS[顶点号] / EDGE_CLS["a-b" 边 key] → 类名。
+     key 的格式必须和 markEdge() 里一致（无向边两个方向都写一份）。
+     每帧 draw 开头先 resetGraph() 清空，再按该帧的快照重新着色。 */
   var NODE_CLS = {};
   var EDGE_CLS = {};
   function resetGraph() { NODE_CLS = {}; EDGE_CLS = {}; }
@@ -135,9 +149,16 @@
     var host = document.getElementById("viz-prim");
     if (!host) return;
 
+    /* inT[v] = 顶点 v 是否已加入生成树 T（下标 0 基 = 顶点号）；初值只有源点 0 是 true。 */
     var inT = [true, false, false, false, false, false, false];
+    /* low[v] = 未入树顶点 v 到 T 的**最小边权**（教科书里的 lowcost[]），∞ = 目前够不着；
+       初值就是 w(0,v)。它是逐轮被改写的活变量，每帧画的是快照 snap.low。 */
     var low = [INF, 2, 3, 3, INF, INF, 11];
+    /* clo[v] = 让 low[v] 取到最小值的那条边的**树内端点**（教科书里的 closest[]），-1 = 还没有；
+       加边时用的就是 (clo[cand], cand)。同样是要快照的活变量。 */
     var clo = [-1, 0, 0, 0, -1, -1, 0];
+    /* mst = 已经选进生成树的边 [u,v] 列表（顺序 = 选边顺序）；total = 已选边的权值和（最终 18）；
+       frames = 帧数组 —— build() 里被同步填满，之后 DS.Viz 才逐帧渲染。 */
     var mst = [], total = 0, frames = [];
 
     /* 把「当前这一步」的状态画出来 */
@@ -244,12 +265,19 @@
     var host = document.getElementById("viz-kruskal");
     if (!host) return;
 
+    /* sorted = EDGES 的副本，按「权值升序，同权再按 u 升序」排好；它是副本，EDGES 本身不会被改。
+       后面说「第 i 条边」指的都是 sorted 的下标 i（0 基）。 */
     var sorted = EDGES.slice().sort(function (a, b) { return a.w - b.w || a.u - b.u; });
     var port = [0, 1, 2, 3, 4, 5, 6];          // 并查集父指针
+    /* 约定：port[x] = x 表示 x 是所在集合的根；下标 0 基 = 顶点号。
+       并查集会被 union 逐轮改写，所以推帧时要连同它一起快照（下面 snap.port）。 */
+    // find() 在「活」的并查集上找根，顺路做路径压缩 —— 算法本身用它判环
     function find(x) { while (port[x] !== x) x = port[x] = port[port[x]]; return x; }
     /* 在任意一份父指针数组上找根（画图时用快照，避免渲染去改活状态） */
     function findIn(p, x) { while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; }
 
+    /* picked = 已采纳（进生成树）的边列表；rejected = 因两端已连通、加上会成环而被丢弃的边列表；
+       total = 已采纳边的权值和；frames = 帧数组（同上：build() 跑完才开始渲染）。 */
     var frames = [], picked = [], rejected = [], total = 0;
 
     /* 小格子：画一个并查集森林。p 是**该帧的**父指针快照 */
@@ -371,9 +399,15 @@
     var host = document.getElementById("viz-dijkstra");
     if (!host) return;
 
+    /* dist[v] = 源点 0 到 v 的**当前最短距离估计**（是个上界，只会越来越小）；∞ = 暂时到不了。
+       它是 Dijkstra 最核心的活变量：每轮松弛都会改写它，所以每帧必须画快照。 */
     var dist = [0, INF, INF, INF, INF, INF, INF];
+    /* done[v] = v 的最短路是否已经**最终确定**（教科书里的 visited / √）。
+       一旦置 true 就再也不会被改 —— 这正是 Dijkstra 贪心成立的前提。 */
     var done = [false, false, false, false, false, false, false];
+    /* pre[v] = 最短路树上 v 的前驱顶点，-1 = 源点或还没确定；最后沿它从终点倒推路径。 */
     var pre = [-1, -1, -1, -1, -1, -1, -1];
+    /* spt = 每次松弛成功时记下的边 [u,v]（画面上那棵绿色细树）；同一个 v 可能先后来过几条，真正的前驱以最后一轮写进 pre[] 的为准。 */
     var spt = [], frames = [];
 
     function snapshot(desc, opt) {
@@ -447,6 +481,8 @@
     }
 
     /* 路径还原 0 → 5 */
+    /* 路径还原：cur 从终点 5 出发沿 pre[] 往回退，用 unshift 前插，所以 path 最终是正序 0 → … → 5；
+       若退到的第一个点不是源点 0，说明终点不可达，path 清空。注意 cur 与前面选点用的 u 无关。 */
     var path = [], cur = 5;
     while (cur >= 0) { path.unshift(cur); cur = pre[cur]; }
     if (path[0] !== 0) path = [];
@@ -485,12 +521,18 @@
     var host = document.getElementById("viz-floyd");
     if (!host) return;
 
+    /* D = 全源最短路的 DP 表：D[i][j] = 目前找到的 i→j 最短路径长度，初值 = 邻接矩阵 W。
+       它被就地改写（每轮 k 都可能变小），所以每一帧都得画各自的快照 d0 / dSnap / dFinal。 */
     var D = [], i, j;
     for (i = 0; i < 7; i++) { D.push([]); for (j = 0; j < 7; j++) D[i].push(W[i][j]); }
 
+    /* 矩阵排版常量：CW/CH = 单元格宽 52、高 30（7×7 正好塞进 640×300 的画布，右侧还留得下图例）；
+       ORGX/ORGY = 表格左上角在画布上的坐标。 */
     var CW = 52, CH = 30, ORGX = 62, ORGY = 62;
     var frames = [];
 
+    /* drawMatrix(s, snap, k, changed, desc)：snap = **该帧的矩阵快照**（不是活变量 D！），
+       k = 本轮的允许中转点（-1 = 初始帧，要按“无中转”画），changed = 本轮变小格子的标记，desc = 底部说明。 */
     function drawMatrix(s, snap, k, changed, desc) {
       var svg = s.svg(640, 300);
       svg.appendChild(SVG.text(ORGX - 30, ORGY - 40, "dist[i][j]　（k = " + (k < 0 ? "初始（只允许直连边）" : k) + "）", "vz-text", "start"));
@@ -530,6 +572,8 @@
     });
 
     for (var k = 0; k < 7; k++) {
+      /* 本轮（k 固定）的统计：changed["i,j"] = 1 标记变小的格子（只用于着色）；
+         cnt = 本轮更新了几个格子（**本轮的**，不是累计）；detail = 本轮更新的文字明细（写进 desc）。 */
       var changed = {}, cnt = 0, detail = [];
       for (i = 0; i < 7; i++) {
         for (j = 0; j < 7; j++) {
@@ -557,6 +601,7 @@
     }
 
     var finalRow = D[0].map(function (x) { return x === INF ? "∞" : x; }).join(", ");
+    /* 最终矩阵快照：最后一帧画的就是它（此后 D 不再变化，拷贝只为和别的帧写法一致）。 */
     var dFinal = D.map(function (r) { return r.slice(); });
     frames.push({
       desc: "<b>k 走到 6，矩阵不再变化，算法结束。</b>此时 <code>dist[i][j]</code> 就是 i 到 j 的真实最短距离。" +
@@ -580,20 +625,30 @@
     var host = document.getElementById("viz-topo");
     if (!host) return;
 
+    /* n = 顶点**个数**（合法顶点号是 0..n-1 = 0..5）。 */
     var n = 6, i;
+    /* E = AOV 网的有向边表 [u, v, w]（u→v，w 只是活动耗时，拓扑排序本身不看权值）。 */
     var E = [[0, 1, 7], [0, 2, 5], [1, 3, 6], [2, 3, 4], [2, 4, 3], [3, 5, 6], [4, 5, 8]];
+    /* indeg[v] = 顶点 v **当前**的入度：每摘掉一个顶点就把它所有后继的入度减 1，是活变量；
+       初值由上面的 E 统计得到。判「能不能输出」只看它是不是 0。 */
     var indeg = [0, 0, 0, 0, 0, 0];
     for (i = 0; i < E.length; i++) indeg[E[i][1]]++;
+    /* outAdj[u] = u 的出边终点集合；inAdj[v] = 指向 v 的起点集合（本例只用来算入度）。 */
     var outAdj = [[], [], [], [], [], []];
     var inAdj = [[], [], [], [], [], []];
     for (i = 0; i < E.length; i++) { outAdj[E[i][0]].push(E[i][1]); inAdj[E[i][1]].push(E[i][0]); }
 
     /* AOV 网布局：0 在左，1/2 在中上/中下，3/4 在右，5 在最右 */
+    /* PX[k] / PY[k] = 顶点 k 的坐标（下标 0 基 = 顶点号），手工排成左→右的层次布局。 */
     var PX = [80, 250, 250, 430, 430, 600];
     var PY = [200, 110, 290, 170, 320, 245];
 
+    /* removed = 已经被摘掉（已输出）的顶点；queue = 当前入度为 0 的候选顶点（每轮排序后取出编号最小的）；
+       order = 拓扑序列（= 出队顺序，它的长度就是「已输出个数」）；frames = 帧数组。 */
     var removed = [], queue = [], order = [], frames = [];
 
+    /* drawNet(..., cur, activeE, st)：cur = 本帧要高亮的顶点（-1 = 无）；activeE = 要高亮的边序号数组；
+       st = **该帧的快照**（indeg / removed / queue / order 四份拷贝），draw 只读 st，不读活变量。 */
     function drawNet(s, cur, activeE, st) {
       var svg = s.svg(680, 380);
       var k;
@@ -649,6 +704,7 @@
     snapshot("<b>第 ① 步：统计入度。</b>入度为 0 的顶点表示「没有前驱活动」，可以最先做。" +
       "本例中只有顶点 <b>0</b> 的入度为 0，把它入队。", -1, null);
 
+    /* guard = 循环保护：最多转 30 次，万一图里有环也不会死循环（正常数据下用不到）。 */
     var guard = 0;
     while (queue.length && guard++ < 30) {
       queue.sort(function (a, b) { return a - b; });
@@ -697,19 +753,26 @@
     var host = document.getElementById("viz-critical");
     if (!host) return;
 
+    /* n = 顶点个数；下面这张 AOE 网与拓扑排序动画用的是同一组数据（顶点 0..5、7 条弧）。 */
     var n = 6, i;
+    /* E = AOE 网的弧表 [u, v, w]：u→v 表示活动，w = 活动持续时间（这里权值是要用的）。 */
     var E = [[0, 1, 7], [0, 2, 5], [1, 3, 6], [2, 3, 4], [2, 4, 3], [3, 5, 6], [4, 5, 8]];
     var topo = [0, 1, 2, 3, 4, 5];          // 本例拓扑序（唯一）
+    /* PX[k] / PY[k] = 顶点 k 的坐标（下标 0 基 = 顶点号）。 */
     var PX = [70, 220, 220, 390, 390, 570];
     var PY = [180, 90, 280, 150, 300, 210];
 
     /* ① 正推求 ve */
+    /* ① ve[v] = 事件 v 的**最早**发生时间：源点 ve(0) = 0，其余按拓扑序正推 ve[v] = max{ ve[u] + w(u,v) }。
+       它在本动画里只算一次、之后不再改写 —— 所以后面各帧的 draw 直接读活变量是安全的。 */
     var ve = [0, 0, 0, 0, 0, 0];
     for (i = 0; i < topo.length; i++) {
       var u = topo[i];
       for (var t = 0; t < E.length; t++) if (E[t][0] === u) ve[E[t][1]] = Math.max(ve[E[t][1]], ve[u] + E[t][2]);
     }
     /* ② 逆推求 vl */
+    /* ② vl[v] = 事件 v 的**最迟**发生时间：汇点 vl(5) = ve(5)（总工期不能拖），
+       其余按逆拓扑序 vl[u] = min{ vl[v] − w(u,v) }；这里先把所有位置初始化成 ve[5] 再取 min。 */
     var vl = [ve[5], ve[5], ve[5], ve[5], ve[5], ve[5]];
     for (i = topo.length - 1; i >= 0; i--) {
       var x = topo[i], has = false;
@@ -717,11 +780,16 @@
       if (!has) vl[x] = ve[5];
     }
     /* ③ 每条弧的 e / l / 松弛量 */
+    /* ③ act[k] = 第 k 条弧的活动记录 {u, v, w, e, l, slack, crit}：
+       e = 最早开始 = ve[u]；l = 最迟开始 = vl[v] − w；slack = l − e（时间余量）；crit = 余量为 0（关键活动）。
+       这是提前算好的一张常量表，帧与帧之间不会变。 */
     var act = [];
     for (t = 0; t < E.length; t++) {
       var e0 = ve[E[t][0]], l0 = vl[E[t][1]] - E[t][2];
       act.push({ u: E[t][0], v: E[t][1], w: E[t][2], e: e0, l: l0, slack: l0 - e0, crit: e0 === l0 });
     }
+    /* critEdges = 关键活动的边列表 [u,v]（画面上标绿）；critNodes = 关键活动端点的集合（拿对象当集合用）；
+       kmax = 关键活动余量的最大值 —— 关键活动的 slack 恒为 0，所以它必然等于 0，留着只是自检用。 */
     var critEdges = [], critNodes = {}, kmax = 0;
     for (t = 0; t < act.length; t++) if (act[t].crit) {
       critEdges.push([act[t].u, act[t].v]);
@@ -757,6 +825,9 @@
       return svg;
     }
 
+    /* snapshot(desc, opt)：opt 是**每次调用新建**的参数对象（opt.cur/hi/showVe/showVl/crit… 决定高亮什么），
+       所以不用拷贝；而 ve / vl / act / critNodes 在第 706–730 行就已经全部算完、此后不再改写，
+       直接读活变量是安全的 —— 本项目要求“必须快照”针对的是会被逐轮改写的量（见 SPEC 5.7）。 */
     function snapshot(desc, opt) {
       frames.push({
         desc: desc,
@@ -812,6 +883,7 @@
       { showVe: true, showVl: true, hi: topo });
 
     /* ③ e / l */
+    /* list = 活动名列表（"a0(0,1)"…），只当表格的行标签；clsAct 决定每格颜色：关键活动绿、其余橙。 */
     var list = [];
     for (t = 0; t < act.length; t++) list.push("a" + t + "(" + act[t].u + "," + act[t].v + ")");
     var clsAct = function (k) { return act[k].crit ? "done" : "compare"; };
@@ -876,13 +948,20 @@
     var host = document.getElementById("viz-bellman");
     if (!host) return;
 
+    /* n = 顶点个数（合法顶点号 0..4）。 */
     var n = 5;
+    /* E = 有向边表 [u, v, w]；Bellman-Ford 每一轮就是**按这个固定顺序**把 6 条边依次松弛一遍。 */
     var E = [[0, 1, 2], [1, 2, 2], [0, 2, 5], [2, 4, 4], [1, 4, 7], [4, 3, 4]];
+    /* PX[k] / PY[k] = 顶点 k 的坐标（下标 0 基 = 顶点号）。 */
     var PX = [70, 230, 380, 560, 460];
     var PY = [200, 80, 140, 260, 350];
+    /* dist[v] = 源点 0 到 v 的当前最短距离（活变量，每轮都可能变小）；跑满 n−1 轮后必定稳定。 */
     var dist = [0, INF, INF, INF, INF];
+    /* round = 当前已经完成的轮数（1 基，最高 n−1 = 4），只用于画面右下角“已完成 r / 4 轮”。 */
     var frames = [], round = 0;
 
+    /* drawNet(s, hiE, doneRound, distSnap)：hiE = 要高亮的边序号（-1 = 无）；doneRound = 已完成的轮数；
+       distSnap = **该帧的 dist 快照**（不是活变量 dist）—— 顶点圆里的数字、底部数组都用它。 */
     function drawNet(s, hiE, doneRound, distSnap) {
       var svg = s.svg(660, 420), k;
       for (k = 0; k < E.length; k++) {
@@ -941,6 +1020,7 @@
       })(r, changed, det, r);
     }
 
+    /* 最终 dist 快照：n−1 轮跑完后的结果，最后一帧画它。 */
     var distFinal = dist.slice();
     frames.push({
       desc: "<b>n − 1 = 4 轮结束</b>，最终 <code>dist = [" + dist.map(function (x) { return x === INF ? "∞" : x; }).join(", ") + "]</code>。" +

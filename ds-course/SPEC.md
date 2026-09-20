@@ -245,8 +245,6 @@ SVG.line(x1,y1,x2,y2, cls, arrow)      // 直线，arrow=true 加箭头
 SVG.path('M0,0 L10,10', cls, arrow)    // 路径（曲线、折线）
 SVG.defs(svg)                          // 用到箭头时，先调用它注册 marker
 SVG.el(name, attrs, text)              // 万能方法，创建任意 SVG 元素
-SVG.tree({ levels:[[1],[2,3],[4,5,6,7]], cls:{n0_0:'active', e1_0:'done'}, width:760 })
-                                        // 直接画一棵二叉树，cls 键为 n<层>_<序号> / e<层>_<序号>
 ```
 
 **样式类（写到 `cls` 参数里，可组合，用空格分隔）：**
@@ -321,6 +319,11 @@ function snapshot(desc, opt) {
 自检：`node tools/frame-check.mjs`（会按「相邻帧画面文本是否变化」的比例揪出冻结的动画）；
 必要时用 `node tools/frame-check.mjs --dump viz-xxx chNN-viz.js` 把某帧真正画出来的文字打出来，
 逐字对照它的 `desc`。
+
+**只改注释 / 做重构时的验证办法**：`node tools/frame-check.mjs --fingerprint` 会把
+「81 个动画每一帧真正画出来的内容（文字 + 颜色类）」算成一个总指纹。改动前后各跑一次，
+**指纹一致就证明渲染行为一点没变**（改注释、改文案排版、抽函数都适用）。
+例：总指纹 `1006cf3149af4717af9f6fab1f787e59`。
 
 ## 6. 容器 ID 命名约定
 

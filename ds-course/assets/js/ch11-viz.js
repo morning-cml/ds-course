@@ -11,6 +11,8 @@
   "use strict";
   var SVG = DS.SVG;
 
+  /* 全篇数组格子的统一尺寸：格子边长 BOX = 46px、格间距 GAP = 8px、步距 PITCH = 54px，
+     第一格左边缘 X0 = 40。所有排序动画的 W = 80 + n*PITCH 就是这么来的。 */
   var BOX = 46, GAP = 8, PITCH = BOX + GAP, X0 = 40;
 
   /* ---------------- 通用小工具 ---------------- */
@@ -75,6 +77,8 @@
 
   /* 生成 marks：marksFrom(n, fn) */
   function marksFrom(n, fn) {
+    /* marks 的结构是 { 数组下标: 类名 }（没有出现的下标就是“无状态”），
+       下面所有 snap 的 marks 参数、以及 tailDone/runMarks 的返回值都是这个形状。 */
     var m = {};
     for (var i = 0; i < n; i++) {
       var v = fn(i);
@@ -90,6 +94,7 @@
 
   /* ==========================================================================
      演示 1：冒泡排序 —— 相邻比较、逆序交换、每轮冒一个最大值到末尾
+     容器：<div id="viz-bubble">
      并演示「本趟无交换 → 提前结束」的优化标志 swapped
      ========================================================================== */
   (function bubbleViz() {
@@ -97,11 +102,20 @@
     if (!host) return;
 
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
+    /* A0 = 固定演示数组，全程只读（动画结束时 A 排好了，A0 仍是原样）；
+       A = 它的工作副本，排序就地改写它；n = 元素个数。 */
     var A = A0.slice(), n = A.length;
+    /* cmp / swp = 累计比较次数、交换次数（只增不减，显示在顶部）；
+       round = 已经跑完的趟数（0 基，也就是“当前是第 round+1 趟”）；
+       swapped = 本趟是否发生过交换（某趟一个交换都没有就说明已经有序，可以提前结束）；
+       limit = 本趟比较的右边界下标 —— 尾部 [limit+1, n-1] 已经就位，所以初值 n-1。 */
     var frames = [], cmp = 0, swp = 0, round = 0, swapped = false, limit = n - 1;
     var W = 80 + n * PITCH, H = 200;
 
+    /* 推一帧。marks = 本帧的{下标: 类名}着色表；extra(svg) 用来在画面上再补画指针之类的东西。 */
     function snap(desc, marks, extra) {
+      /* sa / r / c / w / sw / lim = **该帧的快照**（数组复制 + 四个计数器的当前值）。
+         build() 会先同步跑完，draw 里若直接读 A / cmp 这些活变量，每帧都会画成最终态。 */
       var sa = A.slice(), r = round, c = cmp, w = swp, sw = swapped, lim = limit;
       frames.push({
         desc: desc,
@@ -186,17 +200,21 @@
 
   /* ==========================================================================
      演示 2：简单选择排序 —— 每轮从未排序区间里挑最小值，与区间首位交换
+     容器：<div id="viz-selection">
      ========================================================================== */
   (function selectionViz() {
     var host = document.getElementById("viz-selection");
     if (!host) return;
 
+    /* A0 = 固定演示数组（只读）；A = 工作副本；n = 元素个数（下面几个动画同此约定）。 */
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
     var A = A0.slice(), n = A.length;
+    /* cmp / swp = 累计比较、交换次数；round = 本轮要填的位置（0 基），已就位的下标是 [0, round-1]。 */
     var frames = [], cmp = 0, swp = 0, round = 0;
     var W = 80 + n * PITCH, H = 200;
 
     function snap(desc, marks, extra) {
+      /* sa / r / c / w = 该帧快照（数组 + 轮次 + 两个计数器）。 */
       var sa = A.slice(), r = round, c = cmp, w = swp;
       frames.push({
         desc: desc,
@@ -223,6 +241,7 @@
         "先假设 A[" + r + "] = " + A[r] + " 就是最小值，记最小值下标 <code>minIdx = " + r + "</code>。",
         head, null);
 
+      /* minIdx = 本轮最小值所在的**下标**（初值是区间首元素；下面比的是值、存的是下标）。 */
       var minIdx = r;
       for (var j = r + 1; j < n; j++) {
         cmp++;
@@ -284,6 +303,7 @@
 
   /* ==========================================================================
      演示 3：直接插入排序 —— 把第 i 个元素插入前面已经有序的部分
+     容器：<div id="viz-insertion">
      ========================================================================== */
   (function insertionViz() {
     var host = document.getElementById("viz-insertion");
@@ -291,10 +311,15 @@
 
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
     var A = A0.slice(), n = A.length;
+    /* cmp = 比较次数；mv = 元素后移次数；i = 当前要插入的元素下标（0 基），
+       前缀 [0, i-1] 是已经排好序的部分，i 从头走到 n-1。 */
     var frames = [], cmp = 0, mv = 0, i = 0;
     var W = 80 + n * PITCH, H = 216;
 
+    /* 推一帧。key = 本次要插入的值 A[i]（**值**不是下标）；hole = 当前空出来的那个下标（画虚线框）。 */
     function snap(desc, marks, key, hole, extra) {
+      /* sa / ii / c / m = 该帧快照（数组 + 待插入位置 + 两个计数器）。注意 key / hole 是参数，
+         每次调用都是新值，本身就已经“冻结”了。 */
       var sa = A.slice(), ii = i, c = cmp, m = mv;
       frames.push({
         desc: desc,
@@ -387,19 +412,25 @@
 
   /* ==========================================================================
      演示 4：希尔排序 —— 缩小增量，先分组做插入排序，最后 gap = 1 收尾
+     容器：<div id="viz-shell">
      ========================================================================== */
   (function shellViz() {
     var host = document.getElementById("viz-shell");
     if (!host) return;
 
+    /* A0 = 固定演示数组（只读）；A = 工作副本；n = 元素个数。 */
     var A0 = [8, 9, 1, 7, 2, 3, 5, 4, 6, 0];
     var A = A0.slice(), n = A.length;
+    /* 增量序列：5 → 2 → 1（手工给定；最后一趟必须是 1，否则不能保证整体有序）。 */
     var gaps = [5, 2, 1];
+    /* cmp = 比较次数；mv = 移动次数；gap = 本轮增量（每隔 gap 个取一个组成一组）；round = 第几轮（0 基）。 */
     var frames = [], cmp = 0, mv = 0, gap = 0, round = 0;
     var W = 80 + n * PITCH, H = 250;
+    /* 分组着色用的 CSS 变量名：按下标 % gap 轮换，同一组一定同色（这是本动画最好看也最有用的一处）。 */
     var COLORS = ["--brand", "--accent", "--ok", "--purple", "--danger", "--warn"];
 
     function snap(desc, marks, extra) {
+      /* sa / g / r / c / m = 该帧快照（数组 + 本轮增量 + 轮次 + 两个计数器）。 */
       var sa = A.slice(), g = gap, r = round, c = cmp, m = mv;
       frames.push({
         desc: desc,
@@ -507,6 +538,7 @@
 
   /* ==========================================================================
      演示 5：堆排序 —— 数组 + 完全二叉树双视图
+     容器：<div id="viz-heap">
      建堆阶段：从最后一个非叶结点 ⌊n/2⌋−1 往前，逐个 sift down
      排序阶段：堆顶与末尾交换 → 堆规模减一 → 新的堆顶下沉
      ========================================================================== */
@@ -515,11 +547,19 @@
     if (!host) return;
 
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
+    /* A0 = 固定演示数组（只读）；A = 工作副本；n = 元素个数 = 堆的初始规模。 */
     var A = A0.slice(), n = A.length;
+    /* cmp / swp = 累计比较、交换次数；
+       size = 堆的**有效规模**（堆里还剩几个元素，是“个数”不是下标！）—— 建堆阶段恒为 n，
+       排序阶段每取走一个堆顶就减 1，下标 ≥ size 的位置都是已经排好的有序区；
+       phase = 当前阶段的中文名，只用于画面顶部那行字。 */
     var frames = [], cmp = 0, swp = 0, size = n, phase = "建堆阶段";
+    /* 布局常量：数组行起点 XA / 格子 40×46 / 二叉树顶部 y = TREE_Y / 层间距 TREE_GAP = 74。 */
     var W = 860, H = 442, XA = 200, BA = 40, PA = 46, TREE_Y = 176, TREE_GAP = 74;
 
     /* 把数组画成一棵完全二叉树：结点上标值，右下角标数组下标 */
+    /* heapTree(...)：arr = 要画的数组（**快照**），sz = 该帧的堆规模（下标 ≥ sz 的结点画灰），
+       marks = 着色表，x0/w0/y0/gapY = 摆放位置。 */
     function heapTree(s, arr, sz, marks, x0, w0, y0, gapY) {
       var levels = [], idx = 0, d = 0;
       while (idx < arr.length) {
@@ -550,6 +590,7 @@
     }
 
     function snap(desc, marks, extra) {
+      /* sa / sz / ph / c / w = 该帧快照（数组 + 堆规模 + 阶段名 + 两个计数器）。 */
       var sa = A.slice(), sz = size, ph = phase, c = cmp, w = swp;
       frames.push({
         desc: desc,
@@ -658,17 +699,28 @@
 
   /* ==========================================================================
      演示 6 / 7：归并排序（递归版）与「归并求逆序对」
+     容器：演示 6 → <div id="viz-merge">；演示 7 → <div id="viz-inversion">
+     两者共用下面这一个 buildMergeFrames 状态机，只有 countInv 不同。
      共用同一个状态机，countInv = true 时额外统计逆序对
      ========================================================================== */
   function buildMergeFrames(A0, countInv) {
+    /* A0 = 原始数组（只读，逆序对就是对着它数的）；A = 被排序改写的工作副本；n = 元素个数。 */
     var A = A0.slice(), n = A.length;
+    /* T = 归并用的临时数组，初值全是 null（null 表示“这一格还没写过”，画成 ·）。 */
     var T = new Array(n);
     for (var z = 0; z < n; z++) T[z] = null;
+    /* cmp = 比较次数；writes = 写入临时数组 T 的次数；
+       inv = 累计逆序对数（只在 countInv = true 时增长，普通归并动画里恒为 0）。 */
     var frames = [], cmp = 0, writes = 0, inv = 0;
+    /* path = 当前递归路径栈，每项 {l, r, d}：区间左右端点（**闭区间**）与递归深度（0 基）。
+       进入区间 push、返回时 pop —— 画面上方那一排短横线画的就是它。 */
     var path = [];
     var W = 780, XP = 140, P = 50, B = 42;
 
+    /* 推一帧。marks / tmarks = A 行、T 行各自的着色表；extra(svg) 用来补画 i / j / k 指针。 */
     function snap(desc, marks, tmarks, extra) {
+      /* sa / st / ps / c / wr / iv = **该帧的快照**：数组 A、临时数组 T、递归路径（逐项拷成纯数据）、
+         比较数、写入数、逆序对数。这些量在 build() 期间一直在变，draw 里只能读快照。 */
       var sa = A.slice(), st = T.slice(), ps = [], c = cmp, wr = writes, iv = inv;
       for (var q = 0; q < path.length; q++) ps.push({ l: path[q].l, r: path[q].r, d: path[q].d });
       frames.push({
@@ -716,6 +768,8 @@
       });
     }
 
+    /* runMarks(l, mid, r, i, j)：合并过程中 A 行的着色 —— 左段未取的标 active、已取的标 dim，
+       右段同理用 compare / dim；l、mid、r 是闭区间端点，i、j 是两个段的当前指针。 */
     function runMarks(l, mid, r, i, j) {
       var m = {};
       for (var q = l; q <= r; q++) {
@@ -724,6 +778,7 @@
       }
       return m;
     }
+    /* doneMarks(l, r) = 某段合并完成后整段标绿；tFill(l, k) = 临时数组 T 里 k 之前已填好、k 是当前位。 */
     function doneMarks(l, r) {
       var m = {};
       for (var q = l; q <= r; q++) m[q] = "done";
@@ -736,6 +791,8 @@
       return m;
     }
 
+    /* merge(l, mid, r)：合并两个相邻有序段 [l, mid] 与 [mid+1, r]。
+       i / j / k = 左段指针、右段指针、T 里下一个要填的位置（都是下标，从 l 开始）。 */
     function merge(l, mid, r) {
       var i = l, j = mid + 1, k = l;
       snap("开始<b>合并</b>两个相邻的有序段：左段 [" + l + ", " + mid + "] 与右段 [" + (mid + 1) + ", " + r +
@@ -801,6 +858,7 @@
         "] 现在整体有序：[" + A.slice(l, r + 1).join(", ") + "]。", doneMarks(l, r), {}, null);
     }
 
+    /* msort(l, r, d)：递归排序闭区间 [l, r]；d = 递归深度（0 基，同时也是画面上短横线的层号）。 */
     function msort(l, r, d) {
       path.push({ l: l, r: r, d: d });
       snap("<b>递归进入区间 [" + l + ", " + r + "]</b>，共有 " + (r - l + 1) + " 个元素。",
@@ -848,6 +906,7 @@
   (function mergeViz() {
     var host = document.getElementById("viz-merge");
     if (!host) return;
+    /* A0 = 演示数组；buildMergeFrames 返回 {frames, cmp, writes, inv}，本动画只用 frames。 */
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
     var res = buildMergeFrames(A0, false);
     new DS.Viz(host, {
@@ -860,6 +919,7 @@
   (function inversionViz() {
     var host = document.getElementById("viz-inversion");
     if (!host) return;
+    /* 同一个状态机，第二个参数为 true → 额外统计逆序对；帧序列与归并动画完全一致。 */
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0];
     var res = buildMergeFrames(A0, true);
     new DS.Viz(host, {
@@ -871,19 +931,24 @@
 
   /* ==========================================================================
      演示 8：快速排序 —— 挖坑法划分 + 递归区间可视化
+     容器：<div id="viz-quick">
      ========================================================================== */
   (function quickViz() {
     var host = document.getElementById("viz-quick");
     if (!host) return;
 
+    /* A0 = 12 个元素的演示数组（比别的动画长，好让递归区间划分看得出来）。 */
     var A0 = [5, 2, 9, 1, 7, 3, 8, 4, 6, 0, 11, 10];
     var A = A0.slice(), n = A.length;
+    /* cmp = 比较次数；mv = 移动（填坑）次数；depthMax = 递归深度的历史最大值。 */
     var frames = [], cmp = 0, mv = 0, depthMax = 0;
     var W = 720, XP = 44, P = 50, B = 42;
+    /* path 同归并：当前递归路径栈，每项 {l, r, d}（闭区间 + 深度）。 */
     var path = [];
 
     /* marks: 单元格状态；hole: 坑的下标（画虚线框）；pivot: 基准值 */
     function snap(desc, marks, hole, pivot, extra) {
+      /* sa / ps / c / m / dm = 该帧快照（数组 + 递归路径 + 三个计数器）。 */
       var sa = A.slice(), ps = [], c = cmp, m = mv, dm = depthMax;
       for (var q = 0; q < path.length; q++) ps.push({ l: path[q].l, r: path[q].r, d: path[q].d });
       frames.push({
@@ -925,6 +990,8 @@
     function partition(l, r, d) {
       path.push({ l: l, r: r, d: d });
       if (path.length > depthMax) depthMax = path.length;
+      /* pivot = 基准**值**（取区间第一个元素的值，不是下标）；i / j = 从两端向中间扫的下标（闭区间）；
+         hole = 当前“坑”的下标 —— 挖坑法里坑就是“值已经被搬走”的那个位置，等待被填。 */
       var pivot = A[l];
       var i = l, j = r, hole = l;
       var mStart = {};
@@ -1073,20 +1140,29 @@
 
   /* ==========================================================================
      演示 9：基数排序 —— LSD，按个位 / 十位 / 百位分配与收集
+     容器：<div id="viz-radix">
      ========================================================================== */
   (function radixViz() {
     var host = document.getElementById("viz-radix");
     if (!host) return;
 
+    /* A0 = 演示数组（位数最多 3 位，所以正好走三轮）；A = 工作副本；n = 元素个数。 */
     var A0 = [170, 45, 75, 90, 802, 24, 2, 66];
     var A = A0.slice(), n = A.length;
+    /* pass = 当前第几轮（**1 基**：1 = 个位、2 = 十位、3 = 百位）；moves = 累计分配搬运的元素次数。 */
     var frames = [], pass = 0, moves = 0;
     var W = 880, H = 484;
+    /* 布局常量：SX/SB/SP/SEQ_Y = 顶部“当前序列”一行的位置与格子尺寸；
+       BX/BW/BSTEP/BY/BH/BSLOT/BHMAX = 中段 10 个桶的位置、格子尺寸、桶间距与最多画几格；OUT_Y = 底部收集结果行。 */
     var SX = 24, SB = 40, SP = 46, SEQ_Y = 30;
     var BX = 24, BW = 76, BSTEP = 84, BY = 130, BH = 26, BSLOT = 26, BHMAX = 8;
     var OUT_Y = 386;
 
+    /* 推一帧。buckets = 10 个桶的当前内容，out = 收集结果数组（null = 还没放），
+       curIdx = 本帧刚放进桶的那个元素在桶里的位置（-1 = 不强调）。 */
     function snap(desc, buckets, out, curIdx, extra) {
+      /* sa / bk / ot / ps / mv / ci = **该帧的快照**：数组 A、逐桶深拷贝的桶内容、收集结果、轮次、搬运次数、当前位置。
+         桶和 out 每一轮都会重建、随时在变，draw 只读快照。 */
       var sa = A.slice(), bk = buckets.map(function (b) { return b.slice(); }), ot = out.slice();
       var ps = pass, mv = moves, ci = curIdx;
       frames.push({
@@ -1131,6 +1207,7 @@
       });
     }
 
+    /* emptyOut() = 造一个长度 n、全是 null 的收集结果数组；emptyBuckets() = 10 个空桶。 */
     function emptyOut() {
       var o = [];
       for (var q = 0; q < n; q++) o.push(null);
@@ -1148,10 +1225,12 @@
       "再按桶号从小到大的顺序<b>收集</b>回序列。这里采用 <b>LSD（最低位优先）</b>：" +
       "从个位开始，再做十位、百位。", emptyBuckets(), emptyOut(), -1, null);
 
+    /* places = 三轮取位方案：p 是除数（1/10/100，用它取第 k 位数字），name 是中文位名。 */
     var places = [{ p: 1, name: "个位" }, { p: 10, name: "十位" }, { p: 100, name: "百位" }];
     for (var pi = 0; pi < places.length; pi++) {
       var p = places[pi].p, nm = places[pi].name;
       pass = pi + 1;
+      /* 本轮的桶与收集结果：每轮都重新建空的，所以它们是“本轮专用”的活变量（每帧画的是快照）。 */
       var buckets = emptyBuckets(), out = emptyOut();
       snap("<b>第 " + pass + " 轮：按「" + nm + "」分配。</b>" +
         "当前序列是 [" + A.join(", ") + "]，准备 10 个空桶 bucket[0..9]。" +

@@ -4,44 +4,50 @@
    ========================================================================== */
 
 /* ---------- 1. 设计令牌 ---------- */
+/* 全站只有这一处定义颜色/尺寸，页面与内联 SVG 一律用 var(--xxx) 取值。
+   下面 `:root` 是浅色主题；紧跟的 `html[data-theme="dark"]` 只覆盖颜色类令牌
+   （尺寸、字体、圆角两套主题共用）。切主题 = JS 改 <html data-theme>，不需要重载页面。
+   命名规律：--xxx 是主色，--xxx-soft 是它的浅底（用于高亮格子的填充）。 */
 :root {
-  --bg:            #f6f8fb;
-  --bg-soft:       #eef2f8;
-  --panel:         #ffffff;
-  --panel-2:       #f9fbfe;
-  --text:          #1d2433;
-  --text-soft:     #5a6579;
-  --text-faint:    #8b95a7;
-  --border:        #dde4ee;
-  --border-strong: #c3cede;
+  --bg:            #f6f8fb;   /* 页面底色 */
+  --bg-soft:       #eef2f8;   /* 次级底色：侧栏、代码、进度条槽 */
+  --panel:         #ffffff;   /* 卡片/面板底色，也是 .vz-box 的默认填充 */
+  --panel-2:       #f9fbfe;   /* 面板内的次级块（表头、可视化标题栏） */
+  --text:          #1d2433;   /* 正文色 */
+  --text-soft:     #5a6579;   /* 次要文字（说明、副标题） */
+  --text-faint:    #8b95a7;   /* 最弱文字（图注、下标标签） */
+  --border:        #dde4ee;   /* 常规描边 */
+  --border-strong: #c3cede;   /* 强调描边（图形元素默认用它） */
 
-  --brand:         #2f6fed;
-  --brand-dark:    #1f52c0;
-  --brand-soft:    #e8f0ff;
-  --accent:        #f2802a;
-  --accent-soft:   #fff1e3;
+  --brand:         #2f6fed;   /* 品牌蓝：当前处理 / 链接 */
+  --brand-dark:    #1f52c0;   /* 品牌蓝的深色，用于 hover 与深底文字 */
+  --brand-soft:    #e8f0ff;   /* 品牌蓝浅底（.vz-box.active 的填充） */
+  --accent:        #f2802a;   /* 强调橙：正在比较 */
+  --accent-soft:   #fff1e3;   /* 橙浅底 */
 
-  --ok:            #17a673;
+  --ok:            #17a673;   /* 绿：已完成 / 已就位 */
   --ok-soft:       #e3f7f0;
-  --warn:          #d99b00;
+  --warn:          #d99b00;   /* 黄：提示、警告 */
   --warn-soft:     #fff7e0;
-  --danger:        #e0484d;
+  --danger:        #e0484d;   /* 红：冲突、交换、错误 */
   --danger-soft:   #ffecec;
-  --purple:        #7a5af0;
+  --purple:        #7a5af0;   /* 紫：考点、基准值（pivot） */
   --purple-soft:   #f0ecff;
 
-  --code-bg:       #10161f;
-  --code-text:     #d8e2f0;
+  --code-bg:       #10161f;   /* 代码块底色（两套主题都保持深色，像编辑器） */
+  --code-text:     #d8e2f0;   /* 代码正文色 */
 
-  --radius:        10px;
-  --radius-lg:     16px;
+  --radius:        10px;      /* 常规圆角（按钮、提示块、代码块） */
+  --radius-lg:     16px;      /* 大圆角（卡片、可视化外壳） */
   --shadow-sm:     0 1px 2px rgba(20,32,54,.06), 0 1px 8px rgba(20,32,54,.05);
   --shadow:        0 2px 6px rgba(20,32,54,.07), 0 10px 30px rgba(20,32,54,.08);
-  --nav-w:         288px;
+  --nav-w:         288px;     /* 左侧课程目录的宽度（窄屏会让位给抽屉式侧栏） */
   --font: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
-  --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+  --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;   /* 代码与数组格子用等宽 */
 }
 
+/* 深色主题：只换颜色，不动尺寸/字体。对比度按「深底浅字」重新调过，
+   每个颜色都对应上面的同名令牌，改一处即可全局换肤。 */
 html[data-theme="dark"] {
   --bg:            #0d1219;
   --bg-soft:       #131a24;
@@ -54,7 +60,7 @@ html[data-theme="dark"] {
   --border-strong: #38465a;
 
   --brand:         #5b93ff;
-  --brand-dark:    #82aeff;
+  --brand-dark:    #82aeff;   /* 注意：深色主题下这个「dark」反而更亮，因为它是给深底当高亮用的 */
   --brand-soft:    #17263f;
   --accent:        #ff9d4d;
   --accent-soft:   #33240f;

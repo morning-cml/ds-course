@@ -14,6 +14,8 @@
 
   var SVG = DS.SVG;
 
+  /* 全篇格子的统一尺寸：格子边长 BOX = 46px、格间距 GAP = 6px、步距 PITCH = 52px。
+     数组行、哈希槽都用这套常量排版，改这三个数就能整体缩放。 */
   var BOX = 46, GAP = 6, PITCH = BOX + GAP;   // 单元格宽 / 间距 / 步距
 
   /* ======================================================================
@@ -97,11 +99,20 @@
     if (!host) return;
 
     var A = [17, 25, 39, 42, 58, 66, 73];        // 有序，值互不相同（便于观察有序表的提前刹车）
+    /* ARR = A 的字符串形式，只给 DS.Viz 的副标题用（免得在模板里再拼一次）。 */
     var ARR = A.join(", ");
+    /* n = 元素个数（合法下标 0..n-1）。注意它同时也是“失败时的比较次数”。 */
     var n = A.length;
+    /* 帧数组：build() 里被同步填满，之后 DS.Viz 才逐帧渲染 —— 所以 draw 里只能读推帧那一刻的快照 */
     var frames = [];
 
     /* 每一帧：三种扫描同时展示（朴素从前 / 哨兵从后 / 有序表提前刹车） */
+    /* 推一帧。st = **该帧的快照**（调用处一律 cp(base) 深拷贝），draw 只读 st.*；
+       st.key = 本轮要查找的值；st.plain / st.sen / st.ord = 三种写法各自的状态：
+         cur  = 当前扫描到的下标（-1 = 还没开始；哨兵那组从 n 往 0 倒着走，0 是哨兵位）
+         cmp  = 本组的比较**次数**（不是下标）
+         found= 命中的下标，-1 = 没命中
+         done = 本轮是否已经结束；ord.stop = 是否因 a[i] > key 提前刹车 */
     function snap(desc, st) {
       frames.push({
         desc: desc,
@@ -181,7 +192,10 @@
     }
 
     /* ---------- 造帧：一个 key 走完三种算法 ---------- */
+    /* run(key)：让**同一个 key** 依次走完朴素 / 哨兵 / 有序表三种写法，每种都推自己的帧。 */
     function run(key) {
+      /* base = 三种写法共用的「当前状态」对象，算法过程中被就地改写 ——
+         所以每次推帧前都必须 cp(base) 拷一份，否则每一帧都会画出三种写法跑完后的最终状态。 */
       var base = {
         key: key,
         plain: { cur: -1, cmp: 0, found: -1, done: false },
@@ -254,6 +268,8 @@
         "差别在失败的代价：无序表是 n（哨兵 n+1），有序表能降到 n/2 + n/(n+1)。", cp(base));
     }
 
+    /* sen(i) 把「哨兵数组」当 1 基看：i ≥ 1 时是 A[i-1]；i = 0 返回 0（哨兵位本身，
+       实际比较时 key 不会等于 0，所以倒序扫描一定会在 j = 0 说完最后一次后自然结束）。 */
     function sen(i) { return i === 0 ? 0 : A[i - 1]; }
 
     /* 三个 key：一个命中、一个比最小值还小、一个落在中间（失败） */
@@ -275,16 +291,24 @@
     var host = document.getElementById("viz-binary-search");
     if (!host) return;
 
+    /* A = 演示数组 10,20,…,110：11 个元素、有序且等差（判定树刚好四层）。 */
     var A = [];
     for (var t = 1; t <= 11; t++) A.push(t * 10);      // 10,20,...,110
+    /* N = 元素个数 = 11（合法下标 0..10）。 */
     var N = A.length;
     var frames = [];
 
     var nodes = [];              // 判定树上已生成的结点 {mid,parent,lr,value,seq}
+    /* 约定：nodes 的**数组下标**才是结点编号，parent/left/right 里存的都是这个下标，不是 mid；
+       lr = 该结点是父结点的左还是右孩子（"L"/"R"，根为空串）；seq = 它在第几次比较时生成（1 基，未被使用）。 */
     var pruned = {};             // 已被排除的下标 → true
+    /* 注意 key 是**数组下标**（0..10），不是元素值。 */
     var externals = [];          // [{parent, lr}]
+    /* 外部结点（失败结点，画成小方块）：parent = 挂在哪个结点的孩子上（nodes 的下标），lr = 左 / 右。 */
+    /* rootIdx = 判定树根结点在 nodes 里的下标，-1 = 树还是空的。 */
     var rootIdx = -1;
     var posOf = {};              // mid -> {x,y}
+    /* seqCounter = 预留的“结点生成序号”计数器：声明了、每轮也重置，但本文件没有真正用到它。 */
     var seqCounter = 0;
     var pathIdx = [];            // 当前路径上的结点下标（nodes 数组下标）
 
@@ -332,7 +356,14 @@
       return idx;
     }
 
+    /* 推一帧。low / high = 当前候选区间，是**闭区间** [low, high]（low > high 就表示区间已空、查找失败）；
+       mid = 本帧正在比较的元素下标（-1 = 没有）；found = 命中下标（-1 = 未命中）；
+       cmp = **累计**比较次数（也就是“第几次比较”）；done = 本轮是否已结束；
+       curIdx = 本帧刚落下的结点在 nodes 里的下标（draw 里没用到，保留参数）。 */
     function snap(desc, low, high, mid, found, cmp, done, curIdx) {
+      /* nCopy / prunedCopy / posCopy / curPath / extCopy / rootCopy = **该帧的快照**：
+         判定树结点、已被排除的下标、结点坐标、当前路径、外部结点、根结点下标。
+         这些结构在 build() 期间会不停变，draw 里只能读副本。 */
       var nCopy = nodes.slice();
       var prunedCopy = {};
       for (var kk in pruned) prunedCopy[kk] = true;
@@ -441,9 +472,14 @@
     }
 
     /* ---------- 造帧：一个 key 的完整折半查找 ---------- */
+    /* run(key, isLast)：跑完一个 key 的完整折半查找；isLast = true 时末尾再补一帧 ASL 总结
+       （判定树在下一个 key 开始时就被清空，所以总结帧只能加在最后一个 key 后面）。 */
     function run(key, isLast) {
       nodes = []; pruned = {}; externals = []; rootIdx = -1; posOf = {}; seqCounter = 0; pathIdx = [];
+      /* 折半查找的核心量：low / high = 闭区间端点（初值 0 与 N-1，空区间时 low = high + 1）；
+         cmp = 累计比较次数；found = 命中下标（-1 = 还没命中）。 */
       var low = 0, high = N - 1, cmp = 0, found = -1;
+      /* root = 判定树根结点的下标（-1 = 还没建根），只用来判断“这个 mid 该不该当根”。 */
       var root = -1;
 
       snap("要查找的 key = <b>" + key + "</b>。初始候选区间是整张表 [low = 0, high = 10]，判定树还是空的。",
@@ -523,11 +559,15 @@
     var host = document.getElementById("viz-interpolation");
     if (!host) return;
 
+    /* A = 1,11,…,101：11 个元素的**等差数列**（刻意做成均匀分布，好让插值公式一算就中）。 */
     var A = [];
     for (var t = 1; t <= 11; t++) A.push(1 + 10 * t);     // 1,11,...,101
+    /* N = 元素个数 = 11。 */
     var N = A.length;
 
     /* -------- 折半查找：产出每一轮的快照 -------- */
+    /* binaryTrace(key)：先离线跑一遍折半查找，把每一轮的 {low, high, mid, cmp, res} 记成数组返回；
+       res = "hit" / "left" / "right" / "miss"。动画只是按顺序播这条轨迹，不再实时算。 */
     function binaryTrace(key) {
       var low = 0, high = N - 1, cmp = 0, tr = [];
       while (low <= high) {
@@ -543,6 +583,8 @@
     }
 
     /* -------- 插值查找：产出每一轮的快照 -------- */
+    /* interpTrace(key)：插值查找的轨迹，字段同上，只多一种 res = "out"
+       （key 落在 [a[low], a[high]] 值域之外，直接判失败）。 */
     function interpTrace(key) {
       var low = 0, high = N - 1, cmp = 0, tr = [];
       while (low <= high) {
@@ -571,7 +613,10 @@
 
     var frames = [];
 
+    /* 推一帧。bi / ii = 上排（折半）和下排（插值）各自播到第几步（轨迹数组下标，0 基）。 */
     function snap(desc, key, bi, ii) {
+      /* 两条轨迹在这里重算一遍，并且**在这一刻**把第 bi / ii 步的结果 b、q 存进闭包 ——
+         轨迹是每次重算出来的纯数据，之后不会被改写，所以 draw 读 b / q 是安全的（等价于快照）。 */
       var s1 = binaryTrace(key), s2 = interpTrace(key);
       var b = s1[Math.min(bi, s1.length - 1)];
       var q = s2[Math.min(ii, s2.length - 1)];
@@ -647,8 +692,10 @@
       });
     }
 
+    /* runPair(key)：让折半与插值从同一组数据出发一步一步并排推进（谁先走到轨迹末尾就停在原地）。 */
     function runPair(key) {
       var s1 = binaryTrace(key), s2 = interpTrace(key);
+      /* bi / ii = 两条轨迹各自的播放指针（0 基，最大到 length-1）。 */
       var bi = 0, ii = 0;
       snap("要查找的 key = <b>" + key + "</b>。上排是折半查找，下排是插值查找，两者从同一组数据出发。", key, 0, 0);
       while (bi < s1.length - 1 || ii < s2.length - 1) {
@@ -692,11 +739,18 @@
     var host = document.getElementById("viz-hash-linear");
     if (!host) return;
 
+    /* M = 哈希表长 m = 11：取不大于表长的最大质数 —— 除留余数法 H(k) = k mod m 用质数当模，
+       余数分布最均匀（这是教材的标准做法，不是为了好看）。 */
     var M = 11;
+    /* KEYS = 依次插入的关键字（顺序固定）。42 故意放在最后：它会一路探测很久，用来暴露堆积。 */
     var KEYS = [22, 41, 53, 46, 30, 13, 1, 67, 42];
+    /* table = 哈希表本体，长度 M，null = 空槽（这里不用墓碑，因为只演示插入）。
+       它是**唯一的活表**，随时被写；每帧画的是 snapTab 快照。 */
     var table = new Array(M).fill(null);      // null = 空
     var frames = [];
+    /* 所有已插入 key 的“成功查找比较次数”总和 = ASL 的分子，随插入递增，推帧时冻结成 aslSnap */
     var cmpSum = 0;                           // 成功查找的比较次数总和
+    /* key → 它插入时的比较次数（也就是将来查找它需要的次数）；它的键集合就代表“已插入的 key” */
     var insertCmp = {};                       // 每个 key 插入时的比较次数（= 成功查找比较次数）
 
     function occupiedCount() {
@@ -705,7 +759,13 @@
       return c;
     }
 
+    /* 推一帧。key = 正在插入的关键字（null = 没有当前操作）；h = H(key)（-1 = 没有）；
+       cursors = 本次已经探测过的槽位序列（画探测箭头用，最后一个就是当前位置）；
+       cmp = **本次 key 的**比较次数（不是累计！）；phase = "init"/"probe"/"placed"/"final"，只影响标题文案。 */
     function snap(desc, key, h, cursors, cmp, phase) {
+      /* snapTab / cs / usedSnap / doneSnap / aslSnap / cmpEach = **该帧的快照**：
+         表内容、探测轨迹、已存元素个数、已插入 key 列表、ASL 分子、比较次数。
+         draw 只读这几个值，绝不读活变量 table / cmpSum / insertCmp。 */
       var snapTab = table.slice();
       var cs = cursors.slice();
       /* 关键：ASL 统计也必须在推帧时冻结。
@@ -808,6 +868,8 @@
       });
     }
 
+    /* totalCmp = 所有 key 比较次数的累加器：每插入成功一个就 += cmp，然后赋给 cmpSum。
+       两者数值始终相等，它只是中间过渡变量。 */
     var totalCmp = 0;
     snap("初始状态：表长 m = 11 的哈希表全部为空。哈希函数取 H(k) = k mod 11（11 是不大于表长的最大质数）。", null, -1, [], 0, "init");
 
@@ -848,6 +910,7 @@
     }
 
     /* 最终统计帧 */
+    /* succTotal = 成功 ASL 的分子（Σ 每个 key 的比较次数）；order = 明细文字（"42→8次" 这种）。 */
     var succTotal = 0, order = [];
     for (var q = 0; q < KEYS.length; q++) {
       succTotal += insertCmp[KEYS[q]];
@@ -858,7 +921,10 @@
       null, -1, [], 0, "final");
 
     /* 失败 ASL：从每个哈希地址出发探到第一个空槽 */
+    /* 失败 ASL：failTotal = 从 0~10 每个地址出发、探到第一个空槽的比较次数之和（分母是**表长 m**）；
+       detail = 各起点的次数明细。 */
     var failTotal = 0, detail = [];
+    /* liveTab = 最终表的副本：算失败 ASL 时要反复读它，拷一份免得和后面的帧纠缠。 */
     var liveTab = table.slice();
     for (var st = 0; st < M; st++) {
       var c = 0, p2 = st;
@@ -885,17 +951,28 @@
     var host = document.getElementById("viz-hash-chain");
     if (!host) return;
 
+    /* M = 桶数组长度（= 哈希函数里的模数），11 个桶。 */
     var M = 11;
+    /* KEYS = 依次插入的关键字；其中 99 会和别的关键字落在同一个桶里，用来演示同义词链。 */
     var KEYS = [99, 1, 23, 14, 55, 68, 11, 37, 46];
     var HEAD = true;                                     // true = 头插
+    /* HEAD = true 头插（O(1)，链上顺序与插入顺序相反）；改成 false 就变尾插，要走到链尾 O(链长)。 */
+    /* buckets[h] = 桶 h 上的同义词链表（普通数组，下标 0 就是链头）；
+       它是活变量、会被插入不断改写，所以每帧画的是 bCopy 快照。 */
     var buckets = [];
     for (var i = 0; i < M; i++) buckets.push([]);
     var frames = [];
 
     var BX = 40, BW = 66, BH = 26, BY = 64, ROWH = 32;   // 桶数组布局
+    /* 桶那一列的排版：每行 66×26，行距 32px，正好把 11 个桶叠下来；CH_* 是链结点圆心之间的水平间距 64px。 */
     var CH_X = BX + BW + 46, CH_W = 54, CH_STEP = 64;    // 链结点布局
 
+    /* 推一帧。curKey = 当前操作的 key（null = 无）；curBucket = 它落入的桶号（null = 无）；
+       visited = 已经走过的链结点坐标 [{b: 桶号, j: 链上第几个（0 基）}]；
+       phase = "init"/"insert"/"search"/"found"/"miss"/"final"，只影响配色；totalCmp = 本帧显示的比较次数。 */
     function snap(desc, curKey, curBucket, visited, phase, totalCmp) {
+      /* bCopy = **该帧的桶快照**：逐桶 slice() 深拷贝。
+         build() 跑完时 buckets 已经是全部插完的最终形态，draw 里读它会每帧都画成终态。 */
       var bCopy = [];
       for (var i = 0; i < M; i++) bCopy.push(buckets[i].slice());
       frames.push({
@@ -986,6 +1063,8 @@
     }
 
     /* ---------- 统计插入后的结果 ---------- */
+    /* succTotal = 成功 ASL 的分子：Σ 链长×(链长+1)/2（链上第 k 个元素要比较 k 次）；
+       lens = 非空桶的说明文字。 */
     var succTotal = 0, lens = [];
     for (var b = 0; b < M; b++) {
       succTotal += buckets[b].length * (buckets[b].length + 1) / 2;
@@ -996,8 +1075,11 @@
       (succTotal / 9).toFixed(3) + "</b>。", null, null, [], "final", 0);
 
     /* ---------- 查找阶段 ---------- */
+    /* searchTrace(key, label)：演示一次查找 —— 沿桶 H(key) 的链逐个比较并推帧；
+       返回值 {ok, cmp} 只用来写描述文字。 */
     function searchTrace(key, label) {
       var h = key % M;
+      /* visited = 本次查找已经走过的链结点坐标，每次推帧前 slice() 一份传进去。 */
       var visited = [];
       snap("【查找】" + label + "：key = <b>" + key + "</b> → <code>H(" + key + ") = " + h +
         "</code>，先定位到桶 " + h + "，然后沿链逐个比较。", key, h, [], "search", 0);
@@ -1021,6 +1103,8 @@
     searchTrace(100, "找一个不存在的元素");
 
     /* ---------- 失败 ASL ---------- */
+    /* 失败 ASL：失败 = 把整条链走完，比较次数 = 该桶的链长（空桶算 0 次）；
+       det = 各桶链长明细，failTotal = 合计（分母是桶数 m = 11）。 */
     var failTotal = 0, det = [];
     for (var q = 0; q < M; q++) { failTotal += buckets[q].length; det.push(buckets[q].length); }
     snap("最后算<b>查找不成功</b>的 ASL：失败意味着把整条链走完，比较次数 = 该桶的链长；空桶记 0。" +
@@ -1042,24 +1126,38 @@
     var host = document.getElementById("viz-hash-quadratic");
     if (!host) return;
 
+    /* M = 表长 11（同时是两种探测的模数）。 */
     var M = 11;
+    /* KEYS = 同一串关键字，两边插入顺序完全一样；前几个故意同余 mod 11，这样两种探测的差别才看得出来。 */
     var KEYS = [47, 7, 29, 11, 16, 92, 22, 8, 3];        // 故意让前几个关键字同余 mod 11
 
     /* 平方探测的增量序列：0, +1, -1, +4, -4, +9, -9, +16, -16, ... */
+    /* delta(i) = 平方探测第 i 步的增量：0, +1, −1, +4, −4, +9, −9 …
+       即奇数步取 +k²、偶数步取 −k²（k = ⌊(i+1)/2⌋）；i 是**探测序号**，0 基。 */
     function delta(i) {
       if (i === 0) return 0;
       var k = Math.floor((i + 1) / 2);
       var sq = k * k;
       return (i % 2 === 1) ? sq : -sq;
     }
+    /* mod(x) = 把 x 规约到 [0, M)：JS 的 % 遇到负数会返回负数，所以先 +M 再取模。 */
     function mod(x) { return ((x % M) + M) % M; }
 
+    /* tabL / tabQ = 线性探测、平方探测各自的哈希表（长度 M，null = 空槽）；
+       两张表都被就地改写，每帧画的是 sL / sQ 快照。 */
     var tabL = new Array(M).fill(null), tabQ = new Array(M).fill(null);
+    /* cmpL / cmpQ = key → 它在两边插入时的比较次数（= 成功查找的比较次数）。
+       本文件只往里写、没有再读（界面显示用的是下面的 sumL / sumQ），留着是为了对照单个 key。 */
     var cmpL = {}, cmpQ = {};
+    /* sumL / sumQ = 两边「成功查找比较次数」的累计和（ASL 分子），随插入递增，推帧时冻结成 sumLSnap / sumQSnap。 */
     var sumL = 0, sumQ = 0;
     var frames = [];
 
+    /* 推一帧。key = 正在插入的关键字（null = 已全部插完）；h = H(key)；
+       phL / phQ = 两边**当前探测到第几步**（0 基；-1 = 本帧不强调落点）；i = 正在插第几个关键字（0 基，文案里显示 i+1）。 */
     function snap(desc, key, h, phL, phQ, i) {
+      /* sL / sQ / curL / curQ / seenL / seenQ / sumLSnap / sumQSnap = **该帧的快照**：
+         两张表的内容、指针落点、已经走过的槽位、两边的累计比较次数（活变量 sumL / sumQ 会被后续插入改写）。 */
       var sL = tabL.slice(), sQ = tabQ.slice();
       var curL = phL >= 0 ? mod(h + phL) : -1;
       var curQ = phQ >= 0 ? mod(h + delta(phQ)) : -1;
@@ -1140,11 +1238,13 @@
       });
     }
 
+    /* kv(tab) = 把表里非空的数按槽位顺序拼成字符串，只用于底部那行“已插入的数”。 */
     function kv(tab) {
       var r = [];
       for (var i = 0; i < M; i++) if (tab[i] !== null) r.push(tab[i]);
       return r.length ? r.join(",") : "（无）";
     }
+    /* longestRun(tab) = 最长「连续占用块」的长度：扫 2M 格是为了处理首尾相接的绕回情况。 */
     function longestRun(tab) {
       var best = 0, cur = 0;
       for (var i = 0; i < 2 * M; i++) {
@@ -1160,6 +1260,7 @@
     for (var ki = 0; ki < KEYS.length; ki++) {
       var key = KEYS[ki];
       var h = key % M;
+      /* phL / phQ = 本轮两种探测各自已经探测了几步（-1 = 还没开始）。 */
       var phL = -1, phQ = -1;
 
       snap("插入 <b>key = " + key + "</b>：两种方法的起始地址相同，都是 <code>H(" + key + ") = " + key +
@@ -1201,6 +1302,7 @@
       null, -1, -1, -1, KEYS.length);
 
     /* 对比失败 ASL */
+    /* 失败 ASL 的两个分子：从每个哈希地址出发探到第一个空槽的比较次数之和（分母都是表长 M = 11）。 */
     var failL = 0, failQ = 0;
     for (var st = 0; st < M; st++) {
       var c1 = 0, p1 = st;

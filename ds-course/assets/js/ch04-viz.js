@@ -11,7 +11,7 @@
 (function () {
   "use strict";
 
-  var SVG = DS.SVG;
+  var SVG = DS.SVG;                             // 全页共用的 SVG 工具集：svg/box/text/label/el/line/path 都在它上面
 
   /* 共用小工具：把数字数组转成 "1 2 3" 这样的字符串 */
   function join(arr, sep) {
@@ -25,7 +25,7 @@
       return s / 4294967296;
     };
   }
-  function randInt(rnd, a, b) {
+  function randInt(rnd, a, b) {                 // 返回 [a, b] 闭区间内的整数（两端都能取到）
     return a + Math.floor(rnd() * (b - a + 1));
   }
 
@@ -33,17 +33,21 @@
      演示 1：普通顺序队列的假溢出
      ====================================================================== */
   (function queueBasic() {
+    /* 页面容器 #viz-queue-basic：普通顺序队列一路入队/出队，最后撞上「前面空着却报队满」的假溢出。 */
     var host = document.getElementById('viz-queue-basic');
     if (!host) return;
 
-    var MAX = 8;
-    var frames = [];
+    var MAX = 8;                    // 数组容量 MaxSize：合法下标 0..7；⚠ rear 可以一路涨到 8（== MAX），判满用的就是这个越界值
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
     var data = new Array(MAX);      // undefined 表示空位
-    var front = 0, rear = 0;
-    var note = "";
+    var front = 0, rear = 0;        // 都是 0 基下标：front = 队头元素所在格，rear = 队尾元素后面那格（下一个入队位置）；
+                                    // 元素个数 = rear − front；两者都只增不减，正是「假溢出」的根源
+    var note = "";                  // 底部那行提示文字；snap 不传 noteText 时沿用上一帧的值（跨帧保留）
 
     function snap(desc, marks, noteText) {
       if (noteText !== undefined) note = noteText;
+      /* 当帧快照：data / front / rear / note 在这一刻全部拷好，draw 只读 state。
+         marks 是「格子下标 → 类名」的覆盖表；每次调用都新建对象，所以直接存引用即可。 */
       var state = {
         data: data.slice(),
         front: front,
@@ -89,8 +93,8 @@
       svg.appendChild(s.text(frontX, y0 - 12, "↓ front=" + st.front, "sm brand", "middle"));
 
       // 状态行
-      var size = st.rear - st.front;
-      var full = st.rear === MAX;
+      var size = st.rear - st.front;    // 元素个数 = rear − front（本例 front/rear 都只增不减，才能这么直接减）
+      var full = st.rear === MAX;       // 判满只看 rear 有没有越界，压根没看 front —— 假溢出就出在这一句
       svg.appendChild(s.text(30, H - 52,
         "front=" + st.front + "　rear=" + st.rear + "　元素个数=" + size +
         "　判满条件 rear==MaxSize → " + (full ? "报告「队满」" : "未满"),
@@ -102,7 +106,7 @@
     snap("初始状态：空队列 <code>front = rear = 0</code>，8 个格子全部可用。", {},
       "此时没有任何浪费，一切正常。");
 
-    var pushes = ["A", "B", "C", "D"];
+    var pushes = ["A", "B", "C", "D"];   // 第一轮入队的 4 个元素
     for (var i = 0; i < pushes.length; i++) {
       data[rear] = pushes[i];
       rear++;
@@ -122,18 +126,18 @@
         m2, "每出队一次，数组前面就多一块「死区」。");
     }
 
-    var pushes2 = ["E", "F", "G", "H"];
+    var pushes2 = ["E", "F", "G", "H"];  // 第二轮入队的 4 个元素：正好把 rear 推到 8（== MAX），撞出假溢出
     for (var j = 0; j < pushes2.length; j++) {
       data[rear] = pushes2[j];
       rear++;
       var m3 = {}; m3[rear - 1] = "active";
-      var isLast = (rear === MAX);
+      var isLast = (rear === MAX);   // 本帧是不是「把 rear 推到 MAX」的那一步：只有它为 true，描述里才追加「判定为满」
       snap("入队 <b>" + pushes2[j] + "</b>：<code>data[" + (rear - 1) + "] = " + pushes2[j] +
         "; rear++</code>。" + (isLast ? "此时 <code>rear == 8 == MaxSize</code>，队列被判定为<b>满</b>。" : ""),
         m3, isLast ? "可是下标 0 和 1 明明是空的！" : "rear 继续单调右移，前面的空位一直闲置。");
     }
 
-    var markWaste = {}; markWaste[0] = "warn"; markWaste[1] = "warn";
+    var markWaste = {}; markWaste[0] = "warn"; markWaste[1] = "warn";   // 把永远用不到的下标 0、1 标红：被浪费的死区
     snap("假溢出：队列报「队满」，但 <code>data[0]</code>、<code>data[1]</code> 两个格子<b>从来没被复用</b>。" +
       "真实元素个数只有 6 个，容量却是 8 —— 这就是<b>假溢出 false overflow</b>。",
       markWaste, "根因：front 与 rear 单调递增，数组是线性的，而队列需要循环使用空间。");
@@ -153,24 +157,26 @@
      演示 2：循环队列（环形布局）
      ====================================================================== */
   (function circular() {
+    /* 页面容器 #viz-circular：环形布局演示循环队列的入队/出队/判满/判空，重点是 rear 从 7 绕回 0 的那一步。 */
     var host = document.getElementById('viz-circular');
     if (!host) return;
 
-    var MAX = 8;
-    var CX = 350, CY = 240, R = 112;
-    var frames = [];
-    var data = new Array(MAX);
-    var front = 0, rear = 0, size = 0;
-    var flash = -1;
+    var MAX = 8;                    // 环形数组容量；⚠ 为了区分「空」和「满」牺牲一格，实际最多只能存 MAX − 1 = 7 个元素
+    var CX = 350, CY = 240, R = 112;   // 环心坐标与半径（px）；每个格子的位置由 pos() 按角度算出来
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
+    var data = new Array(MAX);      // 8 个格子；undefined = 空位（画成暗色圆点）
+    var front = 0, rear = 0, size = 0;   // front = 队头下标；rear = 下一个入队位置；size = 当前元素个数（单独维护，
+                                         // 不能像普通队列那样用 rear − front，因为两个指针都会绕回 0）
+    var flash = -1;                 // 本帧要闪成橙色（compare）的格子下标，-1 = 不高亮；它由 snap 的第二个参数给出
 
-    function pos(i, radius) {
+    function pos(i, radius) {       // 第 i 个格子（0 基）在半径 radius 的圆上的坐标：i = 0 在正上方，角度顺时针均分
       var a = (-90 + i * 360 / MAX) * Math.PI / 180;
       return { x: CX + radius * Math.cos(a), y: CY + radius * Math.sin(a) };
     }
 
     function snap(desc, flashIdx) {
       flash = (flashIdx === undefined ? -1 : flashIdx);
-      var st = {
+      var st = {                    // 当帧快照：5 个量都在这一刻定下来，draw 只读 st
         data: data.slice(), front: front, rear: rear, size: size, flash: flash
       };
       frames.push({ desc: desc, draw: function (s) { return draw(s, st); } });
@@ -209,8 +215,8 @@
       svg.appendChild(s.text(rpTxt.x, rpTxt.y + 4, "rear=" + st.rear, "sm ok", "middle"));
 
       // 左上角状态面板
-      var isFull = (st.rear + 1) % MAX === st.front;
-      var isEmpty = (st.front === st.rear);
+      var isFull = (st.rear + 1) % MAX === st.front;   // 判满：故意留一格空位，所以是 (rear+1)%8 == front
+      var isEmpty = (st.front === st.rear);            // 判空：front == rear；与判满只差一格，这就是牺牲单元法
       var stTxt = isEmpty ? "空" : (isFull ? "满" : "正常");
       var panel = [
         ["front = ", st.front, "brand"],
@@ -234,7 +240,7 @@
     /* ---- 脚本化操作序列 ---- */
     snap("初始状态：<code>front = rear = 0</code>，8 个格子全空，<code>size = 0</code>。", -1);
 
-    function push(v, why) {
+    function push(v, why) {         // 入队：队满则只推一帧「入队失败」并返回 false；why 是拼进描述的补充句
       if ((rear + 1) % MAX === front) {
         snap("尝试入队 <b>" + v + "</b>：判满条件 <code>(rear+1)%8 == front</code> 即 <code>" +
           ((rear + 1) % MAX) + " == " + front + "</code> 成立 → <b>队满，入队失败</b>（牺牲了一个存储单元）。", -1);
@@ -249,7 +255,7 @@
         " 当前 size = " + size + "。", at);
       return true;
     }
-    function pop(why) {
+    function pop(why) {             // 出队：队空则只推一帧「出队失败」并返回 false
       if (front === rear) {
         snap("尝试出队：<code>front == rear</code>（都是 " + front + "）→ <b>队空，出队失败</b>。", -1);
         return false;
@@ -300,20 +306,23 @@
      演示 3：银行排队模拟（离散事件）
      ====================================================================== */
   (function bank() {
+    /* 页面容器 #viz-bank：单窗口银行排队的离散事件模拟，12 位顾客按随机到达时刻排队，最后给出等待时间报表。 */
     var host = document.getElementById('viz-bank');
     if (!host) return;
 
     var N = 12;                 // 顾客数
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     (function simulate() {
-      var rnd = makeRnd(20240501);
+      var rnd = makeRnd(20240501);            // 固定种子的伪随机数发生器：每次打开页面顾客到达/服务时长完全一样，结果可复现
+      /* clock：当前模拟时刻（单位：分钟）。离散事件模拟只在「顾客到达 / 服务结束」这些事件点上推进时间，不会一分钟一分钟地走。 */
       var clock = 0, freeAt = 0;              // freeAt：窗口「变空闲」的时刻（初始 0 表示一开始就空闲）
-      var nextArrive = randInt(rnd, 1, 5);
+      var nextArrive = randInt(rnd, 1, 5);    // 下一位顾客的到达时刻（在上一时刻之后 1..5 分钟），每处理完一位就重算
       var q = [];                             // 等待队列
-      var serving = null;
-      var stats = { done: 0, totalWait: 0, maxWait: 0, maxQueue: 0, idle: 0 };
-      var timeline = [];
+      var serving = null;                     // 正在窗口里被服务的顾客对象（null = 窗口空闲）；字段 {id, arrive, serve, start, leave}
+      var stats = { done: 0, totalWait: 0, maxWait: 0, maxQueue: 0, idle: 0 };   // 累计统计，只增不减：
+      // done 已服务完人数、totalWait 等待分钟总和、maxWait 最长等待、maxQueue 队列长度峰值、idle 窗口空闲总分钟
+      var timeline = [];                      // 每位顾客的服务记录 {id, arrive, start, leave}；只被拷进快照，draw 其实从没读过它
 
       function snapshot(desc, flashId) {
         var st = {
@@ -328,7 +337,7 @@
       }
 
       // 开始服务：核心公式 start = max(到达时刻, 窗口空闲时刻)
-      function startServe(c, extra) {
+      function startServe(c, extra) {         // 叫号开始服务：核心公式 start = max(到达时刻, 窗口空闲时刻)；窗口白等的时间在这里累计
         var wasFree = freeAt;
         c.start = Math.max(c.arrive, wasFree);
         if (c.start > wasFree) stats.idle += c.start - wasFree;   // 窗口白等了一段时间
@@ -342,7 +351,7 @@
           (extra || ""), c.id);
       }
 
-      function finishServe(extra) {
+      function finishServe(extra) {           // 服务结束：把这一单的等待时间并入统计（done / totalWait / maxWait），并清空 serving
         var c = serving;
         serving = null;
         stats.done++;
@@ -367,14 +376,15 @@
         }
 
         // ② 新顾客到达
-        var c = { id: i, arrive: clock, serve: randInt(rnd, 2, 6), start: 0, leave: 0 };
+        var c = { id: i, arrive: clock, serve: randInt(rnd, 2, 6), start: 0, leave: 0 };   // 新顾客：id 从 1 数起（1 基），
+        // arrive = 当前时刻，serve = 需要的服务分钟数（2..6 随机）；start / leave 先占位成 0，稍后由 startServe 填
         if (!serving) {
           snapshot("顾客 <b>" + c.id + "</b> 到达：时刻 " + clock + "，需要服务 " + c.serve + " 分钟。" +
             "此刻柜员空闲、队列为空，可以<b>立即开始服务</b>。", c.id);
           startServe(c, "顾客到达时窗口正好空闲，<b>等待时间为 0</b>。");
         } else {
           q.push(c);
-          var isRecord = q.length > stats.maxQueue;
+          var isRecord = q.length > stats.maxQueue;   // 这次入队是否刷新了队列长度纪录：只有它为 true 时，描述里才加「刷新纪录」
           if (isRecord) stats.maxQueue = q.length;
           snapshot("顾客 <b>" + c.id + "</b> 到达：时刻 " + clock + "，需要服务 " + c.serve + " 分钟。" +
             "柜员正忙着服务顾客 " + serving.id + "（要到 " + serving.leave + " 才结束），" +
@@ -390,7 +400,7 @@
         if (q.length) startServe(q.shift());
       }
 
-      var avgWait = stats.done ? (stats.totalWait / stats.done) : 0;
+      var avgWait = stats.done ? (stats.totalWait / stats.done) : 0;   // 平均等待：分母是「已服务完人数」（三元只是防除零）
       snapshot("模拟结束：总耗时 " + freeAt + " 分钟，共服务 " + stats.done + " 位顾客。" +
         "平均等待 <b>" + avgWait.toFixed(2) + "</b> 分钟，最大等待 <b>" + stats.maxWait + "</b> 分钟，" +
         "队列最大长度 <b>" + stats.maxQueue + " 人</b>，窗口空闲 " + stats.idle + " 分钟。" +
@@ -444,7 +454,7 @@
 
       // ---- 统计面板 ----
       svg.appendChild(s.el("rect", { x: 24, y: 196, width: 832, height: 108, rx: 10, fill: "var(--panel-2)", stroke: "var(--border)" }));
-      var avg = st.stats.done ? (st.stats.totalWait / st.stats.done) : 0;
+      var avg = st.stats.done ? (st.stats.totalWait / st.stats.done) : 0;   // 和收尾时同一个公式：分母是已完成人数，所以中途看到的是「当前平均」
       var items = [
         ["当前时刻 clock", st.clock],
         ["已完成人数", st.stats.done + " / " + N],
@@ -475,16 +485,18 @@
      演示 4：双端队列的两端操作
      ====================================================================== */
   (function deque() {
+    /* 页面容器 #viz-deque：双端队列在两端插入/删除，四个操作都是 O(1)。 */
     var host = document.getElementById('viz-deque');
     if (!host) return;
 
-    var CAP = 8;
-    var frames = [];
-    var data = new Array(CAP);
-    var front = 0, rear = 0, size = 0;
+    var CAP = 8;                    // 数组容量；这里是循环数组 + 单独维护 size，所以存满 CAP 个才算满（不用牺牲一格）
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
+    var data = new Array(CAP);      // undefined = 空位（画成虚线灰格）
+    var front = 0, rear = 0, size = 0;   // front = 队头下标；rear = 队尾元素的下一格（后端插入的位置）；size = 真实元素个数
+                                         // ⚠ 两端都会绕圈，所以个数必须看 size，不能直接 rear − front
     var limit = "";             // 当前演示的是哪种受限形式
 
-    function logical() {
+    function logical() {            // 按逻辑顺序（front → rear）把元素取出来；内部靠 (front + i) % CAP 绕环
       var out = [];
       for (var i = 0; i < size; i++) out.push(data[(front + i) % CAP]);
       return out;
@@ -492,6 +504,8 @@
 
     function snap(desc, marks, limitText) {
       if (limitText !== undefined) limit = limitText;
+      /* 当帧快照：data / front / rear / size 在这一刻拷好，logical 是当场算好的逻辑顺序副本；
+         limit 与上面的 note 一样，属于「不传就沿用上一帧」的文字。 */
       var st = {
         data: data.slice(), front: front, rear: rear, size: size,
         marks: marks || {}, limit: limit, logical: logical()
@@ -536,6 +550,7 @@
 
     snap("初始：<code>front = rear = 0</code>，<code>size = 0</code>。双端队列允许在<b>两端</b>插入和删除。", {}, "");
 
+    /* 下面四个操作都不搬移元素、都是 O(1)；队满 / 队空时只推一帧失败说明，不动数据。 */
     function pushBack(v) {
       if (size === CAP) { snap("队列已满，<code>push_back(" + v + ")</code> 失败。", {}); return; }
       var at = rear;
@@ -548,7 +563,7 @@
     }
     function pushFront(v) {
       if (size === CAP) { snap("队列已满，<code>push_front(" + v + ")</code> 失败。", {}); return; }
-      var oldFront = front;
+      var oldFront = front;         // 先把插入前的 front 记下来：下面要「先退格再写入」，文字里还得用旧值
       front = (front - 1 + CAP) % CAP;
       data[front] = v;
       size++;
@@ -612,19 +627,25 @@
      演示 5：单调队列求滑动窗口最大值
      ====================================================================== */
   (function slidingWindow() {
+    /* 页面容器 #viz-sliding-window：单调队列求滑动窗口最大值，把 O(nk) 的暴力比较压成 O(n)。 */
     var host = document.getElementById('viz-sliding-window');
     if (!host) return;
 
-    var A = [1, 3, -1, -3, 5, 3, 6, 7];
-    var K = 3;
-    var n = A.length;
-    var frames = [];
+    var A = [1, 3, -1, -3, 5, 3, 6, 7];   // 题目数组（下标 0 基）；窗口就在它上面从左往右滑
+    var K = 3;                      // 窗口大小 = 元素个数（不是下标差）：窗口是闭区间 [i−K+1, i]
+    var n = A.length;               // 元素个数；答案数组 res 的长度是 n − K + 1 = 6
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     (function build() {
       var dq = [];            // 单调递减队列，存下标
-      var res = [];
+      /* dq 里存的是「下标」不是值：队头 dq[0] 就是当前窗口最大值的下标，队内 A[dq[k]] 从队头到队尾单调递减。 */
+      var res = [];           // 答案：每个填满的窗口输出一个最大值，res[0] 对应窗口 [0, K−1]，共 n − K + 1 个
 
       function snap(desc, st) {
+        /* 当帧快照：dq / res 各拷一份（它们会被后面的循环就地改写）。
+           i = 当前处理的下标（-1 = 还没开始）；winFrom / winTo = 本帧窗口的闭区间端点（-1 = 不画窗口框，
+           未填满时 winFrom 用 max(0, i−K+1) 夹住）；popped = 本帧被「去尾」弹出的下标；
+           head / justOut 也塞进了快照，但 draw 从来没读过它们，只是留作调试信息。 */
         var state = {
           dq: dq.slice(),
           res: res.slice(),
@@ -643,7 +664,7 @@
 
       for (var i = 0; i < n; i++) {
         // ---- 步骤一：去尾 ----
-        var popped = [];
+        var popped = [];      // 本轮被「去尾」弹出的下标（它们既更小又更早过期），用于文字和红色高亮
         var desc = "第 " + (i + 1) + " 步 · 元素 <b>a[" + i + "] = " + A[i] + "</b>：先看队尾。";
         while (dq.length && A[dq[dq.length - 1]] <= A[i]) {
           popped.push(dq.pop());
@@ -662,7 +683,7 @@
 
         // ---- 步骤二：入队 + 去头 + 取答案 ----
         dq.push(i);
-        var headOut = -1;
+        var headOut = -1;     // 本轮被「去头」弹出的下标（没弹就是 -1）；只用于文字，draw 不读 justOut
         var d2 = "把下标 <b>" + i + "</b> 压入队尾。";
         if (dq[0] <= i - K) {
           headOut = dq.shift();
@@ -672,7 +693,7 @@
           d2 += "队头下标 " + dq[0] + " 仍在窗口内，保留。";
         }
         var outTxt = "";
-        if (i >= K - 1) {
+        if (i >= K - 1) {     // 窗口填满（i ≥ K−1）才输出答案：所以 res 的下标 = i − (K − 1)
           res.push(A[dq[0]]);
           outTxt = "窗口 [" + (i - K + 1) + ", " + i + "] 已填满 → <b>输出队头值 " + A[dq[0]] + "</b>。";
         } else {
@@ -755,10 +776,12 @@
      演示 6：BFS 逐层扩展求迷宫最短路径
      ====================================================================== */
   (function mazeBfs() {
+    /* 页面容器 #viz-maze-bfs：BFS 逐层扩展求迷宫最短路径，队列的 FIFO 保证「第一次到达即最短」。 */
     var host = document.getElementById('viz-maze-bfs');
     if (!host) return;
 
-    var R = 5, C = 7;
+    var R = 5, C = 7;               // 迷宫的行数、列数；全篇坐标都写成 (r, c)：r 是行（0 基，从上往下）、c 是列（0 基，从左往右）
+    /* 迷宫矩阵：0 = 可走，1 = 墙；取值就是 MAZE[r][c]，注意是「先 r 后 c」。 */
     var MAZE = [
       [0, 0, 0, 0, 1, 0, 0],
       [0, 0, 1, 0, 1, 0, 0],
@@ -766,23 +789,31 @@
       [1, 0, 0, 1, 0, 1, 0],
       [0, 0, 0, 0, 0, 0, 0]
     ];
-    var SR = 0, SC = 0, TR = 2, TC = 6;
-    var OPEN = 0;
+    var SR = 0, SC = 0, TR = 2, TC = 6;   // 起点 S 与终点 T 的坐标（都是 0 基下标）
+    var OPEN = 0;                   // 可走格子总数（矩阵里 0 的个数）；只在启动时统计一次，用于显示「已访问 x / OPEN」的进度
     (function countOpen() {
       for (var r = 0; r < R; r++) for (var c = 0; c < C; c++) if (MAZE[r][c] === 0) OPEN++;
     })();
-    var frames = [];
+    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
 
     (function build() {
+      /* 三个算法状态，都会被就地改写，所以每帧都要拷进快照：
+         dist[r][c]   从起点走到 (r,c) 的最少步数，-1 = 还没访问过（初始全是 -1）；画面上格子里的数字就是它。
+         parent[r][c] BFS 树上的父格子 {r,c}（起点是 null，回溯路径靠它一路退回起点）。
+         q            BFS 队列，存 {r,c} 格子坐标，队头先出队。
+         order        入队顺序记录（= 已访问格子数），用于统计和进度显示。 */
       var dist = [], parent = [], q = [], order = [];
       var r, c;
       for (r = 0; r < R; r++) {
         dist.push([]); parent.push([]);
         for (c = 0; c < C; c++) { dist[r].push(-1); parent[r].push(null); }
       }
-      var dr = [-1, 1, 0, 0], dc = [0, 0, -1, 1];
+      var dr = [-1, 1, 0, 0], dc = [0, 0, -1, 1];   // 四个方向的偏移量，下标一一对应：上、下、左、右（dr 行增量、dc 列增量）
 
       function snap(desc, st) {
+        /* 当帧快照：dist 是二维深拷贝；q 拷成普通对象数组；cur = 本帧正在出队扩展的格子；
+           fresh = 本轮新入队的格子（画橙框）；path = 回溯出的路径（只有最后两帧有）；
+           done = 是否已结束（决定要不要画绿色折线的图例）；visited = 已访问格子数。 */
         var state = {
           dist: dist.map(function (row) { return row.slice(); }),
           q: q.map(function (p) { return { r: p.r, c: p.c }; }),
@@ -802,20 +833,20 @@
         "队列里现在只有起点，距离层数 = 1。", { cur: { r: SR, c: SC }, visited: 1 });
 
       while (q.length) {
-        var cur = q.shift();
-        var fresh = [];
+        var cur = q.shift();          // 从队头取出一个格子：FIFO 保证先出队的距离最小，这是 BFS 的次序保证
+        var fresh = [];               // 本轮从 cur 新扩展出来、刚入队的格子（画橙框）
         for (var k = 0; k < 4; k++) {
           var nr = cur.r + dr[k], nc = cur.c + dc[k];
           if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
           if (MAZE[nr][nc] === 1) continue;
           if (dist[nr][nc] !== -1) continue;
-          dist[nr][nc] = dist[cur.r][cur.c] + 1;
+          dist[nr][nc] = dist[cur.r][cur.c] + 1;      // 距离 = 当前格子 + 1；必须在「入队时」就标记，否则同一格会被重复入队
           parent[nr][nc] = { r: cur.r, c: cur.c };
           q.push({ r: nr, c: nc });
           order.push({ r: nr, c: nc });
           fresh.push({ r: nr, c: nc });
         }
-        var total = order.length;
+        var total = order.length;     // 目前已访问（入队过）的格子总数
         snap("出队 <b>(" + cur.r + "," + cur.c + ")</b>（距离 " + dist[cur.r][cur.c] + "），向四个方向扩展：" +
           (fresh.length
             ? "新入队 " + fresh.map(function (p) { return "(" + p.r + "," + p.c + ")"; }).join("、") +
@@ -826,9 +857,9 @@
       }
 
       // 回溯路径
-      var path = [], p = { r: TR, c: TC };
+      var path = [], p = { r: TR, c: TC };   // 从终点沿 parent 一步一步退回起点（起点的 parent 是 null，循环靠它终止）
       while (p) { path.push(p); p = parent[p.r][p.c]; }
-      path.reverse();
+      path.reverse();                       // 上面得到的是 T→S，翻转后才是画线要的 S→T 顺序
       snap("BFS 结束（队列空了）。终点 <b>(" + TR + "," + TC + ")</b> 第一次被访问时的距离是 <b>" +
         dist[TR][TC] + "</b>，这就是最短路径长度。" +
         "沿 <code>parent[]</code> 从终点回溯，得到路径：" +
@@ -847,11 +878,11 @@
       var svg = s.svg(W, H);
       s.defs(svg);
       var cell = 48, x0 = 40, y0 = 56;
-      var pathSet = {};
+      var pathSet = {};               // 查找表：键 "r,c" → 在路径里的序号；单元格是按坐标画的，需要快速判断「这格在不在路径上」
       if (st.path) {
         for (var pi = 0; pi < st.path.length; pi++) pathSet[st.path[pi].r + "," + st.path[pi].c] = pi;
       }
-      var freshSet = {};
+      var freshSet = {};              // 同上：本轮新入队的格子集合，画橙框用
       for (var fi = 0; fi < st.fresh.length; fi++) freshSet[st.fresh[fi].r + "," + st.fresh[fi].c] = 1;
 
       svg.appendChild(s.text(40, 30, "迷宫（# 墙） · 格内数字 = 从起点 S 走到该格的最少步数", "lg", "start"));
@@ -902,7 +933,7 @@
         fill: "var(--panel-2)", stroke: "var(--border)"
       }));
       svg.appendChild(s.text(qx, 70, "队列内容（front → rear）", "lg", "start"));
-      var limit = Math.min(st.q.length, 15);
+      var limit = Math.min(st.q.length, 15);   // 队列面板最多只画 15 个格子，多出来的用文字「… 还有 N 个」提示
       for (var qi = 0; qi < limit; qi++) {
         var bx = qx + (qi % 5) * 88, by = 84 + Math.floor(qi / 5) * 46;
         svg.appendChild(s.box(bx, by, 80, 38, qi === 0 ? "active" : "", "(" + st.q[qi].r + "," + st.q[qi].c + ")"));
