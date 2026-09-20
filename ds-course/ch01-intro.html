@@ -1824,21 +1824,18 @@ int main() {
       这又是一个「存储结构决定算法能否成立」的例子。
     </p>
 
-    <h3 id="ex-sum">1.8.1 速查表：八种常见代码形态（含上面五道例题）</h3>
+    <h3 id="ex-sum">1.8.1 五道例题速查表</h3>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>#</th><th>代码形态</th><th>频度 / 递推式</th><th>推导关键</th><th>结果</th></tr>
+          <tr><th>题号</th><th>代码形态</th><th>频度 / 递推式</th><th>推导关键</th><th>结果</th></tr>
         </thead>
         <tbody>
-          <tr><td>1</td><td>单层 for</td><td>T(n) = 3n + 4</td><td>循环体执行 n 次</td><td class="c-ok">O(n)</td></tr>
-          <tr><td>2</td><td>双层嵌套</td><td>T(n) = 2n² + 2n + 2</td><td>外层 n × 内层 n</td><td class="c-ok">O(n²)</td></tr>
-          <tr><td>3</td><td>三层三角形嵌套</td><td>T(n) = n(n+1)(n+2)/6</td><td>三重求和 + Σi² 公式</td><td class="c-ok">O(n³)</td></tr>
-          <tr><td>4</td><td><code>i *= 2</code> / <code>i /= 2</code></td><td>k ≈ log₂n + 1</td><td>通项 i = 2<sup>k</sup></td><td class="c-ok">O(log n)</td></tr>
-          <tr><td>5</td><td><code>i = i * i</code> / <code>i = √i</code></td><td>k ≈ log₂log₂n + 1</td><td>通项 i = 2<sup>2<sup>k</sup></sup></td><td class="c-ok">O(log log n)</td></tr>
-          <tr><td>6</td><td>线性递归 T(n) = T(n−1) + c</td><td>T(n) = (n+1)c</td><td>展开法，触底 T(0)</td><td class="c-ok">O(n)，空间 O(n)</td></tr>
-          <tr><td>7</td><td>归并排序 T(n) = 2T(n/2) + cn</td><td>T(n) = cn·log₂n + O(n)</td><td>归并在规模 n、n/2、…、2 这 log₂n 层，每层 cn；规模 1 那层只 return，不归并</td><td class="c-ok">O(n log n)</td></tr>
-          <tr><td>8</td><td>二分查找 T(n) = T(n/2) + c</td><td>T(n) = c(log₂n + 1)</td><td>每层常数代价 × log 层</td><td class="c-ok">O(log n)</td></tr>
+          <tr><td>例 1</td><td>双层嵌套</td><td>T(n) = 2n² + 2n + 2</td><td>外层 n × 内层 n</td><td class="c-ok">O(n²)</td></tr>
+          <tr><td>例 2</td><td><code>i *= 2</code> / <code>i /= 2</code></td><td>k ≈ log₂n + 1</td><td>通项 i = 2<sup>k</sup></td><td class="c-ok">O(log n)</td></tr>
+          <tr><td>例 3</td><td><code>i = i * i</code> / <code>i = √i</code></td><td>k ≈ log₂log₂n + 1</td><td>通项 i = 2<sup>2<sup>k</sup></sup></td><td class="c-ok">O(log log n)</td></tr>
+          <tr><td>例 4</td><td>归并排序 T(n) = 2T(n/2) + cn</td><td>T(n) = cn·log₂n + O(n)</td><td>归并在规模 n、n/2、…、2 这 log₂n 层，每层 cn；规模 1 那层只 return，不归并</td><td class="c-ok">O(n log n)</td></tr>
+          <tr><td>例 5</td><td>二分查找 T(n) = T(n/2) + c</td><td>T(n) = c(log₂n + 1)</td><td>每层常数代价 × log 层</td><td class="c-ok">O(log n)</td></tr>
         </tbody>
       </table>
     </div>
