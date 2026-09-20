@@ -1611,46 +1611,112 @@ int main() {
       这是<b>分治法</b>的典型形态：把问题一分为二（2 个规模 n/2 的子问题），
       再花线性时间把两半结果合起来。归并排序、快速排序的平均情况都是这个式子。
     </p>
+    <div class="note">
+      <span class="note-title">这段代码怎么读（先看这里，能省十分钟）</span>
+      它只有三步，记住这三个字就够了：<b>分</b>（从中间切开）、<b>治</b>（两半各自递归去排）、
+      <b>合</b>（把两个已经有序的半段并成一个有序段）。递归看着绕，其实每一层都在重复这三步。
+      <br>为了让你一眼看穿它，代码里只放了 <b>4 个数</b>，而且把每次「分」「合」都打印了出来。
+      <b>建议直接复制去编译跑一遍</b>：输出的缩进就是递归树的形状，
+      你会看到「一路分到底，再一层层合上来」的完整顺序 —— 比盯着代码空想快得多。
+    </div>
     <pre data-lang="cpp" data-file="ex4_merge_sort.cpp">// ex4_merge_sort.cpp —— 归并排序：T(n) = 2T(n/2) + Θ(n) = O(n log n)
+//
+// 只用 4 个数，每次「分」「合」都打印出来（运行结果附在文件末尾），方便对照递归树。
+// 读之前只需要记住一个约定：
+//   区间写成 [l, r)，意思是「从下标 l 开始、到下标 r 之前为止」——左边算、右边不算。
+//   好处是区间长度直接就是 r - l，不用到处写 +1 / -1，不容易错。
 #include &lt;iostream&gt;
 #include &lt;vector&gt;
 
-void mergeSort(std::vector&lt;int&gt;&amp; a, int l, int r, std::vector&lt;int&gt;&amp; buf) {
-    /* 递归基：区间 [l, r) 里只剩 0 个或 1 个元素。
-       只有 1 个元素时，它「自己跟自己」不需要排序，也就**没有任何东西可以比较** ——
-       所以这里一次比较都不做，直接返回。
-       真正的「第一次比较」不在这一层，而在上一层：把两个各含 1 个元素的半段并起来时。
-       见下面「合」那一段的注释。 */
-    if (r - l &lt;= 1) return;
+std::vector&lt;int&gt; a = {5, 2, 9, 1};   // 要排序的数组（只有 4 个数，递归总共 2 层）
+std::vector&lt;int&gt; buf(a.size());      // 合并时的临时缓冲区，大小和 a 一样（后面 1.11 讲空间复杂度会用到它）
+int depth = 0;                       // 当前递归到第几层；只用来控制打印缩进，与算法无关
 
-    int m = l + (r - l) / 2;                      // 分：O(1)
-    mergeSort(a, l, m, buf);                      // 治：T(n/2)
-    mergeSort(a, m, r, buf);                      // 治：T(n/2)
+void pad() { for (int i = 0; i &lt; depth; ++i) std::cout &lt;&lt; "  "; }
 
-    /* 合：Θ(n)。整个归并排序**只在这一段里做比较**。
-       最底层的那次归并，发生在「两个半段各只有 1 个元素」的时候，也就是区间长度 = 2 的调用：
-         · i 指左半段唯一的元素，j 指右半段唯一的元素；
-         · while 循环**恰好比较 1 次**就定下谁在前；
-         · 落后的那个半段随即用完，后两个 while 直接把另一个整体搬走，不再比较。
-       所以两层要分清：
-         · 区间长度 = 1 的调用 → 比较 0 次（递归基，直接 return）；
-         · 区间长度 = 2 的调用 → 比较 1 次（这就是「最后一次比较」发生的地方）；
-       整个数组里长度为 2 的区间共有 n/2 个，于是这一层总共比较 n/2 次。 */
-    int i = l, j = m, k = l;
-    while (i &lt; m &amp;&amp; j &lt; r) buf[k++] = (a[i] &lt;= a[j]) ? a[i++] : a[j++];
-    while (i &lt; m) buf[k++] = a[i++];
-    while (j &lt; r) buf[k++] = a[j++];
-    for (int t = l; t &lt; r; ++t) a[t] = buf[t];    // 搬回原数组，也计入「合」的代价
+/* 打印 a 的下标 [l, r) 这一段，元素之间用空格隔开（末尾不留多余空格） */
+void printRange(int l, int r) {
+    for (int t = l; t &lt; r; ++t) {
+        if (t &gt; l) std::cout &lt;&lt; " ";
+        std::cout &lt;&lt; a[t];
+    }
 }
 
+/* 把区间 [l, r) 里的数排好序。
+   [l, r) 的意思是「从下标 l 开始，到下标 r 之前为止」——左边算、右边不算。
+   这样约定的好处：区间长度直接就是 r - l，不用到处写 +1 / -1，不容易错。 */
+void mergeSort(int l, int r) {
+    int len = r - l;                 // 这个区间里有几个数
+
+    /* 【递归基】区间里只剩 0 个或 1 个数 —— 它自己就是有序的，直接返回。
+       注意：这里「一次比较都不做」。只有 1 个数时，没有任何两个数需要比大小。
+       （真正「比较一次」的是长度为 2 的那一层，见下面合的部分。） */
+    if (len &lt;= 1) return;
+
+    /* 【分】从正中间切开：左半是 [l, m)，右半是 [m, r) */
+    int m = l + len / 2;
+    pad();
+    std::cout &lt;&lt; "分 [" &lt;&lt; l &lt;&lt; "," &lt;&lt; r &lt;&lt; ") → 左[" &lt;&lt; l &lt;&lt; "," &lt;&lt; m
+              &lt;&lt; ") 右[" &lt;&lt; m &lt;&lt; "," &lt;&lt; r &lt;&lt; ")\n";
+
+    /* 【治】两半各自排好序。写法就是「调用自己」，只是区间小了一半 */
+    ++depth;                         // 进下一层，打印时多缩进两格
+    mergeSort(l, m);
+    mergeSort(m, r);
+    --depth;                         // 回到本层
+
+    /* 【合】此刻左右两半都「已经有序」了，把它们并成一个有序区间：
+       i 指左半的第一个数、j 指右半的第一个数，每次挑小的那个搬进 buf。 */
+    int i = l, j = m, k = l;
+    while (i &lt; m &amp;&amp; j &lt; r) {         // 两半都还有数：比一比，搬小的
+        if (a[i] &lt;= a[j]) buf[k++] = a[i++];
+        else              buf[k++] = a[j++];
+    }
+    while (i &lt; m) buf[k++] = a[i++];   // 右半搬完了，左半剩下的直接接上（不用再比）
+    while (j &lt; r) buf[k++] = a[j++];   // 左半搬完了，右半剩下的直接接上（不用再比）
+
+    for (int t = l; t &lt; r; ++t) a[t] = buf[t];   // 把排好的这一段搬回 a
+
+    pad();
+    std::cout &lt;&lt; "合 [" &lt;&lt; l &lt;&lt; "," &lt;&lt; r &lt;&lt; ") → ";
+    printRange(l, r);
+    std::cout &lt;&lt; "\n";
+}
+
+/* 对照递推式 T(n) = 2T(n/2) + cn，看上面代码的三个部分：
+     「分」那一行          → 一次加法一次除法，常数时间 O(1)（递推式里忽略不计）
+     两次 mergeSort 调用   → 2 × T(n/2)   ← 式子里的 2T(n/2) 说的就是它
+     「合」那几行          → 每个元素都被搬进 buf 一次、搬回 a 一次，总次数与 n 成正比 Θ(n)
+                            ← 式子里的 cn 说的就是它
+   所以 T(n) = 2T(n/2) + cn。 */
 int main() {
-    std::vector&lt;int&gt; a = {5, 2, 9, 1, 7, 3, 8, 4, 6, 0};
-    std::vector&lt;int&gt; buf(a.size());
-    mergeSort(a, 0, (int)a.size(), buf);
-    for (int v : a) std::cout &lt;&lt; v &lt;&lt; ' ';
-    std::cout &lt;&lt; '\n';                              // 0 1 2 3 4 5 6 7 8 9
+    std::cout &lt;&lt; "原始数组：";
+    printRange(0, (int)a.size());
+    std::cout &lt;&lt; "\n\n";
+
+    mergeSort(0, (int)a.size());
+
+    std::cout &lt;&lt; "\n排序结果：";
+    printRange(0, (int)a.size());
+    std::cout &lt;&lt; "\n";
     return 0;
 }
+
+/* ------- 运行结果（缩进就是递归树的层次，建议自己跑一遍对照） -------
+原始数组：5 2 9 1
+
+分 [0,4) → 左[0,2) 右[2,4)
+  分 [0,2) → 左[0,1) 右[1,2)
+  合 [0,2) → 2 5
+  分 [2,4) → 左[2,3) 右[3,4)
+  合 [2,4) → 1 9
+合 [0,4) → 1 2 5 9
+
+排序结果：1 2 5 9
+   从输出能一眼看出两件事：
+     ① 递归的顺序是「一路分到底，再一层层合上来」；
+     ② 最底下的两次「合」都是把两个单独的数并起来 —— 那一次正好比较 1 次。
+   ----------------------------------------------------------------- */
 </pre>
     <p>用<b>递归树</b>展开最直观：每一层的合并总代价都是 n，层数是对数级。</p>
     <div class="table-wrap">
@@ -1666,7 +1732,7 @@ int main() {
                   <span class="mini">每对半段各 1 个元素，比较 1 次定序</span></td></tr>
           <tr><td>log₂n<br><span class="c-ok">触底，不再归并</span></td><td>n</td><td>1</td>
               <td><b>不产生归并代价</b><br>
-                  <span class="mini"><code>r - l &lt;= 1</code> 直接 return，比较 0 次、搬移 0 次</span></td></tr>
+                  <span class="mini"><code>if (len &lt;= 1) return;</code>（<code>len = r - l</code>）直接返回，比较 0 次、搬移 0 次</span></td></tr>
           <tr><td colspan="3"><b>做归并的是 k = 0 … log₂n − 1 这 log₂n 层，每层 n ⇒ T(n) = n·log₂n + O(n)</b></td>
               <td class="c-ok"><b>O(n log n)</b></td></tr>
         </tbody>
@@ -1675,11 +1741,15 @@ int main() {
 
     <div class="note tip">
       <span class="note-title">最容易卡住的一点：那「最后一次比较」到底发生在哪一层？</span>
-      看代码：<code>if (r - l &lt;= 1) return;</code> 所以<b>规模 1 的那些调用一次比较都不做</b>，
+      看代码：<code>if (len &lt;= 1) return;</code>（<code>len</code> 就是区间长度 <code>r - l</code>）
+      所以<b>规模 1 的那些调用一次比较都不做</b>，
       它们只是递归的「底」。真正做最后一次比较的是<b>规模 2</b> 那一层 —— 把两个各含 1 个元素的半段并起来，
       <code>while</code> 恰好比较 1 次就定下谁在前；这样的配对数有 n/2 对。
       也就是说：<b>归并只发生在规模 n、n/2、…、2 这 log₂n 层</b>，规模 1 那层不参与归并。
-      <br>拿 n = 8 实测（在 <code>mergeSort</code> 里加计数器跑出来的）：
+      <br>这一点在代码里就能直接看到：把上面那段程序跑起来，最后两次「合」的输出是
+      <code>合 [0,2) → 2 5</code> 和 <code>合 [2,4) → 1 9</code> —— 每次都是把两个单独的数并起来，
+      各比较 1 次；而长度为 1 的区间压根没有输出，因为它一进来就返回了。
+      <br>再看 n = 8 的实测（在 <code>mergeSort</code> 里加计数器跑出来的）：
       规模 8 归并 1 次、规模 4 归并 2 次、规模 2 归并 4 次，规模 1 的调用 8 次；
       后者的比较次数是 <b>0</b>，「比较 1 次」的那 4 次全部记在规模 2 那一层。
       <br>对比<b>例 5（二分查找）</b>：它的递归基 <code>T(1) = c</code> 本身就要做 1 次比较，
