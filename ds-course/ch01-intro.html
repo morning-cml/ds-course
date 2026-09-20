@@ -1461,7 +1461,7 @@ int main() {
     </div>
 
     <h3 id="ex1">例 1　双层嵌套 —— O(n²)</h3>
-    <pre data-lang="cpp" data-file="ex2_double_loop.cpp">// ex2_double_loop.cpp —— 双层嵌套：总次数 = 外层 × 内层
+    <pre data-lang="cpp" data-file="ex1_double_loop.cpp">// ex1_double_loop.cpp —— 双层嵌套：总次数 = 外层 × 内层
 #include &lt;iostream&gt;
 
 long long countPairs(int n) {
@@ -1509,7 +1509,7 @@ int main() {
     </p>
 
     <h3 id="ex2">例 2　循环变量倍增 —— O(log n)</h3>
-    <pre data-lang="cpp" data-file="ex4_double_step.cpp">// ex4_double_step.cpp —— 倍增型循环：循环次数是对数级的
+    <pre data-lang="cpp" data-file="ex2_double_step.cpp">// ex2_double_step.cpp —— 倍增型循环：循环次数是对数级的
 #include &lt;iostream&gt;
 
 int steps(int n) {
@@ -1556,7 +1556,7 @@ int main() {
     </p>
 
     <h3 id="ex3">例 3　循环变量自乘（开方型）—— O(log log n)</h3>
-    <pre data-lang="cpp" data-file="ex5_sqrt.cpp">// ex5_sqrt.cpp —— 循环变量以自身为倍数增长 / 自身开方：双对数级
+    <pre data-lang="cpp" data-file="ex3_sqrt.cpp">// ex3_sqrt.cpp —— 循环变量以自身为倍数增长 / 自身开方：双对数级
 #include &lt;iostream&gt;
 #include &lt;cmath&gt;
 
@@ -1611,7 +1611,7 @@ int main() {
       这是<b>分治法</b>的典型形态：把问题一分为二（2 个规模 n/2 的子问题），
       再花线性时间把两半结果合起来。归并排序、快速排序的平均情况都是这个式子。
     </p>
-    <pre data-lang="cpp" data-file="ex7_merge_sort.cpp">// ex7_merge_sort.cpp —— 归并排序：T(n) = 2T(n/2) + Θ(n) = O(n log n)
+    <pre data-lang="cpp" data-file="ex4_merge_sort.cpp">// ex4_merge_sort.cpp —— 归并排序：T(n) = 2T(n/2) + Θ(n) = O(n log n)
 #include &lt;iostream&gt;
 #include &lt;vector&gt;
 
@@ -1666,7 +1666,7 @@ int main() {
       这是「每次砍掉一半」的形态，二分查找是它的标准代表。
       它比例 4 更妙的地方在于：<b>每层只需常数时间</b>，所以只剩层数一个因子。
     </p>
-    <pre data-lang="cpp" data-file="ex8_binary_search.cpp">// ex8_binary_search.cpp —— 二分查找：T(n) = T(n/2) + O(1) = O(log n)
+    <pre data-lang="cpp" data-file="ex5_binary_search.cpp">// ex5_binary_search.cpp —— 二分查找：T(n) = T(n/2) + O(1) = O(log n)
 #include &lt;iostream&gt;
 #include &lt;vector&gt;
 
