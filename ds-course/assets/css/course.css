@@ -34,8 +34,28 @@
   --purple:        #7a5af0;   /* 紫：考点、基准值（pivot） */
   --purple-soft:   #f0ecff;
 
-  --code-bg:       #10161f;   /* 代码块底色（两套主题都保持深色，像编辑器） */
-  --code-text:     #d8e2f0;   /* 代码正文色 */
+  /* 代码块配色。注意这里**不是**「两套主题都保持深色」：
+     浅色主题下代码块和页面一样是「浅底深字」，深色主题才切成编辑器式的「深底浅字」。
+     这套令牌只给 .code-block 用；正文里那种行内 `code` 用的是 --bg-soft / --brand-dark。
+     每个记号色对代码底的对比度都 ≥4.5:1（WCAG AA），由 tools/print-check.mjs 守住。 */
+  --code-bg:        #f7f9fc;   /* 代码块底色 */
+  --code-text:      #1b1f26;   /* 代码正文色（高亮器没套上记号的那部分：标识符、空白、花括号外的手写文字） */
+  --code-head-bg:   #eef2f8;   /* 顶部条底色（语言 + 文件名 + 复制按钮） */
+  --code-head-line: #dde4ee;   /* 顶部条与代码之间的分隔线 */
+  --code-lang:      #0a5c8f;   /* 顶部条上的语言名，如 CPP */
+  --code-file:      #4d5b6b;   /* 顶部条上的文件名 */
+  --code-btn-bg:    #ffffff;   /* 复制按钮底色 */
+  --code-btn-fg:    #1f52c0;   /* 复制按钮文字 */
+  --code-btn-line:  #c3cede;   /* 复制按钮描边 */
+  --code-scroll:    #c3cede;   /* 代码块横向滚动条滑块 */
+  --tk-key:         #b3125a;   /* 记号色：关键字 if/return/while */
+  --tk-type:        #0a6a9e;   /* 记号色：类型 int/vector */
+  --tk-str:         #2c7a2f;   /* 记号色：字符串与 <头文件> */
+  --tk-num:         #a35200;   /* 记号色：数字 */
+  --tk-com:         #55636f;   /* 记号色：注释 */
+  --tk-pre:         #6a3fa0;   /* 记号色：#预处理指令 */
+  --tk-func:        #8a5300;   /* 记号色：函数名 */
+  --tk-op:          #3b4753;   /* 记号色：运算符与标点 */
 
   --radius:        10px;      /* 常规圆角（按钮、提示块、代码块） */
   --radius-lg:     16px;      /* 大圆角（卡片、可视化外壳） */
@@ -74,8 +94,27 @@ html[data-theme="dark"] {
   --purple:        #a48bff;
   --purple-soft:   #241d3d;
 
-  --code-bg:       #0a0f16;
-  --code-text:     #d8e2f0;
+  /* 代码块：深色主题保留编辑器式的「深底浅字」。
+     --tk-com 由 #6f8296 提亮到 #93a4b8 —— 原色对深底只有 4.86:1，
+     而注释里大量是 13px 的中文，笔画密，实测看久了很吃力。 */
+  --code-bg:        #0a0f16;
+  --code-text:      #d8e2f0;
+  --code-head-bg:   #141c27;
+  --code-head-line: #223041;
+  --code-lang:      #7fd1ff;
+  --code-file:      #93a3b8;
+  --code-btn-bg:    #1b2431;
+  --code-btn-fg:    #cfe0f5;
+  --code-btn-line:  #38465a;
+  --code-scroll:    #3a4757;
+  --tk-key:         #ff7bb0;
+  --tk-type:        #4ec9e8;
+  --tk-str:         #b5e08a;
+  --tk-num:         #f0b47c;
+  --tk-com:         #93a4b8;
+  --tk-pre:         #c79bff;
+  --tk-func:        #ffd479;
+  --tk-op:          #9fb2c8;
 
   --shadow-sm:     0 1px 2px rgba(0,0,0,.4);
   --shadow:        0 2px 8px rgba(0,0,0,.45), 0 12px 34px rgba(0,0,0,.35);
@@ -418,21 +457,21 @@ table.compact th, table.compact td { padding: 5px 9px; font-size: 13px; }
 }
 .code-block .code-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 12px; background: rgba(255,255,255,.06);
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 7px 12px; background: var(--code-head-bg);
+  border-bottom: 1px solid var(--code-head-line);
 }
 .code-block .code-lang {
   font-family: var(--mono); font-size: 12px; font-weight: 700;
-  color: #7fd1ff; letter-spacing: .06em;
+  color: var(--code-lang); letter-spacing: .06em;
 }
-.code-block .code-file { font-size: 12.5px; color: #93a3b8; font-family: var(--mono); }
+.code-block .code-file { font-size: 12.5px; color: var(--code-file); font-family: var(--mono); }
 .code-block .code-head .spacer { flex: 1; }
 .code-block .copy-btn {
   font-size: 12px; cursor: pointer; border-radius: 6px; padding: 2px 10px;
-  background: rgba(255,255,255,.1); color: #cfe0f5;
-  border: 1px solid rgba(255,255,255,.16);
+  background: var(--code-btn-bg); color: var(--code-btn-fg);
+  border: 1px solid var(--code-btn-line);
 }
-.code-block .copy-btn:hover { background: rgba(255,255,255,.2); }
+.code-block .copy-btn:hover { border-color: var(--brand); color: var(--brand); }
 
 .code-block pre {
   margin: 0; padding: 14px 16px; overflow-x: auto;
@@ -440,17 +479,30 @@ table.compact th, table.compact td { padding: 5px 9px; font-size: 13px; }
   color: var(--code-text); tab-size: 4;
 }
 .code-block pre::-webkit-scrollbar { height: 9px; }
-.code-block pre::-webkit-scrollbar-thumb { background: #3a4757; border-radius: 8px; }
+.code-block pre::-webkit-scrollbar-thumb { background: var(--code-scroll); border-radius: 8px; }
 
-/* 轻量 C++ 语法高亮 */
-.tk-key   { color: #ff7bb0; font-weight: 600; }
-.tk-type  { color: #4ec9e8; }
-.tk-str   { color: #b5e08a; }
-.tk-num   { color: #f0b47c; }
-.tk-com   { color: #6f8296; font-style: italic; }
-.tk-pre   { color: #c79bff; }
-.tk-func  { color: #ffd479; }
-.tk-op    { color: #9fb2c8; }
+/* 关键修正（2026-09）：course.js 生成的代码块结构是 <pre><code>…</code></pre>，
+   而上面第 2 节有一条给**行内代码**用的 `code { background: var(--bg-soft); border: …;
+   color: var(--brand-dark) }`。它同样会命中外层代码块里的这个 <code>，于是
+   每一行代码背后都被刷上一层浅色小方块（行内元素按行盒绘制背景，看起来就是
+   「一行一个浅框」），再加上 0.9em 的字号和深蓝字色 —— 记号色是按代码块底色挑的，
+   落在这种浅框上就全糊了。这里把行内代码的那套样式在代码块里彻底关掉。 */
+.code-block pre code {
+  background: transparent; border: none; padding: 0;
+  color: inherit; font-size: inherit; font-family: inherit;
+}
+
+/* 轻量 C++ 语法高亮。颜色一律走上面的 --tk-* 令牌，两套主题各自一套。
+   注释特意**不加斜体**：中文没有真正的斜体字形，浏览器是倾斜合成的，
+   13px 的中文被斜切以后笔画会发虚，比对比度更伤可读性。 */
+.tk-key   { color: var(--tk-key); font-weight: 600; }
+.tk-type  { color: var(--tk-type); }
+.tk-str   { color: var(--tk-str); }
+.tk-num   { color: var(--tk-num); }
+.tk-com   { color: var(--tk-com); }
+.tk-pre   { color: var(--tk-pre); }
+.tk-func  { color: var(--tk-func); }
+.tk-op    { color: var(--tk-op); }
 
 /* ---------- 8. 公式 / 概念框 ---------- */
 .formula {
@@ -686,9 +738,9 @@ details.fold .fold-body { padding-bottom: 12px; }
 
 /* ---------- 13. 打印 ---------- */
 /* 一个必须记住的坑：浏览器打印时**默认不画背景色**（Chrome/Edge/Firefox 的打印
-   对话框里「背景图形」默认是关的）。凡是靠背景反白的元素，一打印就变成
+   对话框里「背景图形」默认是关的）。凡是靠背景显色的元素，一打印就变成
    「浅色字 + 白纸」= 完全看不见。本课件里有三类中招：
-     · 代码块 —— 屏幕上深底反白（--code-bg），底色没了就只剩浅色记号；
+     · 代码块 —— 深色主题下它是深底浅字（--code-bg），底色没了就只剩浅色记号；
      · 首页大标题 —— 渐变底上的白字；
      · 卡片左上角的编号 —— 蓝底白字。
    所以下面这套规则一律不依赖背景，改成「白纸深字」，并把颜色压深到
@@ -728,30 +780,37 @@ details.fold .fold-body { padding-bottom: 12px; }
     --bg-soft:       #f2f5f9;
     --border:        #ccd6e2;   /* 描边比屏幕略深，避免打印后淡到看不见 */
     --border-strong: #a9b6c7;
+    /* 代码块也跟着换成「白纸配色」。浅色主题在屏幕上本来就是这个色，
+       这里主要是把**深色主题**掰回来 —— 否则深色主题印出来会是一片黑。
+       全部换算成对纯白纸的对比度，都 ≥4.5:1。 */
+    --code-bg:        #ffffff;
+    --code-text:      #1b1f26;   /* 16.5:1 */
+    --code-head-bg:   #f2f4f7;
+    --code-head-line: #d5dce5;
+    --code-lang:      #0a5c8f;   /*  7.1:1 */
+    --code-file:      #4d5b6b;   /*  6.9:1 */
+    --code-btn-bg:    #ffffff;
+    --code-btn-fg:    #1f52c0;
+    --code-btn-line:  #c3cede;
+    --code-scroll:    #c3cede;
+    --tk-key:         #b3125a;   /*  6.7:1  关键字 */
+    --tk-type:        #0a6a9e;   /*  5.9:1  类型 */
+    --tk-str:         #2c7a2f;   /*  5.3:1  字符串 */
+    --tk-num:         #a35200;   /*  5.6:1  数字 */
+    --tk-com:         #55636f;   /*  6.2:1  注释 */
+    --tk-pre:         #6a3fa0;   /*  7.4:1  #预处理 */
+    --tk-func:        #8a5300;   /*  6.3:1  函数名 */
+    --tk-op:          #3b4753;   /*  9.5:1  运算符 */
   }
 
-  /* --- 13.2 代码块：整套换成「白底深字」 ---
-     屏幕上那套记号色是为深底挑的，放到白纸上只有 1.3~4.0:1，等于是糊的。
-     这里逐个重新挑过，全部 ≥ 4.5:1。 */
-  .code-block { background: #fff; border-color: #b9c4d2; }
-  .code-block .code-head { background: #f2f4f7; border-bottom-color: #d5dce5; }
-  .code-block .code-lang { color: #0a5c8f; }   /* 7.1:1 */
-  .code-block .code-file { color: #4d5b6b; }   /* 6.9:1 */
+  /* --- 13.2 代码块在纸上的排版 ---
+     颜色已经由 13.1 的令牌换掉了，这里只管字号与折行。 */
   .code-block pre {
-    color: #1b1f26;                            /* 16.5:1 */
     font-size: 12px;                           /* 纸张上比屏幕略小一点，一行能多放几个字符 */
     /* 长行在 A4 竖版上会被右边直接裁掉（全站约 2% 的行比纸宽）。
        打印时允许折行：宁可在纸上折一行，也不能静默丢掉半行代码。 */
     white-space: pre-wrap; overflow-wrap: anywhere;
   }
-  .tk-key  { color: #b3125a; }   /* 6.7:1  关键字 */
-  .tk-type { color: #0a6a9e; }   /* 5.9:1  类型 */
-  .tk-str  { color: #2c7a2f; }   /* 5.3:1  字符串 */
-  .tk-num  { color: #a35200; }   /* 5.6:1  数字 */
-  .tk-com  { color: #55636f; }   /* 6.2:1  注释 */
-  .tk-pre  { color: #6a3fa0; }   /* 7.4:1  #预处理 */
-  .tk-func { color: #8a5300; }   /* 6.3:1  函数名 */
-  .tk-op   { color: #3b4753; }   /* 9.5:1  运算符 */
 
   /* --- 13.3 另外两处「白字靠底色」的地方 --- */
   .hero { background: #f4f6fa; border: 1px solid #c3cede; color: #1b1f26; }

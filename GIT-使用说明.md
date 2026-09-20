@@ -144,7 +144,7 @@ node tools/cpp-check.mjs        # 把每段 C++ 抽出来交给 g++ 编译
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 node tools/verify-stats.mjs     # 公开文档（README / index.html）里的规模数字与实测是否一致
-node tools/print-check.mjs      # 打印配色：代码块等「深底反白」的内容印到白纸上还看不看得清
+node tools/print-check.mjs      # 代码配色：浅色/深色/打印三套配色是否都看得清（对比度 ≥ 4.5:1）
 ```
 
 `cpp-check.mjs` 需要系统里有 `g++`（本机已具备）；其余几个只需要 Node.js。

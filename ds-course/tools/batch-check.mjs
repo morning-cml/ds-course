@@ -10,7 +10,7 @@
  *   7. coverage-check.mjs  按需求清单核对知识点覆盖
  *   8. xref-check.mjs   正文里「见第 NN 讲」的讲次编号是否指对
  *   9. verify-stats.mjs 公开文档（README / index.html）里的规模数字与实测是否一致
- *  10. print-check.mjs  打印配色：代码块等靠背景反白的内容，印到白纸上还看不看得清
+ *  10. print-check.mjs  代码配色：浅色/深色/打印三套配色是否都看得清（对比度 ≥ 4.5:1）
  *
  * 用法：node tools/batch-check.mjs
  */
@@ -31,7 +31,7 @@ const steps = [
   ["需求覆盖核对", "coverage-check.mjs"],
   ["交叉引用讲次校验", "xref-check.mjs"],
   ["公开数字核对", "verify-stats.mjs"],
-  ["打印配色检查", "print-check.mjs"],
+  ["代码配色检查", "print-check.mjs"],
 ];
 
 /* results —— 收集每项的 [名称, 退出码]，全部跑完后再统一汇总（不提前中断，
