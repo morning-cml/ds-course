@@ -128,7 +128,7 @@ ds-course/
 课件内容由多套脚本自动校验，改课件后可以跑一遍确认没有引入错误：
 
 ```bash
-node tools/batch-check.mjs      # 一键跑完下面九项
+node tools/batch-check.mjs      # 一键跑完下面十项
 node tools/check.mjs            # 结构完整性：文件、锚点、容器、HTML 转义、代码块转义
 node tools/nav-check.mjs        # 校验 15 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本，并逐帧渲染所有动画，捕获运行时错误
@@ -138,8 +138,8 @@ node tools/cpp-check.mjs        # 把课件里每段 C++ 代码抽出来交给 g
 node tools/coverage-check.mjs   # 按需求清单逐项核对知识点是否都讲到了（含「工程视角」小节硬检查）
 node tools/xref-check.mjs       # 正文里「见第 NN 讲」的讲次编号有没有指错
 node tools/verify-stats.mjs     # 公开文档里的规模数字与实测是否一致
+node tools/print-check.mjs      # 打印配色：代码块等「深底反白」的内容印到白纸上还看不看得清
 node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码块 / 动画）
-node tools/verify-stats.mjs     # 核对本页那张规模表与实测是否一致
 ```
 
 > `frame-check.mjs` 还可以当调试工具用：

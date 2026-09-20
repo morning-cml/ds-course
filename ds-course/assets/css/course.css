@@ -685,9 +685,18 @@ details.fold .fold-body { padding-bottom: 12px; }
 }
 
 /* ---------- 13. 打印 ---------- */
+/* 一个必须记住的坑：浏览器打印时**默认不画背景色**（Chrome/Edge/Firefox 的打印
+   对话框里「背景图形」默认是关的）。凡是靠背景反白的元素，一打印就变成
+   「浅色字 + 白纸」= 完全看不见。本课件里有三类中招：
+     · 代码块 —— 屏幕上深底反白（--code-bg），底色没了就只剩浅色记号；
+     · 首页大标题 —— 渐变底上的白字；
+     · 卡片左上角的编号 —— 蓝底白字。
+   所以下面这套规则一律不依赖背景，改成「白纸深字」，并把颜色压深到
+   对比度 ≥ 4.5:1（WCAG AA 正文标准），黑白复印也能分清。
+   括号里标的就是该色印在纯白纸上的实测对比度。 */
 @media print {
   .topbar, .sidebar, .pager, .viz-controls, .copy-btn,
-  .toc-drawer, .toc-hint { display: none !important; }
+  .toc-drawer, .toc-tab, .toc-hint { display: none !important; }
   .content { padding: 0; max-width: none; }
   body { background: #fff; font-size: 12px; }
   .card, .viz, .code-block { break-inside: avoid; box-shadow: none; }
@@ -697,4 +706,57 @@ details.fold .fold-body { padding-bottom: 12px; }
   details.fold > summary { list-style: none; border-bottom: 1px solid #ddd; }
   details.fold > summary::before { content: ""; }
   .viz-desc { border-left: 3px solid #999; background: #f4f4f4; }
+
+  /* --- 13.1 整体换一套「白纸配色」的令牌，一处生效、全文受益 ---
+     把 :root 和深色主题一起覆盖，是为了让「晚上用深色主题备课、白天印讲义」
+     得到同一份白纸黑字，而不是印出一片深色。
+     注意 SVG 图形（.vz-*）的填色用的就是这些令牌，它们本来就打印得出来，
+     所以压深之后，图里的文字和描边在纸上反而更清楚。 */
+  :root, html[data-theme="dark"] {
+    --text:          #1b1f26;   /* 16.5:1  正文 */
+    --text-soft:     #3b4753;   /*  9.5:1  次要文字 */
+    --text-faint:    #55636f;   /*  6.2:1  图注（屏幕上偏淡，纸上必须压深） */
+    --brand:         #1f52c0;   /*  6.9:1 */
+    --brand-dark:    #1a46a5;   /*  8.3:1 */
+    --accent:        #b3521a;   /*  5.1:1（实色底上配白字也从 2.1:1 升到 5.1:1） */
+    --ok:            #0f7a54;   /*  5.3:1 */
+    --warn:          #8a5a00;   /*  5.9:1 */
+    --danger:        #c0392f;   /*  5.4:1 */
+    --purple:        #6a3fa0;   /*  7.4:1 */
+    --panel:         #ffffff;   /* .vz-node 的默认填充，纸上就是白格 */
+    --panel-2:       #f9fbfe;
+    --bg-soft:       #f2f5f9;
+    --border:        #ccd6e2;   /* 描边比屏幕略深，避免打印后淡到看不见 */
+    --border-strong: #a9b6c7;
+  }
+
+  /* --- 13.2 代码块：整套换成「白底深字」 ---
+     屏幕上那套记号色是为深底挑的，放到白纸上只有 1.3~4.0:1，等于是糊的。
+     这里逐个重新挑过，全部 ≥ 4.5:1。 */
+  .code-block { background: #fff; border-color: #b9c4d2; }
+  .code-block .code-head { background: #f2f4f7; border-bottom-color: #d5dce5; }
+  .code-block .code-lang { color: #0a5c8f; }   /* 7.1:1 */
+  .code-block .code-file { color: #4d5b6b; }   /* 6.9:1 */
+  .code-block pre {
+    color: #1b1f26;                            /* 16.5:1 */
+    font-size: 12px;                           /* 纸张上比屏幕略小一点，一行能多放几个字符 */
+    /* 长行在 A4 竖版上会被右边直接裁掉（全站约 2% 的行比纸宽）。
+       打印时允许折行：宁可在纸上折一行，也不能静默丢掉半行代码。 */
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .tk-key  { color: #b3125a; }   /* 6.7:1  关键字 */
+  .tk-type { color: #0a6a9e; }   /* 5.9:1  类型 */
+  .tk-str  { color: #2c7a2f; }   /* 5.3:1  字符串 */
+  .tk-num  { color: #a35200; }   /* 5.6:1  数字 */
+  .tk-com  { color: #55636f; }   /* 6.2:1  注释 */
+  .tk-pre  { color: #6a3fa0; }   /* 7.4:1  #预处理 */
+  .tk-func { color: #8a5300; }   /* 6.3:1  函数名 */
+  .tk-op   { color: #3b4753; }   /* 9.5:1  运算符 */
+
+  /* --- 13.3 另外两处「白字靠底色」的地方 --- */
+  .hero { background: #f4f6fa; border: 1px solid #c3cede; color: #1b1f26; }
+  .hero h1 { color: #1b1f26; }
+  .hero p { color: #3b4753; }
+  .hero .hero-stats span { color: #55636f; }
+  .chapter-card .no { background: transparent; color: #1f52c0; border: 1px solid #b9c4d2; }
 }
