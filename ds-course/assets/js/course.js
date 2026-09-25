@@ -287,6 +287,25 @@
       close: function () { document.body.classList.remove("toc-open"); }
     };
     var pinned = false;                     // 是否已钉住（钉住后 close() 不再生效）
+    var pinBtn = $(".toc-pin", drawer);     // 抽屉里的「钉住」按钮
+    var closeBtn = $(".toc-close", drawer); // 抽屉里的「✕ 收起」按钮
+
+    /* 钉住状态的唯一出入口：pinned 变量、抽屉的 pinned 类、按钮文案、body.toc-open 四处一起改。
+       之前「✕ / Esc」只摘了 body 上的类、没把 pinned 复位，结果 open() 一直以为还钉着，
+       鼠标贴边、点把手都打不开抽屉 —— 所以任何收起抽屉的路径都要走 setPinned(false)。 */
+    function setPinned(v) {
+      pinned = v;
+      drawer.classList.toggle("pinned", v);
+      pinBtn.textContent = v ? "已钉住" : "钉住";
+      pinBtn.title = v ? "点一下取消钉住（恢复感应式抽出）" : "钉住后抽屉不会自动收回";
+      if (v) bento.open(); else bento.close();
+    }
+    /* 彻底收起：取消钉住 + 收回感应抽出。✕、Esc、关闭感应都走这里 */
+    function collapse() {
+      setPinned(false);
+      document.body.classList.remove("toc-hover");
+    }
+    DS.closeToc = collapse;                 // 给 bindKeys 里的 Esc 用
 
     /* 把 sense 同步到三处：body 的 toc-sense 类（控制把手显隐）、顶栏按钮的文案/按下态、localStorage */
     function applySense() {
@@ -303,10 +322,6 @@
     }
     applySense();
 
-    // 抽屉里的「钉住」/「✕ 收起」两个按钮
-    var pinBtn = $(".toc-pin", drawer);
-    var closeBtn = $(".toc-close", drawer);
-
     // 右侧边缘把手：点击或键盘回车都能抽出（顺手把感应打开，免得用户以为没反应）
     tab.addEventListener("click", function () {
       if (!sense) { sense = true; applySense(); }
@@ -320,10 +335,7 @@
       }
     });
 
-    if (closeBtn) closeBtn.addEventListener("click", function () {
-      document.body.classList.remove("toc-hover");
-      bento.close();
-    });
+    if (closeBtn) closeBtn.addEventListener("click", collapse);
 
     var btnToc = $("#btnToc");
     if (btnToc) {
@@ -331,12 +343,7 @@
         sense = !sense;
         if (!sense) {
           // 关闭感应：右边彻底不响应鼠标，收起抽屉并取消固定
-          pinned = false;
-          drawer.classList.remove("pinned");
-          pinBtn.textContent = "钉住";
-          pinBtn.title = "钉住后抽屉不会自动收回";
-          document.body.classList.remove("toc-hover");
-          bento.close();
+          collapse();
         } else {
           // 打开感应：顺便把抽屉抽出来一次，让用户看到在哪
           open();
@@ -403,13 +410,7 @@
     });
 
     // 抽屉里的「钉住」按钮：钉住后不随鼠标离开收回
-    pinBtn.addEventListener("click", function () {
-      pinned = !pinned;
-      drawer.classList.toggle("pinned", pinned);
-      pinBtn.textContent = pinned ? "已钉住" : "钉住";
-      pinBtn.title = pinned ? "点一下取消钉住（恢复感应式抽出）" : "钉住后抽屉不会自动收回";
-      if (pinned) { bento.open(); } else { document.body.classList.remove("toc-open"); }
-    });
+    pinBtn.addEventListener("click", function () { setPinned(!pinned); });
 
     // 点到某个小节后收回抽屉（除非被钉住）
     drawerBody.addEventListener("click", function (e) {
@@ -796,10 +797,9 @@
       var t = e.target;                    // 按键落点；在输入控件里就放行
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
 
-      /* Esc：收起右侧本页导航抽屉（两档状态都要清掉） */
+      /* Esc：收起右侧本页导航抽屉（连钉住一起取消，否则之后再也抽不出来） */
       if (e.key === "Escape") {
-        document.body.classList.remove("toc-hover");
-        document.body.classList.remove("toc-open");
+        if (DS.closeToc) DS.closeToc();
         return;
       }
 

@@ -516,6 +516,24 @@ function runPage(page) {
         pin.click();
         T("取消钉住后收起", !bodyEl.classList.contains("toc-open"),
           String(bodyEl.classList.contains("toc-open")));
+
+        /* 回归用例（2026-09 的 bug）：钉住后用 Esc / ✕ 收起，钉住状态没复位，
+           之后鼠标贴边、点把手都抽不出抽屉。收起后必须还能再打开。 */
+        const collapsed = () => !isOpen() && !bodyEl.classList.contains("toc-open");
+        pin.click();
+        window.document.fire("keydown", { key: "Escape" });
+        T("钉住后按 Esc 能收起", collapsed(), bodyEl.className);
+        T("Esc 收起后钉住按钮复位", !/已钉住/.test(pin.textContent), pin.textContent);
+        if (tab) {
+          tab.click();
+          T("钉住→Esc 收起后点把手能再抽出", isOpen(), String(isOpen()));
+        }
+        bodyEl.classList.remove("toc-hover", "toc-open");
+        pin.click();
+        if (closeBtn) closeBtn.click();
+        T("钉住后点 ✕ 能收起", collapsed(), bodyEl.className);
+        moveTo(W - 5);
+        T("钉住→✕ 收起后鼠标贴边能再抽出", isOpen(), String(isOpen()));
       }
       bodyEl.classList.remove("toc-hover", "toc-open");
     }
