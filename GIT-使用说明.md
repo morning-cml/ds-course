@@ -11,8 +11,9 @@
 ├── .gitignore            忽略规则
 ├── git-commit.ps1        一键提交脚本（先校验，后提交）
 ├── GIT-使用说明.md        本文件
-├── 声明.txt
-├── 家教计划.pdf
+├── README.md             GitHub 仓库主页
+├── tools/                仓库维护脚本（scrub.ps1 清理历史、verify-private.ps1 核对私人文件已清除）
+├── （私人材料）          只在本地、不入库，见下文「私人材料」一节
 └── ds-course/            课件本体（15 讲 + assets + tools）
 ```
 
@@ -20,15 +21,16 @@
 
 已推送到 GitHub：**https://github.com/morning-cml/ds-course**（public）
 
-- 当前状态：**61 个文件已入库**，共 **29 次提交**、**29 个标签**（`v0000` 课件完整版 → … → `v0028`），**全部已推送**
 - `origin` = `https://github.com/morning-cml/ds-course.git`，`main` 已跟踪 `origin/main`
-- 本地与远端 HEAD 一致（`b985771`）
+- 每次提交都会打 `vNNNN` 标签并随提交一起推送（从 `v0000` 课件完整版起）
 
-> 想随时确认这里的数字是否过期，跑这三条即可：
+> 提交数、标签数这类数字每提交一次就变，所以这里**不写死**（以前写过，很快就过期了）。
+> 要看当前状态，现场跑：
 > ```powershell
 > git rev-list --count HEAD      # 提交数
 > git tag -l | Measure-Object    # 标签数
 > git ls-files | Measure-Object  # 入库文件数
+> git fetch; git status -sb      # 本地与远端是否一致（显示 ahead/behind）
 > ```
 
 ## 一键提交 + 推送（推荐）
@@ -235,33 +237,35 @@ git push -u origin main; git push --tags origin
 
 ## 备份建议
 
-目前是**纯本地仓库**，没有远程。`.git` 就在 `家教` 目录里，如果整个目录被误删就全没了。
-建议二选一：
+仓库已经推到 GitHub（见上面「远端仓库」），只要坚持「每次都 `-Push`」，
+本地目录被误删也能 `git clone` 回来。
 
-1. **定期打包备份**：把整个 `家教` 目录（含 `.git`）复制到网盘 / U 盘 / 另一个盘；
-2. **加一个远程仓库**（GitHub / Gitee / 自建均可）：
+还想多一重保险，可以不定期打一个离线包（单个文件，含全部历史与标签）：
 
 ```powershell
-git remote add origin <你的仓库地址>
-git push -u origin main --tags
+git bundle create _history-backup-$(Get-Date -Format yyyyMMdd-HHmm).bundle --all
 ```
 
-之后每次提交完 `git push --tags` 即可。因为我是在你的机器上直接操作本地仓库，
-**创建远程仓库并推送需要你自己授权**（要账号凭据），这一步我没有代做。
+`_history-backup-*.bundle` 已在 `.gitignore` 里，不会被提交；把它拷到网盘 / U 盘即可。
+恢复时 `git clone xxx.bundle 家教` 就是一个完整仓库。
+
+注意：**私人材料（见上面「私人材料」一节）不在 git 里**，GitHub 上和 bundle 里都没有，需要自己另外备份。
 
 ## 仓库身份配置
 
-本仓库使用局部配置（不影响你机器上的其它仓库）：
+本仓库**不单独设置**提交身份，直接用本机全局配置：
 
 ```
-user.name  = DS Courseware
-user.email = courseware@local
-core.autocrlf = true        # Windows 换行自动转换
+user.name  = morning-cml
+user.email = 205800666+morning-cml@users.noreply.github.com   # GitHub 的 noreply 地址
+core.autocrlf = true        # （这一条是仓库局部配置）Windows 换行自动转换
 ```
 
-想换成自己的名字：
+用 noreply 地址，提交才会在 GitHub 上关联到 `morning-cml` 账号，又不会暴露私人邮箱
+（账号开了邮箱隐私保护，用私人邮箱提交会被拒绝推送）。
 
-```powershell
-git config user.name "你的名字"
-git config user.email "你的邮箱"
-```
+> 2026-09-26 之前的提交用的是仓库局部配置 `DS Courseware <courseware@local>`，
+> 在 GitHub 上显示为未关联账号。那些历史提交保持原样（改作者要重写历史并强推，不值得）。
+>
+> 以后**不要**再用 `git config user.email ...`（不带 `--global`）给本仓库单独设身份，
+> 否则会覆盖掉全局的 noreply 地址。用 `git config --show-origin user.email` 可以看当前生效的是哪一份。

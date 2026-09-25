@@ -10,7 +10,7 @@
       .\git-commit.ps1 "试验性改动" -DryRun         # 只看会提交什么
 
   行为：
-    1. 运行 node ds-course/tools/batch-check.mjs（结构 / 导航 / 动画逐帧 / C++ 编译 / 需求覆盖）
+    1. 运行 node ds-course/tools/batch-check.mjs（十一项校验，清单见 GIT-使用说明.md）
     2. 校验不通过就中止，不把坏状态写进历史
     3. 通过后提交，提交信息自动带时间戳，并打标签 v0001、v0002 …（便于按版本回退）
     4. 带 -Push 时，提交完自动推到 origin（含标签）
@@ -59,9 +59,9 @@ if ($DryRun) {
 # ---------- 2. 先校验，再提交 ----------
 # 这一步是「不把坏状态写进历史」的关键：batch-check 不过就直接退出，绝不提交
 if (-not $SkipCheck) {
-    $checkScript = Join-Path $repoRoot "ds-course\tools\batch-check.mjs"   # 八项全量校验的入口
+    $checkScript = Join-Path $repoRoot "ds-course\tools\batch-check.mjs"   # 十一项全量校验的入口
     if (Test-Path $checkScript) {
-        Info "`n正在运行全量校验（结构 / 导航 / 动画逐帧 / 帧状态 / 状态类 / C++ 编译 / 需求覆盖 / 交叉引用 / 公开数字）…"
+        Info "`n正在运行全量校验（结构 / 导航 / 动画逐帧 / 帧状态 / 状态类 / C++ 编译 / 需求覆盖 / 交叉引用 / 公开数字 / 代码配色 / 上线自检）…"
         & node $checkScript
         if ($LASTEXITCODE -ne 0) {
             Bad "`n校验未通过（退出码 $LASTEXITCODE），已中止提交。"

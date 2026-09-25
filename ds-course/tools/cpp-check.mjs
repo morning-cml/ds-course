@@ -5,18 +5,28 @@
  * 课件里的代码是要给学生抄的，必须保证能编译。本工具把每个
  * <pre data-lang="cpp"> 的代码还原成 .cpp 文件，用 g++ 逐个做语法/语义检查并报告错误。
  *
+ * 判定规则：
+ *   · 完整程序（自带 #include）：原样编译，不过就是失败；
+ *     唯一例外是缺自定义头文件（#include "xxx.h"）的多文件教学示例，记为跳过。
+ *   · 片段（没有 #include）：补上 bits/stdc++.h 后先包进函数体编译（零散语句），
+ *     不过再放到文件作用域编译（只含函数定义）。两种都不过时，
+ *     如果**所有**报错都是「xxx 未声明」，说明它只是引用了上下文里的变量 → 记为「缺上下文的片段」跳过；
+ *     只要出现一条别的错误（语法错、类型错……）就判失败。
+ *   · .bat / .sh / .py / .txt 不是 C++，跳过。
+ *
  * 注意（Windows 沙箱）：受管环境禁止用管道捕获子进程输出（spawn EPERM），
- * 因此这里把编译器输出重定向到临时文件再读回。
+ * 因此编译器的 stderr 直接写进临时文件（传文件描述符，不经过管道），再读回。
+ * 不要再绕道 pwsh 之类的外部 shell：本机没装 pwsh 时报错会被静默吞掉，失败就全变成了「跳过」。
  *
  * 用法：node tools/cpp-check.mjs [页面文件名...]
  *
- * 退出码：0 = 没有编译失败（找不到编译器、或沙箱导致无法判定时一律按 0 放行）；
+ * 退出码：0 = 没有编译失败（找不到编译器、或沙箱禁止启动编译器时按 0 放行并打印警告）；
  *        1 = 至少 1 个代码块编译失败
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const ARGS = process.argv.slice(2);   // 命令行给出的页面文件名；为空则扫描全部 HTML
@@ -40,10 +50,36 @@ const unescapeHtml = (s) => s
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dscpp-"));   // 本次运行专用的临时目录，存放 bNN.cpp 与编译器日志
 const pages = ARGS.length ? ARGS : fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).sort();   // 实际扫描的页面清单
 
-let total = 0, ok = 0, fail = 0, skipped = 0;   // 代码块总数 / 编译通过 / 编译失败 / 跳过（非 C++、多文件示例、环境受限）
+const HEAD = "#include <bits/stdc++.h>\nusing namespace std;\n";   // 片段缺的头文件，统一补这两行
+
+/* 编译一段源码，返回 { ok, err, envBlocked }。
+   err 是编译器 stderr 全文；envBlocked = 沙箱不让启动编译器（此时无法判定对错）。 */
+let seq = 0;   // 临时文件序号
+function compile(source) {
+  seq++;
+  const cpp = path.join(tmp, `b${seq}.cpp`);   // 还原出的待编译源文件
+  const log = path.join(tmp, `b${seq}.log`);   // 编译器 stderr 的落盘位置
+  fs.writeFileSync(cpp, source, "utf8");
+  const fd = fs.openSync(log, "w");
+  const r = spawnSync(CXX, ["-fsyntax-only", "-std=c++17", "-w", "-fpermissive", cpp],
+    { stdio: ["ignore", "ignore", fd], timeout: 90000 });
+  fs.closeSync(fd);
+  if (r.error) return { ok: false, err: String(r.error.message || r.error), envBlocked: true };
+  return { ok: r.status === 0, err: fs.readFileSync(log, "utf8"), envBlocked: false };
+}
+const errorLines = (err) => err.split("\n").filter(x => /\berror\b/.test(x));
+/* 报错是否全是「未声明」—— 片段引用了上下文里的变量，属预期 */
+const onlyUndeclared = (err) => {
+  const lines = errorLines(err);
+  return lines.length > 0 && lines.every(x => /was not declared in this scope|has not been declared|undeclared identifier/.test(x));
+};
+
+let total = 0, ok = 0, fail = 0, skipped = 0;   // 代码块总数 / 编译通过 / 编译失败 / 跳过
 const failures = [];    // 编译失败的明细 {page, file, err}，用于打印每条失败的首行错误
-const multiFile = [];   // 因缺自定义头文件而跳过的块名（多文件教学示例，属预期）
-const review = [];      // 拿不到编译器输出、无法判定的块 {page, file}，待人工确认
+const multiFile = [];   // 缺自定义头文件的多文件教学示例（属预期）
+const fragments = [];   // 只引用了上下文变量、单独编译不了的片段（属预期）
+const nonCpp = [];      // .bat 之类非 C++ 文件
+const blocked = [];     // 沙箱不让启动编译器、无法判定的块
 
 for (const page of pages) {
   const fp = path.join(ROOT, page);
@@ -52,66 +88,41 @@ for (const page of pages) {
   const blocks = [...html.matchAll(/<pre[^>]*data-lang="(?:cpp|c\+\+)"[^>]*>([\s\S]*?)<\/pre>/gi)];
   if (!blocks.length) continue;
 
-  let pageOk = 0, pageSkip = 0;   // 本页编译通过数 / 跳过数（跳过 = 非 C++ 文件、多文件示例、环境受限）
+  let pageOk = 0, pageSkip = 0;   // 本页编译通过数 / 跳过数
   const pageFails = [];           // 本页编译失败的 data-file 名列表
 
   blocks.forEach((m, i) => {
     const src = m[0];   // 整个 <pre ...>…</pre> 原文（用来读 data-file 属性）
     const file = (src.match(/data-file="([^"]+)"/) || [])[1] || `block${i + 1}.cpp`;   // 代码块对应的文件名（无 data-file 时按块序号命名）
-    let code = unescapeHtml(m[1]).replace(/^\n+|\s+$/g, "");   // 还原实体并去掉首尾空白的真实代码
+    const code = unescapeHtml(m[1]).replace(/^\n+|\s+$/g, "");   // 还原实体并去掉首尾空白的真实代码
+    const name = page + "/" + file;
     total++;   // 代码块总数加一（含后面会被跳过的）
+    const skip = (list) => { skipped++; pageSkip++; list.push(name); };
 
     // 非 C++ 内容（例如 .bat 脚本）跳过
-    if (/\.(bat|sh|py|txt)$/i.test(file)) { skipped++; pageSkip++; return; }
+    if (/\.(bat|sh|py|txt)$/i.test(file)) return skip(nonCpp);
 
-    const hasInc = /#include/.test(code);              // 是否自带头文件（自带说明是完整程序）
-    const hasMain = /\bint\s+main\s*\(/.test(code);    // 是否含 main
-    // 片段（没有头文件也没有 main 的零散语句）单独判定
-    const fragment = !hasInc && !hasMain;
-    /* 送进编译器的源码：自带 #include 的原样编译；
-       否则补上 bits/stdc++.h 并把零散语句包进一个函数里，让「只有语句」的教学片段也能单独过语法检查 */
-    const wrapped = hasInc
-      ? code
-      : "#include <bits/stdc++.h>\nusing namespace std;\n" +
-        "[[maybe_unused]] static void __ds_wrap(void) {\n" + code + "\n}\n";
-
-    const cpp = path.join(tmp, `b${total}.cpp`);   // 还原出的待编译源文件
-    const log = path.join(tmp, `b${total}.log`);   // 编译器 stderr 的落盘位置（沙箱禁用管道，只能走文件）
-    fs.writeFileSync(cpp, wrapped, "utf8");
-
-    let errText = "";         // 编译器报错文本（空 = 没拿到输出）
-    let compiled = false;     // 本次是否通过语法检查
-    try {
-      // 关键：stdio 全部走文件/忽略，绝不用管道（沙箱会 EPERM）
-      execFileSync(CXX, ["-fsyntax-only", "-std=c++17", "-w", "-fpermissive", cpp],
-        { stdio: ["ignore", "ignore", "ignore"], timeout: 90000 });
-      compiled = true;
-    } catch (e) {
-      if (e.code === "EPERM" || !fs.existsSync(cpp)) {
-        // 环境问题（沙箱禁止），降级为跳过而不是判失败
-        skipped++; pageSkip++;
-        return;
-      }
-      // 用 PowerShell 重定向把编译器报错写进日志文件（stdout/stderr 均不经过管道）
-      const ps = `& '${CXX}' -fsyntax-only -std=c++17 -w -fpermissive '${cpp}' 2> '${log}'`;
-      try {
-        execFileSync("pwsh", ["-NoProfile", "-Command", ps],
-          { stdio: ["ignore", "ignore", "ignore"], timeout: 90000 });
-      } catch (e2) { /* 编译失败返回非 0，属正常 */ }
-      errText = fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "";
+    let res;
+    if (/#include/.test(code)) {
+      // 完整程序：原样编译
+      res = compile(code);
+      if (res.envBlocked) return skip(blocked);
+      if (res.ok) { ok++; pageOk++; return; }
+      // 刻意拆成多文件的教学示例（引号包含的自定义头文件）：缺头文件属预期
+      if (/fatal error:.*\.h.*No such file/i.test(res.err)) return skip(multiFile);
+    } else {
+      // 片段：先当「零散语句」包进函数体，不过再当「函数定义」放到文件作用域
+      res = compile(HEAD + "[[maybe_unused]] static void __ds_wrap(void) {\n" + code + "\n}\n");
+      if (res.envBlocked) return skip(blocked);
+      if (res.ok) { ok++; pageOk++; return; }
+      const top = compile(HEAD + code + "\n");
+      if (top.ok) { ok++; pageOk++; return; }
+      // 两种包法都不过：挑报错少的那份来判定
+      if (errorLines(top.err).length < errorLines(res.err).length) res = top;
+      if (onlyUndeclared(res.err)) return skip(fragments);
     }
-    if (compiled) { ok++; pageOk++; return; }   // 编译通过：总通过数与本页通过数各加一
-    // 课件中刻意拆成多文件的教学示例（自带引号包含的自定义头文件）：缺头文件属预期，跳过
-    if (/fatal error:.*\.h.*No such file/i.test(errText)) {
-      skipped++; pageSkip++; multiFile.push(file); return;
-    }
-    // 拿不到编译器输出时无法判定（多为环境限制），记为「待人工确认」而不是失败
-    if (!errText || !/error/i.test(errText)) {
-      review.push({ page, file }); skipped++; pageSkip++; return;
-    }
-    if (fragment && !/error/.test(errText)) { skipped++; pageSkip++; return; }
     fail++; pageFails.push(file);
-    failures.push({ page, file, err: errText });
+    failures.push({ page, file, err: res.err });
   });
 
   console.log(`── ${page.padEnd(24)} 通过 ${pageOk}/${blocks.length}` +
@@ -119,15 +130,17 @@ for (const page of pages) {
     (pageFails.length ? `  失败: ${pageFails.join(", ")}` : ""));
   // 打印该页每处失败的第一条错误
   failures.filter(f => f.page === page).slice(0, 4).forEach(f => {
-    const first = (f.err || "").split("\n").filter(x => /error/.test(x))[0];
-    console.log(`     ! ${f.file}: ${first ? first.trim().slice(0, 160) : "（未捕获到编译器输出）"}`);
+    const first = errorLines(f.err || "")[0];
+    console.log(`     ! ${f.file}: ${first ? first.replace(/^.*?(\d+:\d+: error)/, "$1").trim().slice(0, 160) : "（未捕获到编译器输出）"}`);
   });
 }
 
 console.log("\n════════════════════════════════════");
 console.log(`共 ${total} 个 C++ 代码块：编译通过 ${ok}，失败 ${fail}，跳过 ${skipped}`);
-if (multiFile.length) console.log(`（跳过中属于「多文件教学示例、缺自定义头文件」的：${[...new Set(multiFile)].join(", ")}）`);
-if (review.length) console.log(`（待人工确认：${[...new Set(review.map(r => r.page + "/" + r.file))].join(", ")}）`);
+if (fragments.length) console.log(`（跳过中属于「只引用上下文变量的片段」的：${fragments.join(", ")}）`);
+if (multiFile.length) console.log(`（跳过中属于「多文件教学示例、缺自定义头文件」的：${multiFile.join(", ")}）`);
+if (nonCpp.length) console.log(`（跳过中属于「非 C++ 文件」的：${nonCpp.join(", ")}）`);
+if (blocked.length) console.log(`⚠ 沙箱禁止启动编译器，无法判定：${blocked.join(", ")}`);
 if (failures.length) { console.log("失败清单："); failures.forEach(f => console.log("  - " + f.page + " → " + f.file)); }
 fs.rmSync(tmp, { recursive: true, force: true });
 process.exit(fail ? 1 : 0);

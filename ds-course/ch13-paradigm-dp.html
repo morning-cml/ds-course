@@ -2314,7 +2314,7 @@ int dpMin(const vector&lt;int&gt;&amp; coin, int k) {
     dp[0] = 0;
     for (int v : coin)                               // 每种硬币
         for (int j = v; j &lt;= k; ++j)                 // 正序：完全背包
-            dp[j] = max(dp[j], dp[j - v] + w);
+            dp[j] = min(dp[j], dp[j - v] + 1);       // 多用一枚面值 v 的硬币
     return dp[k] &gt;= INF ? -1 : dp[k];
 }
 

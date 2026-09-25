@@ -4,7 +4,9 @@
 
 ## 0. 绝对规则
 
-1. **不要新建 / 修改 `assets/js/course.js`**。它是全站公共脚本，只允许使用其中已有的能力。
+1. **写章节时不要去改 `assets/js/course.js`**，只用其中已有的能力（`DS.Viz` / `DS.SVG` 等）。
+   它是全站 16 个页面共用的引擎，改一处影响全站：只有修公共 bug（例如导航抽屉、代码高亮）才动它，
+   改完必须跑 `node tools/dom-sim.mjs` 与 `node tools/frame-check.mjs --fingerprint`（改前改后指纹一致）。
    `assets/css/course.css` 是**公共样式的唯一来源**：动画需要新的状态类时，**加进 course.css**，
    **不要在各章页面里用 `<style>` 打补丁**。
    > 为什么立这条（2026-09 的事故）：早期 `.vz-box.warn / .dim` 没进 course.css，
@@ -76,9 +78,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>01 绪论：数据结构与算法分析 · 数据结构与算法设计</title>
 <link rel="stylesheet" href="assets/css/course.css">
-<script>window.DS_PAGE = { id: 'ch00', title: '绪论：数据结构与算法分析' };</script>
+<script>window.DS_PAGE = { id: 'ch01', title: '绪论：数据结构与算法分析' };</script>
 <script src="assets/js/course.js" defer></script>
-<script src="assets/js/ch00-viz.js" defer></script>   <!-- 无动画的章节删掉这行 -->
+<script src="assets/js/ch01-viz.js" defer></script>   <!-- 无动画的章节删掉这行 -->
 <!-- 如需页面专用样式，写在这里（建议 ≤ 60 行） -->
 </head>
 <body>
@@ -91,7 +93,7 @@
   <main class="content">
 
     <div class="doc-head">
-      <div class="kicker">第 02 讲</div>
+      <div class="kicker">第 01 讲</div>
       <h1>绪论：数据结构与算法分析</h1>
       <p class="lede">一句话说明本章解决什么问题、学完能做什么。</p>
       <div class="meta">
@@ -358,7 +360,7 @@ function snapshot(desc, opt) {
 **只改注释 / 做重构时的验证办法**：`node tools/frame-check.mjs --fingerprint` 会把
 「81 个动画每一帧真正画出来的内容（文字 + 颜色类）」算成一个总指纹。改动前后各跑一次，
 **指纹一致就证明渲染行为一点没变**（改注释、改文案排版、抽函数都适用）。
-例：总指纹 `1006cf3149af4717af9f6fab1f787e59`。
+指纹随课件内容变化，**不要抄进文档**，每次改动前现场跑一遍、当场比对。
 
 ## 6. 容器 ID 命名约定
 

@@ -9,7 +9,7 @@
 | 正文 | 约 32.1 万字（另含代码内注释约 5.6 万字） |
 | 可单步交互动画 | 81 个（逐帧渲染共 2567 帧） |
 | 静态结构图解 | 182 张内联 SVG（其中 11 张为可翻页的静态分步图） |
-| C++ 代码 | 271 段，264 段通过 g++ 编译校验（7 段为需人工确认的片段） |
+| C++ 代码 | 271 段，267 段通过 g++ 编译校验（另有 3 段是引用上下文变量的片段、1 段是批处理脚本） |
 
 > 以上数字由 `node tools/stats.mjs` 实测得出，改课件后请重新跑一遍并同步本表。
 
@@ -158,7 +158,7 @@ node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码�
 `assets/` 里。所以它可以原样丢到任何静态托管上，学生用浏览器打开链接就能看。
 
 以 **Cloudflare Pages**（免费版就够：20000 个文件 / 单文件 25 MiB / 每月 500 次构建，
-本站约 60 个文件、4.65 MiB）为例：
+本站约 55 个文件、4.6 MiB）为例：
 
 1. Cloudflare 控制台 → Workers & Pages → Create → Pages → **Connect to Git**，选中本仓库。
 2. 构建设置：
@@ -178,8 +178,12 @@ node tools/stats.mjs            # 统计规模数据（字数 / 图解 / 代码�
 - 部分国内网络访问 `*.pages.dev` 可能不稳定或较慢。若学生主要在国内，
   可以考虑腾讯云 EdgeOne Pages、Gitee Pages，或把 `ds-course/` 整个目录打包发给学生
   （课件本来就设计成离线可用，双击 `index.html` 即可）。
-- 仓库根目录的 `README.md`、`SPEC.md`、`tools/` 不会影响访问，但也会一起发布；
-  若只想发布课件内容，发布目录严格选 `ds-course` 即可。
+- 发布目录选 `ds-course` 后，仓库根目录的 `README.md`、`GIT-使用说明.md`、`git-commit.ps1` 不会发布；
+  但 **`ds-course/` 里的** `README.md`、`SPEC*.md`、`REPORT-*.md`、`package.json`、`tools/` 会一起发布，
+  知道路径就能直接访问。它们不影响课件使用，也不含私人信息。
+  如果只想发布课件本身，把构建设置改成：
+  - **Build command**：`mkdir -p dist && cp -r ds-course/index.html ds-course/ch*.html ds-course/assets dist/`
+  - **Build output directory**：`dist`
 
 ## 学习建议
 
