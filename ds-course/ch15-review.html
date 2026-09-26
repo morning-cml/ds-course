@@ -64,7 +64,7 @@
           <tr><td>顺序表（数组）</td><td class="c-ok">O(1)</td><td>O(n)</td><td class="c-bad">O(n)</td><td class="c-bad">O(n)</td><td>O(1)</td><td>随机存取换来了插入删除的搬移代价</td></tr>
           <tr><td>单链表</td><td>O(n)</td><td>O(n)</td><td>O(1)（已知前驱）</td><td>O(1)（已知前驱）</td><td>每结点 8 字节指针</td><td>头插/头删都是 O(1)</td></tr>
           <tr><td>双向链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td class="c-ok">O(1)（已知结点即可）</td><td>每结点 16 字节指针</td><td>不用找前驱，代价是多一个指针域</td></tr>
-          <tr><td>循环链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td>O(1)</td><td>同单链表</td><td>只设尾指针可 O(1) 完成两端插入</td></tr>
+          <tr><td>循环链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td>O(1)</td><td>同单链表</td><td>遍历以「回到起点」结束</td></tr>
           <tr><td>静态链表</td><td>O(n)</td><td>O(n)</td><td>O(1)</td><td>O(1)</td><td>数组模拟</td><td>不支持指针时的替代方案</td></tr>
           <tr><td>顺序栈</td><td>—</td><td>—</td><td class="c-ok">O(1) 均摊</td><td class="c-ok">O(1)</td><td>可能浪费</td><td>只在一端操作</td></tr>
           <tr><td>链栈</td><td>—</td><td>—</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>指针开销</td><td>不会栈满，无需预分配</td></tr>
@@ -162,7 +162,7 @@
           <tr><td>空间开销</td><td>无额外指针；但可能预留浪费</td><td>每结点额外指针；碎片化</td></tr>
           <tr><td>容量</td><td>需预分配或动态扩容（扩容要整体搬运）</td><td>按需分配，理论无上限</td></tr>
           <tr><td>缓存友好性</td><td class="c-ok">好（连续访存）</td><td class="c-bad">差（指针跳转，cache miss 多）</td></tr>
-          <tr><td>典型用途</td><td>数组、栈、队列、堆、哈希表、邻接矩阵</td><td>链表、树、图、LRU 缓存、邻接表</td></tr>
+          <tr><td>典型用途</td><td>数组、栈、队列、堆、哈希表、邻接矩阵</td><td>链表、树、图、邻接表</td></tr>
         </tbody>
       </table>
     </div>
@@ -701,8 +701,7 @@ int main() {
       <li><b>头结点不是首元结点。</b> 头结点不存数据（或存长度），是为了统一空表与非空表的操作。</li>
       <li><b>「在 p 结点前插入」单链表做不到 O(1)</b>，除非已知前驱；但「在 p 结点后插入」可以 O(1)（交换数据域的技巧）。</li>
       <li>双向链表删除结点<b>不需要找前驱</b>，这是它相对单链表最大的优势。</li>
-      <li>静态链表的 <code>next</code> 存的是<b>数组下标（游标）</b>，不是地址。</li>
-      <li>快慢指针判环时，<b>快指针每次走 2 步</b>，两者一定会在环内相遇（如果有环）。</li>
+      <li>静态链表（数组模拟链表）的 <code>nxt</code> 存的是下一个结点的<b>数组编号</b>，不是地址。</li>
     </ol>
 
     <h3 id="s5-3">15.5.3 栈与队列</h3>
@@ -765,7 +764,7 @@ int main() {
     <h2 id="s6">15.6 模拟自测卷</h2>
 
     <p class="lede" style="color:var(--text-soft)">
-      共 16 题，满分 94 分（选择题 10×2 + 填空题 7 空×2 + 计算与作图 4×10 + 算法设计 2×10），
+      共 15 题，满分 84 分（选择题 10×2 + 填空题 7 空×2 + 计算与作图 4×10 + 算法设计 1×10），
       建议 120 分钟内完成。选择题、计算与作图、算法设计题的答案与解析都在题下折叠，请先做完再看；
       填空题的答案直接给出，当作默写清单用。
     </p>
@@ -976,51 +975,9 @@ while (i &lt;= n) { s += i; i *= 3; }</pre>
         结果为 <code>{38, 49, 65, 97, 13, 76, 27, 49}</code>。</p>
     </div></details>
 
-    <h3 id="s6-4">四、算法设计题（每题 10 分，共 20 分）</h3>
+    <h3 id="s6-4">四、算法设计题（共 10 分）</h3>
 
-    <p class="quiz-q">15. 设计一个算法，判断单链表中是否存在环；若存在，找出环的入口结点。要求空间复杂度 O(1)，并说明原理。</p>
-    <details class="fold"><summary>参考解答</summary><div class="fold-body">
-      <pre data-lang="cpp" data-file="detect_cycle.cpp">#include &lt;iostream&gt;
-using namespace std;
-
-struct Node { int val; Node* next; Node(int v): val(v), next(nullptr) {} };
-
-/* 快慢指针（Floyd 判环）
-   阶段一：slow 每次 1 步、fast 每次 2 步，若相遇则有环。
-   阶段二：让一个指针回到头结点，两个指针每次都走 1 步，再次相遇处即为环入口。
-   原理：设头到环入口距离 a，入口到相遇点距离 b，相遇点到入口距离 c。
-         相遇时 slow 走了 a+b，fast 走了 a+b+k(b+c) 且是 slow 的 2 倍，
-         可得 a = (k-1)(b+c) + c，即从相遇点走 c 步到入口 = 从头走 a 步到入口。 */
-Node* detectCycle(Node* head) {
-    Node *slow = head, *fast = head;
-    while (fast &amp;&amp; fast-&gt;next) {
-        slow = slow-&gt;next;
-        fast = fast-&gt;next-&gt;next;
-        if (slow == fast) {                 // 阶段一：相遇，有环
-            Node* p = head;
-            while (p != slow) {             // 阶段二：找入口
-                p = p-&gt;next;
-                slow = slow-&gt;next;
-            }
-            return p;                       // 环入口
-        }
-    }
-    return nullptr;                         // 无环
-}
-
-int main() {
-    Node* n1 = new Node(1); Node* n2 = new Node(2);
-    Node* n3 = new Node(3); Node* n4 = new Node(4);
-    n1-&gt;next = n2; n2-&gt;next = n3; n3-&gt;next = n4; n4-&gt;next = n2;   // 4 指回 2
-    Node* entry = detectCycle(n1);
-    cout &lt;&lt; (entry ? entry-&gt;val : -1) &lt;&lt; "\n";   // 2
-    return 0;
-}</pre>
-      <p><b>关键点</b>：空间 O(1)；时间复杂度 O(n)。若用哈希表记录访问过的结点，则空间是 O(n)，
-        达不到题目要求。</p>
-    </div></details>
-
-    <p class="quiz-q">16. 给定整数数组 <code>a[]</code> 与整数 <code>target</code>，求所有满足
+    <p class="quiz-q">15. 给定整数数组 <code>a[]</code> 与整数 <code>target</code>，求所有满足
       <code>a[i] + a[j] = target</code> 的下标对 <code>(i, j)</code>（i &lt; j）。要求时间 O(n)、空间 O(n)，
       并说明为什么不能简单地先排序再用双指针（提示：考虑下标要求与重复元素）。</p>
     <details class="fold"><summary>参考解答</summary><div class="fold-body">
