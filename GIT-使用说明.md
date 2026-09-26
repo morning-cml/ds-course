@@ -14,7 +14,7 @@
 ├── README.md             GitHub 仓库主页
 ├── tools/                仓库维护脚本（scrub.ps1 清理历史、verify-private.ps1 核对私人文件已清除）
 ├── （私人材料）          只在本地、不入库，见下文「私人材料」一节
-└── ds-course/            课件本体（15 讲 + assets + tools）
+└── ds-course/            课件本体（16 讲 + assets + tools）
 ```
 
 ## 远端仓库
@@ -138,7 +138,7 @@ git commit -m "说明"
 cd ds-course
 node tools/batch-check.mjs      # 一次性跑完下面十一项
 node tools/check.mjs            # 结构完整性（文件、锚点、容器、转义）
-node tools/nav-check.mjs        # 15 讲的「上一讲 / 下一讲」链条与站内链接
+node tools/nav-check.mjs        # 16 讲的「上一讲 / 下一讲」链条与站内链接
 node tools/dom-sim.mjs          # 真实执行页面脚本 + 逐帧渲染所有动画
 node tools/frame-check.mjs      # 动画帧状态：画面会不会「冻结在最终态」
 node tools/vz-check.mjs         # 动画用的 vz-* 状态类是否都在 course.css 里有定义

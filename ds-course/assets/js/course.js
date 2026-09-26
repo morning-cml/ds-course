@@ -34,7 +34,8 @@
     { id: "ch12",  file: "ch12-sort-advanced.html",  no: "12", title: "排序体系与下界分析（下）" },
     { id: "ch13",  file: "ch13-paradigm-dp.html",    no: "13", title: "算法设计范式与动态规划" },
     { id: "ch14",  file: "ch14-luogu.html",          no: "14", title: "洛谷题单：例题与作业" },
-    { id: "ch15",  file: "ch15-review.html",         no: "15", title: "综合自测与速查手册" }
+    { id: "ch15",  file: "ch15-review.html",         no: "15", title: "综合自测与速查手册" },
+    { id: "ch16",  file: "ch16-plan.html",           no: "16", title: "家教规划" }
   ];
   /* 注意：这里的 id 必须与各页 window.DS_PAGE.id 一致（ch01..ch15），
      否则顶栏章节标记与上/下一讲导航会取不到数据。 */

@@ -36,7 +36,8 @@ const PAGES = [
   "ch12-sort-advanced.html",
   "ch13-paradigm-dp.html",
   "ch14-luogu.html",
-  "ch15-review.html"
+  "ch15-review.html",
+  "ch16-plan.html"
 ];
 
 /* 顺手检查有没有残留的临时文件 */

@@ -81,6 +81,7 @@ const KEYWORDS = [
   { no: 15, word: "速查手册",          re: /速查手册/ },
   { no: 15, word: "模拟自测卷",        re: /模拟自测卷/ },
   { no: 15, word: "复习路线图",        re: /复习路线图/ },
+  { no: 16, word: "家教规划",          re: /家教规划/ },
 ];
 
 /* ---------- 2. 待检查的文件 ---------- */
@@ -142,7 +143,9 @@ for (const t of targets) {
 
     if (!VALID_NO.has(no)) {
       errors++;
-      errs.push(`${t.label}: 出现「第 ${no} 讲」，但只存在第 01~15 讲`);
+      const nos = [...VALID_NO].filter(x => x > 0);   // 去掉总览页的 0
+      const range = `第 ${String(Math.min(...nos)).padStart(2, "0")}~${String(Math.max(...nos)).padStart(2, "0")} 讲`;
+      errs.push(`${t.label}: 出现「第 ${no} 讲」，但只存在${range}`);
       continue;
     }
 
