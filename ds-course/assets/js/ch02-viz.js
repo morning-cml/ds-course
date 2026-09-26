@@ -1,11 +1,10 @@
 /* ==========================================================================
    ch02-viz.js —— 第 02 讲《线性表：顺序表与链表》交互动画
-   六个演示（页面容器 id 与脚本一一对应）：
+   五个演示（页面容器 id 与脚本一一对应）：
      viz-seq-insert     顺序表插入：元素后移、size 变化、移动次数统计
      viz-singly-insert  单链表插入：指针顺序 + 错误顺序导致断链的对比
-     viz-singly-delete  单链表删除：先保存 q / 跨过 q / delete q，以及后继覆盖法
+     viz-singly-delete  单链表删除：找前驱 / 保存 q / 跨过 q / delete q
      viz-reverse        单链表反转：pre / cur / nxt 三指针逐帧
-     viz-cycle          快慢指针判环（Floyd）+ 环入口第二阶段
      viz-doubly         双向链表插入四条指针的顺序（附错误顺序与删除）
    依赖：course.js 提供的 DS.Viz 与 DS.SVG
    ========================================================================== */
@@ -218,12 +217,12 @@
     for (var k = len - 1; k >= IDX; k--) {
       data[k + 1] = data[k];                      // 真实内存动作：后一个位置被前一个覆盖
       moves++;
-      snap("第 " + moves + " 次移动：<code>data[" + (k + 1) + "] = data[" + k + "]</code>，把 " + data[k] +
+      snap("第 " + moves + " 次移动：<code>a[" + (k + 1) + "] = a[" + k + "]</code>，把 " + data[k] +
            " 从下标 " + k + " 搬到下标 " + (k + 1) + "。<b>必须从后往前</b>——如果从前往后搬，" +
            "下标 " + k + " 会被前一个元素覆盖，原值就丢了。", { src: k, dst: k + 1 });
     }
 
-    snap("三个元素都让开了，下标 <b>3</b> 现在是空位。接下来只做一次赋值：<code>data[" + IDX + "] = " + INS + "</code>。" +
+    snap("三个元素都让开了，下标 <b>3</b> 现在是空位。接下来只做一次赋值：<code>a[" + IDX + "] = " + INS + "</code>。" +
          "注意此时 <b>len 还是 6</b>，新元素尚未计入表长。", { write: IDX });
 
     data[IDX] = INS;
@@ -418,10 +417,10 @@
   })();
 
   /* ==================================================================
-     演示 3：单链表删除（按位删除 + 后继覆盖法）
+     演示 3：单链表按位删除
      ================================================================== */
   (function singlyDelete() {
-    /* 对应页面容器 #viz-singly-delete：按位删除（保存 q → 跨过 q → 释放 q），以及只给待删结点指针时的 O(1) 后继覆盖法。 */
+    /* 对应页面容器 #viz-singly-delete：按位删除（找前驱 → 保存 q → 跨过 q → 释放 q）。 */
     var host = document.getElementById('viz-singly-delete');
     if (!host) return;
 
@@ -442,7 +441,7 @@
        title   : 顶部标题
     */
     /* 补充：nx[k] 是「下标 k 的 next 指向」表（-1 = 指向 NULL，null = 这帧不画这条边）；
-       vals 是当帧显示值，可以不等于 V —— 后继覆盖法就是靠它把 34 显示成 56；
+       vals 是当帧显示值（本演示里始终等于 V）；
        hl 要高亮的边起点下标，arcLabel 是画在跨结点弧线旁的说明文字。 */
     function snap(desc, cfg) {
       frames.push({
@@ -464,7 +463,6 @@
             var cls = "";
             if (cfg.pIdx === i) cls = "active";
             if (cfg.qIdx === i) cls = "warn";
-            if (cfg.coverIdx === i) cls = "compare";
             if (!EX[i]) cls = "dim";
             node(svg, NX[i], ROW, cfg.vals[i], cls, i);
           }
@@ -496,11 +494,7 @@
                         "vz-edge active", MARK.brand);
             }
           }
-          /* 后继覆盖法中 34 的值被后继覆盖 */
-          if (cfg.coverIdx >= 0) {
-            svg.appendChild(SVG.text(NX[cfg.coverIdx] + NW / 2, ROW - 26, "值被后继覆盖", "ptr-nxt", "middle"));
-          }
-          /* 自环（错误顺序/覆盖法的边界） */
+          /* 自环（错误顺序的边界情形） */
           if (cfg.selfLoop) {
             pathArrow(svg, "M" + (NX[1] + NW - 4) + "," + (ROW + 6) + " C " + (NX[1] + NW + 60) + "," + (ROW - 10) + " " +
                            (NX[1] + NW + 60) + "," + (ROW + 50) + " " + (NX[1] + NW - 4) + "," + (ROW + 30),
@@ -538,68 +532,38 @@
 
     /* ---------- 第一部分：按位删除（删位序 3，即结点 56） ---------- */
     snap("单链表：<code>head -&gt; 12 -&gt; 34 -&gt; 56 -&gt; 78 -&gt; NULL</code>。目标：删除位序 <b>3</b> 的结点。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: -1, qIdx: -1, goneIdx: -1,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: -1, qIdx: -1, goneIdx: -1,
         note: "删除位序 i 的结点，合法范围是 1 ≤ i ≤ len；注意插入能到 len+1，删除只能到 len。" });
 
     snap("<b>找前驱</b>：<code>p = head; for (k = 1; k &lt; i; ++k) p = p-&gt;next;</code>，走 i−1 = 2 步，p 停在结点 34。" +
          "删除必须先拿到前驱，这是单链表删除慢的根源。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: 1, qIdx: -1, goneIdx: -1,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: 1, qIdx: -1, goneIdx: -1,
         note: "p 指向第 i−1 个结点；这一步是 O(n)。" });
 
     snap("<b>保存待删结点</b>：<code>q = p-&gt;next;</code> 让 q 指向 56，同时 <code>e = q-&gt;data;</code> 把值 56 交给调用者。" +
          "<b>这两步必须在改指针之前做</b>，否则 q 的地址就永远丢了。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: 1, qIdx: 2, goneIdx: -1,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: 1, qIdx: 2, goneIdx: -1,
         note: "q = p->next;  e = q->data;    ← 先保存，后改指针" });
 
     snap("<b>跨过 q</b>：<code>p-&gt;next = q-&gt;next;</code> 让 34 直接指向 78。原来的 34→56 这条边失效（灰色虚线），" +
          "但此刻 56 这块内存仍然存在，还需要手动释放。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: 1, qIdx: 2, goneIdx: -1,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: 1, qIdx: 2, goneIdx: -1,
         nx: [1, 3, null, -1], hl: [1], arcLabel: "p->next = q->next（跨过 q）",
         note: "p->next = q->next;   ← 逻辑上 56 已经不在表里了" });
 
     snap("<b>释放内存</b>：<code>delete q;</code>（建议再补一句 <code>q = nullptr;</code> 防野指针），然后 <code>--len</code>。" +
          "<b>漏掉 delete 就是内存泄漏</b>——链表结点是 new 出来的，不会自动回收。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: -1, qIdx: 2, goneIdx: 2,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: -1, qIdx: 2, goneIdx: 2,
         exists: [true, true, false, true], nx: [1, 3, null, -1], hl: [1], arcLabel: "p->next = q->next（跨过 q）",
         note: "delete q;  q = nullptr;  --len;   ← 释放 + 置空 + 减表长，三件事一件都不能少" });
 
     snap("删除完成：<code>head -&gt; 12 -&gt; 34 -&gt; 78 -&gt; NULL</code>。注意删除本身只改了 1 根指针（O(1)），" +
          "但找前驱是 O(n)，所以<b>按位删除整体仍是 O(n)</b>。",
-      { title: "第一部分：删除位序 i = 3 的结点（标准做法）", vals: V.slice(), pIdx: -1, qIdx: -1, goneIdx: 2,
+      { title: "删除位序 i = 3 的结点", vals: V.slice(), pIdx: -1, qIdx: -1, goneIdx: 2,
         exists: [true, true, false, true], nx: [1, 3, null, -1], hl: [1],
         note: "单链表按位删除：找前驱 O(n) + 摘链 O(1) = O(n)。" });
 
-    /* ---------- 第二部分：只给待删结点指针时的 O(1) 后继覆盖法 ---------- */
-    snap("<b>换一个场景</b>：现在只给你一个指向结点 34 的指针 p，<b>没有任何前驱信息</b>，要求 O(1) 删除它。" +
-         "单链表回头无路，怎么办？",
-      { title: "第二部分：只给待删结点指针 p，如何 O(1) 删除？", vals: V.slice(), pIdx: 1, qIdx: -1, goneIdx: -1,
-        note: "如果按老办法找前驱，就得 O(n)；本题要求 O(1)。" });
-
-    snap("<b>偷梁换柱第一步</b>：<code>p-&gt;data = p-&gt;next-&gt;data;</code> 把后继 56 的值抄到 p 身上。" +
-         "从这一刻起，结点 34 里装的是 56。",
-      { title: "第二部分：只给待删结点指针 p，如何 O(1) 删除？", vals: [12, 56, 56, 78], pIdx: 1, qIdx: 2, goneIdx: -1, coverIdx: 1,
-        note: "p->data = p->next->data;   ← 先把自己「变成」后继" });
-
-    snap("<b>偷梁换柱第二步</b>：<code>q = p-&gt;next; p-&gt;next = q-&gt;next; delete q;</code> —— 真正被释放的是原来的后继结点。" +
-         "从外部看，值 34 消失了，效果和删除 34 完全一样。",
-      { title: "第二部分：只给待删结点指针 p，如何 O(1) 删除？", vals: [12, 56, 56, 78], pIdx: 1, qIdx: 2, goneIdx: 2,
-        exists: [true, true, false, true], nx: [1, 3, null, -1], hl: [1],
-        note: "q = p->next;  p->next = q->next;  delete q;   ← 全部 O(1)" });
-
-    snap("结果：<code>head -&gt; 12 -&gt; 56 -&gt; 78 -&gt; NULL</code>，删除只用 O(1)。" +
-         "但要注意副作用：<b>被 delete 的其实是原 56 那个结点，而 34 那个结点的地址仍然有效但内容变了</b>。" +
-         "如果外部还有别的指针指向原 56，它们会变成悬垂指针。",
-      { title: "第二部分：只给待删结点指针 p，如何 O(1) 删除？", vals: [12, 56, 56, 78], pIdx: -1, qIdx: -1, goneIdx: 2,
-        exists: [true, true, false, true], nx: [1, 3, null, -1], hl: [1],
-        note: "外部看到的是「34 被删了」，实际被释放的是原 56 —— 这是一个隐式行为，工程上要谨慎。" });
-
-    snap("<b>致命限制</b>：如果 p 恰好是<b>尾结点</b>，<code>p-&gt;next</code> 是 <code>nullptr</code>，" +
-         "<code>p-&gt;next-&gt;data</code> 立刻解空指针崩溃。所以后继覆盖法<b>删不了尾结点</b>，" +
-         "那种情况只能老老实实花 O(n) 找前驱。",
-      { title: "第二部分：只给待删结点指针 p，如何 O(1) 删除？", vals: [12, 34, 56, 78], pIdx: 3, qIdx: -1, goneIdx: -1,
-        note: "p 是尾结点 ⇒ p->next == nullptr ⇒ p->next->data 直接崩溃。面试追问点！" });
-
-    mount('viz-singly-delete', "单链表删除：保存 q → 跨过 q → 释放 q", "并附 O(1) 的后继覆盖法", frames);
+    mount('viz-singly-delete', "单链表删除：保存 q → 跨过 q → 释放 q", "找前驱 O(n)，摘链 O(1)", frames);
   })();
 
   /* ==================================================================
@@ -724,152 +688,7 @@
   })();
 
   /* ==================================================================
-     演示 5：快慢指针判环（Floyd）+ 环入口
-     ================================================================== */
-  (function cycle() {
-    /* 对应页面容器 #viz-cycle：Floyd 快慢指针判环 + 第二阶段「表头与相遇点同步走」找环入口。 */
-    var host = document.getElementById('viz-cycle');
-    if (!host) return;
-
-    /* 链表：0→1→2→3→4→5→6→7→8→5（环入口是 5，尾长 a = 5，环长 b = 4） */
-    var NXT = [1, 2, 3, 4, 5, 6, 7, 8, 5];   // 静态 next 表：NXT[k] = 结点 nk 的后继下标（全程不改），末项 5 表示 n8 指回环入口
-    var P = [
-      { x: 110, y: 250 }, { x: 180, y: 250 }, { x: 250, y: 250 },
-      { x: 320, y: 250 }, { x: 390, y: 250 },
-      { x: 470, y: 250 },                                   // 环入口
-      { x: 590, y: 140 }, { x: 710, y: 250 }, { x: 590, y: 360 }  // 环
-    ];
-    /* P[k] = 结点 nk 的圆心坐标（下标即结点号，0 基）；HW/HH 是 edgePoint 裁剪边用的「半宽/半高」，
-       不是结点尺寸 —— 故意取得比圆的半径 17 略宽，好让箭头端点停在圆外留出空隙。 */
-    var HW = 27, HH = 17;
-    var frames = [];                               // 本演示的帧数组：全部在 build() 里同步 push 完，DS.Viz 之后才逐帧渲染
-
-    function clip(i, j) { return edgePoint(P[i].x, P[i].y, HW, HH, P[j].x, P[j].y); }
-    function clipTo(i, tx, ty) { return edgePoint(P[i].x, P[i].y, HW, HH, tx, ty); }
-
-    /* cfg: {slow, fast, phase, a, b, k, meet, entry, note} */
-    /* 补充：slow/fast（第一阶段）与 a/b（第二阶段）都是结点下标，-1 = 这帧不画该标记；phase 1 = 快慢指针、
-       2 = 找入口；meet = 相遇点下标，entry = 环入口下标（画绿）；k 只写进文字，draw 不读它；line2 是面板第三行。 */
-    function snap(desc, cfg) {
-      frames.push({
-        desc: desc,
-        draw: function (s) {
-          var W = 780, H = 414;
-          var svg = defsEx(SVG.svg(W, H));
-          var i;
-
-          svg.appendChild(SVG.text(14, 108, cfg.phase === 2
-            ? "A = 从表头出发的 ptr1　　B = 从相遇点出发的 ptr2（两者每步都走 1 格）"
-            : "S = slow（每步 1 格）　　F = fast（每步 2 格）", "vz-label", "start"));
-
-          /* 边 */
-          for (i = 0; i < NXT.length; i++) {
-            var j = NXT[i];
-            var clsE = "vz-edge";
-            if (i === cfg.meet || j === cfg.meet) clsE = "vz-edge active";
-            if (cfg.entry === i || (cfg.entry === j && i === 8)) clsE = "vz-edge done";
-            var p1 = clip(i, j), p2 = clip(j, i);
-            arrow(svg, p1.x, p1.y, p2.x, p2.y, clsE, MARK.plain);
-          }
-
-          /* head */
-          svg.appendChild(SVG.text(14, 256, "head", "vz-label", "start"));
-          var hEnd = clipTo(0, 20, 250);
-          arrow(svg, 52, 250, hEnd.x, hEnd.y, "vz-edge active", MARK.brand);
-
-          /* 结点 */
-          for (i = 0; i < P.length; i++) {
-            var cls = "";
-            if (i === cfg.entry) cls = "done";
-            else if (i === cfg.meet) cls = "warn";
-            else if (i === cfg.slow && i === cfg.fast) cls = "warn";
-            else if (i === cfg.slow || i === cfg.fast || i === cfg.a || i === cfg.b) cls = "active";
-            var on = /active|done|warn|compare/.test(cls) ? "on" : "";
-            svg.appendChild(SVG.circle(P[i].x, P[i].y, 17, "vz-node " + cls, String(i), on));
-            svg.appendChild(SVG.label(P[i].x, P[i].y + 36, "n" + i, "middle"));
-          }
-          /* 环入口标注：放在结点 5 正上方，用虚线引下来（刚好落在 S / F 两个标记之间） */
-          svg.appendChild(SVG.text(P[5].x, 130, "环入口", "vz-label", "middle"));
-          svg.appendChild(SVG.el("line", {
-            x1: P[5].x, y1: 136, x2: P[5].x, y2: 204, "class": "vz-edge dim",
-            style: "stroke-dasharray:5 4"
-          }));
-
-          /* 第一阶段：slow / fast 标记 */
-          if (cfg.phase === 1) {
-            if (cfg.slow >= 0) svg.appendChild(SVG.circle(P[cfg.slow].x - 16, P[cfg.slow].y - 32, 12, "vz-node active", "S", "on"));
-            if (cfg.fast >= 0) svg.appendChild(SVG.circle(P[cfg.fast].x + 16, P[cfg.fast].y - 32, 12, "vz-node compare", "F", "on"));
-          }
-          /* 第二阶段：ptr1 / ptr2 标记 */
-          if (cfg.phase === 2) {
-            if (cfg.a >= 0) svg.appendChild(SVG.circle(P[cfg.a].x - 16, P[cfg.a].y + 40, 12, "vz-node active", "A", "on"));
-            if (cfg.b >= 0) svg.appendChild(SVG.circle(P[cfg.b].x + 16, P[cfg.b].y + 40, 12, "vz-node done", "B", "on"));
-          }
-
-          panel(svg, 14, 8, 752, 76, [
-            "带环单链表：0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 5（结点 5 是环入口；尾长 a = 5，环长 b = 4）",
-            cfg.note || "",
-            cfg.line2 || ""
-          ]);
-          return svg;
-        }
-      });
-    }
-
-    /* ---------- 第一阶段 ---------- */
-    snap("出发前：slow 与 fast 都指向表头结点 0。fast 每次走 2 步、slow 每次走 1 步。",
-      { phase: 1, slow: 0, fast: 0, note: "t = 0　slow = n0　fast = n0", line2: "若链表无环，fast 会先撞上 NULL；若有环，fast 会先进环并绕圈。" });
-
-    /* 第一阶段的活状态：slow/fast 是当前结点下标，t 是已走轮数（1 基），meet 是相遇点下标（-1 = 还没相遇）。
-       它们只用来拼 desc 文字；每帧真正画的量都通过 snap 的 cfg 按值传过去（数字是值拷贝，安全）。 */
-    var slow = 0, fast = 0, t = 0, meet = -1;
-    while (t < 40) {                                          // 40 是防死循环的安全上限（本例必然相遇，用不到）
-      t++;
-      slow = NXT[slow];
-      fast = NXT[NXT[fast]];
-      snap("第 <b>" + t + "</b> 轮：slow 走 1 步到 <b>n" + slow + "</b>；fast 走 2 步到 <b>n" + fast + "</b>。" +
-           (slow === fast ? " <b>两者相遇！</b>" : " 还没追上，继续。"),
-        { phase: 1, slow: slow, fast: fast, note: "t = " + t + "　slow = n" + slow + "　fast = n" + fast,
-          line2: slow === fast ? "相遇 ⇒ 链表有环。注意 fast 是「追上」而不是「跨过」slow。" :
-                                "fast 相对 slow 每轮快 1 步，所以在环内一定会追上。" });
-      if (slow === fast) { meet = slow; break; }
-    }
-
-    snap("第一阶段结束：slow 与 fast 在 <b>n" + meet + "</b> 相遇（t = " + t + " 轮）。" +
-         "设尾长 a = 5、环长 b = 4，相遇点距入口 c = 3 步。代入公式：<code>t = m·b</code>，" +
-         "所以 <code>a = m·b − c = (m−1)·b + (b−c)</code>。",
-      { phase: 1, slow: meet, fast: meet, meet: meet, note: "相遇点 meet = n" + meet + "　t = " + t,
-        line2: "含义：从相遇点走 b−c 步回到入口，再多绕整圈仍在入口；从表头走 a 步也到入口。" });
-
-    /* ---------- 第二阶段 ---------- */
-    /* 第二阶段的活状态：a = ptr1 当前结点下标（从表头出发），b = ptr2 当前结点下标（从相遇点出发），k = 已走步数。
-       ⚠ 注意同名不同义：讲解文字里的 a / b 指的是「尾长 / 环长」这两个数学符号，不是这里的指针位置。 */
-    var a = 0, b = meet, k = 0;
-    snap("第二阶段开始：<code>ptr1 = head</code>（结点 0），<code>ptr2 = meet</code>（结点 " + meet + "），" +
-         "两个指针都每次走 1 步。依据 <code>a = (m−1)·b + (b − c)</code>，它们必然在环入口会合。",
-      { phase: 2, a: a, b: b, note: "ptr1 = n" + a + "　ptr2 = n" + b + "　k = 0",
-        line2: "这一步不需要任何额外空间，仍然是 O(1)。" });
-
-    while (a !== b && k < 40) {                               // k < 40 同上：防死循环的安全上限
-      a = NXT[a];
-      b = NXT[b];
-      k++;
-      snap("第 <b>" + k + "</b> 步：ptr1 走到 <b>n" + a + "</b>，ptr2 走到 <b>n" + b + "</b>。" +
-           (a === b ? " <b>两者重合 —— 这里就是环入口！</b>" : " 还没重合，继续。"),
-        { phase: 2, a: a, b: b, note: "ptr1 = n" + a + "　ptr2 = n" + b + "　k = " + k,
-          line2: a === b ? "相遇 ⇒ 该结点就是环入口。" : "ptr1 从表头走了 " + k + " 步，ptr2 从相遇点也走了 " + k + " 步。" });
-    }
-
-    snap("答案：环入口是 <b>n" + a + "</b>。整个算法（判环 + 找入口）只遍历了两趟，" +
-         "时间 <b>O(n)</b>、空间 <b>O(1)</b>。若要再求环长，从入口绕一圈回到入口即可。",
-      { phase: 2, a: a, b: b, entry: a, note: "环入口 = n" + a + "　总时间 O(n)　额外空间 O(1)",
-        line2: "变体：环长 = 从入口绕一圈的步数；尾长 a = 表头到入口的步数；总长 = a + b。" });
-
-    mount('viz-cycle', "快慢指针判环（Floyd）", "slow 每步 1 格，fast 每步 2 格", frames);
-  })();
-
-  /* ==================================================================
-     演示 6：双向链表插入四条指针的顺序（附错误顺序与删除）
+     演示 5：双向链表插入四条指针的顺序（附错误顺序与删除）
      ================================================================== */
   (function doubly() {
     /* 对应页面容器 #viz-doubly：双向链表插入时四条指针的修改顺序，附错误顺序对比与删除。 */
