@@ -12,6 +12,7 @@
   .diff { font-size:11.5px; font-weight:800; padding:1px 8px; border-radius:999px; color:#fff; white-space:nowrap; }
   .d1 { background:#fe4c61; }   /* 入门 */
   .d2 { background:#f39c11; }   /* 普及- */
+  .d3 { background:#ffc116; color:#5a4300; } /* 普及/提高- */
   .pid a { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 </style>
 </head>
@@ -28,7 +29,7 @@
       <div class="kicker">第 16 讲 · 规划</div>
       <h1>家教规划</h1>
       <p class="lede">
-        这一讲记录上课安排：每节课讲哪几讲、课上做哪些题。
+        这一讲记录上课安排：每节课讲哪几讲、课上做哪些题、课后留哪些作业。
         目前排好了前两节课，后续课程还未安排。
       </p>
       <div class="meta">
@@ -41,21 +42,24 @@
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>课次</th><th>课型</th><th>讲授内容</th><th>课上练习</th></tr></thead>
+        <thead><tr><th>课次</th><th>课型</th><th>讲授内容</th><th>课上练习</th><th>课后作业</th></tr></thead>
         <tbody>
           <tr>
             <td><b>第 1 节</b></td><td>理论课</td>
             <td><a href="ch01-intro.html">第 01 讲 绪论</a>、<a href="ch02-linear-list.html">第 02 讲 线性表</a></td>
+            <td>—</td>
             <td>—</td>
           </tr>
           <tr>
             <td><b>第 2 节</b></td><td>理论实践课</td>
             <td><a href="ch03-stack.html">第 03 讲 栈</a>、<a href="ch04-queue.html">第 04 讲 队列</a></td>
             <td>P3156、P1739、B3616</td>
+            <td>9 题，见 <a href="#s3-2">16.3.2</a></td>
           </tr>
           <tr>
             <td><b>第 3 节起</b></td><td>—</td>
             <td>还未安排</td>
+            <td>—</td>
             <td>—</td>
           </tr>
         </tbody>
@@ -104,12 +108,68 @@
       </table>
     </div>
 
+    <h3 id="s3-2">16.3.2 课后作业</h3>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>对应讲次</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1996" target="_blank" rel="noopener">P1996</a></td>
+            <td>约瑟夫问题</td><td><span class="diff d2">普及−</span></td><td>循环链表</td>
+            <td><a href="ch02-linear-list.html">第 02 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B3631" target="_blank" rel="noopener">B3631</a></td>
+            <td>单向链表</td><td><span class="diff d2">普及−</span></td><td>静态链表：插入与删除</td>
+            <td><a href="ch02-linear-list.html">第 02 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1160" target="_blank" rel="noopener">P1160</a></td>
+            <td>队列安排</td><td><span class="diff d3">普及/提高−</span></td><td>双向链表</td>
+            <td><a href="ch02-linear-list.html">第 02 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1449" target="_blank" rel="noopener">P1449</a></td>
+            <td>后缀表达式</td><td><span class="diff d2">普及−</span></td><td>栈求后缀表达式</td>
+            <td><a href="ch03-stack.html">第 03 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5788" target="_blank" rel="noopener">P5788</a></td>
+            <td>【模板】单调栈</td><td><span class="diff d3">普及/提高−</span></td><td>单调栈</td>
+            <td><a href="ch03-stack.html">第 03 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P4387" target="_blank" rel="noopener">P4387</a></td>
+            <td>验证栈序列</td><td><span class="diff d3">普及/提高−</span></td><td>栈的模拟</td>
+            <td><a href="ch03-stack.html">第 03 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1540" target="_blank" rel="noopener">P1540</a></td>
+            <td>机器翻译</td><td><span class="diff d2">普及−</span></td><td>队列 + 标记数组</td>
+            <td><a href="ch04-queue.html">第 04 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1886" target="_blank" rel="noopener">P1886</a></td>
+            <td>【模板】单调队列 / 滑动窗口</td><td><span class="diff d3">普及/提高−</span></td><td>单调队列</td>
+            <td><a href="ch04-queue.html">第 04 讲</a></td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P2058" target="_blank" rel="noopener">P2058</a></td>
+            <td>海港</td><td><span class="diff d3">普及/提高−</span></td><td>队列 + 计数</td>
+            <td><a href="ch04-queue.html">第 04 讲</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="note tip">
       <span class="note-title">思路提示在第 14 讲</span>
-      三道题的思路提示与易错点见洛谷题单：
+      课上练习和课后作业的思路提示与易错点见洛谷题单：
       <a href="ch14-luogu.html#s3">14.2（线性表）</a>、
       <a href="ch14-luogu.html#s4">14.3（栈）</a>、
-      <a href="ch14-luogu.html#s5">14.4（队列）</a>。
+      <a href="ch14-luogu.html#s5">14.4（队列）</a>；
+      P1886 的完整参考代码见 <a href="ch14-luogu.html#s5-1">14.4.1</a>。
     </div>
 
     <h2 id="s4">16.4 后续课程</h2>
