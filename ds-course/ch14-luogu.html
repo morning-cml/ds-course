@@ -13,12 +13,6 @@
   .d2 { background:#f39c11; }   /* 普及- */
   .d3 { background:#ffc116; color:#5a4300; } /* 普及/提高- */
   .d4 { background:#52c41a; }   /* 普及+/提高（本单只有 P3375 一道，标为选做） */
-  .plan { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
-  .plan .card { margin:0; }
-  .plan h4 { margin:0 0 6px; }
-  .task-list { list-style:none; padding-left:0; }
-  .task-list li { padding-left:26px; position:relative; }
-  .task-list li::before { content:"☐"; position:absolute; left:4px; color:var(--brand); font-weight:800; }
   .pid a { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 </style>
 </head>
@@ -89,48 +83,7 @@
       （通过率越高，通常越好上手）。建议按顺序做，一道题卡住超过 40 分钟再看思路提示。
     </div>
 
-    <h2 id="s2">14.2 分阶段作业计划</h2>
-
-    <div class="plan">
-      <div class="card">
-        <h4>阶段一 · 线性结构（配合第 02~06 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：把顺序表、链表、栈、队列的代码变成肌肉记忆。</p>
-        <ul class="task-list" style="font-size:13.5px">
-          <li>第 02~04 讲的 12 道题按顺序做完</li>
-          <li>B3631 单向链表、B3616 队列：先用数组手写，再用 STL 写一遍对比</li>
-          <li>第 05、06 讲的入门题当热身；P3375 KMP 学有余力再做</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4>阶段二 · 树与图的遍历（配合第 07~08 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：二叉树的遍历、并查集、DFS / BFS 能随手写。</p>
-        <ul class="task-list" style="font-size:13.5px">
-          <li>P1030、P4913：先在纸上画出树，再写代码</li>
-          <li>P3367 并查集写出路径压缩（第 09 讲 Kruskal 要用）</li>
-          <li>第 08 讲四题里，DFS 和 BFS 各至少写一遍</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4>阶段三 · 图论算法（配合第 09 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：Floyd、Kruskal、Dijkstra 的模板能盲写。</p>
-        <ul class="task-list" style="font-size:13.5px">
-          <li>B3647、P3366、P4779 三道模板题各写一遍</li>
-          <li>P1113 杂务：先手算样例的最早完成时间，再写代码</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4>阶段四 · 查找、排序与算法设计（配合第 10~13 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：能根据数据范围选对算法。</p>
-        <ul class="task-list" style="font-size:13.5px">
-          <li>P1177 用快速排序、归并排序、堆排序各写一遍，都要 AC</li>
-          <li>P2249 手写二分，不用 <code>lower_bound</code></li>
-          <li>P1923 写快速选择；P1309 体会「合并」代替「重新排序」</li>
-          <li>第 13 讲四题分别练 DP、背包、贪心、回溯各一种范式</li>
-        </ul>
-      </div>
-    </div>
-
-    <h2 id="s3">14.3 第 02 讲 · 线性表</h2>
+    <h2 id="s3">14.2 第 02 讲 · 线性表</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -155,7 +108,7 @@
       </table>
     </div>
 
-    <h2 id="s4">14.4 第 03 讲 · 栈</h2>
+    <h2 id="s4">14.3 第 03 讲 · 栈</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -180,7 +133,7 @@
       </table>
     </div>
 
-    <h2 id="s5">14.5 第 04 讲 · 队列</h2>
+    <h2 id="s5">14.4 第 04 讲 · 队列</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -195,7 +148,7 @@
           </tr>
           <tr>
             <td class="pid"><a href="https://www.luogu.com.cn/problem/P1886" target="_blank" rel="noopener">P1886</a></td><td>【模板】单调队列 / 滑动窗口</td><td><span class="diff d3">普及/提高−</span></td><td>单调队列</td>
-            <td>第 04 讲的单调队列。求最大值用<b>单调递减</b>队列，求最小值用单调递增；出队条件注意「队首是否已滑出窗口」。完整代码见 14.5.1。</td>
+            <td>第 04 讲的单调队列。求最大值用<b>单调递减</b>队列，求最小值用单调递增；出队条件注意「队首是否已滑出窗口」。完整代码见 14.4.1。</td>
           </tr>
           <tr>
             <td class="pid"><a href="https://www.luogu.com.cn/problem/P2058" target="_blank" rel="noopener">P2058</a></td><td>海港</td><td><span class="diff d3">普及/提高−</span></td><td>队列 + 计数</td>
@@ -205,7 +158,7 @@
       </table>
     </div>
 
-    <h3 id="s5-1">14.5.1 例题精讲：单调队列求滑动窗口（P1886）</h3>
+    <h3 id="s5-1">14.4.1 例题精讲：单调队列求滑动窗口（P1886）</h3>
     <p>
       单调队列的思想是：<b>如果一个元素比队尾元素更大、而且位置更靠后，那么队尾元素永远不可能再成为答案</b>，
       于是可以直接把它从队尾弹掉。每个元素最多入队一次、出队一次，所以整个算法是 O(n)。
@@ -254,7 +207,7 @@ int main() {
       这个「淘汰过期元素」的判据 <code>dq.front() &lt;= i - k</code> 是最容易写错的地方：注意是 <code>&lt;=</code> 而不是 <code>&lt;</code>。
     </div>
 
-    <h2 id="s6">14.6 第 05 讲 · 串</h2>
+    <h2 id="s6">14.5 第 05 讲 · 串</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -269,13 +222,13 @@ int main() {
           </tr>
           <tr>
             <td class="pid"><a href="https://www.luogu.com.cn/problem/P3375" target="_blank" rel="noopener">P3375</a></td><td>【模板】KMP</td><td><span class="diff d4">普及+/提高</span><br><span style="font-size:12px;color:var(--text-soft)">选做</span></td><td>KMP / 前缀函数</td>
-            <td>本单唯一超过「普及/提高−」的题，因为它就是第 05 讲 KMP 代码的原样套用。题目要输出的「每个前缀的最长 border 长度」，正是第 05 讲的前缀函数 <code>π[0..m−1]</code>；教材版 <code>next</code> 要在它的基础上 +1 并右移一位，别混用。完整代码见 14.6.1。</td>
+            <td>本单唯一超过「普及/提高−」的题，因为它就是第 05 讲 KMP 代码的原样套用。题目要输出的「每个前缀的最长 border 长度」，正是第 05 讲的前缀函数 <code>π[0..m−1]</code>；教材版 <code>next</code> 要在它的基础上 +1 并右移一位，别混用。完整代码见 14.5.1。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 id="s6-1">14.6.1 例题精讲：KMP 模板题（P3375）</h3>
+    <h3 id="s6-1">14.5.1 例题精讲：KMP 模板题（P3375）</h3>
 
     <div class="note tip">
       <span class="note-title">为什么要专门讲这道题</span>
@@ -323,7 +276,7 @@ int main() {
     return 0;
 }</pre>
 
-    <h2 id="s7">14.7 第 06 讲 · 数组与矩阵</h2>
+    <h2 id="s7">14.6 第 06 讲 · 数组与矩阵</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -344,7 +297,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s8">14.8 第 07 讲 · 树与二叉树</h2>
+    <h2 id="s8">14.7 第 07 讲 · 树与二叉树</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -369,7 +322,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s9">14.9 第 08 讲 · 图的存储与遍历</h2>
+    <h2 id="s9">14.8 第 08 讲 · 图的存储与遍历</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -394,7 +347,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s10">14.10 第 09 讲 · 图论算法</h2>
+    <h2 id="s10">14.9 第 09 讲 · 图论算法</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -413,7 +366,7 @@ int main() {
           </tr>
           <tr>
             <td class="pid"><a href="https://www.luogu.com.cn/problem/P4779" target="_blank" rel="noopener">P4779</a></td><td>【模板】单源最短路径（标准版）</td><td><span class="diff d3">普及/提高−</span></td><td>堆优化 Dijkstra</td>
-            <td>n 到 10⁵、m 到 2×10⁵，朴素 O(n²) 会超时，必须用<b>堆优化</b>，且要写「跳过过期元素 <code>if (d &gt; dist[u]) continue;</code>」。完整代码见 14.10.1。</td>
+            <td>n 到 10⁵、m 到 2×10⁵，朴素 O(n²) 会超时，必须用<b>堆优化</b>，且要写「跳过过期元素 <code>if (d &gt; dist[u]) continue;</code>」。完整代码见 14.9.1。</td>
           </tr>
         </tbody>
       </table>
@@ -426,7 +379,7 @@ int main() {
       再对照第 09 讲的动画检查每一步。这是 408 大题的常客。
     </div>
 
-    <h3 id="s10-1">14.10.1 例题精讲：堆优化 Dijkstra（P4779）</h3>
+    <h3 id="s10-1">14.9.1 例题精讲：堆优化 Dijkstra（P4779）</h3>
     <p>
       最短路题的难点往往不在算法本身，而在「建图 + 松弛 + 跳过过期元素 + 数据类型」四件事都要写对。
       下面这份代码可以直接当模板用，顺带演示了如何用 <code>pre</code> 数组还原路径。
@@ -510,7 +463,7 @@ int main() {
       </ol>
     </div>
 
-    <h2 id="s11">14.11 第 10 讲 · 查找与哈希</h2>
+    <h2 id="s11">14.10 第 10 讲 · 查找与哈希</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -535,7 +488,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s12">14.12 第 11 讲 · 排序</h2>
+    <h2 id="s12">14.11 第 11 讲 · 排序</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -554,13 +507,13 @@ int main() {
           </tr>
           <tr>
             <td class="pid"><a href="https://www.luogu.com.cn/problem/P1908" target="_blank" rel="noopener">P1908</a></td><td>逆序对</td><td><span class="diff d3">普及/提高−</span></td><td>归并排序</td>
-            <td>归并排序在合并时统计「右边元素比左边先放」的次数，就是逆序对数。注意答案要开 <code>long long</code>。完整代码见 14.12.1。</td>
+            <td>归并排序在合并时统计「右边元素比左边先放」的次数，就是逆序对数。注意答案要开 <code>long long</code>。完整代码见 14.11.1。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 id="s12-1">14.12.1 例题精讲：归并排序求逆序对（P1908）</h3>
+    <h3 id="s12-1">14.11.1 例题精讲：归并排序求逆序对（P1908）</h3>
     <p>
       逆序对是「排序 + 分治」的经典结合。归并排序在合并两个有序段时，如果右边段的元素
       先被放进结果数组，就说明它比左边段剩下的所有元素都小——这一批「左边剩余元素」恰好构成
@@ -619,7 +572,7 @@ int main() {
       </ol>
     </div>
 
-    <h2 id="s13">14.13 第 12 讲 · 排序进阶</h2>
+    <h2 id="s13">14.12 第 12 讲 · 排序进阶</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -644,7 +597,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s14">14.14 第 13 讲 · 算法设计范式与动态规划</h2>
+    <h2 id="s14">14.13 第 13 讲 · 算法设计范式与动态规划</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
@@ -669,7 +622,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s15">14.15 调试与对拍：自己造数据验证程序</h2>
+    <h2 id="s15">14.14 调试与对拍：自己造数据验证程序</h2>
 
     <p>
       做题最容易卡在「样例过了但提交 WA」。这时候不要干瞪眼，用<b>对拍</b>：
@@ -748,7 +701,7 @@ pause</pre>
       </ul>
     </div>
 
-    <h2 id="s16">14.16 本章小结</h2>
+    <h2 id="s16">14.15 本章小结</h2>
 
     <div class="grid c2">
       <div class="card">
