@@ -76,8 +76,9 @@ for (const page of PAGES) {
   if (!/assets\/css\/course\.css/.test(html)) err("未引用 course.css");
   if (!/assets\/js\/course\.js/.test(html)) err("未引用 course.js");
 
-  // 外链检查
-  const ext = html.match(/(?:src|href)\s*=\s*"(https?:)?\/\/[^"]+"/gi);
+  // 外链资源检查：脚本 / 图片（src=）和样式表（<link href=）必须在本地，否则离线打不开。
+  // 普通超链接 <a href="https://…"> 不算资源（例如第 14 讲指向洛谷题目页），离线时只是点不开，页面照常显示。
+  const ext = html.match(/\bsrc\s*=\s*"(https?:)?\/\/[^"]+"|<link\b[^>]*\bhref\s*=\s*"(https?:)?\/\/[^"]+"/gi);
   if (ext) err("存在外链资源（不允许离线打开）: " + ext.slice(0, 3).join(", "));
 
   // 3. 标题 id（卡片/引导区里的装饰性标题不参与本页目录，可豁免）

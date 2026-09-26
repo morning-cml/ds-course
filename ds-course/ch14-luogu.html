@@ -12,15 +12,14 @@
   .d1 { background:#fe4c61; }   /* 入门 */
   .d2 { background:#f39c11; }   /* 普及- */
   .d3 { background:#ffc116; color:#5a4300; } /* 普及/提高- */
-  .d4 { background:#52c41a; }   /* 普及+/提高 */
-  .d5 { background:#3498db; }   /* 提高+/省选- */
-  .d6 { background:#9d3fdc; }   /* 省选/NOI- */
+  .d4 { background:#52c41a; }   /* 普及+/提高（本单只有 P3375 一道，标为选做） */
   .plan { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
   .plan .card { margin:0; }
   .plan h4 { margin:0 0 6px; }
   .task-list { list-style:none; padding-left:0; }
   .task-list li { padding-left:26px; position:relative; }
   .task-list li::before { content:"☐"; position:absolute; left:4px; color:var(--brand); font-weight:800; }
+  .pid a { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -36,21 +35,22 @@
       <div class="kicker">第 14 讲 · 实战</div>
       <h1>洛谷题单：例题与作业</h1>
       <p class="lede">
-        看懂和写出来之间隔着一百道题。这一讲把整门课的知识点映射到可提交的编程题上，
-        每题都给出「考点 → 思路 → 容易踩的坑」，模板题附完整 C++ 代码。
+        看懂和写出来之间隔着一道道题。这一讲给第 02~13 讲每讲配 3~4 道最经典的洛谷题，
+        难度从「入门」到「普及/提高−」，每讲内部由易到难排好。每题都给出「考点 → 思路 → 容易踩的坑」，
+        其中 4 道附完整的 C++ 参考代码。
       </p>
       <div class="meta">
-        <span>建议：每讲配套 2~4 题</span>
+        <span>每讲 3~4 题，共 46 题</span>
         <span>平台：洛谷 luogu.com.cn</span>
-        <span>关键词：模板题 · 分层作业 · 对拍调试</span>
+        <span>关键词：经典题 · 由易到难 · 对拍调试</span>
       </div>
     </div>
 
     <div class="note warn">
-      <span class="note-title">关于题号（请务必先读）</span>
-      洛谷题库会持续更新，题号与难度标签可能变动。本讲的题号均为编写时的常见对应关系，
-      <b>如果某道题号打开后不是你期望的题目，请直接在洛谷站内搜索题目名称</b>
-      （本站每一题都给出了中文题目名，搜索即可命中）。
+      <span class="note-title">关于题号与难度（请务必先读）</span>
+      本讲所有题号、题名与难度标签都在 2026 年 9 月逐题到洛谷上核对过，点题号可直接打开题目页。
+      洛谷的难度标签会随评定调整，<b>以后如果看到的颜色和这里不一样，以站内为准</b>；
+      万一题号打不开，用表格里的中文题名在站内搜索即可。
       做题时请以站内的实际题面、数据范围与时空限制为准。
     </div>
 
@@ -61,7 +61,7 @@
         <h4 style="margin-top:0">三步做题法</h4>
         <ol style="margin-bottom:0">
           <li><b>先读题、定算法</b>：看数据范围反推复杂度。
-            例如 <code>n ≤ 1000</code> 允许 O(n²)，<code>n ≤ 10⁵</code> 只允许 O(n log n)，<code>n ≤ 20</code> 想状压 / 搜索剪枝。</li>
+            例如 <code>n ≤ 1000</code> 允许 O(n²)，<code>n ≤ 10⁵</code> 只允许 O(n log n)，<code>n ≤ 20</code> 可以考虑搜索。</li>
           <li><b>手推小样例</b>：自己造一组 3~5 个元素的数据，用纸笔跑一遍自己的算法，确认逻辑无误再写代码。</li>
           <li><b>WA 了先自己调试</b>：把中间变量打印出来，用课件里的动画对照「程序的状态变化」和「算法的正确状态变化」差在哪一步。</li>
         </ol>
@@ -69,190 +69,228 @@
       <div class="card">
         <h4 style="margin-top:0">必备的自查习惯</h4>
         <ul style="margin-bottom:0">
-          <li><b>数组开够了吗？</b> 链式前向星要开 <code>2 * m</code>；线段树要开 <code>4 * n</code>。</li>
+          <li><b>数组开够了吗？</b> 无向图的边数组要开 <code>2 * m</code>；下标从 1 开始时数组要多开 1 位。</li>
           <li><b>初始值对吗？</b> 求最小值时 <code>INF</code> 够大吗？求最大值时负无穷设了吗？</li>
-          <li><b>会不会爆 int？</b> 看到乘法、求和、权值累加，先想 <code>long long</code>。</li>
-          <li><b>边界处理了吗？</b> n = 1、空串、只有一条边的图、完全图。</li>
-          <li><b>多组数据清空了吗？</b> 全局数组、<code>vector</code>、并查集都要重置。</li>
+          <li><b>会不会爆 int？</b> 看到乘法、求和、计数，先想 <code>long long</code>。</li>
+          <li><b>边界处理了吗？</b> n = 1、空串、只有一条边的图。</li>
+          <li><b>多组数据清空了吗？</b> 全局数组、<code>vector</code>、栈和队列都要重置。</li>
         </ul>
       </div>
     </div>
 
     <div class="note tip">
-      <span class="note-title">难度标签对照</span>
+      <span class="note-title">难度标签与排列顺序</span>
+      本题单只用到洛谷的前三档：
       <span class="diff d1">入门</span>
       <span class="diff d2">普及−</span>
-      <span class="diff d3">普及/提高−</span>
-      <span class="diff d4">普及+/提高</span>
-      <span class="diff d5">提高+/省选−</span>
-      <span class="diff d6">省选/NOI−</span>
-      —— 建议顺序：先把每章的 <span class="diff d1">入门</span> 与 <span class="diff d2">普及−</span> 清完，
-      再挑 <span class="diff d3">普及/提高−</span>，最后挑战 <span class="diff d4">普及+/提高</span> 以上。
+      <span class="diff d3">普及/提高−</span>，
+      唯一的例外是第 05 讲的 KMP 模板题 <span class="diff d4">普及+/提高</span>，标为选做。
+      <br>每讲的题都已经<b>由易到难</b>排好：先按难度标签从低到高；同一档里，按洛谷上的通过率从高到低
+      （通过率越高，通常越好上手）。建议按顺序做，一道题卡住超过 40 分钟再看思路提示。
     </div>
 
     <h2 id="s2">14.2 分阶段作业计划</h2>
 
     <div class="plan">
       <div class="card">
-        <h4>阶段一 · 线性结构（配合第 01~04 讲）</h4>
+        <h4>阶段一 · 线性结构（配合第 02~06 讲）</h4>
         <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：把顺序表、链表、栈、队列的代码变成肌肉记忆。</p>
         <ul class="task-list" style="font-size:13.5px">
-          <li>用数组模拟栈 / 队列各写一遍（不用 STL）</li>
-          <li>完成「模拟链表」类题目 2 道</li>
-          <li>完成「括号匹配 / 表达式求值」类题目 2 道</li>
+          <li>第 02~04 讲的 12 道题按顺序做完</li>
+          <li>B3631 单向链表、B3616 队列：先用数组手写，再用 STL 写一遍对比</li>
+          <li>第 05、06 讲的入门题当热身；P3375 KMP 学有余力再做</li>
         </ul>
       </div>
       <div class="card">
-        <h4>阶段二 · 串与树（配合第 05~07 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：KMP 能独立默写，树的遍历能随手写。</p>
+        <h4>阶段二 · 树与图的遍历（配合第 07~08 讲）</h4>
+        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：二叉树的遍历、并查集、DFS / BFS 能随手写。</p>
         <ul class="task-list" style="font-size:13.5px">
-          <li>KMP 模板题过掉，并自己造数据验证 π 数组</li>
-          <li>二叉树的三种遍历 + 层序遍历各写一遍</li>
-          <li>赫夫曼编码 / 堆的模板题 2 道</li>
+          <li>P1030、P4913：先在纸上画出树，再写代码</li>
+          <li>P3367 并查集写出路径压缩（第 09 讲 Kruskal 要用）</li>
+          <li>第 08 讲四题里，DFS 和 BFS 各至少写一遍</li>
         </ul>
       </div>
       <div class="card">
-        <h4>阶段三 · 图论（配合第 08~09 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：五种图论算法的模板都能盲写。</p>
+        <h4>阶段三 · 图论算法（配合第 09 讲）</h4>
+        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：Floyd、Kruskal、Dijkstra 的模板能盲写。</p>
         <ul class="task-list" style="font-size:13.5px">
-          <li>并查集、Dijkstra、Floyd、Kruskal、拓扑排序各 1 道模板题</li>
-          <li>DFS / BFS 求连通块 2 道</li>
-          <li>关键路径 / 最长路 1 道</li>
+          <li>B3647、P3366、P4779 三道模板题各写一遍</li>
+          <li>P1113 杂务：先手算样例的最早完成时间，再写代码</li>
         </ul>
       </div>
       <div class="card">
-        <h4>阶段四 · 排序、查找与 DP（配合第 10~13 讲）</h4>
-        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：能根据数据范围选择正确的算法与数据结构。</p>
+        <h4>阶段四 · 查找、排序与算法设计（配合第 10~13 讲）</h4>
+        <p style="font-size:13px;color:var(--text-soft);margin:0 0 8px">目标：能根据数据范围选对算法。</p>
         <ul class="task-list" style="font-size:13.5px">
-          <li>归并排序求逆序对、快速排序优化各 1 道</li>
-          <li>二分答案 2 道（体会「答案单调性」）</li>
-          <li>背包 3 道 + LIS / LCS 各 1 道</li>
-          <li>综合模拟赛 1 场（3 小时 4 题）</li>
+          <li>P1177 用快速排序、归并排序、堆排序各写一遍，都要 AC</li>
+          <li>P2249 手写二分，不用 <code>lower_bound</code></li>
+          <li>P1923 写快速选择；P1309 体会「合并」代替「重新排序」</li>
+          <li>第 13 讲四题分别练 DP、背包、贪心、回溯各一种范式</li>
         </ul>
       </div>
     </div>
 
-    <h2 id="s3">14.3 第 01~04 讲 · 线性结构题单</h2>
-
-    <h3 id="s3-1">14.3.1 数组、模拟与栈</h3>
+    <h2 id="s3">14.3 第 02 讲 · 线性表</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
         <tbody>
           <tr>
-            <td>P1046</td><td>陶陶摘苹果</td><td><span class="diff d1">入门</span></td><td>数组遍历</td>
-            <td>热身题。把 10 个高度读进数组，统计 <code>h + 30 ≥ a[i]</code> 的个数。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3156" target="_blank" rel="noopener">P3156</a></td><td>询问学号</td><td><span class="diff d1">入门</span></td><td>顺序表的随机存取</td>
+            <td>把学号按进教室的顺序存进数组，第 i 个同学就是 <code>a[i]</code>——这正是顺序表 O(1) 按位访问。n 到 2×10⁶，读入要快（关闭同步流或用 <code>scanf</code>）。</td>
           </tr>
           <tr>
-            <td>P1047</td><td>校门外的树</td><td><span class="diff d1">入门</span></td><td>数组标记 / 差分</td>
-            <td>最直观是开一个布尔数组把区间内的树标记掉，最后数剩下的；进阶可以用<b>差分数组</b>把每个区间操作降到 O(1)。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1996" target="_blank" rel="noopener">P1996</a></td><td>约瑟夫问题</td><td><span class="diff d2">普及−</span></td><td>循环链表</td>
+            <td>用数组模拟循环链表：<code>nxt[i]</code> 指向下一个人，最后一个人指回 1。数到第 m 个人就把他从环里摘掉（改他前一个人的 <code>nxt</code>）。也可以用第 04 讲的队列：出队，没数到 m 就重新入队。</td>
           </tr>
           <tr>
-            <td>P2367</td><td>语文成绩</td><td><span class="diff d2">普及−</span></td><td>差分数组</td>
-            <td>多次区间加、最后一次查询——差分数组的模板题。<code>d[l] += v; d[r+1] -= v;</code> 最后做一次前缀和。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B3631" target="_blank" rel="noopener">B3631</a></td><td>单向链表</td><td><span class="diff d2">普及−</span></td><td>静态链表：插入与删除</td>
+            <td>元素值 ≤ 10⁶ 且互不相同，可以直接用值当下标：<code>nxt[x]</code> 存 x 后面的元素。把 y 插到 x 后面：<code>nxt[y] = nxt[x]; nxt[x] = y;</code>（先连后断）；删除 x 的后继：<code>nxt[x] = nxt[nxt[x]];</code>。</td>
           </tr>
           <tr>
-            <td>P1739</td><td>表达式括号匹配</td><td><span class="diff d1">入门</span></td><td>栈 / 计数器</td>
-            <td>第 03 讲的括号匹配。因为只有一种括号，其实用一个计数器就够了；如果扩展到三种括号就必须用栈。</td>
-          </tr>
-          <tr>
-            <td>P1449</td><td>后缀表达式</td><td><span class="diff d2">普及−</span></td><td>栈 + 表达式求值</td>
-            <td>题目用 <code>.</code> 分隔操作数、<code>@</code> 结束。注意「先弹出的是右操作数」——减法和除法顺序别反。</td>
-          </tr>
-          <tr>
-            <td>P1981</td><td>表达式求值</td><td><span class="diff d3">普及/提高−</span></td><td>双栈 / 中缀求值</td>
-            <td>只有 + 和 ×，且要求结果 mod 10000。可以先把乘法算完（用栈存「待加的项」），再统一相加。</td>
-          </tr>
-          <tr>
-            <td>P1177</td><td>【模板】快速排序</td><td><span class="diff d2">普及−</span></td><td>快速排序</td>
-            <td>第 11 讲的快排模板。这题数据会卡「取端点做基准」的写法，务必用<b>随机基准</b>或三数取中。</td>
-          </tr>
-          <tr>
-            <td>P1908</td><td>逆序对</td><td><span class="diff d3">普及/提高−</span></td><td>归并排序 / 树状数组</td>
-            <td>归并排序在合并时统计「右边元素比左边先放」的次数，就是逆序对数。注意答案要开 <code>long long</code>。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1160" target="_blank" rel="noopener">P1160</a></td><td>队列安排</td><td><span class="diff d3">普及/提高−</span></td><td>双向链表</td>
+            <td>频繁在某人的左边 / 右边插入、以及删除——典型的双向链表应用。用数组 <code>l[]</code>、<code>r[]</code> 模拟双向链表比指针更快。同一个人可能被要求删除多次，要记录「是否已经删掉」。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="note exam">
-      <span class="note-title">配套练习：手写模拟链表</span>
-      用数组模拟单链表（静态链表）完成「在指定位置插入 / 删除」，并自己写 <code>main</code> 对拍验证。
-      这题洛谷没有直接对应，但它是理解链式前向星的前提，务必动手写一遍。
-    </div>
-
-    <h3 id="s3-2">14.3.2 队列与单调结构</h3>
+    <h2 id="s4">14.4 第 03 讲 · 栈</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
         <tbody>
           <tr>
-            <td>P1540</td><td>机器翻译</td><td><span class="diff d2">普及−</span></td><td>队列 + 哈希/标记</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1739" target="_blank" rel="noopener">P1739</a></td><td>表达式括号匹配</td><td><span class="diff d1">入门</span></td><td>括号匹配</td>
+            <td>第 03 讲的括号匹配。因为只有一种括号，其实用一个计数器就够了：遇到 <code>(</code> 加一、遇到 <code>)</code> 减一，<b>中途一旦变成负数</b>就已经不匹配；如果扩展到三种括号就必须用栈。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1449" target="_blank" rel="noopener">P1449</a></td><td>后缀表达式</td><td><span class="diff d2">普及−</span></td><td>栈求后缀表达式</td>
+            <td>题目用 <code>.</code> 分隔操作数、<code>@</code> 结束。遇到数字就入栈，遇到运算符就弹出两个数计算后再入栈。注意「先弹出的是右操作数」——减法和除法顺序别反。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5788" target="_blank" rel="noopener">P5788</a></td><td>【模板】单调栈</td><td><span class="diff d3">普及/提高−</span></td><td>单调栈</td>
+            <td>求「右边第一个比它大的元素的下标」。从左往右扫，栈里存下标、对应的值保持单调递减；<code>a[i]</code> 比栈顶大，就弹出栈顶并把它的答案记为 i。n 到 3×10⁶，读入要快。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P4387" target="_blank" rel="noopener">P4387</a></td><td>验证栈序列</td><td><span class="diff d3">普及/提高−</span></td><td>栈的模拟</td>
+            <td>照着入栈序列一个个压栈，每压一个就检查：栈顶等于出栈序列里「下一个该出的数」，就一直弹。全部压完后栈空就是 <code>Yes</code>。每组数据开始前记得清空栈。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="s5">14.5 第 04 讲 · 队列</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B3616" target="_blank" rel="noopener">B3616</a></td><td>【模板】队列</td><td><span class="diff d2">普及−</span></td><td>队列的基本操作</td>
+            <td>先用数组 + <code>front</code> / <code>rear</code> 两个下标手写一遍，再用 <code>std::queue</code> 写一遍对比。队列为空时出队、取队首要按题目输出错误信息，不能越界访问。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1540" target="_blank" rel="noopener">P1540</a></td><td>机器翻译</td><td><span class="diff d2">普及−</span></td><td>队列 + 标记数组</td>
             <td>典型 FIFO 场景：内存满时淘汰最早进入的单词。用 <code>queue</code> 配一个布尔数组记录「是否在内存中」。</td>
           </tr>
           <tr>
-            <td>P1886</td><td>滑动窗口 /【模板】单调队列</td><td><span class="diff d3">普及/提高−</span></td><td>单调队列</td>
-            <td>第 04 讲的单调队列。求最大值用<b>单调递减</b>队列，求最小值用单调递增；出队条件注意「队首是否已滑出窗口」。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1886" target="_blank" rel="noopener">P1886</a></td><td>【模板】单调队列 / 滑动窗口</td><td><span class="diff d3">普及/提高−</span></td><td>单调队列</td>
+            <td>第 04 讲的单调队列。求最大值用<b>单调递减</b>队列，求最小值用单调递增；出队条件注意「队首是否已滑出窗口」。完整代码见 14.5.1。</td>
           </tr>
           <tr>
-            <td>P1440</td><td>求 m 区间内的最小值</td><td><span class="diff d3">普及/提高−</span></td><td>单调队列</td>
-            <td>同一套模板换个问法。注意输出格式与前 m−1 个位置的答案约定。</td>
-          </tr>
-          <tr>
-            <td>P1160</td><td>队列安排</td><td><span class="diff d3">普及/提高−</span></td><td>双向链表 / 数组模拟</td>
-            <td>频繁在某人的左边/右边插入、以及删除——典型的双向链表应用。用数组模拟双向链表（<code>l[]</code>、<code>r[]</code>）比指针更快。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P2058" target="_blank" rel="noopener">P2058</a></td><td>海港</td><td><span class="diff d3">普及/提高−</span></td><td>队列 + 计数</td>
+            <td>把每位乘客「(到达时间, 国籍)」依次入队，用 <code>cnt[国籍]</code> 计数，某国籍从 0 变 1 时答案加一。每来一艘船，就把到达时间 ≤ t − 86400 的乘客从队首出队并减计数。每位乘客只进出队各一次，总复杂度 O(Σk)。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 id="s3-3">14.3.3 串与 KMP</h3>
+    <h3 id="s5-1">14.5.1 例题精讲：单调队列求滑动窗口（P1886）</h3>
+    <p>
+      单调队列的思想是：<b>如果一个元素比队尾元素更大、而且位置更靠后，那么队尾元素永远不可能再成为答案</b>，
+      于是可以直接把它从队尾弹掉。每个元素最多入队一次、出队一次，所以整个算法是 O(n)。
+    </p>
+
+    <pre data-lang="cpp" data-file="P1886_monotonic_queue.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+/* 洛谷 P1886【模板】单调队列 / 滑动窗口
+   输入：n k，然后 n 个整数
+   输出：第一行每个窗口的最小值，第二行每个窗口的最大值 */
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int n, k;
+    cin &gt;&gt; n &gt;&gt; k;
+    vector&lt;int&gt; a(n + 1);
+    for (int i = 1; i &lt;= n; ++i) cin &gt;&gt; a[i];
+
+    deque&lt;int&gt; dq;                       // 存"下标"，队列里的值保持单调
+
+    /* ---------- 最小值：维护单调递增队列 ---------- */
+    for (int i = 1; i &lt;= n; ++i) {
+        while (!dq.empty() &amp;&amp; a[dq.back()] &gt;= a[i]) dq.pop_back();  // 队尾更大且更靠前 → 永远用不上
+        dq.push_back(i);
+        if (dq.front() &lt;= i - k) dq.pop_front();                     // 队首滑出窗口
+        if (i &gt;= k) cout &lt;&lt; a[dq.front()] &lt;&lt; ' ';
+    }
+    cout &lt;&lt; '\n';
+
+    /* ---------- 最大值：维护单调递减队列（只需把比较方向反过来） ---------- */
+    dq.clear();
+    for (int i = 1; i &lt;= n; ++i) {
+        while (!dq.empty() &amp;&amp; a[dq.back()] &lt;= a[i]) dq.pop_back();
+        dq.push_back(i);
+        if (dq.front() &lt;= i - k) dq.pop_front();
+        if (i &gt;= k) cout &lt;&lt; a[dq.front()] &lt;&lt; ' ';
+    }
+    cout &lt;&lt; '\n';
+    return 0;
+}</pre>
+
+    <div class="note tip">
+      <span class="note-title">一句话记住单调队列</span>
+      <b>求最小值用递增队列、求最大值用递减队列</b>；两个动作的顺序是「先弹队尾（淘汰没用的），再压入自己，最后弹队首（淘汰过期的）」。
+      这个「淘汰过期元素」的判据 <code>dq.front() &lt;= i - k</code> 是最容易写错的地方：注意是 <code>&lt;=</code> 而不是 <code>&lt;</code>。
+    </div>
+
+    <h2 id="s6">14.6 第 05 讲 · 串</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
         <tbody>
           <tr>
-            <td>P3375</td><td>【模板】KMP</td><td><span class="diff d3">普及/提高−</span></td><td>KMP / π 数组</td>
-            <td>第 05 讲的模板题。输出要求：先输出所有出现位置（1 基），再输出模式串的 π 数组（教材版 next）。<b>注意两种约定的换算</b>。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5015" target="_blank" rel="noopener">P5015</a></td><td>标题统计</td><td><span class="diff d1">入门</span></td><td>串的读入与遍历</td>
+            <td>标题里可能有空格，要整行读入（<code>getline</code>），再遍历字符串，跳过空格和换行计数。热身题，练习串的读入。</td>
           </tr>
           <tr>
-            <td>P4391</td><td>Radio Transmission 无线传输</td><td><span class="diff d4">普及+/提高</span></td><td>KMP 最小循环节</td>
-            <td>答案就是 <code>n − π[n-1]</code>。想清楚为什么「不完整」的循环节也成立。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1308" target="_blank" rel="noopener">P1308</a></td><td>统计单词数</td><td><span class="diff d2">普及−</span></td><td>朴素模式匹配</td>
+            <td>不区分大小写：先把单词和文章都转成小写。要求「完整单词」匹配：在单词和文章的两边各补一个空格再查找，就不会匹配到别的单词的一部分（位置要换算回原文）。位置从 0 开始，找不到输出 <code>-1</code>。</td>
           </tr>
           <tr>
-            <td>P3538</td><td>OKR-A Horrible Poem</td><td><span class="diff d5">提高+/省选−</span></td><td>循环节 + 字符串哈希</td>
-            <td>判断区间是否为周期串，用哈希 O(1) 比较；枚举循环节长度时只需枚举质因子。</td>
-          </tr>
-          <tr>
-            <td>P2375</td><td>动物园</td><td><span class="diff d5">提高+/省选−</span></td><td>KMP 进阶（num 数组）</td>
-            <td>在 π 的基础上再做一次「受限回退」，是理解 KMP 均摊分析的最佳练习。</td>
-          </tr>
-          <tr>
-            <td>P3370</td><td>【模板】字符串哈希</td><td><span class="diff d2">普及−</span></td><td>字符串哈希</td>
-            <td>把每个字符串映射成整数后丢进 <code>set</code> 统计不同个数。用第 10 讲的双模数哈希最稳。</td>
-          </tr>
-          <tr>
-            <td>P3805</td><td>【模板】Manacher</td><td><span class="diff d4">普及+/提高</span></td><td>回文串</td>
-            <td>与 KMP 属于同一类「利用已经算出的信息避免重复比较」的思想，学完 KMP 再看会很好懂。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3375" target="_blank" rel="noopener">P3375</a></td><td>【模板】KMP</td><td><span class="diff d4">普及+/提高</span><br><span style="font-size:12px;color:var(--text-soft)">选做</span></td><td>KMP / 前缀函数</td>
+            <td>本单唯一超过「普及/提高−」的题，因为它就是第 05 讲 KMP 代码的原样套用。题目要输出的「每个前缀的最长 border 长度」，正是第 05 讲的前缀函数 <code>π[0..m−1]</code>；教材版 <code>next</code> 要在它的基础上 +1 并右移一位，别混用。完整代码见 14.6.1。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 id="s3-4">14.3.4 例题精讲：KMP 模板题（P3375）</h3>
+    <h3 id="s6-1">14.6.1 例题精讲：KMP 模板题（P3375）</h3>
 
     <div class="note tip">
       <span class="note-title">为什么要专门讲这道题</span>
-      它要求同时输出「所有匹配位置」与「next 数组」，是检验你是否真正分清 KMP 两种下标约定的最好题目。
+      它要求同时输出「所有匹配位置」与「前缀函数」，是检验你有没有分清<b>下标从 0 还是从 1 开始</b>的最好题目。
+      下面的代码和第 05 讲一样使用 0 基前缀函数 π，只在输出位置时换算成题目要求的 1 基。
     </div>
 
     <pre data-lang="cpp" data-file="P3375_kmp.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 /* 洛谷 P3375【模板】KMP
-   输入：两行，第一行主串 S，第二行模式串 P
-   输出：第一行所有匹配位置（1 基下标，空格分隔，行末也有空格）
-         第二行模式串的 next 数组（教材 1 基约定：next[1]=0, next[i]=最长相等真前后缀长度+1） */
+   输入：两行，第一行主串 s，第二行模式串 p
+   输出：先按从小到大输出 p 在 s 中每次出现的位置（1 基，每行一个），
+         最后一行输出 p 每个前缀的最长 border 长度（border：既是前缀又是后缀的真子串）
+   pi[i] = p[0..i] 的最长相等真前后缀长度，就是第 05 讲的 0 基前缀函数，也正是题目要的最后一行 */
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
@@ -261,35 +299,268 @@ int main() {
     cin &gt;&gt; s &gt;&gt; p;
     int n = s.size(), m = p.size();
 
-    /* ---------- 1. 求 next 数组（1 基，教材约定） ----------
-       nxt[i] 表示：p[1..i-1] 的最长相等真前后缀长度 + 1
-       等价于 0 基前缀函数 pi 的 "pi[i-2] + 1" */
-    vector&lt;int&gt; nxt(m + 1, 0);
-    nxt[1] = 0;
-    for (int i = 2, j = 0; i &lt;= m; ++i) {
-        while (j &amp;&amp; p[i - 1] != p[j]) j = nxt[j];   // 注意：教材的写法是 j = nxt[j]
-        if (p[i - 1] == p[j]) ++j;
-        nxt[i] = j;
+    /* ---------- 1. 求前缀函数 pi（模式串自己匹配自己） ---------- */
+    vector&lt;int&gt; pi(m, 0);                  // pi[0] = 0：只有 1 个字符时没有真前后缀
+    for (int i = 1, len = 0; i &lt; m; ++i) { // len = 当前最长相等前后缀的长度
+        while (len &amp;&amp; p[i] != p[len]) len = pi[len - 1];   // 失配：退到更短的前后缀
+        if (p[i] == p[len]) ++len;
+        pi[i] = len;
     }
 
-    /* ---------- 2. KMP 匹配（1 基） ---------- */
-    for (int i = 1, j = 0; i &lt;= n; ++i) {
-        while (j &amp;&amp; s[i - 1] != p[j]) j = nxt[j];
-        if (s[i - 1] == p[j]) ++j;
-        if (j == m) {                       // 匹配成功，起点是 i - m + 1
-            cout &lt;&lt; i - m + 1 &lt;&lt; ' ';
-            j = nxt[j];                     // 继续找下一次出现（若只要第一次则 break）
+    /* ---------- 2. KMP 匹配：主串指针 i 只进不退 ---------- */
+    for (int i = 0, j = 0; i &lt; n; ++i) {   // j = 模式串已经匹配上的长度
+        while (j &amp;&amp; s[i] != p[j]) j = pi[j - 1];
+        if (s[i] == p[j]) ++j;
+        if (j == m) {                       // 匹配成功：0 基起点是 i - m + 1，题目要 1 基，再加 1
+            cout &lt;&lt; i - m + 2 &lt;&lt; '\n';
+            j = pi[j - 1];                  // 继续找下一次出现（允许重叠）
         }
     }
-    cout &lt;&lt; '\n';
 
-    /* ---------- 3. 输出 next[1..m] ---------- */
-    for (int i = 1; i &lt;= m; ++i) cout &lt;&lt; nxt[i] &lt;&lt; ' ';
+    /* ---------- 3. 输出 pi[0..m-1] ---------- */
+    for (int i = 0; i &lt; m; ++i) cout &lt;&lt; pi[i] &lt;&lt; ' ';
     cout &lt;&lt; '\n';
     return 0;
 }</pre>
 
-    <h3 id="s3-5">14.3.5 例题精讲：归并排序求逆序对（P1908）</h3>
+    <h2 id="s7">14.7 第 06 讲 · 数组与矩阵</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5732" target="_blank" rel="noopener">P5732</a></td><td>杨辉三角</td><td><span class="diff d1">入门</span></td><td>二维数组 / 下三角</td>
+            <td><code>a[i][j] = a[i−1][j−1] + a[i−1][j]</code>，只用到下三角部分。进阶：用第 06 讲下三角矩阵的压缩公式，把它存进一维数组再输出。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5731" target="_blank" rel="noopener">P5731</a></td><td>蛇形方阵</td><td><span class="diff d1">入门</span></td><td>二维数组的下标控制</td>
+            <td>按「右、下、左、上」四个方向循环填数，走到边界或已经填过的格子就转向。每个数占 3 个字符宽，用 <code>printf("%3d", …)</code> 对齐。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B2105" target="_blank" rel="noopener">B2105</a></td><td>矩阵乘法</td><td><span class="diff d2">普及−</span></td><td>二维数组 / 三重循环</td>
+            <td>按定义 <code>C[i][j] = Σ A[i][t] · B[t][j]</code>，三重循环 O(nmk)。元素绝对值 ≤ 1000、m ≤ 100，结果不超过 10⁸，<code>int</code> 够用；<code>C</code> 要先清零。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="s8">14.8 第 07 讲 · 树与二叉树</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1030" target="_blank" rel="noopener">P1030</a></td><td>求先序排列</td><td><span class="diff d2">普及−</span></td><td>中序 + 后序 → 先序</td>
+            <td>后序的最后一个字符是根；在中序里找到它来划分左右子树，递归处理。先输出根，再递归左、右子树，就是先序。注意子串边界。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P4913" target="_blank" rel="noopener">P4913</a></td><td>二叉树深度</td><td><span class="diff d2">普及−</span></td><td>二叉树的存储与遍历</td>
+            <td>用两个数组 <code>l[i]</code>、<code>r[i]</code> 存左右孩子，从根 1 递归：<code>depth(u) = max(depth(l[u]), depth(r[u])) + 1</code>，空结点深度为 0。树退化成链时递归会很深，本机调试可能爆栈；也可以改用层序遍历数层数。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3367" target="_blank" rel="noopener">P3367</a></td><td>【模板】并查集</td><td><span class="diff d3">普及/提高−</span></td><td>并查集</td>
+            <td>路径压缩必写；再加上按大小合并会更快。这题是第 09 讲 Kruskal 的前置。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1090" target="_blank" rel="noopener">P1090</a></td><td>合并果子</td><td><span class="diff d3">普及/提高−</span></td><td>赫夫曼树 / 小根堆</td>
+            <td>每次合并最小的两堆——这正是赫夫曼算法。用 <code>priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt;</code>（小根堆）。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="s9">14.9 第 08 讲 · 图的存储与遍历</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1596" target="_blank" rel="noopener">P1596</a></td><td>Lake Counting</td><td><span class="diff d2">普及−</span></td><td>连通分量（DFS）</td>
+            <td>把每个 <code>W</code> 看成顶点，八个方向相邻的 <code>W</code> 之间有边。逐格扫描，遇到没访问过的 <code>W</code> 就从它出发 DFS / BFS 把整片水塘标记掉，答案加一——这就是「数连通分量」。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B3643" target="_blank" rel="noopener">B3643</a></td><td>图的存储</td><td><span class="diff d2">普及−</span></td><td>邻接矩阵 + 邻接表</td>
+            <td>同一张无向图分别存成邻接矩阵（<code>g[u][v] = g[v][u] = 1</code>）和邻接表（<code>vector&lt;int&gt; adj[N]</code>，两个方向都要加）。邻接表输出前，要把每个点的邻居排好序。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P5318" target="_blank" rel="noopener">P5318</a></td><td>查找文献</td><td><span class="diff d2">普及−</span></td><td>DFS / BFS 遍历</td>
+            <td>要求按编号从小到大访问邻接点——所以邻接表里每个点的邻居要<b>先排序</b>。这是最容易 WA 的点。注意这是有向图。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3916" target="_blank" rel="noopener">P3916</a></td><td>图的遍历</td><td><span class="diff d3">普及/提高−</span></td><td>反向建图 + DFS</td>
+            <td>从每个点分别出发做 DFS 是 O(n·m)，会超时。把边反向，从编号最大的点开始往下枚举起点做 DFS，每个点第一次被访问时的起点编号就是答案。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="s10">14.10 第 09 讲 · 图论算法</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1113" target="_blank" rel="noopener">P1113</a></td><td>杂务</td><td><span class="diff d3">普及/提高−</span></td><td>拓扑序 / 关键路径</td>
+            <td>题目保证准备工作的编号都比自己小，所以按编号顺序处理就是一个拓扑序：<code>f[k] = max(准备工作 j 的 f[j]) + len[k]</code>，答案是所有 <code>f</code> 的最大值——这正是关键路径里求最早完成时间 ve 的过程。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/B3647" target="_blank" rel="noopener">B3647</a></td><td>【模板】Floyd</td><td><span class="diff d3">普及/提高−</span></td><td>Floyd 多源最短路</td>
+            <td>n ≤ 100，直接 O(n³)。距离矩阵初始化为 INF、对角线为 0；读边时取较小值（数据有重边），无向图两个方向都要赋值。三重循环里 <b>k 必须放在最外层</b>。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3366" target="_blank" rel="noopener">P3366</a></td><td>【模板】最小生成树</td><td><span class="diff d3">普及/提高−</span></td><td>Kruskal / Prim</td>
+            <td>建议两种都写一遍：Kruskal 排序 + 并查集；Prim 用 <code>priority_queue</code>。选中的边不足 n−1 条说明图不连通，要输出 <code>orz</code>。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P4779" target="_blank" rel="noopener">P4779</a></td><td>【模板】单源最短路径（标准版）</td><td><span class="diff d3">普及/提高−</span></td><td>堆优化 Dijkstra</td>
+            <td>n 到 10⁵、m 到 2×10⁵，朴素 O(n²) 会超时，必须用<b>堆优化</b>，且要写「跳过过期元素 <code>if (d &gt; dist[u]) continue;</code>」。完整代码见 14.10.1。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note exam">
+      <span class="note-title">建议手推的关键路径练习</span>
+      洛谷上没有直接的关键路径模板题，但 <b>P1113 杂务</b> 就是它的简化版（只求最早完成时间 ve）。
+      请自己画一张 AOE 网（8 个事件、10 条活动），完整算出 ve、vl、e、l 四个数组并找出关键活动，
+      再对照第 09 讲的动画检查每一步。这是 408 大题的常客。
+    </div>
+
+    <h3 id="s10-1">14.10.1 例题精讲：堆优化 Dijkstra（P4779）</h3>
+    <p>
+      最短路题的难点往往不在算法本身，而在「建图 + 松弛 + 跳过过期元素 + 数据类型」四件事都要写对。
+      下面这份代码可以直接当模板用，顺带演示了如何用 <code>pre</code> 数组还原路径。
+    </p>
+
+    <pre data-lang="cpp" data-file="P4779_dijkstra.cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+/* 洛谷 P4779【模板】单源最短路径（标准版）
+   n ≤ 1e5，m ≤ 2e5，有向图，边权非负；输出 s 到每个点的最短距离（题目保证都能到达）
+   演示：链式前向星建图 + 堆优化 Dijkstra + 用 pre 数组还原路径 */
+const int MAXN = 100005, MAXM = 200005;
+const long long LINF = (1LL &lt;&lt; 62);
+
+int head[MAXN], nxt[MAXM], to[MAXM], wt[MAXM], ecnt = 0;
+/* 有向图每条边加一次，边数组开 m 就够；无向图每条边要加两次，边数组要开 2m */
+
+void addEdge(int u, int v, int w) {
+    to[ecnt] = v; wt[ecnt] = w; nxt[ecnt] = head[u]; head[u] = ecnt++;
+}
+
+int n, m, s;
+long long dist[MAXN];
+int pre[MAXN];                          // pre[v] = 最短路上 v 的前一个点
+
+void dijkstra(int src) {
+    for (int i = 1; i &lt;= n; ++i) { dist[i] = LINF; pre[i] = 0; }
+    /* 小根堆：pair 的 first 是距离，greater&lt;&gt; 让距离小的先出来 */
+    priority_queue&lt;pair&lt;long long, int&gt;, vector&lt;pair&lt;long long, int&gt;&gt;, greater&lt;&gt;&gt; pq;
+    dist[src] = 0;
+    pq.push({0, src});
+    while (!pq.empty()) {
+        auto [d, u] = pq.top(); pq.pop();
+        if (d &gt; dist[u]) continue;      // 关键！堆里可能有同一个点的过期距离，必须跳过
+        for (int e = head[u]; e != -1; e = nxt[e]) {
+            int v = to[e];
+            if (d + wt[e] &lt; dist[v]) {  // 松弛
+                dist[v] = d + wt[e];
+                pre[v] = u;             // 记录是从 u 走过来的
+                pq.push({dist[v], v});
+            }
+        }
+    }
+}
+
+/* 还原 src → t 的路径：沿 pre 往回走，再反转。本题只要距离用不到，很多题的第二问会要 */
+vector&lt;int&gt; getPath(int src, int t) {
+    vector&lt;int&gt; path;
+    for (int cur = t; cur != 0; cur = pre[cur]) {
+        path.push_back(cur);
+        if (cur == src) break;
+    }
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    cin &gt;&gt; n &gt;&gt; m &gt;&gt; s;
+    memset(head, -1, sizeof(head));
+    for (int i = 0; i &lt; m; ++i) {
+        int u, v, w;
+        cin &gt;&gt; u &gt;&gt; v &gt;&gt; w;
+        addEdge(u, v, w);               // 有向图加一次；无向图这里还要再加 addEdge(v, u, w)
+    }
+    dijkstra(s);
+    for (int i = 1; i &lt;= n; ++i) cout &lt;&lt; dist[i] &lt;&lt; ' ';
+    cout &lt;&lt; '\n';
+    return 0;
+}</pre>
+
+    <div class="note warn">
+      <span class="note-title">最短路最常踩的五个坑</span>
+      <ol style="margin:6px 0 0">
+        <li><b>忘记 <code>if (d &gt; dist[u]) continue;</code></b>：堆里可能存着同一个点的多个过期距离，不跳过会重复松弛，严重时超时。</li>
+        <li><b>无向图数组没开两倍</b>：边结点数是 2m，数组开成 m 会越界（这种错误常常只在大数据下才崩，非常难查）。</li>
+        <li><b>用 <code>int</code> 存距离</b>：多条边累加可能溢出，稳妥起见用 <code>long long</code>。</li>
+        <li><b>把 <code>INF</code> 设成 <code>0x7fffffff</code></b>：两个 INF 相加直接溢出成负数。用 <code>0x3f3f3f3f</code>（约 10⁹，两倍仍在 int 范围内）或 <code>1LL &lt;&lt; 62</code>。</li>
+        <li><b>图不连通时没处理</b>：题目通常要求输出一个特定值（如 2³¹−1 或 -1），别直接输出一个巨大的 INF。</li>
+      </ol>
+    </div>
+
+    <h2 id="s11">14.11 第 10 讲 · 查找与哈希</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P3370" target="_blank" rel="noopener">P3370</a></td><td>【模板】字符串哈希</td><td><span class="diff d2">普及−</span></td><td>字符串哈希</td>
+            <td>用多项式哈希 <code>h = h · base + c</code> 把每个字符串映射成整数（<code>base</code> 取 131 之类的数，用 <code>unsigned long long</code> 自然溢出，或者用双模数更稳），排序后数一数有几个不同的值。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P2249" target="_blank" rel="noopener">P2249</a></td><td>查找</td><td><span class="diff d2">普及−</span></td><td>折半查找（找第一个）</td>
+            <td>序列单调不减，要找<b>第一次</b>出现的位置：二分时 <code>a[mid] ≥ q</code> 就往左收缩，最后检查找到的位置是否等于 q。等价于 <code>lower_bound</code>。n 到 10⁶，读入要快。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P4305" target="_blank" rel="noopener">P4305</a></td><td>不重复数字</td><td><span class="diff d2">普及−</span></td><td>哈希表去重</td>
+            <td>按顺序扫描，用哈希表（<code>unordered_set</code>）记录见过的数，第一次见到才输出。数值可能为负、范围很大，不能直接当数组下标。多组数据，每组开始前要清空。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1102" target="_blank" rel="noopener">P1102</a></td><td>A−B 数对</td><td><span class="diff d2">普及−</span></td><td>哈希计数 / 二分</td>
+            <td>A = B + C：先用 <code>map</code>（或 <code>unordered_map</code>）统计每个数出现的次数，再对每个 B 累加 <code>cnt[B + C]</code>。也可以排序后用 <code>upper_bound − lower_bound</code> 数个数。答案可能超过 <code>int</code>，用 <code>long long</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="s12">14.12 第 11 讲 · 排序</h2>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1059" target="_blank" rel="noopener">P1059</a></td><td>明明的随机数</td><td><span class="diff d2">普及−</span></td><td>排序 + 去重</td>
+            <td><code>sort</code> + <code>unique</code> + <code>erase</code> 三连，或直接用 <code>set</code>。数值只在 1~1000 之间，也可以开一个标记数组，从小到大扫一遍就得到有序且去重的结果。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1093" target="_blank" rel="noopener">P1093</a></td><td>奖学金</td><td><span class="diff d2">普及−</span></td><td>多关键字排序</td>
+            <td>自定义比较函数：总分降序 → 语文降序 → 学号升序。三个关键字都写进比较函数，排序结果就是唯一的。只输出前 5 名。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1177" target="_blank" rel="noopener">P1177</a></td><td>【模板】排序</td><td><span class="diff d2">普及−</span></td><td>O(n log n) 排序</td>
+            <td>n 到 10⁵，冒泡、选择这类 O(n²) 排序会超时。用它来亲手实现第 11 讲的快速排序、归并排序或堆排序。手写快排要随机选基准，并处理好大量相同元素的情况，否则会退化成 O(n²)。</td>
+          </tr>
+          <tr>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1908" target="_blank" rel="noopener">P1908</a></td><td>逆序对</td><td><span class="diff d3">普及/提高−</span></td><td>归并排序</td>
+            <td>归并排序在合并时统计「右边元素比左边先放」的次数，就是逆序对数。注意答案要开 <code>long long</code>。完整代码见 14.12.1。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="s12-1">14.12.1 例题精讲：归并排序求逆序对（P1908）</h3>
     <p>
       逆序对是「排序 + 分治」的经典结合。归并排序在合并两个有序段时，如果右边段的元素
       先被放进结果数组，就说明它比左边段剩下的所有元素都小——这一批「左边剩余元素」恰好构成
@@ -337,12 +608,7 @@ int main() {
     msort(1, n);
     cout &lt;&lt; ans &lt;&lt; '\n';
     return 0;
-}
-
-/* 另一种同样常见的写法：树状数组 + 离散化
-   思路：把元素按值离散化成 1..k，从后往前扫，
-        每次查询"比当前元素小的已出现个数"即为其贡献的逆序对数。
-   复杂度同样是 O(n log n)，但常数更小、代码更短（适合作为对拍的第二个实现）。 */</pre>
+}</pre>
 
     <div class="note warn">
       <span class="note-title">三个常见 WA 原因</span>
@@ -353,400 +619,57 @@ int main() {
       </ol>
     </div>
 
-    <h3 id="s3-6">14.3.6 例题精讲：单调队列求滑动窗口最大值（P1886）</h3>
-    <p>
-      单调队列的思想是：<b>如果一个元素比队尾元素更大、而且位置更靠后，那么队尾元素永远不可能再成为答案</b>，
-      于是可以直接把它从队尾弹掉。每个元素最多入队一次、出队一次，所以整个算法是 O(n)。
-    </p>
-
-    <pre data-lang="cpp" data-file="P1886_monotonic_queue.cpp">#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-/* 洛谷 P1886 滑动窗口 /【模板】单调队列
-   输入：n k，然后 n 个整数
-   输出：第一行每个窗口的最小值，第二行每个窗口的最大值 */
-int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
-    int n, k;
-    cin &gt;&gt; n &gt;&gt; k;
-    vector&lt;int&gt; a(n + 1);
-    for (int i = 1; i &lt;= n; ++i) cin &gt;&gt; a[i];
-
-    deque&lt;int&gt; dq;                       // 存"下标"，队列里的值保持单调
-
-    /* ---------- 最小值：维护单调递增队列 ---------- */
-    for (int i = 1; i &lt;= n; ++i) {
-        while (!dq.empty() &amp;&amp; a[dq.back()] &gt;= a[i]) dq.pop_back();  // 队尾更大且更靠前 → 永远用不上
-        dq.push_back(i);
-        if (dq.front() &lt;= i - k) dq.pop_front();                     // 队首滑出窗口
-        if (i &gt;= k) cout &lt;&lt; a[dq.front()] &lt;&lt; ' ';
-    }
-    cout &lt;&lt; '\n';
-
-    /* ---------- 最大值：维护单调递减队列（只需把比较方向反过来） ---------- */
-    dq.clear();
-    for (int i = 1; i &lt;= n; ++i) {
-        while (!dq.empty() &amp;&amp; a[dq.back()] &lt;= a[i]) dq.pop_back();
-        dq.push_back(i);
-        if (dq.front() &lt;= i - k) dq.pop_front();
-        if (i &gt;= k) cout &lt;&lt; a[dq.front()] &lt;&lt; ' ';
-    }
-    cout &lt;&lt; '\n';
-    return 0;
-}</pre>
-
-    <div class="note tip">
-      <span class="note-title">一句话记住单调队列</span>
-      <b>求最小值用递增队列、求最大值用递减队列</b>；两个动作的顺序是「先弹队尾（淘汰没用的），再压入自己，最后弹队首（淘汰过期的）」。
-      这个「淘汰过期元素」的判据 <code>dq.front() &lt;= i - k</code> 是最容易写错的地方：注意是 <code>&lt;=</code> 而不是 <code>&lt;</code>。
-    </div>
-
-    <h2 id="s4">14.4 第 05~07 讲 · 串、树与堆题单</h2>
-
+    <h2 id="s13">14.13 第 12 讲 · 排序进阶</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
         <tbody>
           <tr>
-            <td>P1305</td><td>新二叉树</td><td><span class="diff d2">普及−</span></td><td>二叉树的遍历</td>
-            <td>输入是「根 左 右」的形式，直接按前序遍历输出即可。注意用字符数组存左右孩子。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1271" target="_blank" rel="noopener">P1271</a></td><td>选举学生会</td><td><span class="diff d2">普及−</span></td><td>计数排序</td>
+            <td>候选人编号只有 1~999，选票却多达 2×10⁶ 张：开一个计数数组统计每个编号出现几次，再按编号从小到大输出——计数排序 O(n + k)，比比较排序更快。输出量大，输出方式要快。</td>
           </tr>
           <tr>
-            <td>P1030</td><td>求先序排列</td><td><span class="diff d3">普及/提高−</span></td><td>中序 + 后序 → 前序</td>
-            <td>后序的最后一个字符是根；在中序里找到它来划分左右子树。递归处理，注意子串边界。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1068" target="_blank" rel="noopener">P1068</a></td><td>分数线划定</td><td><span class="diff d2">普及−</span></td><td>多关键字排序</td>
+            <td>按成绩降序、成绩相同按报名号升序排序。分数线是第 ⌊m × 1.5⌋ 名的成绩，<b>所有</b>成绩不低于分数线的人都进面试，所以实际人数可能比 ⌊m × 1.5⌋ 多。</td>
           </tr>
           <tr>
-            <td>P1827</td><td>American Heritage</td><td><span class="diff d3">普及/提高−</span></td><td>树的遍历还原</td>
-            <td>与上一题同理（中序 + 前序）。练兵的好题。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1923" target="_blank" rel="noopener">P1923</a></td><td>求第 k 小的数</td><td><span class="diff d2">普及−</span></td><td>快速选择（分治）</td>
+            <td>像快速排序一样做一次划分，然后<b>只递归进第 k 小所在的那一边</b>，期望 O(n)。注意 k 从 0 开始数（最小的是第 0 小）。n 接近 5×10⁶，必须用快速读入。</td>
           </tr>
           <tr>
-            <td>P1364</td><td>医院设置</td><td><span class="diff d3">普及/提高−</span></td><td>树的遍历 / 最短路</td>
-            <td>n 很小（≤100），对每个点做一次 BFS 求带权和，取最小值即可。</td>
-          </tr>
-          <tr>
-            <td>P3378</td><td>【模板】堆</td><td><span class="diff d2">普及−</span></td><td>二叉堆</td>
-            <td>先手写一遍 <code>push/pop/top</code> 理解上浮下沉，再用 <code>priority_queue</code> 写一遍对比。</td>
-          </tr>
-          <tr>
-            <td>P1090</td><td>合并果子</td><td><span class="diff d2">普及−</span></td><td>赫夫曼树 / 贪心 + 堆</td>
-            <td>每次合并最小的两堆——这正是赫夫曼算法。用 <code>priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt;</code>（小根堆）。</td>
-          </tr>
-          <tr>
-            <td>P2168</td><td>荷马史诗</td><td><span class="diff d5">提高+/省选−</span></td><td>k 叉赫夫曼树</td>
-            <td>P1090 的进阶版：k 叉赫夫曼 + 要求树高最小。注意补 0 权值结点使 (n−1) % (k−1) == 0。</td>
-          </tr>
-          <tr>
-            <td>P3374</td><td>【模板】树状数组 1</td><td><span class="diff d3">普及/提高−</span></td><td>树状数组</td>
-            <td>单点修改 + 区间查询。<code>lowbit(x) = x &amp; -x</code> 是核心，理解「每个结点管多长一段」。</td>
-          </tr>
-          <tr>
-            <td>P3367</td><td>【模板】并查集</td><td><span class="diff d2">普及−</span></td><td>并查集</td>
-            <td>路径压缩必写；再加上按秩/按大小合并可以更快。这题是第 09 讲 Kruskal 的前置。</td>
-          </tr>
-          <tr>
-            <td>P1551</td><td>亲戚</td><td><span class="diff d2">普及−</span></td><td>并查集</td>
-            <td>并查集最直观的应用。写完 P3367 后 5 分钟即可 AC。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1309" target="_blank" rel="noopener">P1309</a></td><td>瑞士轮</td><td><span class="diff d3">普及/提高−</span></td><td>归并（合并两个有序表）</td>
+            <td>每轮比赛后，胜者组、败者组内部仍然各自有序（组内每人同加 1 分或同加 0 分），所以不必每轮重新排序：用归并排序里「合并」那一步，O(n) 把两组合成新的排名。每轮都 <code>sort</code> 会超时。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h2 id="s5">14.5 第 08~09 讲 · 图论题单</h2>
-
-    <h3 id="s5-1">14.5.1 图的遍历</h3>
+    <h2 id="s14">14.14 第 13 讲 · 算法设计范式与动态规划</h2>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
         <tbody>
           <tr>
-            <td>P5318</td><td>【深基18.例3】查找文献</td><td><span class="diff d3">普及/提高−</span></td><td>DFS / BFS 遍历</td>
-            <td>要求按编号从小到大访问邻接点——所以邻接表里的每个链表要<b>先排序</b>。这是最容易 WA 的点。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1216" target="_blank" rel="noopener">P1216</a></td><td>数字三角形</td><td><span class="diff d2">普及−</span></td><td>线性 DP</td>
+            <td>DP 的第一题。从下往上推：<code>f[i][j] = a[i][j] + max(f[i+1][j], f[i+1][j+1])</code>，答案就是 <code>f[1][1]</code>，不用处理边界。可以用滚动数组压成一维。</td>
           </tr>
           <tr>
-            <td>P3916</td><td>图的遍历</td><td><span class="diff d3">普及/提高−</span></td><td>反向建图 + DFS</td>
-            <td>正向做是 O(n²)。把边反向，从大到小枚举起点做 DFS，每个点第一次被访问时的起点编号就是答案。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1048" target="_blank" rel="noopener">P1048</a></td><td>采药</td><td><span class="diff d2">普及−</span></td><td>01 背包</td>
+            <td>背包入门：时间是容量、草药价值是价值。一维写法时容量必须<b>倒序</b>枚举，想清楚为什么。</td>
           </tr>
           <tr>
-            <td>P1330</td><td>封锁阳光大学</td><td><span class="diff d3">普及/提高−</span></td><td>二分图染色</td>
-            <td>黑白染色，取两种颜色中较少的一边。注意图可能不连通，要对每个连通块分别处理。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1223" target="_blank" rel="noopener">P1223</a></td><td>排队接水</td><td><span class="diff d2">普及−</span></td><td>贪心</td>
+            <td>接水时间短的人先接，总等待时间最小（交换相邻两人就能证明）。按「接水时间，再按编号」排序；等待时间之和可能超过 <code>int</code>，用 <code>long long</code>，平均值保留两位小数。</td>
           </tr>
           <tr>
-            <td>P1144</td><td>最短路计数</td><td><span class="diff d4">普及+/提高</span></td><td>BFS / Dijkstra + 计数</td>
-            <td>无权图用 BFS：当 <code>dist[v] == dist[u] + 1</code> 时把方案数累加。是理解「最短路 DAG」的好题。</td>
+            <td class="pid"><a href="https://www.luogu.com.cn/problem/P1219" target="_blank" rel="noopener">P1219</a></td><td>八皇后</td><td><span class="diff d3">普及/提高−</span></td><td>回溯 + 剪枝</td>
+            <td>一行放一个皇后，用三个布尔数组记录「列」「主对角线 r−c」「副对角线 r+c」是否被占；放下时标记、回溯时撤销。按列号从小到大尝试，搜出来的解天然是字典序。只输出前 3 个解，但总数要全部数完。</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 id="s5-2">14.5.2 最短路</h3>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>P3371</td><td>【模板】单源最短路径（弱化版）</td><td><span class="diff d3">普及/提高−</span></td><td>Dijkstra / SPFA</td>
-            <td>数据较弱，朴素 Dijkstra O(n²) 可过。不求最优写法，先把算法写对。</td>
-          </tr>
-          <tr>
-            <td>P4779</td><td>【模板】单源最短路径（标准版）</td><td><span class="diff d4">普及+/提高</span></td><td>堆优化 Dijkstra</td>
-            <td>n、m 到 10⁵ 级别，必须用<b>堆优化 + 链式前向星</b>，且要写「过期元素 <code>if (d &gt; dist[u]) continue;</code>」。</td>
-          </tr>
-          <tr>
-            <td>P2419</td><td>Bessie 的体重问题</td><td><span class="diff d3">普及/提高−</span></td><td>Floyd 传递闭包</td>
-            <td>n ≤ 100，直接 Floyd 求可达性。若一个点能被确定的相对位置有 n−1 个，答案 +1。</td>
-          </tr>
-          <tr>
-            <td>P1119</td><td>灾后重建</td><td><span class="diff d4">普及+/提高</span></td><td>Floyd 的在线化</td>
-            <td>经典题：把 Floyd 的最外层 k 变成「按时间逐个解禁村庄」，深刻理解 k 的物理含义（中转点集合）。</td>
-          </tr>
-          <tr>
-            <td>P3385</td><td>【模板】负环</td><td><span class="diff d4">普及+/提高</span></td><td>Bellman-Ford / SPFA</td>
-            <td>若某个点入队次数 ≥ n，则存在负环。也可以用「最短路径边数 ≥ n」来判定。
-              （想练手也可以站内搜索「负环」「SPFA 判负环」找更多同类题。）</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3 id="s5-3">14.5.3 生成树、拓扑与关键路径</h3>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>P3366</td><td>【模板】最小生成树</td><td><span class="diff d3">普及/提高−</span></td><td>Kruskal / Prim</td>
-            <td>建议两种都写一遍：Kruskal 排序 + 并查集；Prim 用 <code>priority_queue</code>。注意判「图不连通」时输出 <code>orz</code>。</td>
-          </tr>
-          <tr>
-            <td>P1195</td><td>口袋的天空</td><td><span class="diff d3">普及/提高−</span></td><td>Kruskal 变体</td>
-            <td>「连成 k 个云朵」= 只选 n−k 条边。抓住 Kruskal 的本质：每选一条边就减少一个连通块。</td>
-          </tr>
-          <tr>
-            <td>P1546</td><td>Shortest network Agri-Net</td><td><span class="diff d3">普及/提高−</span></td><td>最小生成树</td>
-            <td>输入是邻接矩阵，注意读入格式（一行一个数）。Prim 的裸题。</td>
-          </tr>
-          <tr>
-            <td>P1113</td><td>杂务</td><td><span class="diff d3">普及/提高−</span></td><td>拓扑排序 + DP</td>
-            <td>经典的 DAG 上求最长路：<code>f[v] = max(f[v], f[u] + time[v])</code>。是理解关键路径的前置题。</td>
-          </tr>
-          <tr>
-            <td>P4017</td><td>最大食物链计数</td><td><span class="diff d3">普及/提高−</span></td><td>拓扑排序 + 计数 DP</td>
-            <td>拓扑序上做路径计数，注意入度为 0 的点初始化 <code>f = 1</code>，出度为 0 的点累加答案。</td>
-          </tr>
-          <tr>
-            <td>P1807</td><td>最长路</td><td><span class="diff d3">普及/提高−</span></td><td>DAG 最长路 / SPFA</td>
-            <td>有向无环图可以直接按拓扑序 DP；有环时要注意正环问题（本题保证无正环）。</td>
-          </tr>
-          <tr>
-            <td>P1347</td><td>排序</td><td><span class="diff d4">普及+/提高</span></td><td>拓扑排序 + 判环/唯一性</td>
-            <td>边加边判断：出现环 → 矛盾；队列中同时存在多个入度 0 的点 → 还不能确定唯一顺序。非常考察对 Kahn 算法的理解。</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="note exam">
-      <span class="note-title">建议手推的关键路径练习</span>
-      洛谷上没有直接的关键路径模板题，但 <b>P1113 杂务</b> 就是它的简化版。
-      请自己画一张 AOE 网（8 个事件、10 条活动），完整算出 ve、vl、e、l 四个数组并找出关键活动，
-      再对照第 09 讲的动画检查每一步。这是 408 大题的常客。
-    </div>
-
-    <h3 id="s5-4">14.5.4 例题精讲：堆优化 Dijkstra 完整模板（P4779 风格）</h3>
-    <p>
-      最短路题的难点往往不在算法本身，而在「建图 + 松弛 + 路径还原 + 边界」四件事都要写对。
-      下面这份模板把这些全都包含进去了，可以直接当比赛模板用。
-    </p>
-
-    <pre data-lang="cpp" data-file="P4779_dijkstra.cpp">#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-/* 洛谷 P4779【模板】单源最短路径（标准版）
-   要求：n, m 到 1e5 级别，边权非负，输出源点到每个点的最短路长度（不可达输出 2^31-1）
-   这份模板同时演示：链式前向星建图、堆优化 Dijkstra、路径还原、long long 防溢出 */
-const int MAXN = 100005;
-const long long LINF = (1LL &lt;&lt; 62);
-
-int head[MAXN], nxt[MAXN * 2], to[MAXN * 2], wt[MAXN * 2], ecnt = 0;
-/* 注意：无向图每条边要加两次，所以数组要开 2*m；有向图开 m 即可 */
-
-void addEdge(int u, int v, int w) {
-    to[ecnt] = v; wt[ecnt] = w; nxt[ecnt] = head[u]; head[u] = ecnt++;
-}
-
-int n, m, s;
-vector&lt;long long&gt; dist;
-vector&lt;int&gt; pre;                      // 路径还原：pre[v] = 最短路树上 v 的父结点
-
-void dijkstra(int src) {
-    dist.assign(n + 1, LINF);
-    pre.assign(n + 1, 0);
-    /* 小根堆：pair 的 first 是距离，默认按 first 比较；greater&lt;&gt; 让它变成小根堆 */
-    priority_queue&lt;pair&lt;long long, int&gt;, vector&lt;pair&lt;long long, int&gt;&gt;, greater&lt;&gt;&gt; pq;
-    dist[src] = 0;
-    pq.push({0, src});
-    while (!pq.empty()) {
-        auto [d, u] = pq.top(); pq.pop();
-        if (d &gt; dist[u]) continue;      // 关键！堆里可能有过期状态，必须跳过
-        for (int e = head[u]; e != -1; e = nxt[e]) {
-            int v = to[e];
-            if (d + wt[e] &lt; dist[v]) {  // 松弛
-                dist[v] = d + wt[e];
-                pre[v] = u;             // 记录是从 u 走过来的
-                pq.push({dist[v], v});
-            }
-        }
-    }
-}
-
-/* 还原 src → t 的路径（不含 src 时把 src 排除即可） */
-vector&lt;int&gt; getPath(int src, int t) {
-    vector&lt;int&gt; path;
-    if (dist[t] == LINF) return path;   // 不可达
-    for (int cur = t; cur != 0; cur = pre[cur]) {
-        path.push_back(cur);
-        if (cur == src) break;
-    }
-    reverse(path.begin(), path.end());
-    return path;
-}
-
-int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
-    cin &gt;&gt; n &gt;&gt; m &gt;&gt; s;
-    memset(head, -1, sizeof(int) * (n + 1));   // 只清零前 n+1 个，避免 O(MAXN) 的常数
-    for (int i = 0; i &lt; m; ++i) {
-        int u, v, w;
-        cin &gt;&gt; u &gt;&gt; v &gt;&gt; w;
-        addEdge(u, v, w);                      // 有向图加一次；无向图这里要再加一条 addEdge(v, u, w)
-    }
-    dijkstra(s);
-    for (int i = 1; i &lt;= n; ++i) {
-        if (dist[i] == LINF) cout &lt;&lt; (1LL &lt;&lt; 31) - 1 &lt;&lt; ' ';   // 按题目要求输出不可达的表示
-        else cout &lt;&lt; dist[i] &lt;&lt; ' ';
-    }
-    cout &lt;&lt; '\n';
-
-    /* 示例：输出 s → n 的路径（很多最短路题的第二问都是这个） */
-    vector&lt;int&gt; path = getPath(s, n);
-    for (size_t i = 0; i &lt; path.size(); ++i) {
-        cout &lt;&lt; path[i];
-        if (i + 1 &lt; path.size()) cout &lt;&lt; " -&gt; ";
-    }
-    if (!path.empty()) cout &lt;&lt; '\n';
-    return 0;
-}</pre>
-
-    <div class="note warn">
-      <span class="note-title">最短路最常踩的五个坑</span>
-      <ol style="margin:6px 0 0">
-        <li><b>忘记 <code>if (d &gt; dist[u]) continue;</code></b>：堆里可能存着同一个点的多个过期距离，不跳过会重复松弛，最坏退化成 O(nm)。</li>
-        <li><b>无向图数组没开两倍</b>：边结点数是 2m，数组开成 m 会越界（这种错误常常只在大数据下才崩，非常难查）。</li>
-        <li><b>用 <code>int</code> 存距离</b>：多条边累加会溢出，一律用 <code>long long</code>。</li>
-        <li><b>把 <code>INF</code> 设成 <code>0x7fffffff</code></b>：两个 INF 相加直接溢出成负数。用 <code>0x3f3f3f3f</code>（约 10⁹，两倍仍在 int 范围内）或 <code>1LL &lt;&lt; 62</code>。</li>
-        <li><b>图不连通时没处理</b>：题目通常要求输出一个特定值（如 2³¹−1 或 -1），别直接输出一个巨大的 INF。</li>
-      </ol>
-    </div>
-
-    <h2 id="s6">14.6 第 10~12 讲 · 查找、排序与 DP 题单</h2>
-
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>P2249</td><td>【深基13.例1】查找</td><td><span class="diff d2">普及−</span></td><td>二分查找</td>
-            <td>要求「第一个等于 x 的位置」——就是 <code>lower_bound</code>。建议先用 <code>lower_bound</code> 过，再手写一遍边界。</td>
-          </tr>
-          <tr>
-            <td>P1102</td><td>A−B 数对</td><td><span class="diff d3">普及/提高−</span></td><td>二分 / 双指针 / 哈希</td>
-            <td>排序后对每个 a[i] 二分查找 a[i]+C 的<b>出现次数</b>（<code>upper_bound − lower_bound</code>）。</td>
-          </tr>
-          <tr>
-            <td>P1024</td><td>一元三次方程求解</td><td><span class="diff d2">普及−</span></td><td>二分 / 枚举</td>
-            <td>根在 [−100, 100] 内，每 1 个单位区间若两端函数值异号则二分求根。练习「二分实数」。</td>
-          </tr>
-          <tr>
-            <td>P1182</td><td>数列分段 Section II</td><td><span class="diff d3">普及/提高−</span></td><td>二分答案</td>
-            <td>「最大值最小」的经典二分答案：二分每段和的<b>上界</b>，check 函数贪心分段看是否 ≤ M 段。</td>
-          </tr>
-          <tr>
-            <td>P2678</td><td>跳石头</td><td><span class="diff d3">普及/提高−</span></td><td>二分答案</td>
-            <td>二分最短跳跃距离，check 函数统计需要搬走的石头数。二分答案的三要素：答案单调、check 可行、边界正确。</td>
-          </tr>
-          <tr>
-            <td>P1177</td><td>【模板】快速排序</td><td><span class="diff d2">普及−</span></td><td>快速排序</td>
-            <td>见 14.3.1。</td>
-          </tr>
-          <tr>
-            <td>P1059</td><td>明明的随机数</td><td><span class="diff d1">入门</span></td><td>排序 + 去重</td>
-            <td><code>sort</code> + <code>unique</code> + <code>erase</code> 三连，或直接用 <code>set</code>。</td>
-          </tr>
-          <tr>
-            <td>P1090</td><td>合并果子</td><td><span class="diff d2">普及−</span></td><td>堆</td>
-            <td>见 14.4，同时也是「贪心 + 优先队列」的入门题。</td>
-          </tr>
-          <tr>
-            <td>P1216</td><td>数字三角形</td><td><span class="diff d2">普及−</span></td><td>线性 DP</td>
-            <td>DP 的第一步：<code>f[i][j] = max(f[i-1][j-1], f[i-1][j]) + a[i][j]</code>。可以用滚动数组压成一维。</td>
-          </tr>
-          <tr>
-            <td>P1048</td><td>采药</td><td><span class="diff d2">普及−</span></td><td>01 背包</td>
-            <td>背包入门。一维写法时容量必须<b>倒序</b>枚举，想清楚为什么。</td>
-          </tr>
-          <tr>
-            <td>P1616</td><td>疯狂的采药</td><td><span class="diff d3">普及/提高−</span></td><td>完全背包</td>
-            <td>与上一题唯一的区别是容量<b>正序</b>枚举。请自己推导这个区别的根源。</td>
-          </tr>
-          <tr>
-            <td>P1833</td><td>樱花</td><td><span class="diff d4">普及+/提高</span></td><td>混合背包 / 多重背包</td>
-            <td>有的物品只能取一次、有的能取多次。用二进制拆分把多重背包转成 01 背包。</td>
-          </tr>
-          <tr>
-            <td>P1060</td><td>开心的金明</td><td><span class="diff d2">普及−</span></td><td>01 背包</td>
-            <td>价值变成「价格 × 重要度」，其余不变。用来巩固 01 背包模板。</td>
-          </tr>
-          <tr>
-            <td>P1020</td><td>导弹拦截</td><td><span class="diff d3">普及/提高−</span></td><td>LIS + Dilworth 定理</td>
-            <td>第一问是最长不上升子序列；第二问是「最少不上升序列个数 = 最长上升子序列长度」。用 O(n log n) 的 LIS。</td>
-          </tr>
-          <tr>
-            <td>P1439</td><td>【模板】最长公共子序列</td><td><span class="diff d4">普及+/提高</span></td><td>LCS → LIS</td>
-            <td>两个序列都是 1~n 的排列时，可以把第一个序列的值映射成下标，问题转化成求第二个序列的 LIS。</td>
-          </tr>
-          <tr>
-            <td>P2196</td><td>挖地雷</td><td><span class="diff d3">普及/提高−</span></td><td>DAG 上 DP + 路径还原</td>
-            <td>用 <code>pre[]</code> 记录前驱，最后递归输出路径。练习「DP + 方案还原」。</td>
-          </tr>
-          <tr>
-            <td>P1352</td><td>没有上司的舞会</td><td><span class="diff d4">普及+/提高</span></td><td>树形 DP</td>
-            <td>入门树形 DP：<code>f[u][0/1]</code> 表示 u 参不参加。DFS 后序遍历自底向上转移。</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h2 id="s7">14.7 进阶挑战（学有余力）</h2>
-    <div class="table-wrap">
-      <table class="compact">
-        <thead><tr><th>题号</th><th>题目</th><th>难度</th><th>考点</th><th>思路提示</th></tr></thead>
-        <tbody>
-          <tr><td>P3368</td><td>【模板】树状数组 2</td><td><span class="diff d3">普及/提高−</span></td><td>树状数组 + 差分</td><td>区间修改 + 单点查询，用树状数组维护差分数组。</td></tr>
-          <tr><td>P3372</td><td>【模板】线段树 1</td><td><span class="diff d4">普及+/提高</span></td><td>线段树 + lazy</td><td>区间加 + 区间求和。理解 <code>pushdown</code> 的时机是线段树的核心。</td></tr>
-          <tr><td>P3373</td><td>【模板】线段树 2</td><td><span class="diff d5">提高+/省选−</span></td><td>线段树 + 双 lazy</td><td>乘法与加法标记的优先级问题，务必先乘后加。</td></tr>
-          <tr><td>P3379</td><td>【模板】最近公共祖先 LCA</td><td><span class="diff d4">普及+/提高</span></td><td>倍增 / Tarjan</td><td>倍增法：先跳到同深度，再一起往上跳。与树形 DP 结合可解很多题。</td></tr>
-          <tr><td>P3865</td><td>【模板】ST 表</td><td><span class="diff d4">普及+/提高</span></td><td>稀疏表 RMQ</td><td>O(n log n) 预处理、O(1) 查询静态区间最值。思想与倍增一脉相承。</td></tr>
-          <tr><td>P3387</td><td>【模板】缩点</td><td><span class="diff d5">提高+/省选−</span></td><td>Tarjan 强连通分量 + DAG DP</td><td>缩点后在 DAG 上求最长路。是「有向无环图应用」的综合题。</td></tr>
-          <tr><td>P3388</td><td>【模板】割点（割顶）</td><td><span class="diff d5">提高+/省选−</span></td><td>Tarjan 求割点</td><td>依赖 <code>dfn</code> 与 <code>low</code> 两个数组，是 DFS 生成树性质的直接应用。</td></tr>
-          <tr><td>P1939</td><td>【模板】矩阵加速（数列）</td><td><span class="diff d4">普及+/提高</span></td><td>矩阵快速幂</td><td>把线性递推写成矩阵乘法，再用快速幂加速到 O(log n)。</td></tr>
-          <tr><td>P3376</td><td>【模板】网络最大流</td><td><span class="diff d5">提高+/省选−</span></td><td>Dinic</td><td>属于图论进阶，学完本章可以了解 BFS 分层 + DFS 增广的思想。</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h2 id="s8">14.8 调试与对拍：自己造数据验证程序</h2>
+    <h2 id="s15">14.15 调试与对拍：自己造数据验证程序</h2>
 
     <p>
       做题最容易卡在「样例过了但提交 WA」。这时候不要干瞪眼，用<b>对拍</b>：
@@ -825,7 +748,7 @@ pause</pre>
       </ul>
     </div>
 
-    <h2 id="s9">14.9 本章小结</h2>
+    <h2 id="s16">14.16 本章小结</h2>
 
     <div class="grid c2">
       <div class="card">
