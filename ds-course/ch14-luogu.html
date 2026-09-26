@@ -36,7 +36,7 @@
       <div class="meta">
         <span>每讲 3~4 题，共 46 题</span>
         <span>平台：洛谷 luogu.com.cn</span>
-        <span>关键词：经典题 · 由易到难 · 对拍调试</span>
+        <span>关键词：经典题 · 由易到难 · 例题精讲</span>
       </div>
     </div>
 
@@ -622,86 +622,7 @@ int main() {
       </table>
     </div>
 
-    <h2 id="s15">14.14 调试与对拍：自己造数据验证程序</h2>
-
-    <p>
-      做题最容易卡在「样例过了但提交 WA」。这时候不要干瞪眼，用<b>对拍</b>：
-      写一个慢但一定正确的<b>暴力程序</b>，再写一个随机数据生成器，循环比较两者输出。
-    </p>
-
-    <pre data-lang="cpp" data-file="duipai_brute.cpp">/* ============ 对拍三件套之 ①：暴力程序 brute.cpp ============
-   以「求数组区间和」为例，暴力就是每次都老老实实累加 */
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-int main() {
-    int n, q;
-    cin &gt;&gt; n &gt;&gt; q;
-    vector&lt;long long&gt; a(n + 1);
-    for (int i = 1; i &lt;= n; ++i) cin &gt;&gt; a[i];
-    while (q--) {
-        int l, r;
-        cin &gt;&gt; l &gt;&gt; r;
-        long long s = 0;
-        for (int i = l; i &lt;= r; ++i) s += a[i];   // O(n) 暴力
-        cout &lt;&lt; s &lt;&lt; '\n';
-    }
-    return 0;
-}</pre>
-
-    <pre data-lang="cpp" data-file="duipai_gen.cpp">/* ============ 对拍三件套之 ②：数据生成器 gen.cpp ============
-   生成 n ≤ 10 的小数据，便于暴露边界问题 */
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-int main() {
-    mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
-    int n = rng() % 10 + 1;            // 1 ~ 10
-    int q = rng() % 10 + 1;            // 1 ~ 10
-    cout &lt;&lt; n &lt;&lt; ' ' &lt;&lt; q &lt;&lt; '\n';
-    for (int i = 1; i &lt;= n; ++i) cout &lt;&lt; (int)(rng() % 21 - 10) &lt;&lt; " \n"[i == n];
-    for (int i = 0; i &lt; q; ++i) {
-        int l = rng() % n + 1, r = rng() % n + 1;
-        if (l &gt; r) swap(l, r);
-        cout &lt;&lt; l &lt;&lt; ' ' &lt;&lt; r &lt;&lt; '\n';
-    }
-    return 0;
-}</pre>
-
-    <pre data-lang="cpp" data-file="duipai_run.bat">:: ============ 对拍三件套之 ③：批处理脚本（Windows） ============
-:: 把三个文件编译后放在同一目录，双击运行即可
-@echo off
-g++ brute.cpp -O2 -o brute.exe
-g++ mine.cpp  -O2 -o mine.exe
-g++ gen.cpp   -O2 -o gen.exe
-for /l %%i in (1,1,1000) do (
-    gen.exe &gt; in.txt
-    brute.exe &lt; in.txt &gt; brute.out
-    mine.exe  &lt; in.txt &gt; mine.out
-    fc brute.out mine.out &gt; nul
-    if errorlevel 1 (
-        echo **************** 第 %%i 组数据 WA 了！****************
-        type in.txt
-        echo ---------- 暴力输出 ----------
-        type brute.out
-        echo ---------- 你的输出 ----------
-        type mine.out
-        pause
-        exit /b
-    )
-)
-echo 全部通过！
-pause</pre>
-
-    <div class="note tip">
-      <span class="note-title">对拍的正确姿势</span>
-      <ul style="margin:6px 0 0">
-        <li><b>数据要小</b>：先跑 n ≤ 10 的小数据，边界错误（数组越界、初始值、n=1）暴露得最快。</li>
-        <li><b>随机种子要变</b>：用 <code>chrono::steady_clock</code> 或读系统时间做种子，否则每次数据都一样。</li>
-        <li><b>小数据全过之后再放大</b>：把 n 调到 100、1000，能抓出复杂度或溢出问题。</li>
-        <li><b>别用对拍验证算法思路</b>：对拍只能验证「实现有没有写错」，算法本身选错了它对不出来。</li>
-      </ul>
-    </div>
-
-    <h2 id="s16">14.15 本章小结</h2>
+    <h2 id="s16">14.14 本章小结</h2>
 
     <div class="grid c2">
       <div class="card">
