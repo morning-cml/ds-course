@@ -1287,44 +1287,42 @@ int main() {
     <h3 id="s5-code">3.5.3　C++ 完整实现</h3>
 
     <p>
-      第一份实现是「工程版」：返回失败原因和精确位置，方便直接集成到编译器的报错信息里。
+      第一份实现是「完整版」：除了判断对错，还报出失败的位置和原因（哪个括号多了、哪一对类型不配）。
       第二份是「考试版」：只返回 <code>bool</code>，十几行手写就能默出来。两份都值得会。
     </p>
 
-    <pre data-lang="cpp" data-file="bracket_match.cpp">// bracket_match.cpp —— 括号匹配（工程版）：支持 () [] {}，返回失败位置与原因
-#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;stack&gt;
-#include &lt;utility&gt;
+    <pre data-lang="cpp" data-file="bracket_match.cpp">// bracket_match.cpp —— 括号匹配（完整版）：支持 () [] {}，返回失败位置与原因
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 // 返回空串表示匹配成功；否则返回人类可读的失败原因
-std::string CheckBrackets(const std::string&amp; s) {
-    std::stack&lt;std::pair&lt;char, int&gt; &gt; st;      // 存 (左括号, 它的下标)
+string CheckBrackets(const string&amp; s) {
+    stack&lt;pair&lt;char, int&gt; &gt; st;      // 存 (左括号, 它的下标)
     for (int i = 0; i &lt; (int)s.size(); ++i) {
         char c = s[i];
         if (c == '(' || c == '[' || c == '{') {
-            st.push(std::make_pair(c, i));                      // 记账
+            st.push(make_pair(c, i));                      // 记账
         } else if (c == ')' || c == ']' || c == '}') {
             char want = (c == ')') ? '(' : (c == ']' ? '[' : '{');
             if (st.empty())
-                return "位置 " + std::to_string(i) + " 的 '" + c + "' 多余：右括号多余";
+                return "位置 " + to_string(i) + " 的 '" + c + "' 多余：右括号多余";
             if (st.top().first != want)
-                return "位置 " + std::to_string(i) + " 的 '" + c + "' 与位置 " +
-                       std::to_string(st.top().second) + " 的 '" + st.top().first + "' 类型不匹配";
+                return "位置 " + to_string(i) + " 的 '" + c + "' 与位置 " +
+                       to_string(st.top().second) + " 的 '" + st.top().first + "' 类型不匹配";
             st.pop();                                           // 销账
         }
         // 其它字符（字母 / 数字 / 运算符 / 空格）一律跳过
     }
     if (!st.empty())
-        return "位置 " + std::to_string(st.top().second) + " 的 '" + st.top().first + "' 多余：左括号多余";
+        return "位置 " + to_string(st.top().second) + " 的 '" + st.top().first + "' 多余：左括号多余";
     return "";
 }
 
-void Test(const std::string&amp; s) {
-    std::string r = CheckBrackets(s);
-    std::cout &lt;&lt; (r.empty() ? "[通过] " : "[失败] ") &lt;&lt; '"' &lt;&lt; s &lt;&lt; '"';
-    if (!r.empty()) std::cout &lt;&lt; "   → " &lt;&lt; r;
-    std::cout &lt;&lt; '\n';
+void Test(const string&amp; s) {
+    string r = CheckBrackets(s);
+    cout &lt;&lt; (r.empty() ? "[通过] " : "[失败] ") &lt;&lt; '"' &lt;&lt; s &lt;&lt; '"';
+    if (!r.empty()) cout &lt;&lt; "   → " &lt;&lt; r;
+    cout &lt;&lt; '\n';
 }
 
 int main() {
@@ -1336,15 +1334,14 @@ int main() {
     Test("");                     // 空串算匹配
     Test("no brackets at all");   // 没有括号也算匹配
     return 0;
-}
-</pre>
+}</pre>
 
     <pre data-lang="cpp" data-file="bracket_match_simple.cpp">// bracket_match_simple.cpp —— 括号匹配（考试版）：只判断是否匹配，手写十几行
-#include &lt;iostream&gt;
-#include &lt;stack&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 bool Match(const char* str) {
-    std::stack&lt;char&gt; st;
+    stack&lt;char&gt; st;
     for (const char* p = str; *p; ++p) {
         char c = *p;
         if (c == '(' || c == '[' || c == '{') {
@@ -1364,10 +1361,9 @@ bool Match(const char* str) {
 int main() {
     const char* cases[] = {"{[()]}", "([)]", "(()", "())", "a*(b+[c-d])"};
     for (const char* s : cases)
-        std::cout &lt;&lt; (Match(s) ? "匹配   " : "不匹配 ") &lt;&lt; s &lt;&lt; '\n';
+        cout &lt;&lt; (Match(s) ? "匹配   " : "不匹配 ") &lt;&lt; s &lt;&lt; '\n';
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点与复杂度</span>
@@ -1758,8 +1754,10 @@ int main() {
     </div>
 
     <div class="note warn">
-      <span class="note-title">易错：把 <code>&gt;=</code> 写成 <code>&gt;</code></span>
-      弹出条件必须是 <code>isp(栈顶) &gt;= icp(当前)</code>。写成 <code>&gt;</code> 会让同级运算符<b>留在栈里</b>，
+      <span class="note-title">易错：同级运算符没有先弹</span>
+      左结合全靠「同级时栈顶先弹」。本节的两张表里 isp 比 icp 大 1（如 isp(+) = 3、icp(+) = 2），所以弹出条件写 <code>&gt;=</code> 还是 <code>&gt;</code> 都会弹；
+      但如果只用<b>一套</b>优先级（isp = icp，3.7.5 双栈法里的 <code>priority()</code> 就是这样），弹出条件就必须写 <code>&gt;=</code>。
+      写成 <code>&gt;</code> 会让同级运算符<b>留在栈里</b>，
       于是 <code>a-b+c</code> 被算成 <code>a-(b+c)</code>，<code>8/4/2</code> 被算成 <code>8/(4/2)=4</code>（正确结果是 1）。
       这类 bug 在测试用例里很容易蒙混过关（<code>a+b+c</code> 这种同运算符加法恰好不受影响），
       一定要用 <b>减法与除法</b>去测。
@@ -1875,7 +1873,7 @@ int main() {
     <div class="note tip">
       <span class="note-title">自测：跑一遍这三组数据</span>
       <b>① <code>2 ^ 3 ^ 2</code></b> 应输出 <code>2 3 2 ^ ^</code>（右结合；若你得到 <code>2 3 ^ 2 ^</code>，说明 <code>^</code> 的 icp/isp 写反了）；
-      <b>② <code>8 - 4 - 2</code></b> 应输出 <code>8 4 - 2 -</code>（左结合；若得到 <code>8 4 2 - -</code>，说明弹出条件把 <code>&gt;=</code> 写成了 <code>&gt;</code>）；
+      <b>② <code>8 - 4 - 2</code></b> 应输出 <code>8 4 - 2 -</code>（左结合；若得到 <code>8 4 2 - -</code>，说明同级的 <code>-</code> 没有先弹：isp 没比 icp 大，或者只用一套优先级却写成了 <code>&gt;</code>）；
       <b>③ <code>1.5 + 22 * ( 3 - 0.5 )</code></b> 应输出 <code>1.5 22 3 0.5 - * +</code>（多位数与小数不能被拆散）
       —— 这三组数据恰好覆盖了右结合、左结合、词法切分三个最容易错的地方。
     </div>
@@ -2001,21 +1999,20 @@ int main() {
     <h3 id="s7-direct">3.7.5　中缀表达式直接求值：双栈法</h3>
 
     <p>
-      现实中我们往往拿到的就是中缀表达式，于是有两种工程路线：
+      现实中我们往往拿到的就是中缀表达式，于是有两种做法：
       <b>① 先转后缀，再求值</b>（两遍扫描，逻辑最清晰，编译器就是这么做的）；
       <b>② 一遍扫描直接求值</b>（双栈法：一个操作数栈 + 一个运算符栈）。
       双栈法的做法与「转后缀」几乎一模一样，唯一的区别是：<b>每当一个运算符应当「输出」时，
       就地用操作数栈把它算掉</b>，而不是写到输出串里。
     </p>
 
-    <pre data-lang="cpp" data-file="infix_eval_direct.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="infix_eval_direct.cpp">/* ==========================================================================
    中缀表达式直接求值 —— 双栈法（操作数栈 + 运算符栈）
    --------------------------------------------------------------------------
    前面两段是"先转后缀再求值"，这段是不转换、边扫边算的双栈做法。
    两种做法的复杂度一样（都是 O(n)），但双栈法更短，竞赛里常用。
 
-   规则（就三条）：
+   规则（就五条）：
      ① 遇到数字      → 压入「操作数栈」
      ② 遇到左括号    → 压入「运算符栈」
      ③ 遇到右括号    → 一直弹出运算符来计算，直到弹出左括号为止
@@ -2027,16 +2024,16 @@ int main() {
 using namespace std;
 
 const int N = 100005;
-int numStk[N];  int numTop = 0;          // 操作数栈
-char opStk[N];  int opTop = 0;           // 运算符栈
+int numStk[N];  int numTop = -1;         // 操作数栈（约定 A：top == -1 表示空栈）
+char opStk[N];  int opTop = -1;          // 运算符栈
 
-void Init() { numTop = opTop = 0; }
+void Init() { numTop = opTop = -1; }
 
 void pushNum(int x) { numStk[++numTop] = x; }
 int  popNum()       { return numStk[numTop--]; }
 void pushOp(char c) { opStk[++opTop] = c; }
 char popOp()        { return opStk[opTop--]; }
-char topOp()        { return opTop ? opStk[opTop] : '#'; }
+char topOp()        { return opTop &gt;= 0 ? opStk[opTop] : '#'; }
 
 int priority(char c) {                   // 数字越大越优先
     if (c == '+' || c == '-') return 1;
@@ -2080,11 +2077,11 @@ int evalInfix(const string &amp;s) {
             continue;
         }
         /* ④ 运算符：栈顶优先级 ≥ 当前就先算，再把当前压栈 */
-        while (opTop &amp;&amp; priority(topOp()) &gt;= priority(c)) calcOnce();
+        while (opTop &gt;= 0 &amp;&amp; priority(topOp()) &gt;= priority(c)) calcOnce();
         pushOp(c);
         ++i;
     }
-    while (opTop) calcOnce();              // ⑤ 收尾：把剩下的运算符全算掉
+    while (opTop &gt;= 0) calcOnce();         // ⑤ 收尾：把剩下的运算符全算掉
     return numStk[numTop];
 }
 
@@ -2108,11 +2105,11 @@ string toPostfix(const string &amp;s) {
             ++i;
             continue;
         }
-        while (opTop &amp;&amp; priority(topOp()) &gt;= priority(c)) { out += popOp(); out += ' '; }
+        while (opTop &gt;= 0 &amp;&amp; priority(topOp()) &gt;= priority(c)) { out += popOp(); out += ' '; }
         pushOp(c);
         ++i;
     }
-    while (opTop) { out += popOp(); out += ' '; }
+    while (opTop &gt;= 0) { out += popOp(); out += ' '; }
     return out;
 }
 
@@ -2151,8 +2148,7 @@ int main() {
        ③ 多位数字要一次读完，不能一位一位压栈
        ④ 右括号处理完后，左括号要弹掉但不能参与计算 */
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="table-wrap">
       <table class="compact">
@@ -2210,7 +2206,7 @@ int main() {
       ① 中缀转后缀：操作数直接输出；运算符「<code>isp(栈顶) &gt;= icp(当前)</code> 就弹」；左括号入栈、右括号弹到左括号；
       <b>结束必须清栈</b>。② 右结合运算符（<code>^</code>）的 <code>icp = isp + 1</code>。
       ③ 后缀求值先弹出的是右操作数。④ 三种表达式中操作数顺序完全相同，只有运算符位置不同。
-      ⑤ 前缀式求值要<b>从右往左</b>扫描（或把整个串反转后按后缀法处理，最后再反转结果）。
+      ⑤ 前缀式求值要<b>从右往左</b>扫描，而且此时<b>先弹出的是左操作数</b>（与后缀求值正好相反）。
     </div>
 
     <h2 id="s8">3.8　栈与递归：为什么递归能「自动回溯」</h2>
@@ -2299,8 +2295,8 @@ int main() {
     <h3 id="s8-ex">3.8.2　三个经典递归：阶乘、斐波那契、汉诺塔</h3>
 
     <pre data-lang="cpp" data-file="recursion_demo.cpp">// recursion_demo.cpp —— 阶乘 / 斐波那契 / 汉诺塔：递归的三种典型形状
-#include &lt;iostream&gt;
-#include &lt;vector&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 /* ① 阶乘：线性递归。递归深度 = n，每层都要等下一层的结果才能相乘 */
 long long FactRec(int n) {
@@ -2318,7 +2314,7 @@ long long FibRec(int n) {
     return n &lt; 2 ? n : FibRec(n - 1) + FibRec(n - 2);
 }
 /* 记忆化搜索：把算过的答案存下来，每个状态只算一次 → O(n)，是动态规划的雏形 */
-long long FibMemo(int n, std::vector&lt;long long&gt;&amp; memo) {
+long long FibMemo(int n, vector&lt;long long&gt;&amp; memo) {
     if (n &lt; 2) return n;
     if (memo[n] != -1) return memo[n];                 // 已经算过，直接取
     return memo[n] = FibMemo(n - 1, memo) + FibMemo(n - 2, memo);
@@ -2330,28 +2326,27 @@ void Hanoi(int n, char from, char via, char to) {
     if (n == 1) {
         ++hanoiMoves;
         if (hanoiMoves &lt;= 7)
-            std::cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 1 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
+            cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 1 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
         return;
     }
     Hanoi(n - 1, from, to, via);          // ① 把上面 n−1 个挪到中转柱
     ++hanoiMoves;                          // ② 最大的那个盘子直接搬到目标柱
     if (hanoiMoves &lt;= 7)
-        std::cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 " &lt;&lt; n &lt;&lt; " 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
+        cout &lt;&lt; "  第 " &lt;&lt; hanoiMoves &lt;&lt; " 步：把盘子 " &lt;&lt; n &lt;&lt; " 从 " &lt;&lt; from &lt;&lt; " 移到 " &lt;&lt; to &lt;&lt; '\n';
     Hanoi(n - 1, via, from, to);          // ③ 再把 n−1 个从中转柱挪到目标柱
 }
 
 int main() {
-    std::cout &lt;&lt; "5! 递归 = " &lt;&lt; FactRec(5) &lt;&lt; "，迭代 = " &lt;&lt; FactIter(5) &lt;&lt; '\n';
-    std::cout &lt;&lt; "Fib(10) 朴素递归 = " &lt;&lt; FibRec(10) &lt;&lt; '\n';
-    std::vector&lt;long long&gt; memo(51, -1);
-    std::cout &lt;&lt; "Fib(50) 记忆化 = " &lt;&lt; FibMemo(50, memo)
+    cout &lt;&lt; "5! 递归 = " &lt;&lt; FactRec(5) &lt;&lt; "，迭代 = " &lt;&lt; FactIter(5) &lt;&lt; '\n';
+    cout &lt;&lt; "Fib(10) 朴素递归 = " &lt;&lt; FibRec(10) &lt;&lt; '\n';
+    vector&lt;long long&gt; memo(51, -1);
+    cout &lt;&lt; "Fib(50) 记忆化 = " &lt;&lt; FibMemo(50, memo)
               &lt;&lt; "（朴素递归要算约 200 亿次，根本跑不完）\n";
-    std::cout &lt;&lt; "汉诺塔 3 个盘子的移动过程：\n";
+    cout &lt;&lt; "汉诺塔 3 个盘子的移动过程：\n";
     Hanoi(3, 'A', 'B', 'C');
-    std::cout &lt;&lt; "3 个盘子共需 " &lt;&lt; hanoiMoves &lt;&lt; " 步（= 2³ − 1）\n";
+    cout &lt;&lt; "3 个盘子共需 " &lt;&lt; hanoiMoves &lt;&lt; " 步（= 2³ − 1）\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点：递归的复杂度怎么算</span>
@@ -2378,8 +2373,8 @@ int main() {
     </p>
 
     <pre data-lang="cpp" data-file="binary_tree_preorder_iter.cpp">// binary_tree_preorder_iter.cpp —— 用显式栈实现二叉树的非递归遍历
-#include &lt;iostream&gt;
-#include &lt;stack&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 struct TreeNode {
     int val;
@@ -2391,7 +2386,7 @@ struct TreeNode {
 /* ---------- 递归版：代码最短，但深度大时有栈溢出风险 ---------- */
 void PreOrderRec(TreeNode* root) {
     if (!root) return;
-    std::cout &lt;&lt; root-&gt;val &lt;&lt; ' ';      // 访问根
+    cout &lt;&lt; root-&gt;val &lt;&lt; ' ';      // 访问根
     PreOrderRec(root-&gt;left);            // 递归左子树
     PreOrderRec(root-&gt;right);           // 递归右子树
 }
@@ -2399,12 +2394,12 @@ void PreOrderRec(TreeNode* root) {
 /* ---------- 非递归前序：自己开栈，先压右孩子再压左孩子 ---------- */
 void PreOrderIter(TreeNode* root) {
     if (!root) return;
-    std::stack&lt;TreeNode*&gt; st;
+    stack&lt;TreeNode*&gt; st;
     st.push(root);
     while (!st.empty()) {
         TreeNode* p = st.top();
         st.pop();
-        std::cout &lt;&lt; p-&gt;val &lt;&lt; ' ';      // 出栈即访问（前序：根最先）
+        cout &lt;&lt; p-&gt;val &lt;&lt; ' ';      // 出栈即访问（前序：根最先）
         if (p-&gt;right) st.push(p-&gt;right);  // ★ 先压右孩子
         if (p-&gt;left)  st.push(p-&gt;left);   // ★ 后压左孩子 → 左孩子先出栈
     }
@@ -2412,12 +2407,12 @@ void PreOrderIter(TreeNode* root) {
 
 /* ---------- 非递归中序：一路向左压栈，弹出时访问，再转向右子树 ---------- */
 void InOrderIter(TreeNode* root) {
-    std::stack&lt;TreeNode*&gt; st;
+    stack&lt;TreeNode*&gt; st;
     TreeNode* p = root;
     while (p || !st.empty()) {
         while (p) { st.push(p); p = p-&gt;left; }   // 把左链全部压栈
         p = st.top(); st.pop();
-        std::cout &lt;&lt; p-&gt;val &lt;&lt; ' ';              // 左子树走完才访问根
+        cout &lt;&lt; p-&gt;val &lt;&lt; ' ';              // 左子树走完才访问根
         p = p-&gt;right;                            // 转向右子树
     }
 }
@@ -2442,13 +2437,12 @@ int main() {
     root-&gt;left-&gt;right = new TreeNode(5);
     root-&gt;right-&gt;right = new TreeNode(6);
 
-    std::cout &lt;&lt; "前序（递归）  ："; PreOrderRec(root);  std::cout &lt;&lt; '\n';
-    std::cout &lt;&lt; "前序（显式栈）："; PreOrderIter(root); std::cout &lt;&lt; '\n';
-    std::cout &lt;&lt; "中序（显式栈）："; InOrderIter(root);  std::cout &lt;&lt; '\n';
+    cout &lt;&lt; "前序（递归）  ："; PreOrderRec(root);  cout &lt;&lt; '\n';
+    cout &lt;&lt; "前序（显式栈）："; PreOrderIter(root); cout &lt;&lt; '\n';
+    cout &lt;&lt; "中序（显式栈）："; InOrderIter(root);  cout &lt;&lt; '\n';
     FreeTree(root);
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note danger">
       <span class="note-title">易错：非递归前序的两个「顺序」</span>
@@ -2478,8 +2472,8 @@ int main() {
     <div class="note tip">
       <span class="note-title">实战经验</span>
       竞赛里遇到深搜，如果递归深度可能到 10⁵ 甚至 10⁶（比如一条链状的图），
-      递归写法几乎必定 RE（Runtime Error，栈溢出）；此时要么手写显式栈，要么把递归改成从叶子往上递推（拓扑序 / DP）。
-      这也是「栈」这个结构在工程里最实在的一次出场。
+      递归写法就有 RE（Runtime Error，栈溢出）的风险：不少评测机给的栈空间很大，但本机（例如 Windows 默认只有 1 MB 栈）或栈空间小的评测环境会直接崩。
+      稳妥的做法是手写显式栈，或者把递归改成从叶子往上递推（拓扑序 / DP）。这也是「栈」这个结构在竞赛里最实在的一次出场。
     </div>
 
     <h2 id="s9">3.9　经典应用四：迷宫求解（回溯）</h2>
@@ -2554,16 +2548,16 @@ int main() {
           <rect x="88" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
           <rect x="118" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
           <rect x="148" y="126" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
-          <rect x="178" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="178" y="126" width="30" height="30" fill="var(--panel)" stroke="var(--border)"/>
           <rect x="208" y="126" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
           <rect x="238" y="126" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
 
           <!-- 第 4 行 -->
           <rect x="28" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
           <rect x="58" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
-          <rect x="88" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <rect x="118" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <rect x="148" y="156" width="30" height="30" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+          <rect x="88" y="156" width="30" height="30" fill="var(--panel)" stroke="var(--border)"/>
+          <rect x="118" y="156" width="30" height="30" fill="var(--panel)" stroke="var(--border)"/>
+          <rect x="148" y="156" width="30" height="30" fill="var(--panel)" stroke="var(--border)"/>
           <rect x="178" y="156" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
           <rect x="208" y="156" width="30" height="30" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="2"/>
           <text x="223" y="176" fill="var(--purple)" font-weight="700">E</text>
@@ -2580,10 +2574,11 @@ int main() {
           <rect x="238" y="186" width="30" height="30" fill="var(--bg-soft)" stroke="var(--border)"/>
         </g>
 
-        <text x="28" y="238" fill="var(--ok)" font-size="12">■ 最终通路</text>
-        <text x="140" y="238" fill="var(--danger)" font-size="12">■ 死路（已出栈回退）</text>
-        <text x="300" y="238" fill="var(--brand)" font-size="12">■ 入口 S</text>
-        <text x="400" y="238" fill="var(--purple)" font-size="12">■ 出口 E</text>
+        <text x="28" y="238" fill="var(--ok)" font-size="12">■ 通路</text>
+        <text x="104" y="238" fill="var(--danger)" font-size="12">■ 死路（已出栈回退）</text>
+        <text x="236" y="238" fill="var(--brand)" font-size="12">■ 入口 S</text>
+        <text x="300" y="238" fill="var(--purple)" font-size="12">■ 出口 E</text>
+        <text x="364" y="238" fill="var(--text-soft)" font-size="12">□ 没走到</text>
         <text x="28" y="264" fill="var(--text-faint)" font-size="11.5">从 S(1,1) 先向右试到 (1,2)：四面不通 → 出栈回退，再改试向下，最终到达 E(4,6)</text>
 
         <!-- 右侧：栈的变化 -->
@@ -2609,10 +2604,8 @@ int main() {
     </div>
 
     <pre data-lang="cpp" data-file="maze_stack.cpp">// maze_stack.cpp —— 迷宫求解：栈式回溯（本质是在图上做深度优先搜索 DFS）
-#include &lt;iostream&gt;
-#include &lt;stack&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 const int R = 6, C = 8;                    // 迷宫行数、列数
 int maze[R][C] = {                         // 1 = 墙，0 = 通路
@@ -2636,9 +2629,9 @@ struct Pos {
 bool InMaze(int r, int c) { return r &gt;= 0 &amp;&amp; r &lt; R &amp;&amp; c &gt;= 0 &amp;&amp; c &lt; C; }
 
 // 找到一条通路：path 从入口到出口；无解返回 false
-bool SolveMaze(std::vector&lt;Pos&gt;&amp; path) {
+bool SolveMaze(vector&lt;Pos&gt;&amp; path) {
     int mark[R][C] = {0};                  // 是否已经进过栈（避免原地兜圈子）
-    std::stack&lt;Pos&gt; st;                    // ★ 核心：用栈保存当前路径
+    stack&lt;Pos&gt; st;                    // ★ 核心：用栈保存当前路径
     st.push({sx, sy, 0});
     mark[sx][sy] = 1;
 
@@ -2647,7 +2640,7 @@ bool SolveMaze(std::vector&lt;Pos&gt;&amp; path) {
         if (cur.r == ex &amp;&amp; cur.c == ey) {   // 到达出口
             path.clear();
             while (!st.empty()) { path.push_back(st.top()); st.pop(); }
-            std::reverse(path.begin(), path.end());   // 栈底 → 栈顶 = 入口 → 出口
+            reverse(path.begin(), path.end());   // 栈底 → 栈顶 = 入口 → 出口
             return true;
         }
         int found = -1;                    // 找一个没试过的可行方向
@@ -2667,31 +2660,30 @@ bool SolveMaze(std::vector&lt;Pos&gt;&amp; path) {
     return false;                          // 栈空仍未到达 → 无解
 }
 
-void PrintMaze(const std::vector&lt;Pos&gt;&amp; path) {
+void PrintMaze(const vector&lt;Pos&gt;&amp; path) {
     char g[R][C + 1];
     for (int r = 0; r &lt; R; ++r)
         for (int c = 0; c &lt; C; ++c) g[r][c] = maze[r][c] ? '#' : '.';
     for (size_t i = 0; i &lt; path.size(); ++i) g[path[i].r][path[i].c] = '*';
     g[sx][sy] = 'S';
     g[ex][ey] = 'E';
-    for (int r = 0; r &lt; R; ++r) { g[r][C] = '\0'; std::cout &lt;&lt; g[r] &lt;&lt; '\n'; }
+    for (int r = 0; r &lt; R; ++r) { g[r][C] = '\0'; cout &lt;&lt; g[r] &lt;&lt; '\n'; }
 }
 
 int main() {
-    std::vector&lt;Pos&gt; path;
+    vector&lt;Pos&gt; path;
     if (SolveMaze(path)) {
-        std::cout &lt;&lt; "找到通路，共 " &lt;&lt; path.size() &lt;&lt; " 个格子：\n";
+        cout &lt;&lt; "找到通路，共 " &lt;&lt; path.size() &lt;&lt; " 个格子：\n";
         PrintMaze(path);
-        std::cout &lt;&lt; "路径坐标：";
+        cout &lt;&lt; "路径坐标：";
         for (size_t i = 0; i &lt; path.size(); ++i)
-            std::cout &lt;&lt; '(' &lt;&lt; path[i].r &lt;&lt; ',' &lt;&lt; path[i].c &lt;&lt; ')' &lt;&lt; (i + 1 &lt; path.size() ? " → " : "");
-        std::cout &lt;&lt; '\n';
+            cout &lt;&lt; '(' &lt;&lt; path[i].r &lt;&lt; ',' &lt;&lt; path[i].c &lt;&lt; ')' &lt;&lt; (i + 1 &lt; path.size() ? " → " : "");
+        cout &lt;&lt; '\n';
     } else {
-        std::cout &lt;&lt; "迷宫无解\n";
+        cout &lt;&lt; "迷宫无解\n";
     }
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点：迷宫与回溯法的关系</span>
@@ -2805,16 +2797,14 @@ int main() {
     <div id="viz-monotonic-stack"></div>
 
     <pre data-lang="cpp" data-file="monotonic_stack.cpp">// monotonic_stack.cpp —— 单调栈：下一个更大元素 + 直方图中最大矩形
-#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;stack&gt;
-#include &lt;algorithm&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 /* ① 下一个更大元素：对每个 i，求右边第一个比 A[i] 大的值，不存在记 -1 */
-std::vector&lt;int&gt; NextGreater(const std::vector&lt;int&gt;&amp; A) {
-    int n = static_cast&lt;int&gt;(A.size());
-    std::vector&lt;int&gt; ans(n, -1);
-    std::stack&lt;int&gt; st;                            // 存下标；栈内 A[st.top()] 单调不增
+vector&lt;int&gt; NextGreater(const vector&lt;int&gt;&amp; A) {
+    int n = (int)(A.size());
+    vector&lt;int&gt; ans(n, -1);
+    stack&lt;int&gt; st;                            // 存下标；栈内 A[st.top()] 单调不增
     for (int i = 0; i &lt; n; ++i) {
         while (!st.empty() &amp;&amp; A[st.top()] &lt; A[i]) {  // A[i] 能「结算」栈顶
             ans[st.top()] = A[i];
@@ -2826,10 +2816,10 @@ std::vector&lt;int&gt; NextGreater(const std::vector&lt;int&gt;&amp; A) {
 }
 
 /* ② 直方图中最大矩形：对每根柱子，找左右第一个比它矮的柱子，宽度 = 右 − 左 − 1 */
-long long LargestRectangle(const std::vector&lt;int&gt;&amp; h) {
-    int n = static_cast&lt;int&gt;(h.size());
-    std::vector&lt;int&gt; left(n, -1), right(n, n);
-    std::stack&lt;int&gt; st;
+long long LargestRectangle(const vector&lt;int&gt;&amp; h) {
+    int n = (int)(h.size());
+    vector&lt;int&gt; left(n, -1), right(n, n);
+    stack&lt;int&gt; st;
     for (int i = 0; i &lt; n; ++i) {                  // 从左到右 → 左边界
         while (!st.empty() &amp;&amp; h[st.top()] &gt;= h[i]) st.pop();
         left[i] = st.empty() ? -1 : st.top();
@@ -2843,24 +2833,23 @@ long long LargestRectangle(const std::vector&lt;int&gt;&amp; h) {
     }
     long long best = 0;
     for (int i = 0; i &lt; n; ++i)
-        best = std::max(best, static_cast&lt;long long&gt;(h[i]) * (right[i] - left[i] - 1));
+        best = max(best, (long long)(h[i]) * (right[i] - left[i] - 1));
     return best;
 }
 
 int main() {
-    std::vector&lt;int&gt; A = {2, 1, 5, 6, 2, 3, 1};
-    std::vector&lt;int&gt; ans = NextGreater(A);
-    std::cout &lt;&lt; "A   = ";
-    for (int v : A) std::cout &lt;&lt; v &lt;&lt; ' ';
-    std::cout &lt;&lt; "\nans = ";
-    for (int v : ans) std::cout &lt;&lt; v &lt;&lt; ' ';
-    std::cout &lt;&lt; "\n";
+    vector&lt;int&gt; A = {2, 1, 5, 6, 2, 3, 1};
+    vector&lt;int&gt; ans = NextGreater(A);
+    cout &lt;&lt; "A   = ";
+    for (int v : A) cout &lt;&lt; v &lt;&lt; ' ';
+    cout &lt;&lt; "\nans = ";
+    for (int v : ans) cout &lt;&lt; v &lt;&lt; ' ';
+    cout &lt;&lt; "\n";
 
-    std::vector&lt;int&gt; h = {2, 1, 5, 6, 2, 3};
-    std::cout &lt;&lt; "直方图 {2,1,5,6,2,3} 的最大矩形面积 = " &lt;&lt; LargestRectangle(h) &lt;&lt; '\n';
+    vector&lt;int&gt; h = {2, 1, 5, 6, 2, 3};
+    cout &lt;&lt; "直方图 {2,1,5,6,2,3} 的最大矩形面积 = " &lt;&lt; LargestRectangle(h) &lt;&lt; '\n';
     return 0;
-}
-</pre>
+}</pre>
 
     <h3 id="s10-rect">3.10.2　直方图中最大矩形：单调栈的第二种用法</h3>
 
@@ -2878,22 +2867,20 @@ int main() {
     </p>
 
     <pre data-lang="cpp" data-file="largest_rectangle_onepass.cpp">// largest_rectangle_onepass.cpp —— 直方图最大矩形：单调栈一趟扫描版（哨兵技巧）
-#include &lt;iostream&gt;
-#include &lt;vector&gt;
-#include &lt;stack&gt;
-#include &lt;algorithm&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-int LargestRectangleArea(std::vector&lt;int&gt; h) {
+int LargestRectangleArea(vector&lt;int&gt; h) {
     h.push_back(0);                      // ★ 哨兵：高度 0 比所有柱子都矮，保证最后能把栈清空
-    std::stack&lt;int&gt; st;                  // 存下标，栈内高度单调递增
+    stack&lt;int&gt; st;                  // 存下标，栈内高度单调递增
     int best = 0;
-    for (int i = 0; i &lt; static_cast&lt;int&gt;(h.size()); ++i) {
+    for (int i = 0; i &lt; (int)(h.size()); ++i) {
         while (!st.empty() &amp;&amp; h[st.top()] &gt; h[i]) {
             int height = h[st.top()];    // 以被弹出的柱子为高
             st.pop();
             int left = st.empty() ? -1 : st.top();     // 左边第一个更矮的
             int width = i - left - 1;                   // 向右能扩展到 i − 1
-            best = std::max(best, height * width);
+            best = max(best, height * width);
         }
         st.push(i);
     }
@@ -2901,7 +2888,7 @@ int LargestRectangleArea(std::vector&lt;int&gt; h) {
 }
 
 int main() {
-    std::vector&lt;std::vector&lt;int&gt;&gt; tests = {
+    vector&lt;vector&lt;int&gt;&gt; tests = {
         {2, 1, 5, 6, 2, 3},              // 10
         {2, 4},                          // 4
         {6, 2, 5, 4, 5, 1, 6},           // 12
@@ -2909,11 +2896,10 @@ int main() {
         {2, 2, 2}                        // 6
     };
     for (size_t i = 0; i &lt; tests.size(); ++i) {
-        std::cout &lt;&lt; "测试 " &lt;&lt; (i + 1) &lt;&lt; " → " &lt;&lt; LargestRectangleArea(tests[i]) &lt;&lt; '\n';
+        cout &lt;&lt; "测试 " &lt;&lt; (i + 1) &lt;&lt; " → " &lt;&lt; LargestRectangleArea(tests[i]) &lt;&lt; '\n';
     }
     return 0;
-}
-</pre>
+}</pre>
 
     <p>
       验算第三组 <code>{6,2,5,4,5,1,6}</code>：高度 4 的柱子（下标 3）左边第一个更矮的是下标 1（高 2），
@@ -3064,8 +3050,7 @@ int main() {
       撤销 / 重做是「双栈」最典型的用法，代码短到可以放进一次课堂练习，但它把「栈顶 = 最近的操作」这个直觉用到了极致。
     </p>
 
-    <pre data-lang="cpp" data-file="undo_redo.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="undo_redo.cpp">/* ==========================================================================
    撤销 / 重做 —— 两个栈的经典配合
    --------------------------------------------------------------------------
    直觉：栈顶就是「最近发生的事」。
@@ -3082,22 +3067,22 @@ int main() {
 using namespace std;
 
 const int N = 1005;
-string undoStk[N];  int undoTop = 0;      // 撤销栈
-string redoStk[N];  int redoTop = 0;      // 重做栈
+string undoStk[N];  int undoTop = -1;     // 撤销栈（约定 A：top == -1 表示空栈）
+string redoStk[N];  int redoTop = -1;     // 重做栈
 string text = "";                          // 当前文本
 
-void InitEditor() { undoTop = redoTop = 0; text = ""; }
+void InitEditor() { undoTop = redoTop = -1; text = ""; }
 
 /* ---------- 输入一段文字 = 一次可撤销的操作 ---------- */
 void Type(const string &amp;s) {
     text += s;
     undoStk[++undoTop] = s;               // 记入撤销栈
-    redoTop = 0;                          // ★ 产生新分支 → 重做栈作废（最容易漏的一句）
+    redoTop = -1;                         // ★ 产生新分支 → 重做栈作废（最容易漏的一句）
 }
 
 /* ---------- 撤销：Ctrl+Z ---------- */
 bool Undo() {
-    if (undoTop == 0) return false;        // 没有可撤销的操作
+    if (undoTop == -1) return false;       // 没有可撤销的操作
     string s = undoStk[undoTop--];         // 取出最近那次操作
     text.erase(text.size() - s.size());    // 反向执行：把这段文字删掉
     redoStk[++redoTop] = s;                // 挪到重做栈
@@ -3106,7 +3091,7 @@ bool Undo() {
 
 /* ---------- 重做：Ctrl+Y ---------- */
 bool Redo() {
-    if (redoTop == 0) return false;
+    if (redoTop == -1) return false;
     string s = redoStk[redoTop--];
     text += s;                             // 重新执行
     undoStk[++undoTop] = s;
@@ -3115,7 +3100,7 @@ bool Redo() {
 
 void Show(const char *title) {
     printf("%-22s text=\"%s\"   撤销栈深度=%d  重做栈深度=%d\n",
-           title, text.c_str(), undoTop, redoTop);
+           title, text.c_str(), undoTop + 1, redoTop + 1);   // 深度 = top + 1
 }
 
 int main() {
@@ -3143,12 +3128,9 @@ int main() {
     /* ---------- 结论 ----------
        ① 撤销/重做 = 两个栈来回搬元素，每次 O(1)
        ② 产生新操作必须清空重做栈，否则会"重做"出与当前文本矛盾的旧内容
-       ③ 变体：浏览器前进/后退按钮、编辑器的多级撤销，都是这个模型
-       ④ 更进一步：把"操作"设计成可逆的对象（do/undo 成对），
-          就能支持任意复杂操作的撤销——这就是命令模式的核心思想 */
+       ③ 变体：浏览器前进/后退按钮、编辑器的多级撤销，都是这个模型 */
     return 0;
-}
-</pre>
+}</pre>
 
 
     <h2 id="s13">3.12　本章小结与易错点</h2>
@@ -3199,13 +3181,12 @@ int main() {
       <span class="note-title">易错 2：先判空 / 判满，再动 top</span>
       Push 必须「先判满 → 再动 top → 最后写值」；Pop 必须「先判空 → 再取值 → 最后动 top」。
       顺序写反、或者忘了判空，轻则丢元素，重则数组越界（未定义行为）。
-      另外注意：出栈后元素<b>并没有被删除</b>，只是不再属于这个栈 —— 所以顺序栈清空只需 <code>top = -1</code>，
-      但如果元素持有堆资源，就必须逐个 <code>pop</code> 或交给 <code>vector::clear()</code>。
+      另外注意：出栈后元素<b>并没有被删除</b>，只是不再属于这个栈 —— 所以顺序栈清空只需 <code>top = -1</code>。
     </div>
 
     <div class="note warn">
       <span class="note-title">易错 3：中缀转后缀的三个坑</span>
-      ① 弹出条件写成 <code>isp &gt; icp</code>（应为 <code>&gt;=</code>）→ 左结合被破坏，<code>8-4-2</code> 算错；
+      ① 同级运算符没有先弹（isp 没比 icp 大，或只用一套优先级却把 <code>&gt;=</code> 写成 <code>&gt;</code>）→ 左结合被破坏，<code>8-4-2</code> 算错；
       ② 右结合运算符 <code>^</code> 的 icp 没有比 isp 大 → <code>2^3^2</code> 变成左结合；
       ③ <b>扫描结束后忘了把栈里剩下的运算符弹出来</b> → 结果少一截。
     </div>

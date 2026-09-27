@@ -102,7 +102,7 @@
     <div class="note warn">
       <span class="note-title">ADT 里「没有」的操作才是重点</span>
       队列的 ADT 里<b>故意不提供</b>「按位置查找」「遍历」「从中间删除」。
-      这不是偷懒，而是<b>信息隐藏</b>：一旦允许随便访问中间元素，队列的 FIFO 语义就守不住了，多线程下也就无法安全地并发使用。
+      这不是偷懒，而是<b>信息隐藏</b>：一旦允许随便访问中间元素，队列的 FIFO 语义就守不住了。
       考试里若有人写「队列支持随机访问」，那是把 <code>std::deque</code> 的随机访问能力和队列的语义混为一谈了。
     </div>
 
@@ -325,7 +325,7 @@
     <h3 id="s2-code">4.2.3 朴素顺序队列的完整 C++ 实现</h3>
 
     <p>为了让你亲眼看到假溢出，下面这份代码<b>故意</b>用朴素写法实现，并在 <code>main</code> 里构造出「队满但有空位」的场景。
-      拷贝下来跑一遍，观察输出里 <code>size=6, MaxSize=8</code> 却 <code>EnQueue failed</code> 的那一行。</p>
+      拷贝下来跑一遍，观察输出里 <code>size=6</code>、数组明明有 8 格，却打印 <code>EnQueue 9 失败(队满)</code> 的那一行。</p>
 
     <pre data-lang="cpp" data-file="seq_queue_naive.cpp">// seq_queue_naive.cpp —— 朴素顺序队列：用来复现"假溢出"
 // 竞赛写法：全局数组 + 自由函数，没有 struct 这层壳。
@@ -363,7 +363,7 @@ bool GetHead(int &amp;x) {
 int main() {
     InitQueue();
 
-    cout &lt;&lt; "--- 1) 入队 A B C D ---\n";
+    cout &lt;&lt; "--- 1) 入队 1 2 3 4 ---\n";
     for (int i = 0; i &lt; 4; ++i) {
         EnQueue(i + 1);
         cout &lt;&lt; "EnQueue " &lt;&lt; i + 1 &lt;&lt; "  front=" &lt;&lt; front
@@ -378,8 +378,8 @@ int main() {
              &lt;&lt; " rear=" &lt;&lt; rear &lt;&lt; " size=" &lt;&lt; QueueLength() &lt;&lt; "\n";
     }
 
-    cout &lt;&lt; "--- 3) 再入队 4 个，看谁失败 ---\n";
-    for (int i = 5; i &lt;= 8; ++i) {
+    cout &lt;&lt; "--- 3) 再入队 5 个，看谁失败 ---\n";
+    for (int i = 5; i &lt;= 9; ++i) {
         bool ok = EnQueue(i);
         cout &lt;&lt; "EnQueue " &lt;&lt; i &lt;&lt; (ok ? " 成功" : " 失败(队满)")
              &lt;&lt; "  front=" &lt;&lt; front &lt;&lt; " rear=" &lt;&lt; rear
@@ -767,8 +767,8 @@ int main() {
         个数 = <code>(M - front) + rear</code> = <code>rear - front + M</code>。<br>
         例：<code>M=8, front=6, rear=2</code> → 第一段 <code>data[6],data[7]</code> 共 2 个，第二段 <code>data[0],data[1]</code> 共 2 个，
         合计 4 个，而 <code>2-6+8=4</code> ✓</p>
-      <p style="margin-bottom:0"><b>合并</b>：情况 A 里 <code>rear - front</code> 落在 <code>[0, M-1]</code>，
-        直接对 M 取余不变；情况 B 里 <code>rear - front + M</code> 落在 <code>[M, 2M-1]</code>，取余后正好等于 <code>rear - front + M</code>。
+      <p style="margin-bottom:0"><b>合并</b>：情况 A 里 <code>rear - front + M</code> 落在 <code>[M, 2M-1]</code>，
+        对 M 取余正好剩下 <code>rear - front</code>；情况 B 里 <code>rear - front + M</code> 落在 <code>[1, M-1]</code>，取余后不变。
         于是两种情况可以统一写成：</p>
       <div class="formula center">Length = (rear − front + MaxSize) % MaxSize</div>
       <p style="margin-bottom:0">也可以写成等价形式 <code>(rear - front) % MaxSize</code> 之后再 <code>+ MaxSize</code> 再 <code>% MaxSize</code>，
@@ -915,9 +915,9 @@ int main() {
 
     <div class="note warn">
       <span class="note-title">易错点 4-3　遍历循环队列时不能用 <code>for(i=front; i&lt;rear; i++)</code></span>
-      当 <code>rear &lt; front</code>（绕过圈）时，这个循环一次都不执行，或者直接越界。
+      当 <code>rear &lt; front</code>（绕过圈）时，这个循环一次都不执行，队列里的元素一个也访问不到。
       正确写法是「先算个数，再走环」：
-      <code>for (int i = 0, k = front; i &lt; Size(); ++i, k = (k + 1) % cap)</code>。
+      <code>for (int i = 0, k = front; i &lt; QueueLength(); ++i, k = (k + 1) % MaxSize)</code>。
       这一点在考试写代码题里扣分极狠，务必形成肌肉记忆。
     </div>
 
@@ -932,7 +932,7 @@ int main() {
     <p>链队列需要两个指针：<code>front</code> 指向队头结点，<code>rear</code> 指向队尾结点。
       但直接让 <code>front</code> 指向第一个<b>数据结点</b>会带来一个麻烦：
       出队时如果是最后一个元素，<code>rear</code> 会变成野指针，必须特判（这正是本节要重点讲的坑）。
-      工程上更常见的做法是<b>附加一个头结点 head node</b>（也叫哑结点 dummy node），
+      更常见的做法是<b>附加一个头结点 head node</b>（也叫哑结点 dummy node），
       它不存放有效数据，只用来统一边界情况。</p>
 
     <p>于是约定变成：</p>
@@ -1057,17 +1057,17 @@ int main() {
     <pre data-lang="cpp" data-file="link_queue.cpp">// link_queue.cpp —— 带头结点的链队列：struct Node + 全局 head/tail + 自由函数
 //
 // 先把约定记牢，代码就是这四句话的直译：
-//   * head 始终指向头结点（哨兵，不存有效数据），真正的队头元素是 head-&gt;nxt；
+//   * head 始终指向头结点（哨兵，不存有效数据），真正的队头元素是 head-&gt;next；
 //   * tail 始终指向队尾结点，也就是最后一个真正的数据结点；
-//   * 空队列 ⇔ head == tail，此时两者都指向头结点，且头结点的 nxt 为 NULL；
+//   * 空队列 ⇔ head == tail，此时两者都指向头结点，且头结点的 next 为 NULL；
 //   * 元素个数额外用 cnt 维护，把求长度从 O(n) 降到 O(1)。
 //
 // 【命名对照】竞赛里习惯写 head / tail，教材里写 front / rear，指的是同一对指针：
 //   head = front（指向头结点），tail = rear（指向队尾结点）。
 //
 // 为什么入队、出队都是 O(1)？（对比第 02 讲的单链表：那里插入删除要先按位查找前驱）
-//   * 入队只改 tail-&gt;nxt 和 tail 两个指针，tail 是现成的，不用从头遍历找尾 → O(1)；
-//   * 出队只改 head-&gt;nxt，head 也是现成的，不用遍历找前驱 → O(1)。
+//   * 入队只改 tail-&gt;next 和 tail 两个指针，tail 是现成的，不用从头遍历找尾 → O(1)；
+//   * 出队只改 head-&gt;next，head 也是现成的，不用遍历找前驱 → O(1)。
 //   一句话：用两个指针（head/tail）换掉了单链表里的两次遍历。
 //
 // 做题时不回收结点也没关系：程序结束时操作系统会一并回收（本文件只为讲清指针动作）。
@@ -1075,9 +1075,9 @@ int main() {
 using namespace std;
 
 struct Node {                 // 结点：数据域 + 指针域
-    int   val;
-    Node *nxt;
-    Node(int v = 0, Node *n = nullptr) : val(v), nxt(n) {}   // 构造函数可留可去
+    int   data;
+    Node *next;
+    Node(int v = 0, Node *p = nullptr) : data(v), next(p) {}   // 构造函数可留可去
 };
 
 Node *head;    // 头结点（哨兵）
@@ -1090,27 +1090,27 @@ void InitQueue() {             // 初始化：head 与 tail 同时指向新造�
     cnt  = 0;
 }
 
-bool QueueEmpty()  { return head == tail; }     // 也可以写 head-&gt;nxt == nullptr，两者等价
+bool QueueEmpty()  { return head == tail; }     // 也可以写 head-&gt;next == nullptr，两者等价
 int  QueueLength() { return cnt; }
 
 bool EnQueue(int x) {          // 入队：接在队尾，两步指针操作
     Node *s = new Node(x);
-    tail-&gt;nxt = s;             // ① 原尾结点的 nxt 指向新结点
+    tail-&gt;next = s;             // ① 原尾结点的 next 指向新结点
     tail = s;                  // ② tail 后移，成为新的队尾
     ++cnt;
-    // 空队列入队走的是同一条路径：head-&gt;nxt 原本是 nullptr，接上 s 即可，
+    // 空队列入队走的是同一条路径：head-&gt;next 原本是 nullptr，接上 s 即可，
     // 全程不需要动 head —— 这就是头结点"消灭 if 分支"的价值。
     return true;               // 链队列不会满
 }
 
-bool DeQueue(int &amp;e) {         // 出队：摘掉 head-&gt;nxt，两步指针操作
-    if (QueueEmpty()) return false;   // 出队前必判空，否则 head-&gt;nxt-&gt;val 就是空指针解引用
-    Node *p = head-&gt;nxt;       // p 才是真正的队头结点
-    e = p-&gt;val;
-    head-&gt;nxt = p-&gt;nxt;        // 跨过 p —— 必须先摘链，再 delete p，顺序不能颠倒
+bool DeQueue(int &amp;e) {         // 出队：摘掉 head-&gt;next，两步指针操作
+    if (QueueEmpty()) return false;   // 出队前必判空，否则 head-&gt;next-&gt;data 就是空指针解引用
+    Node *p = head-&gt;next;       // p 才是真正的队头结点
+    e = p-&gt;data;
+    head-&gt;next = p-&gt;next;        // 跨过 p —— 必须先摘链，再 delete p，顺序不能颠倒
     if (tail == p) tail = head;   // ★★ 经典坑：出队后队列变空，tail 必须指回头结点！
                                   //    漏了这一行，tail 就悬空（指向刚被 delete 的内存），
-                                  //    下一次 EnQueue 里的 tail-&gt;nxt = s 就会访问已释放的内存。
+                                  //    下一次 EnQueue 里的 tail-&gt;next = s 就会访问已释放的内存。
     delete p;
     --cnt;
     return true;
@@ -1118,19 +1118,19 @@ bool DeQueue(int &amp;e) {         // 出队：摘掉 head-&gt;nxt，两步指�
 
 bool GetHead(int &amp;e) {         // 取队头：只读不删
     if (QueueEmpty()) return false;
-    e = head-&gt;nxt-&gt;val;
+    e = head-&gt;next-&gt;data;
     return true;
 }
 
 bool GetRear(int &amp;e) {         // 取队尾：tail 就指着它
     if (QueueEmpty()) return false;
-    e = tail-&gt;val;
+    e = tail-&gt;data;
     return true;
 }
 
 void PrintQueue(const char *tag) {
     printf("%s  [size=%d] head -&gt; ", tag, cnt);
-    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    for (Node *p = head-&gt;next; p; p = p-&gt;next) printf("%d -&gt; ", p-&gt;data);
     printf("NULL\n");
 }
 
@@ -1345,9 +1345,9 @@ int main() {
 using namespace std;
 
 struct Node {                 // 结点：数据域 + 指针域
-    int   val;
-    Node *nxt;
-    Node(int v = 0, Node *n = nullptr) : val(v), nxt(n) {}
+    int   data;
+    Node *next;
+    Node(int v = 0, Node *p = nullptr) : data(v), next(p) {}
 };
 
 Node *head = nullptr;   // 没有哨兵，head 直接指向队头元素
@@ -1363,7 +1363,7 @@ bool EnQueue(int x) {       // 入队：空 / 非空两条路径
     if (QueueEmpty()) {     // ★ 特判一：往空队列里入队，两个指针都要改
         head = tail = s;
     } else {                //   非空时才是常规的"接在队尾"
-        tail-&gt;nxt = s;
+        tail-&gt;next = s;
         tail = s;
     }
     ++cnt;
@@ -1373,12 +1373,12 @@ bool EnQueue(int x) {       // 入队：空 / 非空两条路径
 bool DeQueue(int &amp;e) {      // 出队：只剩一个元素时要特判
     if (QueueEmpty()) return false;
     Node *p = head;         // 不带头结点，队头结点就是 head 自己
-    e = p-&gt;val;
+    e = p-&gt;data;
     if (head == tail) {     // ★ 特判二：队列里只剩一个元素，出队后队列就空了
         head = tail = nullptr;   //   两个指针必须同时置空；
                                  //   只把 head 后移（变成 nullptr）而不管 tail，tail 就悬空了
     } else {
-        head = head-&gt;nxt;   //   还有多个元素，只需 head 后移
+        head = head-&gt;next;   //   还有多个元素，只需 head 后移
     }
     delete p;
     --cnt;
@@ -1387,14 +1387,14 @@ bool DeQueue(int &amp;e) {      // 出队：只剩一个元素时要特判
 
 bool GetHead(int &amp;e) {      // 取队头，只读不删
     if (QueueEmpty()) return false;
-    e = head-&gt;val;
+    e = head-&gt;data;
     return true;
 }
 
 void PrintQueue(const char *tag) {
     printf("%s  [size=%d] ", tag, cnt);
     if (QueueEmpty()) { printf("(空)\n"); return; }
-    for (Node *p = head; p; p = p-&gt;nxt) printf("%d -&gt; ", p-&gt;val);
+    for (Node *p = head; p; p = p-&gt;next) printf("%d -&gt; ", p-&gt;data);
     printf("NULL\n");
 }
 
@@ -1454,7 +1454,7 @@ int main() {
         <text x="165" y="286" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">front = NULL</text>
         <text x="300" y="286" text-anchor="middle" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">rear 仍指向已释放内存</text>
         <line x1="300" y1="270" x2="230" y2="250" stroke="var(--danger)" stroke-width="2" marker-end="url(#q5-d)"/>
-        <text x="520" y="240" fill="var(--danger)" font-size="12.5" font-family="inherit">下次 Push 会写坏内存：rear-&gt;next = s 是 use-after-free</text>
+        <text x="520" y="240" fill="var(--danger)" font-size="12.5" font-family="inherit">下次 EnQueue 会写坏内存：rear-&gt;next = s 是 use-after-free</text>
         <text x="520" y="264" fill="var(--text-faint)" font-size="12.5" font-family="inherit">正确做法：if (front == rear) front = rear = nullptr; 再 delete p;</text>
       </svg>
       <figcaption>图 4-5　不带头结点链队列的「最后一个元素出队」：front 与 rear 必须同时置空</figcaption>
@@ -1559,6 +1559,7 @@ int main() {
       分析套路是<b>倒着推</b>：先确定最后一个输出是谁，再反推此刻队列里还剩下什么、它们能否按目标顺序离开。
       判断时牢记两条限制：<b>输入只能从哪端进</b>、<b>输出能从哪端出</b>，然后枚举每一种可能，用排除法即可。
       由于枚举空间小（4 个元素最多 24 种序列），手推完全可行，切忌凭感觉猜。
+      本题答案：<b>能</b> —— 1 2 3 4 全部从后端进队后，先从后端删出 4，再从前端依次删出 1、2、3。
     </div>
 
     <h3 id="s5-stl">4.5.2 用 C++ <code>std::deque</code> 演示四种操作</h3>
@@ -1566,10 +1567,8 @@ int main() {
     <p><code>std::deque</code> 是 STL 里真正实现了双端队列的容器（也是 <code>std::queue</code> 与 <code>std::stack</code> 的默认底层容器）。
       它允许在两端 <code>O(1)</code> 插入删除，同时还<b>支持随机访问</b> <code>d[i]</code> —— 这一点比 <code>std::queue</code> 强得多。</p>
 
-    <pre data-lang="cpp" data-file="std_deque_demo.cpp">// std_deque_demo.cpp —— std::deque 的四种操作与"栈/队列特例"验证
-#include &lt;iostream&gt;
-#include &lt;deque&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="std_deque_demo.cpp">// std_deque_demo.cpp —— deque 的四种操作与"栈/队列特例"验证
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 void show(const string&amp; tag, const deque&lt;int&gt;&amp; d) {
@@ -1623,8 +1622,7 @@ int main() {
         cout &lt;&lt; "\n";
     }
     return 0;
-}
-</pre>
+}</pre>
 
     <p>下面这个动画可以亲自动手，在前端 / 后端分别做插入与删除，观察 <code>front</code> 与 <code>rear</code> 指针是如何向两侧扩展的。</p>
 
@@ -1644,13 +1642,13 @@ int main() {
 
     <div class="note tip">
       <span class="note-title">设计启示：约束即价值</span>
-      从数据结构的能力上看，deque ⊃ queue ⊃ （受限 deque） ⊃ 单调队列；
+      从数据结构的能力上看，deque ⊃ 受限 deque ⊃ 队列 / 栈（单调队列只用 push_back、pop_front、pop_back，恰好是一个输入受限 deque）；
       但<b>能力越强的结构，越难保证语义</b>。用 <code>deque</code> 冒充队列，编译器不会阻止你写 <code>pop_back()</code>，
       一旦误用就会破坏 FIFO 语义。这就是为什么 STL 宁可为队列单独包一层 <code>std::queue</code>：
       <b>把不该用的操作藏起来，让错误在编译期就暴露。</b>
     </div>
 
-    <h2 id="s6">4.6 循环队列 vs 链队列：工程上怎么选</h2>
+    <h2 id="s6">4.6 循环队列 vs 链队列：怎么选</h2>
 
     <p>两种实现都能做到 <code>O(1)</code> 的入队出队，那实际项目里到底用哪个？先看对比表：</p>
 
@@ -1671,7 +1669,6 @@ int main() {
           <tr><td>内存分配次数</td><td class="c-ok">0 次（一次性分配）</td><td class="c-warn">每个元素 1 次 <code>new</code> / <code>delete</code></td></tr>
           <tr><td>随机访问</td><td>可以（但不该暴露）</td><td class="c-bad">不支持，必须从头遍历</td></tr>
           <tr><td>实现难度</td><td class="c-warn">判空判满与长度公式易错</td><td class="c-warn">指针操作与边界特判易错</td></tr>
-          <tr><td>多线程友好度</td><td class="c-ok">高，也容易做成无锁 ring buffer</td><td>低，<code>new/delete</code> 需加锁</td></tr>
           <tr><td>典型适用场景</td><td>容量可预估、追求速度：嵌入式串口缓冲、音频采样、日志队列、多线程任务池</td><td>长度波动极大且无法预估：任务队列、生产者消费者、动态请求缓冲</td></tr>
         </tbody>
       </table>
@@ -1681,8 +1678,8 @@ int main() {
       <span class="note-title">选型口诀</span>
       <b>「容量可估用循环，长度莫测用链式；性能敏感用循环，频繁增删用链式。」</b><br>
       真实系统里还有一种常见折中：用<b>循环队列 + 动态扩容</b>（满了就 <code>new</code> 一个两倍大的数组，把元素按逻辑顺序搬过去）。
-      这样既有数组的缓存友好，又不像纯循环队列那样被容量卡死 —— 这就是 <code>std::deque</code> 和大多数 ring buffer 库的做法：
-      <b>分块 + 索引映射</b>，把「扩容」和「O(1) 双端操作」两个目标同时拿下。
+      这样既有数组的缓存友好，又不像纯循环队列那样被容量卡死。
+      （<code>std::deque</code> 走的是另一条路：<b>分块存储 + 一张索引表</b>，不用整体搬迁也能两端 O(1) 增删。）
     </div>
 
     <h2 id="s7">4.7 应用一：银行排队模拟（离散事件模拟）</h2>
@@ -1821,8 +1818,7 @@ int main() {
     <p>模拟离不开随机数。C++11 提供了 <code>&lt;random&gt;</code> 库，写法如下：</p>
 
     <pre data-lang="cpp" data-file="random_interval.cpp">// random_interval.cpp —— 用 C++11 &lt;random&gt; 生成"随机间隔"与"随机服务时长"
-#include &lt;iostream&gt;
-#include &lt;random&gt;
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 int main() {
@@ -1849,8 +1845,7 @@ int main() {
          &lt;&lt; " 分钟 &lt; 平均服务时长 5 分钟，\n"
          &lt;&lt; "      说明顾客来得比服务得快 → 队伍会越排越长（系统不稳定）。\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note warn">
       <span class="note-title">易错点 4-5　别再用 <code>rand() % n</code> 了</span>
@@ -1867,12 +1862,8 @@ int main() {
     <p>这是推荐写法：短、清晰、不容易出错。程序会输出每一位顾客的到达 / 开始服务 / 等待 / 离开时刻，
       最后给出统计指标。</p>
 
-    <pre data-lang="cpp" data-file="bank_sim_stl.cpp">// bank_sim_stl.cpp —— 银行单窗口排队模拟（std::queue 版本，可直接编译运行）
-#include &lt;iostream&gt;
-#include &lt;queue&gt;
-#include &lt;random&gt;
-#include &lt;iomanip&gt;
-#include &lt;algorithm&gt;      // std::max
+    <pre data-lang="cpp" data-file="bank_sim_stl.cpp">// bank_sim_stl.cpp —— 银行单窗口排队模拟（queue 版本，可直接编译运行）
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct Customer {
@@ -1907,10 +1898,9 @@ Stat simulate(int n, unsigned seed) {
     for (int i = 1; i &lt;= n; ++i) {
         clock = nextArrive;                     // 时间推进到「下一位顾客到达」
         q.push(Customer{i, clock, serveTime(gen), 0, 0});
-        if ((int)q.size() &gt; st.maxQueue) st.maxQueue = (int)q.size();
 
         // 只要窗口在 clock 之前（或正好）已经空出来，队头就可以立刻开始服务。
-        // 服务一个人耗时 &gt; 0，所以每来一位新顾客，最多只会消耗掉队头一个人。
+        // 两位顾客到达之间，窗口可能接连服务完好几个人，所以这里用 while 而不是 if。
         while (!q.empty() &amp;&amp; freeAt &lt;= clock) {
             Customer w = q.front(); q.pop();
             w.start = max(w.arrive, freeAt);    // ★ 核心公式：max(到达时刻, 窗口空闲时刻)
@@ -1927,6 +1917,8 @@ Stat simulate(int n, unsigned seed) {
                  &lt;&lt; "  等待 " &lt;&lt; setw(3) &lt;&lt; w.wait()
                  &lt;&lt; "  离开 " &lt;&lt; setw(3) &lt;&lt; w.leave &lt;&lt; "\n";
         }
+        // ★ 队列峰值在叫完号之后统计：此时队列里只剩真正在等的人（已经开始服务的不算）
+        if ((int)q.size() &gt; st.maxQueue) st.maxQueue = (int)q.size();
 
         nextArrive = clock + arriveGap(gen);     // 下一位顾客的到达时刻
     }
@@ -1973,22 +1965,20 @@ int main() {
     cout &lt;&lt; "200 人 : 平均等待 " &lt;&lt; b.totalWait / 200 &lt;&lt; " 分钟, 最长队伍 " &lt;&lt; b.maxQueue &lt;&lt; " 人\n";
     cout &lt;&lt; "结论：样本越大统计越稳定，队伍长度随人数增加而变长，说明服务能力不足。\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点 4-4　排队模拟的三个必写量</span>
       <ol style="margin:6px 0 0">
         <li><b>开始服务时刻 = max(到达时刻, 窗口空闲时刻)</b>。这一个 <code>max</code> 就是整道题的核心，写错它全盘皆错。</li>
         <li><b>等待时间 = 开始服务时刻 − 到达时刻</b>。注意不是「离开 − 到达」，那叫<b>逗留时间</b>（等待 + 服务）。</li>
-        <li><b>队列最大长度在「入队后」统计</b>，因为队列只会在两次到达之间变短；出队时再统计就会漏掉峰值。</li>
+        <li><b>队列最大长度在每次有人到达、并把能开始服务的人叫走之后统计</b>：队伍只在有人到达时变长，出队时再统计就会漏掉峰值；已经开始服务的人不算在队伍里。</li>
       </ol>
     </div>
 
     <h3 id="s7-circular">4.7.6 版本 B：把 <code>std::queue</code> 换成自写循环队列</h3>
 
-    <p>版本 A 用的是 STL。但考试要你自己写，工程上也常需要把队列控制在自己手里
-      （比如要统计队列最大长度、要不加锁、要固定内存）。
+    <p>版本 A 用的是 STL。但考试要你自己写队列。
       下面这份程序把我们自己写的循环队列（全局数组 + <code>head</code>/<code>tail</code> + 自由函数）塞进模拟器，
       并且顺便把「窗口数」做成参数 —— 于是它同时也是一个<b>多窗口模拟器</b>。</p>
 
@@ -2061,9 +2051,6 @@ void simulate(int n, unsigned seed, int windows, bool verbose) {
             if (verbose) printf("队列已满，顾客 %d 被拒绝\n", i);
             continue;
         }
-        // ★ 队列峰值必须在"入队之后"统计：队伍只会在两次到达之间变短，出队时统计会漏掉峰值
-        if (QueueLength() &gt; maxQueue) maxQueue = QueueLength();
-
         // 有空闲窗口就持续叫号：每次挑"最早空闲"的那个窗口，保证负载均衡
         while (!QueueEmpty()) {
             int best = -1;
@@ -2085,6 +2072,9 @@ void simulate(int n, unsigned seed, int windows, bool verbose) {
                 printf("顾客%3d  窗口%d  到达 %3d  开始 %3d  等待 %3d  离开 %3d\n",
                        w.id, best + 1, w.arrive, w.start, waitOf(w), w.leave);
         }
+        // ★ 队列峰值在叫完号之后统计：此时队列里只剩真正在等的人（已经开始服务的不算）；
+        //   队伍只在有人到达时变长，所以每次到达后统计一次就不会漏掉峰值
+        if (QueueLength() &gt; maxQueue) maxQueue = QueueLength();
         nextArrive = clock + arriveGap(gen);           // 下一位顾客的到达时刻
     }
 
@@ -2123,7 +2113,7 @@ int main() {
     }
 
     printf("\n结论：\n");
-    printf("  1) 窗口越多，平均等待与最大等待下降得非常快（近似成反比）；\n");
+    printf("  1) 窗口越多，平均等待与最大等待下降得非常快（远比反比例快：1 个窗口忙不过来，2 个窗口就够了）；\n");
     printf("  2) 但窗口占用率同时下降 —— 加到一定数量后，再加窗口就是浪费人力；\n");
     printf("  3) 用这个模拟器反复调整参数，就能找到「等待可接受 &amp;&amp; 占用率不过低」的平衡点。\n");
     return 0;
@@ -2132,7 +2122,7 @@ int main() {
     <div class="note tip">
       <span class="note-title">为什么用「共享一条队列 + 谁先空闲谁叫号」</span>
       现实银行有两种排队方式：<b>每个窗口各排一队</b>（多队列）和<b>所有人排一队、叫号机分配</b>（单队列）。
-      模拟结果表明：<b>单队列 + 多窗口的公平性和平均等待都明显优于多队列</b> ——
+      排队论早有结论（也可以自己改代码模拟验证）：<b>单队列 + 多窗口的公平性和平均等待都明显优于多队列</b> ——
       因为多队列会出现「自己这队前面的人很慢，旁边窗口却空着」的浪费，也就是所谓的<b>队头阻塞 head-of-line blocking</b>。
       这也是银行、政务大厅普遍采用叫号机的原因：<b>用一条队列换来了全局的负载均衡</b>。
     </div>
@@ -2231,9 +2221,7 @@ int main() {
     <p>把上面的过程写成代码，只有十几行核心逻辑：</p>
 
     <pre data-lang="cpp" data-file="yanghui_triangle.cpp">// yanghui_triangle.cpp —— 用队列逐层生成杨辉三角（空间 O(n)，无特判）
-#include &lt;iostream&gt;
-#include &lt;queue&gt;
-#include &lt;iomanip&gt;
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 // 队列不变式：front 侧是哨兵 0，中间是第 line 行，rear 侧也是哨兵 0
@@ -2256,7 +2244,7 @@ void PascalTriangle(int rows) {
         // 滑动窗口：弹出 a，窥视 b，把 a+b 塞到队尾
         for (int k = 0; k &lt;= line; ++k) {
             int a = q.front(); q.pop();
-            int b = q.front();                    // std::queue 只能看队头，不弹出
+            int b = q.front();                    // queue 只能看队头，不弹出
             q.push(a + b);
         }
         q.push(0);                                // 新的行尾哨兵
@@ -2279,10 +2267,9 @@ int main() {
         cout &lt;&lt; v &lt;&lt; (k == n ? "" : " ");
         if (k &lt; n) q.push(v * (n - k) / (k + 1)); // C(n,k+1) = C(n,k)*(n-k)/(k+1)，整除
     }
-    cout &lt;&lt; "\n（若用阶乘 n!/(k!(n-k)!) 计算，n 稍大就会溢出，而这个递推式始终在安全范围内）\n";
+    cout &lt;&lt; "\n（若用阶乘 n!/(k!(n-k)!) 计算，n 稍大就会溢出；这个递推式的中间值最多是答案的 n 倍，能算的 n 大得多）\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note warn">
       <span class="note-title">易错点 4-6　杨辉三角的三种写法与空间对比</span>
@@ -2296,8 +2283,8 @@ int main() {
           </tbody>
         </table>
       </div>
-      注意：队列法里<b>队列中同时存在两行元素</b>（本行未处理完的 + 下一行已生成的），
-      所以空间常数比滚动数组大，峰值约为 <code>2n</code> 个 int，仍然是 <code>O(n)</code>。
+      注意：队列法里<b>队列中同时存在两行的元素</b>（本行还没处理完的 + 下一行已生成的），
+      但每一步都是弹出一个、入队一个，总数始终只有 <code>n+2</code> 个左右，和滚动数组一样是 <code>O(n)</code>。
     </div>
 
     <h2 id="s9">4.9 应用三：二叉树的层序遍历（第 07 讲预热）</h2>
@@ -2384,16 +2371,14 @@ int main() {
     </div>
 
     <pre data-lang="cpp" data-file="binary_tree_level_order.cpp">// binary_tree_level_order.cpp —— 用队列实现二叉树的层序遍历（含按层分组统计）
-#include &lt;iostream&gt;
-#include &lt;queue&gt;
-#include &lt;vector&gt;
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct TreeNode {
     int       val;
     TreeNode* left;
     TreeNode* right;
-    explicit TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}
+    TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}
 };
 
 // 基础版：一层一层从左到右打印
@@ -2410,7 +2395,7 @@ void LevelOrder(TreeNode* root) {
     cout &lt;&lt; "\n";
 }
 
-// 进阶版：按层分组输出，顺便统计树高（面试高频）
+// 进阶版：按层分组输出，顺便统计树高（做题高频）
 vector&lt;vector&lt;int&gt;&gt; LevelOrderGrouped(TreeNode* root) {
     vector&lt;vector&lt;int&gt;&gt; res;
     if (!root) return res;
@@ -2458,8 +2443,7 @@ int main() {
     for (size_t i = 0; i &lt; layers.size(); ++i) cout &lt;&lt; layers[i].back() &lt;&lt; " ";
     cout &lt;&lt; "\n（这类「每层 XXX」的题目，全部都是层序遍历 + size 锁定层边界的套路）\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点 4-5　层序题的万能模板</span>
@@ -2500,8 +2484,8 @@ int main() {
           <tr><td>搜索方式</td><td>深度优先，一条路走到黑</td><td>广度优先，一圈一圈向外扩</td></tr>
           <tr><td>数据结构作用</td><td>保存「岔路口」，用于回退</td><td>保存「待扩展的边界」，用于分层</td></tr>
           <tr><td>找到的路径</td><td class="c-warn">一条通路（通常不是最短）</td><td class="c-ok">最短路径（步数最少）</td></tr>
-          <tr><td>能否判「无解」</td><td>能，但要走遍所有可能</td><td>能，队列空了就是无解</td></tr>
-          <tr><td>时间复杂度</td><td>O(格子数)，最坏可能重复走很多次</td><td>O(格子数 × 4)，每个格子只访问一次</td></tr>
+          <tr><td>能否判「无解」</td><td>能，栈空了就是无解</td><td>能，队列空了就是无解</td></tr>
+          <tr><td>时间复杂度</td><td>O(格子数 × 4)，每个格子最多进栈一次</td><td>O(格子数 × 4)，每个格子只入队一次</td></tr>
           <tr><td>空间复杂度</td><td>O(路径长度)，与深度成正比</td><td>O(格子数)，与最宽的一层成正比</td></tr>
           <tr><td>适合的场景</td><td>只要「走得通」，或需要枚举所有路径</td><td>要「最优」，或需要距离场</td></tr>
         </tbody>
@@ -2583,10 +2567,7 @@ int main() {
     <div id="viz-maze-bfs"></div>
 
     <pre data-lang="cpp" data-file="maze_bfs.cpp">// maze_bfs.cpp —— BFS + 队列求迷宫最短路径（无权图最短路标准模板）
-#include &lt;iostream&gt;
-#include &lt;queue&gt;
-#include &lt;vector&gt;
-#include &lt;string&gt;
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 const int R = 5, C = 7;
@@ -2615,7 +2596,7 @@ int main() {
     while (!q.empty()) {
         Point cur = q.front(); q.pop();                // 取出队头 = 按距离从小到大扩展
         // 这里不做"遇到终点就 break"的提前退出，为的是把完整距离场打出来观察；
-        // 实际做题时加上 if (cur == target) break; 可以省掉后半程的搜索。
+        // 实际做题时加上 if (cur.r == target.r &amp;&amp; cur.c == target.c) break; 可以省掉后半程的搜索。
 
         for (int k = 0; k &lt; 4; ++k) {
             int nr = cur.r + dr[k], nc = cur.c + dc[k];
@@ -2668,8 +2649,7 @@ int main() {
     cout &lt;&lt; "\n结论：队列的 FIFO 保证了「距离小的先出队」，所以第一次到达终点时\n";
     cout &lt;&lt; "      走过的步数一定最少 —— 这就是 BFS 求无权图最短路的原理。\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note danger">
       <span class="note-title">易错点 4-7　BFS 求最短路的四个经典错误</span>
@@ -2703,7 +2683,7 @@ int main() {
     <p>维护一个队列，里面存<b>下标</b>（不是数值，因为要靠下标判断是否滑出窗口），并保证：</p>
     <ol>
       <li><b>队列里的下标严格递增</b>（天然满足，因为我们从左到右扫描）；</li>
-      <li><b>队列里的数值严格递减</b>（新元素入队前，把所有比它小的队尾元素全部弹走）。</li>
+      <li><b>队列里的数值严格递减</b>（新元素入队前，把所有不比它大的队尾元素全部弹走）。</li>
     </ol>
 
     <p>满足这两条，<b>队头就永远是当前窗口的最大值</b>。三个动作：</p>
@@ -2711,7 +2691,7 @@ int main() {
     <div class="card">
       <p style="margin-top:0"><b>① 入队（去尾）</b>：新元素 <code>a[i]</code> 到来时，从队尾开始，
         把所有 <code>≤ a[i]</code> 的元素下标弹出去，然后把 <code>i</code> 压入队尾。<br>
-        <i>为什么可以弹？</i>因为它们既比 <code>a[i]</code> 小，又比 <code>a[i]</code> 先离开窗口 ——
+        <i>为什么可以弹？</i>因为它们既不比 <code>a[i]</code> 大，又比 <code>a[i]</code> 先离开窗口 ——
         <b>永远没有翻身的机会</b>。这一操作叫「单调性维护」。</p>
       <p><b>② 出队（去头）</b>：检查队头下标是否 <code>&lt; i - k + 1</code>（已经滑出窗口左边界），是则弹出。</p>
       <p style="margin-bottom:0"><b>③ 取答案</b>：当 <code>i &gt;= k - 1</code>（窗口已经填满）时，
@@ -2809,7 +2789,7 @@ int main() {
         <text x="522" y="314" fill="var(--text-soft)" font-size="12.5" font-family="inherit">窗口 [5,7] → 7</text>
         <text x="522" y="344" fill="var(--ok)" font-size="12.5" font-family="inherit">结果数组：[3, 3, 5, 5, 6, 7]</text>
         <text x="522" y="372" fill="var(--brand)" font-size="12.5" font-family="inherit">每个下标最多进队一次、出队一次 → 总时间 O(n)</text>
-        <text x="522" y="394" fill="var(--text-faint)" font-size="12" font-family="inherit">暴力法需要 6 个窗口 × 3 次比较 = 18 次比较；单调队列只用了约 8 次。</text>
+        <text x="522" y="394" fill="var(--text-faint)" font-size="12" font-family="inherit">暴力法：6 个窗口 × 每窗比较 2 次 = 12 次；单调队列每个下标只进出一次。</text>
       </svg>
       <figcaption>图 4-11　单调递减队列求滑动窗口最大值：被淘汰的下标再无翻身机会</figcaption>
     </div>
@@ -2819,11 +2799,7 @@ int main() {
     <div id="viz-sliding-window"></div>
 
     <pre data-lang="cpp" data-file="sliding_window_max.cpp">// sliding_window_max.cpp —— 单调队列 O(n) 求滑动窗口最大值
-#include &lt;iostream&gt;
-#include &lt;deque&gt;
-#include &lt;vector&gt;
-#include &lt;algorithm&gt;      // std::max
-#include &lt;climits&gt;       // LLONG_MIN
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 // 返回每个长度为 k 的窗口的最大值；窗口数 = n-k+1
@@ -2894,19 +2870,18 @@ int main() {
         for (size_t i = 0; i &lt; a.size(); ++i) pre[i + 1] = pre[i] + a[i];
         deque&lt;int&gt; dq; long long best = LLONG_MIN;
         for (int i = 0; i &lt;= (int)a.size(); ++i) {
+            if (!dq.empty() &amp;&amp; dq.front() &lt; i - k) dq.pop_front();         // 左端点 j 必须 ≥ i-k
+            if (i &gt; 0) best = max(best, pre[i] - pre[dq.front()]);         // 子数组 a[j..i-1]，长度 1..k
             while (!dq.empty() &amp;&amp; pre[dq.back()] &gt;= pre[i]) dq.pop_back();  // 维护前缀和最小
-            dq.push_back(i);
-            if (dq.front() &lt; i - k) dq.pop_front();
-            if (i &gt; 0) best = max(best, pre[i] - pre[dq.front()]);
+            dq.push_back(i);                                                // 先算答案再入队，保证子数组非空
         }
         cout &lt;&lt; "变形：长度不超过 " &lt;&lt; k &lt;&lt; " 的最大子数组和 = " &lt;&lt; best &lt;&lt; "\n";
     }
 
-    cout &lt;&lt; "\n复杂度对比：暴力 O(nk) = " &lt;&lt; a.size() * k
-         &lt;&lt; " 次比较；单调队列 O(n)，每个下标最多进出各一次。\n";
+    cout &lt;&lt; "\n复杂度对比：暴力法每个窗口比较 k-1 次，共 " &lt;&lt; (a.size() - k + 1) * (k - 1)
+         &lt;&lt; " 次；单调队列 O(n)，每个下标最多进出各一次。\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note exam">
       <span class="note-title">考点 4-6　单调队列三连问</span>
@@ -2922,8 +2897,8 @@ int main() {
       <span class="note-title">易错点 4-8　单调队列存的是下标，不是数值</span>
       如果队列里只存数值，就无法判断「队头是否已经滑出窗口」。
       这是单调队列实现中最常见的错误。同理，去头判断写的是 <code>dq.front() &lt;= i - k</code>（或 <code>&lt; i - k + 1</code>），
-      写成 <code>&lt; i - k + 1</code> 与 <code>&lt;= i - k</code> 是等价的，但千万别写成 <code>dq.front() == i - k</code> ——
-      万一队头早已过期（比如连续多个元素被弹出后留下的旧下标），就会漏判。
+      写成 <code>&lt; i - k + 1</code> 与 <code>&lt;= i - k</code> 是等价的。别图省事写成 <code>dq.front() == i - k</code> ——
+      窗口每次只滑一格时它碰巧也对，但到了窗口一次跳好几格的变形题里就会漏判；写 <code>&lt;=</code> 永远安全。
     </div>
 
     <h2 id="s12">4.12 应用六：队列还在这些地方出现</h2>
@@ -3012,7 +2987,7 @@ int main() {
           <tr><td><code>d[i]</code> / <code>d.at(i)</code></td><td>随机访问</td><td>O(1)</td><td class="c-warn"><code>queue</code> 没有这个能力，别混用</td></tr>
           <tr><td><code>d.insert(pos, x)</code> / <code>d.erase(pos)</code></td><td>中间插删</td><td class="c-warn">O(n)</td><td>要移动元素，尽量别用</td></tr>
           <tr><td><code>d.clear()</code></td><td>清空</td><td>O(n)</td><td>deque 有，queue 没有</td></tr>
-          <tr><td>迭代器失效</td><td>—</td><td>—</td><td class="c-warn">两端插删会使<b>全部迭代器</b>失效（比 vector 更激进），中间插删则全部失效</td></tr>
+          <tr><td>迭代器失效</td><td>—</td><td>—</td><td class="c-warn">两端插入会使<b>全部迭代器</b>失效（但指向元素的引用仍有效）；两端删除只让被删元素的迭代器失效；中间插删则全部失效</td></tr>
         </tbody>
       </table>
     </div>
@@ -3044,7 +3019,7 @@ int main() {
         <li><b><code>pop()</code> 不返回元素值</b>。必须写成 <code>int v = q.front(); q.pop();</code>。
           为什么这么设计？因为「返回值 + 删除」在异常安全与效率上都有麻烦，标准库选择了最朴素的语义。</li>
         <li><b>对空队列调用 <code>front()</code> / <code>back()</code> / <code>pop()</code> 是未定义行为</b>。
-          <code>deque</code> 因为内部结构复杂，空容器访问常常直接段错误（而不是像 <code>vector</code> 那样"碰巧读到垃圾值"）。</li>
+          编译器和运行时都不会提醒你，常见后果是读到垃圾值或者直接段错误（Runtime Error）。</li>
         <li><b><code>queue</code> 不能遍历、不能下标、没有迭代器</b>。
           想打印队列内容，只能「边出队边打印」，或者改用 <code>deque</code>。
           这不是缺陷，而是刻意的封装（见 4.1.2 节的讨论）。</li>
@@ -3058,12 +3033,8 @@ int main() {
       </ol>
     </div>
 
-    <pre data-lang="cpp" data-file="stl_queue_family.cpp">// stl_queue_family.cpp —— std::queue / std::deque / std::priority_queue 三大件实操
-#include &lt;iostream&gt;
-#include &lt;queue&gt;
-#include &lt;deque&gt;
-#include &lt;vector&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="stl_queue_family.cpp">// stl_queue_family.cpp —— queue / deque / priority_queue 三大件实操
+#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct Task {
@@ -3074,8 +3045,8 @@ struct Task {
 };
 
 int main() {
-    /* ================= 1. std::queue：普通 FIFO ================= */
-    cout &lt;&lt; "=========== 1. std::queue ===========\n";
+    /* ================= 1. queue：普通 FIFO ================= */
+    cout &lt;&lt; "=========== 1. queue ===========\n";
     queue&lt;string&gt; q;
     q.push("客户A");
     q.push("客户B");
@@ -3092,8 +3063,8 @@ int main() {
     queue&lt;string&gt;().swap(q);
     cout &lt;&lt; "清空后 empty = " &lt;&lt; (q.empty() ? "true" : "false") &lt;&lt; "\n\n";
 
-    /* ================= 2. std::deque：两端都能动 ================= */
-    cout &lt;&lt; "=========== 2. std::deque ===========\n";
+    /* ================= 2. deque：两端都能动 ================= */
+    cout &lt;&lt; "=========== 2. deque ===========\n";
     deque&lt;int&gt; d;
     d.push_back(3); d.push_back(4);
     d.push_front(2); d.push_front(1);       // 前端插入
@@ -3114,8 +3085,8 @@ int main() {
     }
     cout &lt;&lt; "\n\n";
 
-    /* ================= 3. std::priority_queue：堆 ================= */
-    cout &lt;&lt; "=========== 3. std::priority_queue ===========\n";
+    /* ================= 3. priority_queue：堆 ================= */
+    cout &lt;&lt; "=========== 3. priority_queue ===========\n";
     priority_queue&lt;int&gt; maxHeap;            // 默认大顶堆
     for (int x : {3, 1, 4, 1, 5, 9, 2, 6}) maxHeap.push(x);
     cout &lt;&lt; "大顶堆依次弹出: ";
@@ -3143,8 +3114,7 @@ int main() {
     cout &lt;&lt; "\n小结：queue 只能先进先出；deque 两端 O(1) 且能随机访问；\n";
     cout &lt;&lt; "      priority_queue 是堆，O(log n) 取最值，不保证 FIFO。\n";
     return 0;
-}
-</pre>
+}</pre>
 
 
     <h2 id="s15">4.14 本章小结</h2>
@@ -3176,7 +3146,7 @@ int main() {
         <thead><tr><th>结构</th><th>入队</th><th>出队</th><th>取队头</th><th>求长度</th><th>判满</th><th>空间</th></tr></thead>
         <tbody>
           <tr><td>朴素顺序队列</td><td>O(1)</td><td>O(1)</td><td>O(1)</td><td>O(1)</td><td class="c-bad">有假溢出</td><td>O(MaxSize)</td></tr>
-          <tr><td>循环队列（牺牲单元）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>rear+1==front</td><td>O(MaxSize)，浪费 1 格</td></tr>
+          <tr><td>循环队列（牺牲单元）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>(rear+1)%MaxSize==front</td><td>O(MaxSize)，浪费 1 格</td></tr>
           <tr><td>循环队列（size）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>size==MaxSize</td><td>O(MaxSize)+1 变量</td></tr>
           <tr><td>链队列（带头结点）</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td class="c-ok">O(1)</td><td>O(n) / 加 size 为 O(1)</td><td class="c-ok">无（可无限增长）</td><td>O(n)，每元素多 1 指针</td></tr>
           <tr><td>双端队列 deque</td><td class="c-ok">两端 O(1)</td><td class="c-ok">两端 O(1)</td><td class="c-ok">两端 O(1)</td><td>O(1)</td><td>取决于实现</td><td>O(n)</td></tr>
@@ -3219,7 +3189,7 @@ int main() {
         <li><b>BFS 在出队时才标记访问</b>，导致同一格子被重复入队，最坏情况下队列规模膨胀数倍。</li>
         <li><b><code>queue::pop()</code> 当成有返回值</b>（Java 的 <code>poll()</code> 才有），编译不过还找不到原因。</li>
         <li><b>杨辉三角忘记补哨兵 0</b>，于是每行的行首 / 行尾都要写特判，一写就错。</li>
-        <li><b>用 BFS 去求带权图最短路</b>，答案偏小 —— 带权图请用 Dijkstra。</li>
+        <li><b>用 BFS 去求带权图最短路</b>，答案不对（BFS 找的是边数最少的路，不一定是权值和最小的路）—— 带权图请用 Dijkstra。</li>
       </ol>
     </div>
 
@@ -3252,7 +3222,7 @@ int main() {
       队列讲完了，线性结构这条主线还剩最后一个成员：<b>串 string</b>。
       下一讲我们会看模式匹配的两大经典算法 —— KMP 与 BM。
       剧透一下：KMP 的 <code>next</code> 数组推导过程本质上是一次「自己匹配自己」，
-      而 BM 的「坏字符规则」则用到了和本章相似的「跳着走、不回头」思想。
+      而 BM 的「坏字符规则」则让模式串一次向右跳好几格。
     </div>
 
     <div class="pager">
