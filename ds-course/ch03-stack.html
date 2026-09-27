@@ -48,7 +48,7 @@
         <li><b>存储层</b>：顺序栈（数组 + <code>top</code>，含 <code>top</code> 的两种约定）、共享栈（两个栈抢一个数组）、链栈（用单链表实现），三者放在一张表里对比。</li>
         <li><b>应用层</b>：括号匹配 → 进制转换 → <b>表达式求值（中缀转后缀 / 后缀求值 / 双栈直接求值）</b> → 栈与递归 → 迷宫回溯 → 单调栈。</li>
         <li><b>动画层</b>：6 个交互动画，全部支持「▶ 播放 / ◀ 上一步 / 下一步 ▶ / ⏮ 重来 / ⏭ 末帧」与速度调节，建议逐帧对着说明栏看。</li>
-        <li><b>代码层</b>：19 段可直接编译运行的 C++ 代码，统一用竞赛写法（全局数组 + 普通函数，出错用返回值报告），都带 <code>main</code> 测试。</li>
+        <li><b>代码层</b>：18 段可直接编译运行的 C++ 代码，统一用竞赛写法（全局数组 + 普通函数，出错用返回值报告），都带 <code>main</code> 测试。</li>
       </ul>
     </div>
 
@@ -160,6 +160,8 @@
       <b>ADT</b>（Abstract Data Type，抽象数据类型）回答的是「这个结构能做什么」，而不回答「它怎么做到的」。
       学数据结构最忌讳一上来就背数组下标 —— 先把 ADT 想清楚，你会发现顺序栈、链栈、共享栈的<b>接口完全一样</b>，
       只是实现不同，甚至可以互相替换而调用方毫不知情。这正是抽象的价值。
+      本讲的顺序栈、链栈都按下表写成同名函数（共享栈多一个参数 <code>i</code>，指明操作的是 0 号还是 1 号栈）；
+      出错时返回 <code>false</code>。
     </p>
 
     <div class="table-wrap">
@@ -168,98 +170,17 @@
           <tr><th>操作</th><th>语义</th><th>前置条件</th><th>时间复杂度</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>InitStack(&amp;S)</code></td><td>构造一个空栈（初始化）</td><td>—</td><td>O(1)</td></tr>
-          <tr><td><code>StackEmpty(S)</code></td><td>判空：空返回 <code>true</code></td><td>栈已存在</td><td>O(1)</td></tr>
-          <tr><td><code>StackFull(S)</code></td><td>判满：满返回 <code>true</code>（链栈恒为 <code>false</code>）</td><td>顺序栈才有意义</td><td>O(1)</td></tr>
-          <tr><td><code>Push(&amp;S, e)</code></td><td>入栈：把 e 放到栈顶，成为新的栈顶</td><td><b>栈不满</b>，否则上溢</td><td>O(1)</td></tr>
-          <tr><td><code>Pop(&amp;S, &amp;e)</code></td><td>出栈：删除栈顶元素并用 e 带回</td><td><b>栈不空</b>，否则下溢</td><td>O(1)</td></tr>
-          <tr><td><code>GetTop(S)</code></td><td>取栈顶：只读，<b>不删除</b></td><td>栈不空</td><td>O(1)</td></tr>
-          <tr><td><code>ClearStack(&amp;S)</code></td><td>清空：回到初始空栈状态</td><td>—</td><td>O(1)（顺序栈置 top；链栈需逐个释放）</td></tr>
-          <tr><td><code>StackLength(S)</code></td><td>求长度：返回元素个数</td><td>—</td><td>O(1)（顺序栈）；O(n)（不带头结点的链栈）</td></tr>
+          <tr><td><code>InitStack()</code></td><td>构造一个空栈（初始化）</td><td>—</td><td>O(1)</td></tr>
+          <tr><td><code>StackEmpty()</code></td><td>判空：空返回 <code>true</code></td><td>—</td><td>O(1)</td></tr>
+          <tr><td><code>StackFull()</code></td><td>判满：满返回 <code>true</code></td><td>只有顺序栈有；链栈不会满，不提供</td><td>O(1)</td></tr>
+          <tr><td><code>Push(x)</code></td><td>入栈：把 x 放到栈顶，成为新的栈顶</td><td><b>栈不满</b>，否则上溢，返回 <code>false</code></td><td>O(1)</td></tr>
+          <tr><td><code>Pop(e)</code></td><td>出栈：删除栈顶元素并用 e 带回</td><td><b>栈不空</b>，否则下溢，返回 <code>false</code></td><td>O(1)</td></tr>
+          <tr><td><code>GetTop(e)</code></td><td>取栈顶：用 e 带回，只读，<b>不删除</b></td><td>栈不空</td><td>O(1)</td></tr>
+          <tr><td><code>ClearStack()</code></td><td>清空：回到初始空栈状态</td><td>—</td><td>O(1)（顺序栈置 top）；O(n)（链栈逐个 delete）</td></tr>
+          <tr><td><code>StackLength()</code></td><td>求长度：返回元素个数</td><td>—</td><td>O(1)（链栈用一个计数器 cnt 记着）</td></tr>
         </tbody>
       </table>
     </div>
-
-    <p>
-      用 C++ 表达这份 ADT 不需要类：一个数组、一个 <code>top</code> 变量，再把表里的每个操作写成一个普通函数就够了。
-      下面先用最简单的顺序栈把这些操作跑一遍，3.2 节再细讲 <code>top</code> 该怎么约定。
-    </p>
-
-    <pre data-lang="cpp" data-file="stack_adt.cpp">/* ==========================================================================
-   栈的抽象数据类型（ADT）—— LIFO：后进先出
-   --------------------------------------------------------------------------
-   栈只允许在**同一端**（栈顶 top）进行插入和删除，这才有了「后进先出」。
-   另一端叫栈底，它不动。
-
-   表达 ADT 不需要 class，把「运算清单」写清楚、每个运算写成一个普通函数就够了：
-
-       InitStack()      建空栈
-       StackEmpty()     判空          → 空栈时 top == -1
-       Push(x)          入栈（压栈）   → top 先加 1，再放 x
-       Pop()            出栈（弹栈）   → 先取 a[top]，再 top 减 1
-       GetTop()         取栈顶元素（不删）
-       StackLength()    求栈中元素个数 → top + 1
-
-   两个必须分清的错误：
-       上溢 overflow  —— 栈满还 push（数组开满了）
-       下溢 underflow —— 空栈还 pop（**这个必须判**，否则读到垃圾数据）
-
-   说明：这里用「top 指向栈顶元素」的约定（3.2.1 的约定 A）：
-   top == -1 表示空栈，元素存在 a[0..top]。
-   ========================================================================== */
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-const int N = 100005;      // 栈的最大容量
-int a[N];                  // 栈的存储区
-int top = -1;              // top = 栈顶元素的下标；top == -1 表示空栈
-
-void InitStack() { top = -1; }
-bool StackEmpty() { return top == -1; }
-int  StackLength() { return top + 1; }
-
-bool Push(int x) {         // 入栈
-    if (top == N - 1) return false;   // 上溢：数组已经放满
-    a[++top] = x;                     // 先加后写：top 从 -1 变 0，写 a[0]
-    return true;
-}
-
-bool Pop(int &amp;e) {         // 出栈，用 e 带回弹出的值
-    if (top == -1) return false;      // 下溢：空栈不能再弹
-    e = a[top--];                     // 先取后减
-    return true;
-}
-
-bool GetTop(int &amp;e) {      // 只看不删
-    if (top == -1) return false;
-    e = a[top];
-    return true;
-}
-
-int main() {
-    InitStack();
-    printf("空栈吗：%s\n", StackEmpty() ? "是" : "否");
-
-    for (int x : {10, 20, 30, 40}) Push(x);      // 依次压入
-    int e = 0;
-    GetTop(e);
-    printf("栈顶 = %d，元素个数 = %d\n", e, StackLength());   // 40，4
-
-    Pop(e);
-    printf("弹出 %d\n", e);                       // 40
-    Pop(e);
-    printf("弹出 %d\n", e);                       // 30
-    GetTop(e);
-    printf("现在栈顶 = %d，个数 = %d\n", e, StackLength());  // 20，2
-
-    while (!StackEmpty()) { Pop(e); printf("%d ", e); }   // 20 10（后进先出）
-    printf("\n");
-    printf("空栈时 Pop 返回 %d\n", (int)Pop(e));   // 0（下溢被挡住了）
-
-    /* ---------- 复杂度 ----------
-       顺序栈的 push / pop / top / 判空 全是 O(1)。 */
-    return 0;
-}</pre>
 
     <div class="note tip">
       <span class="note-title">学习顺序建议</span>
@@ -390,7 +311,7 @@ int main() {
     <p>
       下面这份代码采用<b>约定 A</b>（top 指向栈顶元素，空栈时 <code>top == -1</code>），也是做题时最常用的写法：
       一个全局数组、一个 <code>top</code>，再加几个普通函数。栈满、栈空都用返回值 <code>false</code> 报告，
-      调用方一看返回值就知道这次操作有没有成功。<code>main</code> 把入栈、出栈、取栈顶都跑了一遍。
+      调用方一看返回值就知道这次操作有没有成功。<code>main</code> 把入栈、出栈、取栈顶、清空都跑了一遍。
     </p>
 
     <pre data-lang="cpp" data-file="seq_stack.cpp">/* ==========================================================================
@@ -411,6 +332,7 @@ int a[N];
 int top = -1;
 
 void InitStack()    { top = -1; }
+void ClearStack()   { top = -1; }          // 清空：top 回到空栈状态，旧值留在数组里没关系
 bool StackEmpty()   { return top == -1; }
 bool StackFull()    { return top == N - 1; }
 int  StackLength()  { return top + 1; }
@@ -454,6 +376,9 @@ int main() {
     GetTop(e);
     printf("当前栈顶 = %d\n", e);                 // 4
 
+    ClearStack();
+    PrintStack("ClearStack 后");                  // ｜ top=-1
+
     /* 演示上溢：把容量当成很小的 5 来看 */
     printf("（若 N=5，再 push 就会返回 false，这就是上溢 overflow）\n");
 
@@ -493,8 +418,7 @@ int main() {
       上溢、下溢同样用返回值报告 —— 请对照 3.2.1 的图 3-2 检查每一行公式。
     </p>
 
-    <pre data-lang="cpp" data-file="seq_stack_v2.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="seq_stack_v2.cpp">/* ==========================================================================
    顺序栈的第二种约定：top 指向「栈顶上方的空位」
    --------------------------------------------------------------------------
    上一段用的是「top 指向栈顶元素」，所以空栈 top == -1，push 要写 a[++top] = x。
@@ -517,6 +441,7 @@ int a[N];
 int top = 0;                     // top 指向栈顶上方空位
 
 void InitStack() { top = 0; }
+void ClearStack() { top = 0; }            // 清空：top 回到空栈状态
 bool StackEmpty() { return top == 0; }
 bool StackFull() { return top == N; }
 int  StackLength() { return top; }        // 天然就是长度，不用 ±1
@@ -559,13 +484,16 @@ int main() {
 
     printf("第 6 次 push 返回 %d（上溢，栈满）\n", (int)Push(6));
 
-    int e;
+    int e = 0;
     GetTop(e);
     printf("栈顶 = %d（= a[top-1] = a[4]）\n", e);   // 5
 
     Pop(e); Pop(e);
     printf("弹出 %d、%d\n", 5, e);            // 5、4
     PrintStack("弹两次后");                   // 1 2 3 ｜ top=3
+
+    ClearStack();
+    PrintStack("ClearStack 后");              // ｜ top=0
 
     /* ---------- 两种约定对照表（背下来） ----------
        约定                    空栈      满栈      入栈            出栈           取栈顶
@@ -575,8 +503,7 @@ int main() {
        为什么很多人偏爱第二种？因为「长度 = top」不用换算，判空也最简单。
        而第一种的「取栈顶 = a[top]」更直观。选一个习惯的就行。 */
     return 0;
-}
-</pre>
+}</pre>
 
     <p>
       看到两种约定的代码摆在一起，你应该能体会到「约定」二字的分量：<b>它们都对，但绝不能混</b>。
@@ -587,12 +514,18 @@ int main() {
     <h4 id="s2-amortized">为什么扩容要「翻倍」而不是「加一」？</h4>
 
     <p>
-      如果每次满了只加一个格子，那么连续 n 次 Push 就要搬移 <code>1 + 2 + 3 + … + n = O(n²)</code> 次元素，
-      单次操作的<b>平均代价</b>是 O(n)，顺序栈就退化成顺序表插入了。
-      改成容量翻倍后，第 k 次扩容搬移 <code>2^k</code> 个元素，而它能支撑接下来 <code>2^k</code> 次 Push，
-      于是总搬移量是 <code>1 + 2 + 4 + … + 2^m ≈ 2^(m+1) < 2n</code>，
-      连续 n 次 Push 的总代价是 O(n)，<b>平均每次 O(1)</b>。
-      这就是<b>摊还分析 amortized analysis</b> 的经典结论：
+      扩容的做法是：数组满了，就申请一个更大的新数组，把旧元素全部搬过去，再继续 Push。关键在于每次大多少。
+    </p>
+    <p>
+      如果每次只多开 <b>1 格</b>，那么之后的每一次 Push 都会遇到「满了」，都要把现有元素整个搬一遍：
+      第 1 次搬 1 个、第 2 次搬 2 个……连续 n 次 Push 一共要搬 <code>1 + 2 + … + n ≈ n²/2</code> 次，
+      平均每次 Push 要搬 <b>O(n)</b> 个元素 —— 本来 O(1) 的入栈，变成了 O(n)。
+    </p>
+    <p>
+      如果每次把容量<b>翻倍</b>，扩容就很少发生：容量从 1 涨到 n 只需要翻倍大约 log₂n 次，
+      每次搬移的元素个数依次是 1、2、4、……，加起来 <code>1 + 2 + 4 + … + n &lt; 2n</code>。
+      连续 n 次 Push 总共只多搬了不到 2n 次，平均到每次 Push 上还是 <b>O(1)</b>。
+      这种「把偶尔一次的大开销平均摊到所有操作上」来算复杂度的方法，叫<b>摊还分析 amortized analysis</b>：
     </p>
 
     <div class="formula center" data-math="n 次 Push 的总代价 = n 次写入 + O(n) 次搬移 = O(n)  ⟹  单次摊还代价 O(1)"></div>
@@ -604,129 +537,11 @@ int main() {
       而链栈的 Push 是严格的 O(1)，因为不需要搬移 —— 这是链栈唯一在复杂度上「赢」顺序栈的地方。
     </div>
 
-    <div class="figure" data-steps>
-      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="m33a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
-          </marker>
-        </defs>
-        <text x="24" y="26" fill="var(--brand)" font-size="13" font-weight="700">① 初始状态：Push(12)、Push(7)、Push(25) 之后，top = 2，长度 3</text>
-        <g font-family="Consolas, monospace" font-size="14">
-          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
-          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
-          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
-          <text x="166" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">25</text>
-          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-        </g>
-        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
-          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
-          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
-        </g>
-        <line x1="166" y1="142" x2="166" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33a)"/>
-        <text x="178" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 2</text>
-        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">S[0..2] 有效，S[3..5] 是空位</text>
-        <text x="420" y="98" fill="var(--text-faint)" font-size="12">栈底 fixed 在 S[0]，栈顶随 top 浮动</text>
-      </svg>
-
-      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="m33b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
-          </marker>
-        </defs>
-        <text x="24" y="26" fill="var(--brand)" font-size="13" font-weight="700">② Push(9)：先 ++top（top 由 2 变 3），再执行 S[3] = 9</text>
-        <g font-family="Consolas, monospace" font-size="14">
-          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
-          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
-          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="166" y="72" text-anchor="middle" fill="var(--text)">25</text>
-          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
-          <text x="224" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">9</text>
-          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-        </g>
-        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
-          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
-          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
-        </g>
-        <line x1="224" y1="142" x2="224" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33b)"/>
-        <text x="236" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 3（长度变成 4）</text>
-        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">入栈只做了两件事：top++ 与一次写入</text>
-        <text x="420" y="98" fill="var(--text-faint)" font-size="12">没有搬移任何已有元素 → O(1)</text>
-      </svg>
-
-      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="m33c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"/>
-          </marker>
-        </defs>
-        <text x="24" y="26" fill="var(--danger)" font-size="13" font-weight="700">③ Pop()：先取出 S[3] = 9 交给调用者，再 --top（top 由 3 回到 2）</text>
-        <g font-family="Consolas, monospace" font-size="14">
-          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="50" y="72" text-anchor="middle" fill="var(--text)">12</text>
-          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
-          <text x="108" y="72" text-anchor="middle" fill="var(--text)">7</text>
-          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2.4"/>
-          <text x="166" y="72" text-anchor="middle" fill="var(--text)" font-weight="700">25</text>
-          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 3"/>
-          <text x="224" y="72" text-anchor="middle" fill="var(--text-faint)">9</text>
-          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-        </g>
-        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
-          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
-          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
-        </g>
-        <line x1="166" y1="142" x2="166" y2="114" stroke="var(--brand)" stroke-width="2.4" marker-end="url(#m33c)"/>
-        <text x="178" y="140" fill="var(--brand)" font-size="12.5" font-family="Consolas, monospace">top = 2</text>
-        <text x="420" y="70" fill="var(--danger)" font-size="12.5" font-family="Consolas, monospace">S[3] 里的 9 还在，但已不属于栈</text>
-        <text x="420" y="98" fill="var(--text-faint)" font-size="12">下次 Push 会直接覆盖它，无需清理</text>
-      </svg>
-
-      <svg viewBox="0 0 740 168" width="740" height="168" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="m33d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
-          </marker>
-        </defs>
-        <text x="24" y="26" fill="var(--ok)" font-size="13" font-weight="700">④ ClearStack()：只需一条 top = −1，整栈立刻变成空栈（O(1) 清空）</text>
-        <g font-family="Consolas, monospace" font-size="14">
-          <rect x="24" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <text x="50" y="72" text-anchor="middle" fill="var(--text-faint)">12</text>
-          <rect x="82" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <text x="108" y="72" text-anchor="middle" fill="var(--text-faint)">7</text>
-          <rect x="140" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <text x="166" y="72" text-anchor="middle" fill="var(--text-faint)">25</text>
-          <rect x="198" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <text x="224" y="72" text-anchor="middle" fill="var(--text-faint)">9</text>
-          <rect x="256" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-          <rect x="314" y="44" width="52" height="42" rx="6" fill="var(--bg-soft)" stroke="var(--border)" stroke-dasharray="4 3"/>
-        </g>
-        <g fill="var(--text-faint)" font-size="11" font-family="Consolas, monospace" text-anchor="middle">
-          <text x="50" y="102">0</text><text x="108" y="102">1</text><text x="166" y="102">2</text>
-          <text x="224" y="102">3</text><text x="282" y="102">4</text><text x="340" y="102">5</text>
-        </g>
-        <line x1="50" y1="142" x2="50" y2="114" stroke="var(--ok)" stroke-width="2.4" marker-end="url(#m33d)"/>
-        <text x="62" y="140" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">top = −1：全部格子失效</text>
-        <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">旧值残留在数组里不影响正确性</text>
-        <text x="420" y="98" fill="var(--text-faint)" font-size="12">下次 Push 会直接覆盖旧值</text>
-      </svg>
-      <figcaption>图 3-3　入栈、出栈与清空时 top 与数组内容的变化（点「下一步 ▶」逐步查看）</figcaption>
-    </div>
-
     <h3 id="s2-clear">3.2.5　清空栈</h3>
 
     <p>
       清空顺序栈只要一句 <code>top = -1;</code>，O(1) 完成。数组里的旧值不用擦掉 —— 它们已经不属于这个栈，
-      下次入栈时会被直接覆盖（图 3-3 的第 ④ 步）。
+      下次入栈时会被直接覆盖。
     </p>
 
     <div class="note warn">
@@ -812,7 +627,7 @@ int main() {
         <text x="420" y="260" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">0 号栈空：top0 == −1</text>
         <text x="420" y="286" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">1 号栈空：top1 == MaxSize</text>
       </svg>
-      <figcaption>图 3-4　共享栈：两个栈底固定在数组两端，栈顶向中间生长，只有「撞上」才算满</figcaption>
+      <figcaption>图 3-3　共享栈：两个栈底固定在数组两端，栈顶向中间生长，只有「撞上」才算满</figcaption>
     </div>
 
     <div class="note">
@@ -823,8 +638,7 @@ int main() {
       本讲统一采用「<b>0 号栈在左、1 号栈在右，满 ⇔ top0 + 1 == top1</b>」。
     </div>
 
-    <pre data-lang="cpp" data-file="shared_stack.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="shared_stack.cpp">/* ==========================================================================
    共享栈 —— 两个栈共用一个数组，从两端往中间长
    --------------------------------------------------------------------------
    场景：需要两个栈，但它们的容量此消彼长（一个用得多、另一个就用得少）。
@@ -837,6 +651,8 @@ int main() {
 
    这样总容量 N 完全共享，只有「两个栈的总元素数」超过 N 才会上溢。
    （注意：不是各自能用到 N，而是加起来 N。）
+
+   操作和 3.1.2 的 ADT 表一一对应，只是多一个参数 i（0 或 1）说明操作哪个栈。
    ========================================================================== */
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
@@ -846,34 +662,34 @@ int a[N];
 int top0 = -1;             // 0 号栈的栈顶下标（从左往右长）
 int top1 = N;              // 1 号栈的栈顶下标（从右往左长）
 
-void InitSharedStack() { top0 = -1; top1 = N; }
+void InitStack() { top0 = -1; top1 = N; }              // 两个栈都置空
 
-bool Empty0() { return top0 == -1; }       // 0 号栈空
-bool Empty1() { return top1 == N; }        // 1 号栈空
-bool Full()   { return top0 + 1 == top1; } // 两个栈顶相邻 = 整个数组满了
+void ClearStack(int i) {                               // 清空第 i 号栈
+    if (i == 0) top0 = -1; else top1 = N;
+}
+bool StackEmpty(int i) { return i == 0 ? top0 == -1 : top1 == N; }
+bool StackFull()       { return top0 + 1 == top1; }    // 两个栈顶相邻 = 整个数组满了（两个栈共用）
+int  StackLength(int i) { return i == 0 ? top0 + 1 : N - top1; }
 
-bool Push0(int x) {        // 0 号栈入栈：向右长
-    if (Full()) return false;
-    a[++top0] = x;
+bool Push(int i, int x) {  // 第 i 号栈入栈：0 号向右长，1 号向左长
+    if (StackFull()) return false;
+    if (i == 0) a[++top0] = x;
+    else        a[--top1] = x;
     return true;
 }
-bool Push1(int x) {        // 1 号栈入栈：向左长
-    if (Full()) return false;
-    a[--top1] = x;
+bool Pop(int i, int &amp;e) {
+    if (StackEmpty(i)) return false;
+    if (i == 0) e = a[top0--];
+    else        e = a[top1++];
     return true;
 }
-bool Pop0(int &amp;e) {
-    if (Empty0()) return false;
-    e = a[top0--];
-    return true;
-}
-bool Pop1(int &amp;e) {
-    if (Empty1()) return false;
-    e = a[top1++];
+bool GetTop(int i, int &amp;e) {
+    if (StackEmpty(i)) return false;
+    e = (i == 0) ? a[top0] : a[top1];
     return true;
 }
 
-void Dump() {              // 打印整个数组，直观看到两个栈怎么"夹"住中间
+void PrintStack() {        // 打印整个数组，直观看到两个栈怎么"夹"住中间
     printf("数组内容：");
     for (int i = 0; i &lt; N; ++i) {
         if (i == 0) printf("[");
@@ -882,21 +698,25 @@ void Dump() {              // 打印整个数组，直观看到两个栈怎么"�
         else if (i &lt; 12) printf("· ");                 // 空闲区（只画前几个）
     }
     printf("]\n  top0=%d（0 号栈 %d 个元素）, top1=%d（1 号栈 %d 个元素）\n",
-           top0, top0 + 1, top1, N - top1);
+           top0, StackLength(0), top1, StackLength(1));
 }
 
 int main() {
-    InitSharedStack();
-    printf("初始：Empty0=%d Empty1=%d Full=%d\n", Empty0(), Empty1(), Full());
+    InitStack();
+    printf("初始：0 号空=%d 1 号空=%d 满=%d\n", StackEmpty(0), StackEmpty(1), StackFull());
 
-    for (int x : {1, 2, 3}) Push0(x);          // 0 号栈：1 2 3
-    for (int x : {9, 8})    Push1(x);          // 1 号栈：9 8（9 先入，在更右边？不，1 号栈是向左长）
-    Dump();
+    for (int x : {1, 2, 3}) Push(0, x);        // 0 号栈：1 2 3
+    for (int x : {9, 8})    Push(1, x);        // 1 号栈：9 先入（在最右边），8 后入
+    PrintStack();
 
-    int e;
-    Pop0(e); printf("0 号栈弹出 %d\n", e);       // 3
-    Pop1(e); printf("1 号栈弹出 %d\n", e);       // 8（最后压入的先出）
-    Dump();
+    int e = 0;
+    Pop(0, e); printf("0 号栈弹出 %d\n", e);     // 3
+    Pop(1, e); printf("1 号栈弹出 %d\n", e);     // 8（最后压入的先出）
+    GetTop(1, e); printf("1 号栈现在的栈顶 = %d\n", e);   // 9
+    PrintStack();
+
+    ClearStack(0);
+    printf("清空 0 号栈后：0 号长度 = %d，1 号长度 = %d\n", StackLength(0), StackLength(1));   // 0，1
 
     /* 用一个小容量演示"栈满" */
     puts("\n---- 用小容量演示栈满条件 top0 + 1 == top1 ----");
@@ -917,8 +737,7 @@ int main() {
        ③ 相较"各开一个定长数组"，共享栈把空间利用率提到最高，
           代价是只能用于"一个数组两个栈"这种固定场景 */
     return 0;
-}
-</pre>
+}</pre>
 
     <p>
       运行这段程序你会看到：<b>8 个格子里塞进 6 个元素时仍然不算满</b>（只剩 2 个空位，两个栈各占一半还多），
@@ -1012,7 +831,7 @@ int main() {
         <text x="402" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = top; top = top-&gt;next; delete p;</text>
         <text x="402" y="222" fill="var(--text-faint)" font-size="12">必须先保存 top，再把 top 后移，最后释放</text>
       </svg>
-      <figcaption>图 3-5　链栈：单链表的头部就是栈顶，入栈出栈都只改两个指针</figcaption>
+      <figcaption>图 3-4　链栈：单链表的头部就是栈顶，入栈出栈都只改两个指针</figcaption>
     </div>
 
     <h3 id="s4-why">3.4.1　为什么链栈通常不需要头结点，也不需要判满</h3>
@@ -1046,8 +865,7 @@ int main() {
       <code>Node* p = top; top = top-&gt;next; delete p;</code>。
     </div>
 
-    <pre data-lang="cpp" data-file="link_stack.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="link_stack.cpp">/* ==========================================================================
    链栈 —— 用单链表实现栈，只在「表头」插入和删除
    --------------------------------------------------------------------------
    为什么链栈的所有操作都是 O(1)？
@@ -1101,6 +919,12 @@ bool GetTop(int &amp;e) {
     return true;
 }
 
+/* ---------- 清空：逐个出栈，每个结点都 delete 掉，O(n) ---------- */
+void ClearStack() {
+    int e = 0;
+    while (Pop(e)) {}
+}
+
 void PrintStack(const char *title = "") {     // 从栈顶到栈底打印
     printf("%s（栈顶→栈底）：", title);
     for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d ", p-&gt;val);
@@ -1114,7 +938,7 @@ int main() {
     for (int x : {10, 20, 30, 40}) Push(x);
     PrintStack("压入 10 20 30 40");     // 栈顶是 40
 
-    int e;
+    int e = 0;
     GetTop(e);
     printf("栈顶 = %d\n", e);           // 40
     Pop(e);
@@ -1126,6 +950,10 @@ int main() {
     while (!StackEmpty()) { Pop(e); printf("%d ", e); }   // 30 20 10
     printf("\n空栈时 Pop 返回 %d\n", (int)Pop(e));         // 0
 
+    for (int x : {1, 2, 3}) Push(x);
+    ClearStack();
+    printf("压入 1 2 3 再 ClearStack，长度 = %d\n", StackLength());   // 0
+
     /* ---------- 顺序栈 vs 链栈（考点） ----------
        维度           顺序栈                链栈
        时间复杂度      push/pop O(1)         push/pop O(1)
@@ -1135,11 +963,9 @@ int main() {
        缓存友好性     好（连续内存）         差（指针跳转）
        结论：能估出规模就用顺序栈；规模完全未知或很大时才用链栈。 */
     return 0;
-}
-</pre>
+}</pre>
 
-    <pre data-lang="cpp" data-file="link_stack_nohdr.cpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="link_stack_nohdr.cpp">/* ==========================================================================
    链栈（不带头结点版）—— 少一个哑结点，边界要自己判
    --------------------------------------------------------------------------
    带头结点的链栈，空栈时 head-&gt;nxt == NULL，push/pop 的写法统一；
@@ -1194,6 +1020,12 @@ bool GetTop(int &amp;e) {
     return true;
 }
 
+/* ---------- 清空：逐个出栈，每个结点都 delete 掉，O(n) ---------- */
+void ClearStack() {
+    int e = 0;
+    while (Pop(e)) {}
+}
+
 void PrintStack(const char *title = "") {
     printf("%s（栈顶→栈底）：", title);
     for (Node *p = head; p; p = p-&gt;nxt) printf("%d ", p-&gt;val);
@@ -1206,7 +1038,7 @@ int main() {
 
     Push(1); Push(2); Push(3);
     PrintStack("压入 1 2 3");             // 3 2 1
-    int e;
+    int e = 0;
     GetTop(e);
     printf("栈顶 = %d（就是 head 自己指向的结点）\n", e);   // 3
 
@@ -1216,13 +1048,16 @@ int main() {
     printf("弹掉最后一个后，head = %s\n", head == nullptr ? "NULL" : "非空");
     printf("空栈再 Pop 返回 %d\n", (int)Pop(e));            // 0
 
+    Push(7); Push(8);
+    ClearStack();
+    printf("压入 7 8 再 ClearStack，head = %s\n", head == nullptr ? "NULL" : "非空");   // NULL
+
     /* ---------- 两种链栈对比 ----------
        带头结点：push/pop 不用特判，代码统一；多占一个结点空间
        不带头结点：省一个结点，但 push/pop 都要考虑"空"这个边界
        竞赛选择：写链表时统一用带头结点，能少写一堆 if。 */
     return 0;
-}
-</pre>
+}</pre>
 
     <h3 id="s4-cmp">3.4.2　顺序栈 vs 链栈：一张表说清所有取舍</h3>
 
@@ -1429,7 +1264,7 @@ int main() {
 
         <text x="24" y="340" fill="var(--ok)" font-size="13" font-weight="700">扫描结束时栈为空 → 匹配成功；若栈非空（如 "(()"）或有类型冲突（如 "([)]"）则失败</text>
       </svg>
-      <figcaption>图 3-6　括号匹配的逐步扫描：左括号入栈「记账」，右括号与栈顶「销账」</figcaption>
+      <figcaption>图 3-5　括号匹配的逐步扫描：左括号入栈「记账」，右括号与栈顶「销账」</figcaption>
     </div>
 
     <h3 id="s5-fail">3.5.2　三种失败情形</h3>
@@ -1648,7 +1483,7 @@ int main() {
         <text x="438" y="268" fill="var(--text-faint)" font-size="11.5">算法完全一样，只把除数换成 base；</text>
         <text x="438" y="290" fill="var(--text-faint)" font-size="11.5">余数 10~15 用 A~F 表示即可</text>
       </svg>
-      <figcaption>图 3-7　短除法 + 栈：余数依次入栈，出栈时自然变成「高位在前」</figcaption>
+      <figcaption>图 3-6　短除法 + 栈：余数依次入栈，出栈时自然变成「高位在前」</figcaption>
     </div>
 
     <p>
@@ -1836,7 +1671,7 @@ int main() {
           后序遍历（左→右→根）= 后缀式　3 4 2 * + 1 5 + 2 ^ 3 / -
         </text>
       </svg>
-      <figcaption>图 3-8　表达式树：前序 = 前缀式，后序 = 后缀式，中序 = 中缀式（需要重新补括号）</figcaption>
+      <figcaption>图 3-7　表达式树：前序 = 前缀式，后序 = 后缀式，中序 = 中缀式（需要重新补括号）</figcaption>
     </div>
 
     <h4 id="s7-hand">手推方法一：加括号法（最快，考试首选）</h4>
@@ -2485,7 +2320,7 @@ int main() {
         <text x="708" y="170" fill="var(--ok)" font-size="12" font-family="Consolas, monospace">归</text>
         <text x="650" y="330" fill="var(--text-faint)" font-size="11.5" font-family="Consolas, monospace">1 → 2 → 6 → 24</text>
       </svg>
-      <figcaption>图 3-9　递归调用栈：递推阶段层层压栈，命中出口后逐层弹栈并回代结果</figcaption>
+      <figcaption>图 3-8　递归调用栈：递推阶段层层压栈，命中出口后逐层弹栈并回代结果</figcaption>
     </div>
 
     <h3 id="s8-ex">3.8.2　三个经典递归：阶乘、斐波那契、汉诺塔</h3>
@@ -2797,7 +2632,7 @@ int main() {
         <rect x="470" y="242" width="240" height="34" rx="8" fill="var(--panel)" stroke="var(--border)"/>
         <text x="482" y="264" fill="var(--text-soft)" font-size="11.5" font-family="Consolas, monospace">栈里始终是「当前这条路径」</text>
       </svg>
-      <figcaption>图 3-10　迷宫求解：栈里保存当前路径，走进死路就出栈回退（回溯）</figcaption>
+      <figcaption>图 3-9　迷宫求解：栈里保存当前路径，走进死路就出栈回退（回溯）</figcaption>
     </div>
 
     <pre data-lang="cpp" data-file="maze_stack.cpp">// maze_stack.cpp —— 迷宫求解：栈式回溯（本质是在图上做深度优先搜索 DFS）
@@ -2986,7 +2821,7 @@ int main() {
         <text x="40" y="290" fill="var(--text-faint)" font-size="12">每个下标最多进栈一次、出栈一次 → 总操作 ≤ 2n → 时间 O(n)，空间 O(n)</text>
         <text x="40" y="312" fill="var(--text-faint)" font-size="12">扫描结束时栈里剩下的下标，右边都不存在更大的元素，答案就是 −1</text>
       </svg>
-      <figcaption>图 3-11　单调栈求「下一个更大元素」：新元素一出现就结算掉栈里所有比它小的位置</figcaption>
+      <figcaption>图 3-10　单调栈求「下一个更大元素」：新元素一出现就结算掉栈里所有比它小的位置</figcaption>
     </div>
 
     <p>
@@ -3249,7 +3084,7 @@ int main() {
           <p style="font-size:13.5px;margin:0">深度优先搜索（DFS）就是用栈保存「还要回去探索的分支」；第 08 讲图的遍历会用到它。</p>
         </div>
       </div>
-      <figcaption>图 3-12　栈的五种日常应用：调用栈、浏览器历史、撤销重做、语法检查、DFS 回溯</figcaption>
+      <figcaption>图 3-11　栈的五种日常应用：调用栈、浏览器历史、撤销重做、语法检查、DFS 回溯</figcaption>
     </div>
 
     <p>

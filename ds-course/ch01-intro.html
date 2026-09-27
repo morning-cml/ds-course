@@ -891,121 +891,39 @@ int main() {
       <b>「全局数组 + 一组自由函数」</b>表达同一个 ADT：函数名与教材 ADT 里的操作一一对应。
     </p>
 
-    <h3 id="s5-2">1.5.2 线性表 ADT 的接口约定（C++）</h3>
+    <h3 id="s5-2">1.5.2 线性表 ADT 的基本操作</h3>
     <p>
-      下面这段代码就是「线性表」这个 ADT 的完整规格说明。开头注释里那段用伪码写的形式化描述，
-      是教材里描述 ADT 的标准格式：数据对象 D、数据关系 R、基本操作 P；紧接着的每一个自由函数，
-      就是这份约定里的一个基本操作。
+      线性表的基本操作如下（i 是位序，从 1 开始；n 是表长）。第 02 讲的顺序表、单链表都按这张表写成同名函数：
+      函数名、参数、含义完全一样，只是内部怎么存不同。
     </p>
 
-    <pre data-lang="cpp" data-file="list_adt.cpp">// list_adt.cpp —— 线性表的 ADT：先把「能做哪些事」定下来，不管「怎么做」
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-/* ADT 的规格说明（教材用伪码写，这里保留原味）：
-     ADT List {
-       数据对象：D = { a_i | a_i ∈ ElemSet, i = 1..n, n ≥ 0 }
-       数据关系：R = { &lt;a_(i-1), a_i&gt; | i = 2..n }        // 一对一的前驱后继
-       基本操作：InitList / ListLength / GetElem / ListInsert / ListDelete / ListTraverse
-     } ADT List
-
-   注意：上面一个字都没提「数据放数组还是链表、容量怎么扩」——
-   那些属于实现，不属于 ADT。接口一旦定下，实现可以有好几份。 */
-
-const int MAXN = 100005;
-int a[MAXN], n = 0;                       // 存储细节：调用方看不见这些
-
-void initList()            { n = 0; }     // 清空
-int  listLength()          { return n; }  // 求长度
-int  getElem(int i)        { return a[i - 1]; }        // 取第 i 个
-bool listInsert(int i, int x) {                        // 在第 i 个位置插入 x
-    for (int k = n; k &gt;= i; --k) a[k] = a[k - 1];
-    a[i - 1] = x; ++n; return true;
-}
-bool listDelete(int i, int &amp;e) {                       // 删除第 i 个，用 e 带回其值
-    e = a[i - 1];
-    for (int k = i - 1; k &lt; n - 1; ++k) a[k] = a[k + 1];
-    --n; return true;
-}
-void listTraverse() {                                  // 依次访问每个元素
-    for (int i = 0; i &lt; n; ++i) printf("%d%c", a[i], i + 1 == n ? '\n' : ' ');
-}
-
-int main() {
-    initList();
-    for (int i = 1; i &lt;= 5; ++i) listInsert(listLength() + 1, i * 10);
-    printf("长度 %d，第 3 个是 %d，内容：", listLength(), getElem(3));
-    listTraverse();
-    int e; listDelete(1, e);
-    printf("删掉 %d 后剩 %d 个：", e, listLength());
-    listTraverse();
-    return 0;
-}
-</pre>
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>语义</th><th>前置条件</th></tr></thead>
+        <tbody>
+          <tr><td><code>InitList()</code></td><td>初始化：构造一个空表</td><td>—</td></tr>
+          <tr><td><code>ListLength()</code></td><td>求表长：返回元素个数 n</td><td>—</td></tr>
+          <tr><td><code>GetElem(i)</code></td><td>按位取值：返回第 i 个元素</td><td><code>1 ≤ i ≤ n</code></td></tr>
+          <tr><td><code>LocateElem(x)</code></td><td>按值查找：返回第一个等于 x 的元素的位序，找不到返回 0</td><td>—</td></tr>
+          <tr><td><code>ListInsert(i, x)</code></td><td>插入：在第 i 个位置插入 x，原来的第 i 个及以后的元素依次后移</td><td><code>1 ≤ i ≤ n+1</code>，否则返回 <code>false</code></td></tr>
+          <tr><td><code>ListDelete(i)</code></td><td>删除：删掉第 i 个元素</td><td><code>1 ≤ i ≤ n</code>，否则返回 <code>false</code></td></tr>
+          <tr><td><code>PrintList()</code></td><td>遍历：从第 1 个到第 n 个依次输出</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <h3 id="s5-3">1.5.3 「抽象」到底体现在哪里</h3>
     <p>
       判断一个设计是否「抽象」，有一个很实用的测试：<b>把实现整个换掉，调用方的代码需要改几行？</b>
       如果一行都不用改，说明抽象是干净的；如果要改十处，那说明调用方偷偷依赖了实现细节。
+      第 02 讲的顺序表和单链表就是例子：两者都按 1.5.2 的操作表写成同名函数，调用方换用哪一种，代码一行都不用改。
     </p>
-
-    <pre data-lang="cpp" data-file="adt_client.cpp">// adt_client.cpp —— 体会 ADT 的作用：内部实现全换了，调用方一行都不用改
-//
-// 同一个线性表，用两套完全不同的存储各实现一遍：
-//   数组版：元素在连续内存里         链表版：结点散在堆上，靠指针串起来
-// 而调用方 use() 只认操作名和语义，根本不知道背后是哪种写法。
-#include &lt;bits/stdc++.h&gt;
-using namespace std;
-
-namespace arrImpl {                    // 实现一：顺序存储
-    int a[1005], n = 0;
-    void init() { n = 0; }
-    int  size() { return n; }
-    void insert(int i, int x) {        // 第 i 个位置插入：后继整体后移 O(n)
-        for (int k = n; k &gt;= i; --k) a[k] = a[k - 1];
-        a[i - 1] = x; ++n;
-    }
-    void traverse() { for (int i = 0; i &lt; n; ++i) printf("%d ", a[i]); }
-}
-
-namespace linkImpl {                   // 实现二：链式存储（带头结点）
-    struct Node { int val; Node *nxt; };
-    Node *head = nullptr;
-    void init() { head = new Node{0, nullptr}; }
-    int  size() { int c = 0; for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) ++c; return c; }
-    void insert(int i, int x) {        // 先走到第 i-1 个结点，再改两条指针
-        Node *p = head;
-        for (int k = 1; k &lt; i; ++k) p = p-&gt;nxt;
-        p-&gt;nxt = new Node{x, p-&gt;nxt};
-    }
-    void traverse() { for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d ", p-&gt;val); }
-}
-
-/* ★ 下面这一行决定用哪个实现：改成 linkImpl 即可，其余一个字都不用动。
-     用「命名空间 + 别名」表达「同一组操作」，比类加虚函数省事得多。 */
-namespace impl = arrImpl;
-
-/* 调用方：只用了 ADT 约定的那几个操作名，看不到、也没用到任何实现细节。
-   所以 impl 指向谁，这段代码都不用改 —— 这就是抽象的价值。 */
-void use() {
-    impl::init();
-    for (int i = 1; i &lt;= 5; ++i) impl::insert(i, i * i);
-    printf("元素个数 = %d，内容：", impl::size());
-    impl::traverse();
-    printf("\n");
-}
-
-int main() {
-    use();                             // 输出：元素个数 = 5，内容：1 4 9 16 25
-    return 0;
-}
-</pre>
 
     <div class="grid c3">
       <div class="card">
         <h3 id="s5-4" style="margin-top:0">抽象之一：隐藏表示</h3>
         <p style="margin-bottom:0">
-          调用方只会调用那几个操作函数，看不到内部的数组 <code>a</code>、计数器 <code>n</code>、
+          调用方只会调用那几个操作函数，看不到内部的数组 <code>a</code>、表长 <code>len</code>、
           链表头 <code>head</code>，也不知道数据是连续放的还是散着放的。
           表示的改变被隔离在实现里，不会像涟漪一样扩散到全工程。
         </p>

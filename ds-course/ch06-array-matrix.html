@@ -218,12 +218,22 @@
 
     <h3 id="s1-4">6.1.4 数组的 ADT：为什么通常只做「取值」和「赋值」</h3>
     <p>
-      翻开任何一本教材，数组的抽象数据类型都短得可怜，基本只有两个操作：
-      <code>Value(A, index)</code> 取值、<code>Assign(A, index, e)</code> 赋值。
-      （有的书写成 <code>GetValue</code> / <code>SetValue</code>，或者干脆用 <code>A[i]</code> 表示。）
-      与之配套的还有 <code>InitArray</code>（初始化）、<code>DestroyArray</code>（销毁），
-      但它们属于「生老病死」，不算常规操作。
+      翻开任何一本教材，数组的抽象数据类型都短得可怜，常规操作只有「取值」和「赋值」两个。
+      下表最后一列是本讲代码里对应的函数名（叫 <code>getVal</code> / <code>setVal</code> 而不叫 <code>get</code> / <code>set</code>，
+      是为了不和标准库重名，见 6.4.4 节）。
     </p>
+
+    <div class="table-wrap">
+      <table class="compact">
+        <thead><tr><th>操作</th><th>语义</th><th>本讲代码里的写法</th></tr></thead>
+        <tbody>
+          <tr><td><code>Value(A, i, j)</code></td><td>取值：返回 A[i][j]</td><td><code>getVal(i, j)</code>；三角矩阵分下、上两组：<code>lowGet</code> / <code>upGet</code></td></tr>
+          <tr><td><code>Assign(A, i, j, e)</code></td><td>赋值：把 A[i][j] 置为 e</td><td><code>setVal(i, j, e)</code>；三角矩阵：<code>lowSet</code> / <code>upSet</code></td></tr>
+          <tr><td><code>InitArray</code></td><td>初始化：按维数和各维长度建好数组</td><td>全局数组直接开好（三角矩阵另有 <code>init</code> 设定阶数和常数）</td></tr>
+          <tr><td><code>DestroyArray</code></td><td>销毁：释放存储</td><td>全局数组不用销毁，程序结束自动回收</td></tr>
+        </tbody>
+      </table>
+    </div>
     <p>
       为什么数组不像线性表那样提供 <code>Insert</code> / <code>Delete</code>？原因有三条，一条比一条本质：
     </p>

@@ -305,7 +305,7 @@
 
     <h3 id="s2-4">2.2.4 完整代码</h3>
 
-    <p>把上面三件事（取第 i 个、插入、删除）加上按值查找，写成一个完整程序：</p>
+    <p>按第 01 讲 1.5.2 那张操作表，把顺序表的全部基本操作写成一个完整程序（函数名和表里一一对应）：</p>
 
     <pre data-lang="cpp" data-file="seqlist.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
@@ -316,7 +316,17 @@ const int MAXN = 100;   // 数组最多能装多少个元素
 int a[MAXN];            // 元素依次放在 a[0], a[1], ..., a[len-1]
 int len = 0;            // 表长：现在有几个元素
 
-// 取第 i 个元素：直接算出下标，O(1)
+// 初始化：空表
+void InitList() {
+    len = 0;
+}
+
+// 求表长，O(1)
+int ListLength() {
+    return len;
+}
+
+// 取第 i 个元素：直接算出下标，O(1)（调用前保证 1 &lt;= i &lt;= len）
 int GetElem(int i) {
     return a[i - 1];
 }
@@ -354,6 +364,7 @@ void PrintList() {
 }
 
 int main() {
+    InitList();
     int v[] = {21, 32, 45, 58, 66, 79};
     for (int k = 0; k &lt; 6; k++) ListInsert(len + 1, v[k]);   // 依次插到表尾
     PrintList();                    // 21 32 45 58 66 79
@@ -364,7 +375,7 @@ int main() {
     ListDelete(2);                  // 删除第 2 个元素（32）
     PrintList();                    // 21 45 50 58 66 79
 
-    cout &lt;&lt; GetElem(3) &lt;&lt; ' ' &lt;&lt; LocateElem(58) &lt;&lt; '\n';     // 50 4
+    cout &lt;&lt; GetElem(3) &lt;&lt; ' ' &lt;&lt; LocateElem(58) &lt;&lt; ' ' &lt;&lt; ListLength() &lt;&lt; '\n';   // 50 4 6
     return 0;
 }</pre>
 
@@ -527,6 +538,11 @@ int main() {
 
     <h3 id="s3-5">2.3.5 完整代码</h3>
 
+    <p>
+      单链表也按 1.5.2 的同一张操作表实现，函数名、参数都和顺序表一样，调用方换用哪一种都不用改代码。
+      多出来的 <code>GetNode</code> 只是内部用来「从头走到第 i 个结点」的辅助函数。
+    </p>
+
     <pre data-lang="cpp" data-file="singly_list.cpp">#include &lt;bits/stdc++.h&gt;
 using namespace std;
 
@@ -549,6 +565,26 @@ Node* GetNode(int i) {
     Node* p = head;
     for (int k = 0; k &lt; i &amp;&amp; p != nullptr; k++) p = p-&gt;next;
     return p;
+}
+
+// 求表长：从头数到尾，O(n)
+int ListLength() {
+    int n = 0;
+    for (Node* p = head-&gt;next; p != nullptr; p = p-&gt;next) n++;
+    return n;
+}
+
+// 取第 i 个元素：走 i 步，O(n)（调用前保证 1 &lt;= i &lt;= 表长）
+int GetElem(int i) {
+    return GetNode(i)-&gt;data;
+}
+
+// 找第一个值等于 x 的结点，返回它的位序；找不到返回 0。O(n)
+int LocateElem(int x) {
+    int k = 1;
+    for (Node* p = head-&gt;next; p != nullptr; p = p-&gt;next, k++)
+        if (p-&gt;data == x) return k;
+    return 0;
 }
 
 // 在第 i 个位置插入 x：先找到第 i-1 个结点 p，再把新结点接在 p 后面
@@ -590,6 +626,8 @@ int main() {
 
     ListDelete(4);        // 删除第 4 个结点（56）
     PrintList();          // 12 34 99 78
+
+    cout &lt;&lt; GetElem(2) &lt;&lt; ' ' &lt;&lt; LocateElem(99) &lt;&lt; ' ' &lt;&lt; ListLength() &lt;&lt; '\n';   // 34 3 4
     return 0;
 }</pre>
 

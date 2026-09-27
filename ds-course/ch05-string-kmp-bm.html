@@ -136,36 +136,12 @@
           <tr><td><code>StrLength(S)</code></td><td>求长度</td><td>O(1) 或 O(n)</td><td><code>S.size()</code></td></tr>
           <tr><td><code>Concat(&amp;T, S1, S2)</code></td><td>拼接</td><td>O(|S1|+|S2|)</td><td><code>T = S1 + S2</code></td></tr>
           <tr><td><code>SubString(&amp;Sub, S, pos, len)</code></td><td>取子串</td><td>O(len)</td><td><code>S.substr(pos, len)</code></td></tr>
-          <tr><td><code>Index(S, T, pos)</code></td><td><b>模式匹配</b>：在 S 的第 pos 个字符起找 T 第一次出现的位置</td><td>O(n×m) 或 O(n+m)</td><td><code>S.find(T, pos)</code></td></tr>
+          <tr><td><code>Index(S, T, pos)</code></td><td><b>模式匹配</b>：在 S 的第 pos 个字符起找 T 第一次出现的位置。本章 5.2 的朴素匹配、5.3 的 KMP、5.5 的 BM 都是这个操作的实现</td><td>O(n×m) 或 O(n+m)</td><td><code>S.find(T, pos)</code></td></tr>
           <tr><td><code>Replace(&amp;S, T, V)</code></td><td>用 V 替换 S 中所有与 T 相等的子串</td><td>与匹配算法有关</td><td><code>regex_replace</code> / 手写</td></tr>
           <tr><td><code>StrInsert / StrDelete</code></td><td>插入 / 删除子串</td><td>O(n)</td><td><code>insert / erase</code></td></tr>
         </tbody>
       </table>
     </div>
-
-    <p>下面是这些操作在 C++ 中的最小实现示例（顺序存储、0 基下标）：</p>
-
-    <pre data-lang="cpp" data-file="string_basic.cpp">#include &lt;iostream&gt;
-#include &lt;string&gt;
-using namespace std;
-
-/* 串的基本操作演示（C++ 的 std::string 就是"堆分配顺序存储"的一种工业实现） */
-int main() {
-    string s = "data";
-    string t = "structure";
-
-    cout &lt;&lt; s.size() &lt;&lt; "\n";                  // 4          求长度 O(1)
-    cout &lt;&lt; s + "-" + t &lt;&lt; "\n";               // data-structure  拼接 O(n+m)
-    cout &lt;&lt; s.substr(1, 2) &lt;&lt; "\n";            // at         取子串 O(len)
-    cout &lt;&lt; s.compare("datax") &lt;&lt; "\n";        // -1（s 更小）比较 O(min)
-    cout &lt;&lt; (int)s.find("ta") &lt;&lt; "\n";         // 2          模式匹配
-    cout &lt;&lt; (int)s.find("xyz") &lt;&lt; "\n";        // -1         未找到返回 npos
-
-    /* 手写 StrCompare：理解"字典序"到底怎么定的 */
-    // 从第一个字符开始逐位比较，遇到第一处不同就返回差值；
-    // 若前面全部相同，则短串更小。
-    return 0;
-}</pre>
 
     <div class="note exam">
       <span class="note-title">考点：串比较的规则</span>
