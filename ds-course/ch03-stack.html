@@ -774,7 +774,7 @@ int main() {
     </p>
 
     <div class="figure">
-      <svg viewBox="0 0 740 250" width="740" height="250" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 740 272" width="740" height="272" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="m35a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--brand)"/>
@@ -810,21 +810,32 @@ int main() {
         <text x="488" y="106" text-anchor="middle" fill="var(--text)" font-size="15" font-family="Consolas, monospace">12</text>
         <text x="533" y="106" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-family="Consolas, monospace">∧</text>
 
-        <text x="168" y="70" fill="var(--brand)" font-size="11.5" text-anchor="middle">栈顶 top</text>
+        <text x="168" y="70" fill="var(--brand)" font-size="11.5" text-anchor="middle">栈顶结点</text>
         <text x="488" y="70" fill="var(--text-faint)" font-size="11.5" text-anchor="middle">栈底 bottom</text>
 
         <!-- 操作说明 -->
-        <rect x="24" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <rect x="24" y="150" width="330" height="104" rx="10" fill="var(--panel)" stroke="var(--border)"/>
         <text x="40" y="176" fill="var(--ok)" font-size="13" font-weight="700">Push(x)：头插，O(1)</text>
-        <text x="40" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = new Node(x); p-&gt;next = top; top = p;</text>
-        <text x="40" y="222" fill="var(--text-faint)" font-size="12">只有这两步，与栈里已有多少元素无关</text>
+        <text x="40" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">Node *p = new Node(x);</text>
+        <text x="40" y="222" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p-&gt;next = top; top = p;</text>
+        <text x="40" y="244" fill="var(--text-faint)" font-size="12">后两句只改两个指针，与栈里已有多少元素无关</text>
 
-        <rect x="386" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
+        <rect x="386" y="150" width="330" height="104" rx="10" fill="var(--panel)" stroke="var(--border)"/>
         <text x="402" y="176" fill="var(--danger)" font-size="13" font-weight="700">Pop(e)：删除首元结点，O(1)</text>
-        <text x="402" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = top; top = top-&gt;next; delete p;</text>
-        <text x="402" y="222" fill="var(--text-faint)" font-size="12">必须先保存 top，再把 top 后移，最后释放</text>
+        <text x="402" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">Node *p = top; e = p-&gt;data;</text>
+        <text x="402" y="222" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">top = top-&gt;next; delete p;</text>
+        <text x="402" y="244" fill="var(--text-faint)" font-size="12">必须先保存 top，再把 top 后移，最后释放</text>
       </svg>
       <figcaption>图 3-4　链栈：单链表的头部就是栈顶，入栈出栈都只改两个指针</figcaption>
+    </div>
+
+    <div class="note tip">
+      <span class="note-title">看清类型：top 和 p 都是指针，不是结点</span>
+      <code>top</code>、<code>p</code> 的类型都是 <code>Node*</code>，存的是某个结点的<b>地址</b>
+      （<code>new Node(x)</code> 返回的就是新结点的地址）；<code>p-&gt;next</code> 是 <code>p</code> 所指结点里的 <code>next</code> 字段，类型同样是 <code>Node*</code>。
+      所以入栈那几句全是「地址赋值」：<code>p-&gt;next = top</code> 把旧栈顶结点的地址写进新结点的 <code>next</code>，让新结点指向旧栈顶；
+      <code>top = p</code> 把新结点的地址交给 <code>top</code>，让 <code>top</code> 改指新结点。
+      两句都是指针赋给指针，没有哪一句在复制结点本身。平时说的「栈顶是 top」，准确说法是「<code>top</code> 指向的那个结点是栈顶结点」。
     </div>
 
     <h3 id="s4-why">3.4.1　为什么链栈通常不需要头结点，也不需要判满</h3>
@@ -954,7 +965,7 @@ int main() {
    链栈（不带头结点版）—— top 直接指向栈顶结点，链栈的通行写法
    --------------------------------------------------------------------------
    带头结点时，栈顶元素是 head-&gt;next，空栈是 head-&gt;next == nullptr；
-   不带头结点时，top 直接指向**栈顶元素**，空栈就是 top == nullptr。
+   不带头结点时，top 直接指向**栈顶结点**，空栈就是 top == nullptr。
 
    对栈来说，不带头结点反而更简单：所有操作都只在 top 这一端，
    入栈「新结点指向旧 top，再让 top 指向新结点」、出栈「top 后移一格」，
@@ -996,7 +1007,7 @@ bool Pop(int &amp;e) {
 
 bool GetTop(int &amp;e) {
     if (StackEmpty()) return false;
-    e = top-&gt;data;                       // 不带头结点时，栈顶就是 top 自己
+    e = top-&gt;data;                       // 不带头结点时，top 所指的就是栈顶结点，不用多跳一次
     return true;
 }
 
@@ -1020,7 +1031,7 @@ int main() {
     PrintStack("压入 1 2 3");             // 3 2 1
     int e = 0;
     GetTop(e);
-    printf("栈顶 = %d（就是 top 自己指向的结点）\n", e);   // 3
+    printf("栈顶 = %d（就是 top 所指的结点）\n", e);   // 3
 
     Pop(e); Pop(e);
     PrintStack("弹两次后");              // 1
