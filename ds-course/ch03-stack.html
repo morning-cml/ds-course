@@ -45,10 +45,10 @@
       <span class="note-title">本章导读</span>
       <ul style="margin:6px 0 0">
         <li><b>概念层</b>：栈的定义、LIFO 特性、为什么必须「只在栈顶操作」，栈顶 / 栈底 / 空栈 / 上溢 / 下溢五个术语，以及栈的 ADT 七个操作。</li>
-        <li><b>存储层</b>：顺序栈 <code>SeqStack&lt;T&gt;</code>（含 <code>top</code> 的两种约定与动态扩容）、共享栈（两个栈抢一个数组）、链栈 <code>LinkStack&lt;T&gt;</code>，三者放在一张表里对比。</li>
+        <li><b>存储层</b>：顺序栈（数组 + <code>top</code>，含 <code>top</code> 的两种约定）、共享栈（两个栈抢一个数组）、链栈（用单链表实现），三者放在一张表里对比。</li>
         <li><b>应用层</b>：括号匹配 → 进制转换 → <b>表达式求值（中缀转后缀 / 后缀求值 / 双栈直接求值）</b> → 栈与递归 → 迷宫回溯 → 单调栈。</li>
         <li><b>动画层</b>：6 个交互动画，全部支持「▶ 播放 / ◀ 上一步 / 下一步 ▶ / ⏮ 重来 / ⏭ 末帧」与速度调节，建议逐帧对着说明栏看。</li>
-        <li><b>代码层</b>：16 段可直接编译运行的 C++ 代码，全部按 C++11/14 编写，含完整函数与 <code>main</code> 测试。</li>
+        <li><b>代码层</b>：19 段可直接编译运行的 C++ 代码，统一用竞赛写法（全局数组 + 普通函数，出错用返回值报告），都带 <code>main</code> 测试。</li>
       </ul>
     </div>
 
@@ -181,59 +181,57 @@
     </div>
 
     <p>
-      用 C++ 表达这份 ADT，最自然的写法是抽象基类 + 纯虚函数。这样我们就能写出<b>与实现无关</b>的算法：
-      同一个 <code>PrintReverse</code> 函数，既能处理顺序栈也能处理链栈。
+      用 C++ 表达这份 ADT 不需要类：一个数组、一个 <code>top</code> 变量，再把表里的每个操作写成一个普通函数就够了。
+      下面先用最简单的顺序栈把这些操作跑一遍，3.2 节再细讲 <code>top</code> 该怎么约定。
     </p>
 
-    <pre data-lang="cpp" data-file="stack_adt.hpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="stack_adt.cpp">/* ==========================================================================
    栈的抽象数据类型（ADT）—— LIFO：后进先出
    --------------------------------------------------------------------------
    栈只允许在**同一端**（栈顶 top）进行插入和删除，这才有了「后进先出」。
    另一端叫栈底，它不动。
 
-   竞赛里表达 ADT 不需要 class，把「运算清单」写清楚就够了：
+   表达 ADT 不需要 class，把「运算清单」写清楚、每个运算写成一个普通函数就够了：
 
        InitStack()      建空栈
-       StackEmpty()     判空          → 空栈时 top == 0
+       StackEmpty()     判空          → 空栈时 top == -1
        Push(x)          入栈（压栈）   → top 先加 1，再放 x
        Pop()            出栈（弹栈）   → 先取 a[top]，再 top 减 1
        GetTop()         取栈顶元素（不删）
-       StackLength()    求栈中元素个数 → 就是 top
+       StackLength()    求栈中元素个数 → top + 1
 
    两个必须分清的错误：
-       上溢 overflow  —— 栈满还 push（静态数组要判；vector/链栈不用判）
+       上溢 overflow  —— 栈满还 push（数组开满了）
        下溢 underflow —— 空栈还 pop（**这个必须判**，否则读到垃圾数据）
 
-   说明：下面顺序栈用「top 指向栈顶元素」的约定（top = 0 表示空栈）。
-   另一种常见约定是「top 指向栈顶上方空位」（top = -1 表示空栈），
-   两种只差一个常数，选一种并始终用同一种，不要混。
+   说明：这里用「top 指向栈顶元素」的约定（3.2.1 的约定 A）：
+   top == -1 表示空栈，元素存在 a[0..top]。
    ========================================================================== */
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 const int N = 100005;      // 栈的最大容量
 int a[N];                  // 栈的存储区
-int top = 0;               // top = 栈顶元素的下标；top == 0 表示空栈
+int top = -1;              // top = 栈顶元素的下标；top == -1 表示空栈
 
-void InitStack() { top = 0; }
-bool StackEmpty() { return top == 0; }
-int  StackLength() { return top; }
+void InitStack() { top = -1; }
+bool StackEmpty() { return top == -1; }
+int  StackLength() { return top + 1; }
 
 bool Push(int x) {         // 入栈
-    if (top == N) return false;       // 上溢（静态数组才有这个问题）
-    a[++top] = x;                     // 先加后写：top 从 0 变 1，写 a[1]
+    if (top == N - 1) return false;   // 上溢：数组已经放满
+    a[++top] = x;                     // 先加后写：top 从 -1 变 0，写 a[0]
     return true;
 }
 
 bool Pop(int &amp;e) {         // 出栈，用 e 带回弹出的值
-    if (top == 0) return false;       // 下溢：空栈不能再弹
+    if (top == -1) return false;      // 下溢：空栈不能再弹
     e = a[top--];                     // 先取后减
     return true;
 }
 
 bool GetTop(int &amp;e) {      // 只看不删
-    if (top == 0) return false;
+    if (top == -1) return false;
     e = a[top];
     return true;
 }
@@ -243,7 +241,7 @@ int main() {
     printf("空栈吗：%s\n", StackEmpty() ? "是" : "否");
 
     for (int x : {10, 20, 30, 40}) Push(x);      // 依次压入
-    int e;
+    int e = 0;
     GetTop(e);
     printf("栈顶 = %d，元素个数 = %d\n", e, StackLength());   // 40，4
 
@@ -251,20 +249,17 @@ int main() {
     printf("弹出 %d\n", e);                       // 40
     Pop(e);
     printf("弹出 %d\n", e);                       // 30
-    printf("现在栈顶 = ", 0);
     GetTop(e);
-    printf("%d，个数 = %d\n", e, StackLength());  // 20，2
+    printf("现在栈顶 = %d，个数 = %d\n", e, StackLength());  // 20，2
 
     while (!StackEmpty()) { Pop(e); printf("%d ", e); }   // 20 10（后进先出）
     printf("\n");
     printf("空栈时 Pop 返回 %d\n", (int)Pop(e));   // 0（下溢被挡住了）
 
     /* ---------- 复杂度 ----------
-       顺序栈的 push / pop / top / 判空 全是 O(1)。
-       只有「扩容」那一下是 O(n)（vector 均摊 O(1)），静态数组不存在扩容。 */
+       顺序栈的 push / pop / top / 判空 全是 O(1)。 */
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note tip">
       <span class="note-title">学习顺序建议</span>
@@ -390,17 +385,15 @@ int main() {
       <figcaption>图 3-2　同一个数组、同样的三个元素，两种 top 约定下 top 的位置与公式完全不同</figcaption>
     </div>
 
-    <h3 id="s2-impl">3.2.2　SeqStack&lt;T&gt; 完整实现（约定 A + 动态扩容）</h3>
+    <h3 id="s2-impl">3.2.2　顺序栈完整代码（约定 A）</h3>
 
     <p>
-      下面这份实现采用<b>约定 A</b>，并且加入了三样工程上必备的东西：<b>动态扩容</b>（满栈时容量翻倍而不是直接失败）、
-      <b>深拷贝</b>（拷贝构造与赋值运算符，避免两个栈共用一块内存导致 double free）、
-      <b>异常保护</b>（空栈 Pop / GetTop 抛 <code>std::underflow_error</code>，而不是返回垃圾值）。
-      代码里的 <code>main</code> 把入栈、取栈顶、连续出栈、下溢四种情况都跑了一遍。
+      下面这份代码采用<b>约定 A</b>（top 指向栈顶元素，空栈时 <code>top == -1</code>），也是做题时最常用的写法：
+      一个全局数组、一个 <code>top</code>，再加几个普通函数。栈满、栈空都用返回值 <code>false</code> 报告，
+      调用方一看返回值就知道这次操作有没有成功。<code>main</code> 把入栈、出栈、取栈顶都跑了一遍。
     </p>
 
-    <pre data-lang="cpp" data-file="seq_stack.hpp">
-/* ==========================================================================
+    <pre data-lang="cpp" data-file="seq_stack.cpp">/* ==========================================================================
    顺序栈 —— 数组实现（算法竞赛写法，最常用）
    --------------------------------------------------------------------------
    为什么竞赛里几乎都用顺序栈？
@@ -408,20 +401,19 @@ int main() {
        · 不用 new/delete，不会内存泄漏
        · 只要数组开够，就不用管扩容
 
-   约定：top 指向**栈顶元素**，top == 0 表示空栈，元素存在 a[1..top]。
-   这样判空写成 top == 0 比 top == -1 更直观，也少一个边界。
+   约定 A：top 指向**栈顶元素**，top == -1 表示空栈，元素存在 a[0..top]。
    ========================================================================== */
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 const int N = 100005;
 int a[N];
-int top = 0;
+int top = -1;
 
-void InitStack()    { top = 0; }
-bool StackEmpty()   { return top == 0; }
-bool StackFull()    { return top == N - 1; }   // 留一个位置，或直接 top == N
-int  StackLength()  { return top; }
+void InitStack()    { top = -1; }
+bool StackEmpty()   { return top == -1; }
+bool StackFull()    { return top == N - 1; }
+int  StackLength()  { return top + 1; }
 
 bool Push(int x) {
     if (StackFull()) return false;
@@ -443,20 +435,20 @@ bool GetTop(int &amp;e) {
 
 void PrintStack(const char *title = "") {        // 从栈底到栈顶打印，方便看清结构
     printf("%s（栈底→栈顶）：", title);
-    for (int i = 1; i &lt;= top; ++i) printf("%d ", a[i]);
+    for (int i = 0; i &lt;= top; ++i) printf("%d ", a[i]);
     printf("｜ top=%d\n", top);
 }
 
 int main() {
     InitStack();
-    PrintStack("空栈");                          // ｜ top=0
+    PrintStack("空栈");                          // ｜ top=-1
 
     for (int x : {3, 1, 4, 1, 5}) Push(x);
-    PrintStack("压入 3 1 4 1 5");                 // 3 1 4 1 5 ｜ top=5
+    PrintStack("压入 3 1 4 1 5");                 // 3 1 4 1 5 ｜ top=4
 
-    int e;
+    int e = 0;
     Pop(e); Pop(e);
-    PrintStack("弹出两次");                      // 3 1 4 ｜ top=3
+    PrintStack("弹出两次");                      // 3 1 4 ｜ top=2
     printf("弹掉的是 5、1（后进先出）\n");
 
     GetTop(e);
@@ -466,13 +458,12 @@ int main() {
     printf("（若 N=5，再 push 就会返回 false，这就是上溢 overflow）\n");
 
     /* ---------- 易错点清单 ----------
-       ① 空栈 pop 必须判：否则读到的是 a[0] 里的垃圾值
-       ② top 的约定要统一：这套代码里 top 是「栈顶下标」，
+       ① 空栈 pop 必须判：否则会去读 a[-1]，数组越界
+       ② top 的约定要统一：这套代码里 top 是「栈顶元素的下标」，
           如果你写的代码里 top 是「栈顶上方空位」，那 push 就是 a[top++] = x
        ③ 数组大小 N 要按题目数据范围开够，栈满会静默失败（本代码返回 false） */
     return 0;
-}
-</pre>
+}</pre>
 
     <h3 id="s2-anim">3.2.3　动画：顺序栈的入栈、取栈顶与出栈</h3>
 
@@ -495,18 +486,18 @@ int main() {
     <h3 id="s2-grow">3.2.4　栈满、动态扩容与摊还分析</h3>
 
     <p>
-      顺序栈的容量是编译期或初始化时定死的，一旦满了再 Push 就上溢。工程上有三条出路：
-      <b>① 直接报错</b>（适合容量确定、绝不该溢出的场景，如表达式求值里的运算符栈）；
+      顺序栈的数组大小是事先开好的，一旦满了再 Push 就上溢。有三条出路：
+      <b>① 数组开够、满了就报错</b>（做题时最常用：按题目的数据范围把数组开够）；
       <b>② 动态扩容</b>（容量翻倍 + 搬移，适合容量无法预估的场景，<code>std::vector</code> 就是这么做的）；
       <b>③ 换成链栈</b>（根本没有「满」这个概念）。下面这份代码用<b>约定 B</b> 实现了一个固定容量的顺序栈，
-      并示范了「上溢 / 下溢用返回值报告」这种不用异常的写法 —— 请对照 3.2.1 的图 3-2 检查每一行公式。
+      上溢、下溢同样用返回值报告 —— 请对照 3.2.1 的图 3-2 检查每一行公式。
     </p>
 
     <pre data-lang="cpp" data-file="seq_stack_v2.cpp">
 /* ==========================================================================
    顺序栈的第二种约定：top 指向「栈顶上方的空位」
    --------------------------------------------------------------------------
-   上一段用的是「top 指向栈顶元素」，所以空栈 top == 0，push 要写 a[++top] = x。
+   上一段用的是「top 指向栈顶元素」，所以空栈 top == -1，push 要写 a[++top] = x。
    这里换成另一种同样常见的约定：**top 指向栈顶上方那个空位**，于是：
 
        空栈：top == 0            栈满：top == N
@@ -578,9 +569,8 @@ int main() {
 
     /* ---------- 两种约定对照表（背下来） ----------
        约定                    空栈      满栈      入栈            出栈           取栈顶
-       top 指向栈顶元素        top==0    top==N-1  a[++top]=x      e=a[top--]     a[top]
+       top 指向栈顶元素        top==-1   top==N-1  a[++top]=x      e=a[top--]     a[top]
        top 指向栈顶上方空位    top==0    top==N    a[top++]=x      e=a[--top]     a[top-1]
-       （若把空栈定义为 top==-1，上表第一行整体平移一格，判空变成 top==-1）
 
        为什么很多人偏爱第二种？因为「长度 = top」不用换算，判空也最简单。
        而第一种的「取栈顶 = a[top]」更直观。选一个习惯的就行。 */
@@ -590,7 +580,8 @@ int main() {
 
     <p>
       看到两种约定的代码摆在一起，你应该能体会到「约定」二字的分量：<b>它们都对，但绝不能混</b>。
-      本讲从 3.2.2 起的全部代码<b>统一采用约定 A</b>（top 指向栈顶元素），因为它在画图时最直观。
+      本讲后面凡是自己用数组写的栈（比如 3.3 的共享栈）都<b>采用约定 A</b>（top 指向栈顶元素），因为它在画图时最直观；
+      应用部分大多直接用 STL 的 <code>std::stack</code>，不用操心 top。
     </p>
 
     <h4 id="s2-amortized">为什么扩容要「翻倍」而不是「加一」？</h4>
@@ -726,39 +717,28 @@ int main() {
         <line x1="50" y1="142" x2="50" y2="114" stroke="var(--ok)" stroke-width="2.4" marker-end="url(#m33d)"/>
         <text x="62" y="140" fill="var(--ok)" font-size="12.5" font-family="Consolas, monospace">top = −1：全部格子失效</text>
         <text x="420" y="70" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">旧值残留在数组里不影响正确性</text>
-        <text x="420" y="98" fill="var(--text-faint)" font-size="12">若元素是指针 / 对象，应改用逐个 Pop 以免内存泄漏</text>
+        <text x="420" y="98" fill="var(--text-faint)" font-size="12">下次 Push 会直接覆盖旧值</text>
       </svg>
       <figcaption>图 3-3　入栈、出栈与清空时 top 与数组内容的变化（点「下一步 ▶」逐步查看）</figcaption>
     </div>
 
-    <h3 id="s2-clear">3.2.5　清空与析构：ClearStack 到底该怎么写？</h3>
+    <h3 id="s2-clear">3.2.5　清空栈</h3>
 
     <p>
-      顺序栈的 <code>ClearStack</code> 有两种写法，选哪种取决于 <code>T</code> 是什么：
+      清空顺序栈只要一句 <code>top = -1;</code>，O(1) 完成。数组里的旧值不用擦掉 —— 它们已经不属于这个栈，
+      下次入栈时会被直接覆盖（图 3-3 的第 ④ 步）。
     </p>
-    <ul>
-      <li>
-        <b>写法一：<code>top = -1;</code></b>　O(1) 完成。适用于 <code>T</code> 是 <code>int</code>、<code>double</code>
-        这类「平凡类型」的情况 —— 旧值留在数组里既不影响正确性，也不占额外资源。
-      </li>
-      <li>
-        <b>写法二：循环 <code>Pop()</code> 直到空</b>　O(n)。当 <code>T</code> 是 <code>std::string</code>、含指针的类、
-        智能指针时，必须让每个元素的<b>析构函数</b>跑一遍，否则它们持有的堆内存就会泄漏。
-        C++ 里更地道的做法是用 <code>std::vector&lt;T&gt;</code> 当底层容器，<code>v.clear()</code> 会自动完成这件事。
-      </li>
-    </ul>
 
-    <div class="note danger">
-      <span class="note-title">易错：用 <code>memset</code> / <code>calloc</code> 清空栈</span>
-      有些教材用 <code>memset(S.data, 0, sizeof(S.data))</code> 来「清空」栈。对 <code>int</code> 数组它能跑，
-      但它<b>不会调用元素的析构函数</b>，一旦 <code>T</code> 是带资源的类型就直接内存泄漏；
-      如果 <code>T</code> 里含有虚函数表指针，还会把对象彻底写坏（未定义行为）。
-      记住：<b>清空栈 = 让 top 回到空栈状态</b>，该释放的资源交给析构函数或 <code>pop_back()</code> / <code>clear()</code>。
+    <div class="note warn">
+      <span class="note-title">易错：用 <code>memset</code> 清空栈</span>
+      <code>memset(a, 0, sizeof(a))</code> 会把整个数组都写一遍，数组开到 10<sup>5</sup> 时就是 O(N)。
+      多组数据的题目如果每组都 <code>memset</code> 一次，很容易超时。栈里有没有元素只看 <code>top</code>，
+      所以<b>每组数据开始前把 <code>top</code> 置回 -1 就够了</b>。
     </div>
 
     <p>
       三种实现的横向对比放在 3.4.3 节（链栈之后）一起给出，因为对比表里需要用到链栈的结论。
-      先把顺序栈的两条结论记住：<b>Push / Pop / GetTop 都是 O(1)（动态扩容为摊还 O(1)）；清空是 O(1)（平凡类型）。</b>
+      先把顺序栈的两条结论记住：<b>Push / Pop / GetTop 都是 O(1)（动态扩容为摊还 O(1)）；清空是 O(1)。</b>
     </p>
 
     <h2 id="s3">3.3　共享栈：两个栈共用一个数组</h2>
@@ -992,7 +972,7 @@ int main() {
           </marker>
         </defs>
 
-        <text x="24" y="26" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">LinkStack：top 指向首元结点，栈底结点的 next == nullptr</text>
+        <text x="24" y="26" fill="var(--text-faint)" font-size="12.5" font-family="Consolas, monospace">链栈：top 指向首元结点，栈底结点的 next == nullptr</text>
 
         <!-- top 指针 -->
         <text x="24" y="104" fill="var(--brand)" font-size="14" font-weight="700" font-family="Consolas, monospace">top</text>
@@ -1045,7 +1025,7 @@ int main() {
       插入到第 1 个位置和插入到第 5 个位置都需要「修改前驱的 next」，有了头结点，第 1 个位置的前驱就是头结点，
       代码不必特判。但栈<b>永远只在头部操作</b>，压根不存在「其他位置」，这个统一作用就用不上了。
       相反，带上头结点还会带来额外负担：判空从 <code>top == nullptr</code> 变成 <code>head-&gt;next == nullptr</code>，
-      取栈顶要多跳一次 <code>head-&gt;next-&gt;data</code>，还要多 <code>new</code> 一个结点、在析构时多 <code>delete</code> 一次。
+      取栈顶要多跳一次 <code>head-&gt;next-&gt;data</code>，还要多 <code>new</code> 一个结点。
       所以链栈的通行写法是<b>不带头结点，<code>top</code> 直接指向首元结点</b>，空栈就是 <code>top == nullptr</code>。
       本节仍然先给一份<b>带头结点</b>的完整实现（因为很多教材和考题就是这么写的，你必须看得懂），
       再给一份<b>不带头结点</b>的版本，对照着看你就明白取舍在哪里。
@@ -1053,10 +1033,9 @@ int main() {
     <p>
       <b>第二，为什么不需要判满。</b>顺序栈的「满」来自「数组下标有上限」这一物理事实。
       链栈的结点是运行时用 <code>new</code> 从堆上要来的，<b>只要堆还有内存就能继续 Push</b>，
-      所以 <code>StackFull()</code> 可以永远返回 <code>false</code>（或者干脆不提供这个操作）。
-      严格地说，链栈在<b>堆内存耗尽、<code>new</code> 抛 <code>std::bad_alloc</code></b> 时也会「上溢」，
-      但这不是数据结构层面的容量限制，而是整个进程的资源限制 —— 这时提醒用户「栈满了」没有意义，
-      因为程序已经处于不可恢复的状态。因此工程上链栈的 Push 只处理 <code>bad_alloc</code>，不做判满。
+      所以链栈<b>不需要 <code>StackFull()</code> 这个操作</b>，下面的代码也没有写它。
+      严格地说，整台机器的内存用光时 <code>new</code> 也会失败，但那不是栈本身的容量限制，
+      做题时不用考虑。
     </p>
 
     <div class="note danger">
@@ -1250,7 +1229,7 @@ int main() {
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>比较维度</th><th>顺序栈 SeqStack</th><th>链栈 LinkStack</th></tr>
+          <tr><th>比较维度</th><th>顺序栈</th><th>链栈</th></tr>
         </thead>
         <tbody>
           <tr>
@@ -1270,7 +1249,7 @@ int main() {
           </tr>
           <tr>
             <td>清空 ClearStack</td>
-            <td class="c-ok">O(1)：<code>top = -1</code>（平凡类型）</td>
+            <td class="c-ok">O(1)：<code>top = -1</code></td>
             <td class="c-warn">O(n)：必须逐个 <code>delete</code>，否则内存泄漏</td>
           </tr>
           <tr>
@@ -1281,7 +1260,7 @@ int main() {
           <tr>
             <td>是否有上溢</td>
             <td class="c-bad">有：<code>top == MaxSize - 1</code> 时 Push 上溢</td>
-            <td class="c-ok">无容量上溢；只有堆耗尽时 <code>new</code> 抛 <code>bad_alloc</code></td>
+            <td class="c-ok">无容量上溢（除非内存耗尽）</td>
           </tr>
           <tr>
             <td>是否有下溢</td>
@@ -1306,7 +1285,7 @@ int main() {
           <tr>
             <td>实现难度</td>
             <td class="c-ok">低（只需当心 <code>++/--</code> 顺序与扩容）</td>
-            <td class="c-warn">高（指针、内存管理、异常安全）</td>
+            <td class="c-warn">高（要处理指针和 <code>new</code> / <code>delete</code>）</td>
           </tr>
         </tbody>
       </table>
@@ -1315,8 +1294,7 @@ int main() {
     <div class="note tip">
       <span class="note-title">一句话选型</span>
       <b>能预估容量就用顺序栈</b>（本讲后面所有应用都这么选），<b>预估不了再用链栈</b>。
-      真正写工程代码时，第一选择其实是 <code>std::stack&lt;T&gt;</code> —— 它默认用 <code>std::deque</code> 做底层容器，
-      既能两端 O(1) 增长又保留较好的局部性，把两边的优点都吃到了。
+      做题时也可以直接用 STL 的 <code>std::stack</code>，不用自己写 —— 本讲后面的应用大多就是这么做的。
     </div>
 
     <pre data-lang="cpp" data-file="stl_stack_demo.cpp">// stl_stack_demo.cpp —— 标准库的 std::stack：容器适配器，底层默认是 std::deque
@@ -1685,50 +1663,44 @@ int main() {
 
     <div id="viz-base-convert"></div>
 
-    <pre data-lang="cpp" data-file="base_convert.cpp">// base_convert.cpp —— 十进制转 2~16 任意进制（含负数、0 与非法进制处理）
-#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;stack&gt;
-#include &lt;stdexcept&gt;
+    <pre data-lang="cpp" data-file="base_convert.cpp">// base_convert.cpp —— 十进制转 2~16 进制（含负数、0 与非法进制处理）
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-std::string ToBase(long long n, int base) {
-    if (base &lt; 2 || base &gt; 16)
-        throw std::invalid_argument("进制必须在 2~16 之间");
+const char DIGIT[] = "0123456789ABCDEF";
+char st[70];      // 栈：存余数对应的字符（64 位整数转二进制最多 64 位，开 70 够用）
+int top = -1;     // 约定 A：top 指向栈顶元素，top == -1 表示空栈
 
-    const char* DIGIT = "0123456789ABCDEF";
+// 把 n 转成 base 进制；base 不在 2~16 之间时返回空串（用返回值报告错误）
+string ToBase(long long n, int base) {
+    if (base &lt; 2 || base &gt; 16) return "";
+
     bool neg = (n &lt; 0);
     // 取绝对值：先 -(n+1) 再 +1，避免 n == LLONG_MIN 时取负溢出
-    unsigned long long x = neg ? (static_cast&lt;unsigned long long&gt;(-(n + 1)) + 1ULL)
-                               : static_cast&lt;unsigned long long&gt;(n);
+    unsigned long long x = neg ? (unsigned long long)(-(n + 1)) + 1 : (unsigned long long)n;
 
-    std::stack&lt;char&gt; st;                       // 用栈保存余数
-    if (x == 0) st.push('0');                  // 0 要特判，否则循环一次都不执行
+    top = -1;
+    if (x == 0) st[++top] = '0';               // 0 要特判，否则循环一次都不执行
     while (x &gt; 0) {
-        st.push(DIGIT[x % base]);              // 低位先入栈
+        st[++top] = DIGIT[x % base];           // 低位先入栈
         x /= base;
     }
 
-    std::string out;
-    if (neg) out += '-';
-    while (!st.empty()) {                      // 出栈 = 高位 → 低位
-        out += st.top();
-        st.pop();
-    }
+    string out = neg ? "-" : "";
+    while (top &gt;= 0) out += st[top--];         // 出栈 = 高位 → 低位
     return out;
 }
 
 int main() {
     long long tests[] = {156, 0, 255, -156, 1000000000LL};
     for (long long v : tests) {
-        std::cout &lt;&lt; v &lt;&lt; " → 二进制 " &lt;&lt; ToBase(v, 2)
-                  &lt;&lt; " | 八进制 " &lt;&lt; ToBase(v, 8)
-                  &lt;&lt; " | 十六进制 " &lt;&lt; ToBase(v, 16) &lt;&lt; '\n';
+        cout &lt;&lt; v &lt;&lt; " → 二进制 " &lt;&lt; ToBase(v, 2)
+             &lt;&lt; " | 八进制 " &lt;&lt; ToBase(v, 8)
+             &lt;&lt; " | 十六进制 " &lt;&lt; ToBase(v, 16) &lt;&lt; '\n';
     }
-    try { ToBase(10, 20); }
-    catch (const std::exception&amp; e) { std::cout &lt;&lt; "非法进制 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    if (ToBase(10, 20) == "") cout &lt;&lt; "非法进制 20 → 返回空串\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note warn">
       <span class="note-title">易错：0 与负数</span>
@@ -1997,12 +1969,8 @@ int main() {
 
     <pre data-lang="cpp" data-file="infix_to_postfix.cpp">// infix_to_postfix.cpp —— 中缀表达式转后缀表达式
 // 支持：多位数、小数、+ - * / ^ 与圆括号；^ 为右结合（icp &gt; isp）
-#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;vector&gt;
-#include &lt;stack&gt;
-#include &lt;cctype&gt;
-#include &lt;stdexcept&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 /* 栈内优先级：运算符已经在栈里时的优先级 */
 int Isp(char op) {
@@ -2026,45 +1994,44 @@ int Icp(char op) {
 }
 
 /* 把字符串切成 token：连续的数字与小数点算一个操作数，其余每个字符算一个运算符 */
-std::vector&lt;std::string&gt; Tokenize(const std::string&amp; s) {
-    std::vector&lt;std::string&gt; out;
+vector&lt;string&gt; Tokenize(const string&amp; s) {
+    vector&lt;string&gt; out;
     for (size_t i = 0; i &lt; s.size(); ) {
         char c = s[i];
-        if (isspace(static_cast&lt;unsigned char&gt;(c))) { ++i; continue; }
-        if (isdigit(static_cast&lt;unsigned char&gt;(c)) || c == '.') {
-            std::string num;
-            while (i &lt; s.size() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(s[i])) || s[i] == '.'))
-                num += s[i++];
+        if (c == ' ') { ++i; continue; }
+        if (isdigit(c) || c == '.') {
+            string num;
+            while (i &lt; s.size() &amp;&amp; (isdigit(s[i]) || s[i] == '.')) num += s[i++];
             out.push_back(num);
         } else {
-            out.push_back(std::string(1, c));
+            out.push_back(string(1, c));
             ++i;
         }
     }
     return out;
 }
-bool IsNumber(const std::string&amp; t) {
-    return !t.empty() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(t[0])) || t[0] == '.');
+bool IsNumber(const string&amp; t) {
+    return !t.empty() &amp;&amp; (isdigit(t[0]) || t[0] == '.');
 }
 
-std::string InfixToPostfix(const std::string&amp; expr) {
-    std::vector&lt;std::string&gt; tk = Tokenize(expr);
-    std::stack&lt;char&gt; ops;                     // 运算符栈
-    std::string out;                          // 输出序列（后缀式）
+/* 转换成功返回 true，后缀式放进 out；表达式有错（括号不配对、非法字符）返回 false */
+bool InfixToPostfix(const string&amp; expr, string&amp; out) {
+    vector&lt;string&gt; tk = Tokenize(expr);
+    stack&lt;char&gt; ops;                          // 运算符栈
+    out = "";                                 // 输出序列（后缀式）
 
-    for (size_t i = 0; i &lt; tk.size(); ++i) {
-        const std::string&amp; t = tk[i];
+    for (const string&amp; t : tk) {
         if (IsNumber(t)) {                    // ① 操作数：直接输出
             out += t; out += ' ';
         } else if (t == "(") {                // ② 左括号：直接入栈
             ops.push('(');
         } else if (t == ")") {                // ③ 右括号：弹到左括号为止
-            if (ops.empty()) throw std::runtime_error("括号不匹配：多余的 )");
             while (!ops.empty() &amp;&amp; ops.top() != '(') { out += ops.top(); out += ' '; ops.pop(); }
+            if (ops.empty()) return false;    // 没找到配对的左括号：多余的 )
             ops.pop();                        // 左括号出栈丢弃，不输出
         } else {                              // ④ 运算符：先弹后压
             char op = t[0];
-            if (Icp(op) &lt; 0) throw std::runtime_error(std::string("非法字符：") + op);
+            if (Icp(op) &lt; 0) return false;    // 非法字符
             while (!ops.empty() &amp;&amp; Isp(ops.top()) &gt;= Icp(op)) {
                 out += ops.top(); out += ' '; ops.pop();
             }
@@ -2072,11 +2039,11 @@ std::string InfixToPostfix(const std::string&amp; expr) {
         }
     }
     while (!ops.empty()) {                    // ⑤ 收尾：清空运算符栈
-        if (ops.top() == '(') throw std::runtime_error("括号不匹配：多余的 (");
+        if (ops.top() == '(') return false;   // 多余的 (
         out += ops.top(); out += ' '; ops.pop();
     }
     if (!out.empty() &amp;&amp; out.back() == ' ') out.pop_back();
-    return out;
+    return true;
 }
 
 int main() {
@@ -2088,14 +2055,14 @@ int main() {
         "8 - 4 - 2",                           // 左结合：必须是 8 4 - 2 -
         "7"
     };
+    string res;
     for (const char* s : tests) {
-        std::cout &lt;&lt; s &lt;&lt; "\n   → " &lt;&lt; InfixToPostfix(s) &lt;&lt; "\n";
+        InfixToPostfix(s, res);
+        cout &lt;&lt; s &lt;&lt; "\n   → " &lt;&lt; res &lt;&lt; "\n";
     }
-    try { InfixToPostfix("( 1 + 2"); }
-    catch (const std::exception&amp; e) { std::cout &lt;&lt; "错误捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    if (!InfixToPostfix("( 1 + 2", res)) cout &lt;&lt; "( 1 + 2 → 括号不匹配，返回 false\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <div class="note tip">
       <span class="note-title">自测：跑一遍这三组数据</span>
@@ -2152,46 +2119,39 @@ int main() {
 
     <pre data-lang="cpp" data-file="postfix_eval.cpp">// postfix_eval.cpp —— 后缀表达式求值：一个操作数栈 + 一次线性扫描
 // 支持多位数（如 22、100）与小数（如 1.5、0.25）
-#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;vector&gt;
-#include &lt;stack&gt;
-#include &lt;cmath&gt;
-#include &lt;cctype&gt;
-#include &lt;cstdio&gt;
-#include &lt;stdexcept&gt;
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-std::vector&lt;std::string&gt; Tokenize(const std::string&amp; s) {
-    std::vector&lt;std::string&gt; out;
+vector&lt;string&gt; Tokenize(const string&amp; s) {
+    vector&lt;string&gt; out;
     for (size_t i = 0; i &lt; s.size(); ) {
         char c = s[i];
-        if (isspace(static_cast&lt;unsigned char&gt;(c))) { ++i; continue; }
-        if (isdigit(static_cast&lt;unsigned char&gt;(c)) || c == '.') {
-            std::string num;
-            while (i &lt; s.size() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(s[i])) || s[i] == '.'))
-                num += s[i++];
+        if (c == ' ') { ++i; continue; }
+        if (isdigit(c) || c == '.') {
+            string num;
+            while (i &lt; s.size() &amp;&amp; (isdigit(s[i]) || s[i] == '.')) num += s[i++];
             out.push_back(num);
         } else {
-            out.push_back(std::string(1, c));
+            out.push_back(string(1, c));
             ++i;
         }
     }
     return out;
 }
-bool IsNumber(const std::string&amp; t) {
-    return !t.empty() &amp;&amp; (isdigit(static_cast&lt;unsigned char&gt;(t[0])) || t[0] == '.');
+bool IsNumber(const string&amp; t) {
+    return !t.empty() &amp;&amp; (isdigit(t[0]) || t[0] == '.');
 }
 
-double EvalPostfix(const std::string&amp; expr) {
-    std::vector&lt;std::string&gt; tk = Tokenize(expr);
-    std::stack&lt;double&gt; st;                    // 操作数栈
-    for (size_t i = 0; i &lt; tk.size(); ++i) {
-        const std::string&amp; t = tk[i];
+/* 求值成功返回 true，结果放进 res；后缀式非法（操作数不够、除数为 0、非法运算符）返回 false */
+bool EvalPostfix(const string&amp; expr, double&amp; res) {
+    vector&lt;string&gt; tk = Tokenize(expr);
+    stack&lt;double&gt; st;                         // 操作数栈
+    for (const string&amp; t : tk) {
         if (IsNumber(t)) {
-            st.push(std::stod(t));            // 多位数 / 小数一次读入
+            st.push(stod(t));                 // 多位数 / 小数一次读入
             continue;
         }
-        if (st.size() &lt; 2) throw std::runtime_error("后缀式非法：操作数不足");
+        if (st.size() &lt; 2) return false;      // 操作数不足
         double b = st.top(); st.pop();        // ★ 先弹出的是右操作数
         double a = st.top(); st.pop();        // ★ 后弹出的是左操作数
         double v = 0;
@@ -2200,15 +2160,16 @@ double EvalPostfix(const std::string&amp; expr) {
             case '-': v = a - b; break;
             case '*': v = a * b; break;
             case '/':
-                if (b == 0) throw std::runtime_error("除数为 0");
+                if (b == 0) return false;     // 除数为 0
                 v = a / b; break;
-            case '^': v = std::pow(a, b); break;
-            default:  throw std::runtime_error("非法运算符：" + t);
+            case '^': v = pow(a, b); break;
+            default:  return false;           // 非法运算符
         }
         st.push(v);                           // 结果压回栈中
     }
-    if (st.size() != 1) throw std::runtime_error("后缀式非法：扫描结束栈中元素个数不为 1");
-    return st.top();
+    if (st.size() != 1) return false;         // 扫描结束时栈里应该恰好剩一个数
+    res = st.top();
+    return true;
 }
 
 int main() {
@@ -2220,14 +2181,14 @@ int main() {
         "8 4 - 2 -",                          // = 2（左结合）
         "3 4 -"                               // = -1（谁减谁）
     };
+    double res;
     for (const char* s : tests) {
-        std::printf("%-28s = %g\n", s, EvalPostfix(s));
+        EvalPostfix(s, res);
+        printf("%-28s = %g\n", s, res);
     }
-    try { EvalPostfix("1 +"); }
-    catch (const std::exception&amp; e) { std::cout &lt;&lt; "错误捕获 → " &lt;&lt; e.what() &lt;&lt; '\n'; }
+    if (!EvalPostfix("1 +", res)) printf("1 + → 操作数不足，返回 false\n");
     return 0;
-}
-</pre>
+}</pre>
 
     <h3 id="s7-direct">3.7.5　中缀表达式直接求值：双栈法</h3>
 
@@ -3394,9 +3355,9 @@ int main() {
       <table>
         <thead><tr><th>结构 / 算法</th><th>核心机制</th><th>时间</th><th>空间</th><th>一句话记忆</th></tr></thead>
         <tbody>
-          <tr><td>顺序栈 SeqStack</td><td>数组 + top 下标</td><td>Push/Pop/GetTop O(1)（扩容摊还 O(1)）</td><td>O(MaxSize)</td><td>top 挪一格就是全部操作</td></tr>
-          <tr><td>共享栈 SharedStack</td><td>两个栈底钉在数组两端</td><td>同顺序栈，全部 O(1)</td><td>O(MaxSize) 共用</td><td>满 ⇔ <code>top0 + 1 == top1</code></td></tr>
-          <tr><td>链栈 LinkStack</td><td>单链表头插 / 删头</td><td>严格 O(1)</td><td>O(n)（每元素多一个指针）</td><td>链表头就是栈顶，永不判满</td></tr>
+          <tr><td>顺序栈</td><td>数组 + top 下标</td><td>Push/Pop/GetTop O(1)（扩容摊还 O(1)）</td><td>O(MaxSize)</td><td>top 挪一格就是全部操作</td></tr>
+          <tr><td>共享栈</td><td>两个栈底钉在数组两端</td><td>同顺序栈，全部 O(1)</td><td>O(MaxSize) 共用</td><td>满 ⇔ <code>top0 + 1 == top1</code></td></tr>
+          <tr><td>链栈</td><td>单链表头插 / 删头</td><td>严格 O(1)</td><td>O(n)（每元素多一个指针）</td><td>链表头就是栈顶，永不判满</td></tr>
           <tr><td>括号匹配</td><td>左括号入栈，右括号与栈顶配对</td><td>O(n)</td><td>O(n)</td><td>栈顶 = 最近一笔没还的账</td></tr>
           <tr><td>进制转换</td><td>短除法余数入栈，出栈得高位在前</td><td>O(log_base n)</td><td>O(log_base n)</td><td>余数先低后高，栈帮你倒过来</td></tr>
           <tr><td>中缀转后缀</td><td>isp / icp 比较，左括号隔离，结束清栈</td><td>O(n)</td><td>O(n)</td><td>该弹就弹，弹完再压</td></tr>
@@ -3452,7 +3413,7 @@ int main() {
       <span class="note-title">易错 5：链栈出栈顺序与内存释放</span>
       出栈必须「先保存 top → 再前移 top → 最后 delete」，
       写成 <code>delete top; top = top-&gt;next;</code> 就是访问已释放内存（use after free）。
-      链表栈的 <code>ClearStack</code> 与析构也必须逐个 <code>delete</code>，否则内存泄漏。
+      链栈清空时也必须逐个 <code>delete</code>，否则内存泄漏。
     </div>
 
     <div class="note warn">

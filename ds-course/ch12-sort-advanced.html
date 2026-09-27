@@ -3348,7 +3348,7 @@ int main() {
         <h4 style="margin-top:0">工程场景</h4>
         <ul style="margin-bottom:0">
           <li><b>通用</b>：<code>std::sort</code>；需要稳定语义就用「加下标」的写法。</li>
-          <li><b>大对象</b>：排序 <code>vector&lt;int&gt;</code> 下标（或 <code>unique_ptr</code>）而不是排对象本身。</li>
+          <li><b>大对象</b>：排序下标数组而不是排对象本身（交换下标比交换整个大对象快得多）。</li>
           <li><b>海量数据</b>：外部排序（分块 + k 路归并 + 败者树）。</li>
           <li><b>多字段排序</b>：优先「稳定排序 + 从次到主的顺序」，或直接写复合比较器。</li>
           <li><b>已有大量局部有序</b>：Python 直接用 <code>list.sort()</code>（Timsort）即可。</li>

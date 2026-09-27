@@ -3437,9 +3437,9 @@ int main() {
     cout &lt;&lt; "released\n";
     return 0;
 }</pre>
-      现代 C++ 里更推荐用<b>智能指针</b>（<code>std::unique_ptr&lt;TreeNode&gt;</code>），
-      或者干脆用 <code>vector</code> 静态数组存结点（竞赛与 OJ 的标准做法，见 7.8.6 的赫夫曼实现）。
-      后者还有一个额外好处：<b>数组下标可以当结点 ID 用，彻底告别悬空指针</b>。
+      做题时更常见的做法是干脆<b>用数组存结点</b>（竞赛与 OJ 的标准做法，见 7.8.6 的赫夫曼实现），
+      根本不用 <code>new</code> / <code>delete</code>，也就不存在内存泄漏。
+      还有一个额外好处：<b>数组下标可以当结点编号用，彻底告别悬空指针</b>。
     </div>
 
     <div class="note danger">
@@ -3449,8 +3449,8 @@ int main() {
       <code>delete</code> 不会把指针变成 <code>nullptr</code>），接着访问 <code>p-&gt;val</code> 就是未定义行为。
       <b>习惯：<code>delete p; p = nullptr;</code> 永远成对写。</b><br>
       ② 函数返回了<b>局部变量的地址</b>（如返回 <code>TreeNode node;</code> 的 <code>&amp;node</code>）。<br>
-      ③ 「浅拷贝」问题：默认拷贝构造只是复制指针，两个对象析构时对同一块内存 <code>delete</code> 两次，
-      直接崩溃。<b>对策</b>：需要拷贝的树请自己写深拷贝（递归复制每个结点），或者禁用拷贝构造。
+      ③ 两个指针指向同一个结点：通过其中一个 <code>delete</code> 之后，另一个就悬空了；如果再对它 <code>delete</code> 一次，
+      同一块内存被释放两次，程序直接崩溃。<b>对策</b>：释放一棵树只从根调用一次 <code>destroy</code>，同一个结点只 <code>delete</code> 一次。
     </div>
 
     <div class="note danger">
@@ -3589,7 +3589,7 @@ int main() {
           <tr><td>内存释放</td><td>先 <code>delete</code> 根再找孩子</td>
             <td>用<b>后序</b>释放：先递归删左右子树，最后删自己</td></tr>
           <tr><td>悬空指针</td><td><code>delete p;</code> 后继续用 <code>p</code></td>
-            <td><code>delete p; p = nullptr;</code> 成对写；需要拷贝就写深拷贝</td></tr>
+            <td><code>delete p; p = nullptr;</code> 成对写；同一个结点只 <code>delete</code> 一次</td></tr>
           <tr><td>层序遍历</td><td>不判空就把 <code>root</code> 压进队列</td>
             <td>函数第一行 <code>if (!root) return {};</code>，且不要往队列里压 <code>nullptr</code></td></tr>
           <tr><td>下标基准</td><td>0 基数组上套用 1 基公式 <code>2i</code> / <code>i/2</code></td>

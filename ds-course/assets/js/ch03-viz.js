@@ -130,7 +130,7 @@
       top--;
     }
 
-    snap(tag('此时再调用 Pop(&amp;S, &amp;e)：栈已空（top = -1），<b>下溢 underflow</b>。工程代码必须在这里返回错误码或抛异常，绝不能默默返回垃圾值。'),
+    snap(tag('此时再调用 Pop(&amp;S, &amp;e)：栈已空（top = -1），<b>下溢 underflow</b>。代码必须在这里判空并返回 false，绝不能默默读出垃圾值。'),
       null, 'Pop：栈空 → 下溢 underflow');
 
     new DS.Viz(host, {
