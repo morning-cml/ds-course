@@ -390,33 +390,6 @@ int main() {
       <figcaption>图 3-2　同一个数组、同样的三个元素，两种 top 约定下 top 的位置与公式完全不同</figcaption>
     </div>
 
-    <div class="table-wrap">
-      <table class="compact">
-        <thead>
-          <tr><th>比较项</th><th>约定 A：top 指向栈顶元素</th><th>约定 B：top 指向栈顶上方空位</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>空栈判定</td><td><code>top == -1</code></td><td><code>top == 0</code></td></tr>
-          <tr><td>栈满判定</td><td><code>top == MaxSize - 1</code></td><td><code>top == MaxSize</code></td></tr>
-          <tr><td>入栈</td><td><code>S[++top] = e</code>（先加后用）</td><td><code>S[top++] = e</code>（先用后加）</td></tr>
-          <tr><td>出栈</td><td><code>e = S[top--]</code>（先用后减）</td><td><code>e = S[--top]</code>（先减后用）</td></tr>
-          <tr><td>取栈顶</td><td><code>S[top]</code></td><td><code>S[top - 1]</code></td></tr>
-          <tr><td>求长度</td><td><code>top + 1</code>（每次都要记得 +1）</td><td><code>top</code>（top 就是长度，最不容易错）</td></tr>
-          <tr><td>直观性</td><td><b>好</b>：top 明确指着栈顶那个元素，画图方便</td><td><b>好</b>：top 就是元素个数，长度、判空公式极简</td></tr>
-          <tr><td>典型教材</td><td>严蔚敏《数据结构》、本章全部代码</td><td>多数 C++ 标准库实现、部分考研题</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="note danger">
-      <span class="note-title">最坑的一处：++ / -- 与 top 的先后顺序</span>
-      约定 A 的入栈是 <code>S[++top] = e</code>，写成 <code>S[top++] = e</code> 就会<b>先写旧位置再把 top 加一</b>：
-      第一次 Push 会写到 <code>S[-1]</code>（数组越界），同时 top 变成 0，让「空栈」的判定彻底失效。
-      出栈同理：约定 A 必须写 <code>e = S[top--]</code>，写成 <code>e = S[--top]</code> 就会先减再取，<b>永远丢掉栈顶那一个元素</b>。
-      口诀：<b>A 约定「加上用减」——++top 在用之前、top-- 在用之后；B 约定反过来</b>。
-      读别人代码时，先找 <code>top</code> 的初值，一切公式就都推出来了。
-    </div>
-
     <h3 id="s2-impl">3.2.2　SeqStack&lt;T&gt; 完整实现（约定 A + 动态扩容）</h3>
 
     <p>
@@ -526,7 +499,7 @@ int main() {
       <b>① 直接报错</b>（适合容量确定、绝不该溢出的场景，如表达式求值里的运算符栈）；
       <b>② 动态扩容</b>（容量翻倍 + 搬移，适合容量无法预估的场景，<code>std::vector</code> 就是这么做的）；
       <b>③ 换成链栈</b>（根本没有「满」这个概念）。下面这份代码用<b>约定 B</b> 实现了一个固定容量的顺序栈，
-      并示范了「上溢 / 下溢用返回值报告」这种不用异常的写法 —— 请对照 3.2.1 的表格检查每一行公式。
+      并示范了「上溢 / 下溢用返回值报告」这种不用异常的写法 —— 请对照 3.2.1 的图 3-2 检查每一行公式。
     </p>
 
     <pre data-lang="cpp" data-file="seq_stack_v2.cpp">
