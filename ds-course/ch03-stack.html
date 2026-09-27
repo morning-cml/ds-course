@@ -815,12 +815,12 @@ int main() {
 
         <!-- 操作说明 -->
         <rect x="24" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
-        <text x="40" y="176" fill="var(--ok)" font-size="13" font-weight="700">Push(e)：头插，O(1)</text>
-        <text x="40" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = new Node(e); p-&gt;next = top; top = p;</text>
+        <text x="40" y="176" fill="var(--ok)" font-size="13" font-weight="700">Push(x)：头插，O(1)</text>
+        <text x="40" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = new Node(x); p-&gt;next = top; top = p;</text>
         <text x="40" y="222" fill="var(--text-faint)" font-size="12">只有这两步，与栈里已有多少元素无关</text>
 
         <rect x="386" y="150" width="330" height="82" rx="10" fill="var(--panel)" stroke="var(--border)"/>
-        <text x="402" y="176" fill="var(--danger)" font-size="13" font-weight="700">Pop()：删除首元结点，O(1)</text>
+        <text x="402" y="176" fill="var(--danger)" font-size="13" font-weight="700">Pop(e)：删除首元结点，O(1)</text>
         <text x="402" y="200" fill="var(--text-soft)" font-size="12.5" font-family="Consolas, monospace">p = top; top = top-&gt;next; delete p;</text>
         <text x="402" y="222" fill="var(--text-faint)" font-size="12">必须先保存 top，再把 top 后移，最后释放</text>
       </svg>
@@ -866,31 +866,32 @@ int main() {
        入栈 = 头插，出栈 = 删首元结点 —— 这两个都是 O(1)，不需要找前驱。
    （对比：如果让栈顶在链表尾部，出栈就得先找前驱，退化成 O(n)。）
 
-   链栈的两个特点（考点）：
+   链栈的特点（考点）：
        ① 不需要判满（只要内存够就能一直 push），所以**没有上溢**
        ② 但要注意判空（空栈出栈就是下溢）
-       ③ 头结点可有可无。这段代码用「带头结点」版本，插入删除的写法最统一。
+       ③ 头结点可有可无。这一段先用「带头结点」的版本（很多教材这么写），
+          不带头结点的版本见下一段 —— 对栈来说那种反而更简单。
    ========================================================================== */
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct Node {
-    int val;
-    Node *nxt;
-    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
+    int data;
+    Node *next;
+    Node(int v = 0, Node *p = nullptr) : data(v), next(p) {}
 };
 
-Node *head;                 // 头指针，指向头结点（哑结点）
+Node *head;                 // 头指针，指向头结点（不存数据）；栈顶元素是 head-&gt;next
 int cnt = 0;                // 元素个数，维护它就能 O(1) 求长度
 
 void InitStack() { head = new Node(); cnt = 0; }
-bool StackEmpty() { return head-&gt;nxt == nullptr; }
+bool StackEmpty() { return head-&gt;next == nullptr; }
 int  StackLength() { return cnt; }
 
 /* ---------- 入栈 = 头插，O(1) ----------
    新结点接上原来的首元结点，头结点再指向新结点。 */
 bool Push(int x) {
-    head-&gt;nxt = new Node(x, head-&gt;nxt);
+    head-&gt;next = new Node(x, head-&gt;next);
     ++cnt;
     return true;                       // 链栈不会满，永远返回 true
 }
@@ -898,17 +899,17 @@ bool Push(int x) {
 /* ---------- 出栈 = 删掉首元结点，O(1) ---------- */
 bool Pop(int &amp;e) {
     if (StackEmpty()) return false;    // 下溢：空栈不能弹
-    Node *p = head-&gt;nxt;               // p 就是栈顶结点
-    e = p-&gt;val;
-    head-&gt;nxt = p-&gt;nxt;                // 摘掉它
-    delete p;                          // 竞赛里这句可以省（程序结束就回收）
+    Node *p = head-&gt;next;              // p 就是栈顶结点
+    e = p-&gt;data;
+    head-&gt;next = p-&gt;next;              // 摘掉它
+    delete p;                          // 先摘链再释放，顺序不能反
     --cnt;
     return true;
 }
 
 bool GetTop(int &amp;e) {
     if (StackEmpty()) return false;
-    e = head-&gt;nxt-&gt;val;
+    e = head-&gt;next-&gt;data;              // 带头结点时，栈顶要多跳一次 head-&gt;next
     return true;
 }
 
@@ -920,7 +921,7 @@ void ClearStack() {
 
 void PrintStack(const char *title = "") {     // 从栈顶到栈底打印
     printf("%s（栈顶→栈底）：", title);
-    for (Node *p = head-&gt;nxt; p; p = p-&gt;nxt) printf("%d ", p-&gt;val);
+    for (Node *p = head-&gt;next; p; p = p-&gt;next) printf("%d ", p-&gt;data);
     printf("｜ 个数=%d\n", cnt);
 }
 
@@ -946,62 +947,48 @@ int main() {
     for (int x : {1, 2, 3}) Push(x);
     ClearStack();
     printf("压入 1 2 3 再 ClearStack，长度 = %d\n", StackLength());   // 0
-
-    /* ---------- 顺序栈 vs 链栈（考点） ----------
-       维度           顺序栈                链栈
-       时间复杂度      push/pop O(1)         push/pop O(1)
-       空间           预先分配，可能浪费     按需分配，每个结点多一个指针域
-       上溢           有（数组满）           没有
-       是否需预分配   需要                  不需要
-       缓存友好性     好（连续内存）         差（指针跳转）
-       结论：能估出规模就用顺序栈；规模完全未知或很大时才用链栈。 */
     return 0;
 }</pre>
 
     <pre data-lang="cpp" data-file="link_stack_nohdr.cpp">/* ==========================================================================
-   链栈（不带头结点版）—— 少一个哑结点，边界要自己判
+   链栈（不带头结点版）—— top 直接指向栈顶结点，链栈的通行写法
    --------------------------------------------------------------------------
-   带头结点的链栈，空栈时 head-&gt;nxt == NULL，push/pop 的写法统一；
-   不带头结点时，head 直接指向**栈顶元素**，空栈就是 head == NULL。
+   带头结点时，栈顶元素是 head-&gt;next，空栈是 head-&gt;next == nullptr；
+   不带头结点时，top 直接指向**栈顶元素**，空栈就是 top == nullptr。
 
-   不带头结点的代价：push 时必须特判"栈原来是空的"，
-   因为要把 head 从 NULL 改成新结点，而这一步和"往非空栈里 push"不一样。
+   对栈来说，不带头结点反而更简单：所有操作都只在 top 这一端，
+   入栈「新结点指向旧 top，再让 top 指向新结点」、出栈「top 后移一格」，
+   这两句在空栈 / 只剩一个元素时同样成立，一个特判都不用写。
    ========================================================================== */
 #include &lt;bits/stdc++.h&gt;
 using namespace std;
 
 struct Node {
-    int val;
-    Node *nxt;
-    Node(int v = 0, Node *p = nullptr) : val(v), nxt(p) {}
+    int data;
+    Node *next;
+    Node(int v = 0, Node *p = nullptr) : data(v), next(p) {}
 };
 
-Node *head = nullptr;        // 直接指向栈顶元素；NULL 表示空栈
+Node *top = nullptr;         // 直接指向栈顶结点；nullptr 表示空栈
 int cnt = 0;
 
-void InitStack() { head = nullptr; cnt = 0; }
-bool StackEmpty() { return head == nullptr; }
+void InitStack() { top = nullptr; cnt = 0; }
+bool StackEmpty() { return top == nullptr; }
 int  StackLength() { return cnt; }
 
-/* ---------- 入栈：两种写法，第二种更简洁 ---------- */
+/* ---------- 入栈：新结点指向旧栈顶，top 再指向新结点（空栈时也成立） ---------- */
 bool Push(int x) {
-    // 写法一：特判空栈
-    // if (head == nullptr) { head = new Node(x); ++cnt; return true; }
-    // head-&gt;nxt = new Node(x, head-&gt;nxt);   // 新结点插在栈顶后面
-    // ++cnt; return true;
-
-    // 写法二：构造新结点时直接让它指向旧栈顶，再让 head 指向它（空栈时也成立）
-    head = new Node(x, head);            // 空栈时 head 是 nullptr，new 的结点 nxt 也就是 nullptr ✓
+    top = new Node(x, top);              // 空栈时 top 是 nullptr，新结点的 next 也就是 nullptr ✓
     ++cnt;
     return true;
 }
 
-/* ---------- 出栈：必须特判，因为摘掉栈顶后 head 要指向下一个，可能是 NULL ---------- */
+/* ---------- 出栈：先保存 top，再后移 top，最后释放 ---------- */
 bool Pop(int &amp;e) {
     if (StackEmpty()) return false;
-    Node *p = head;
-    e = p-&gt;val;
-    head = p-&gt;nxt;                       // head 直接后移（空栈时自然变成 nullptr）
+    Node *p = top;
+    e = p-&gt;data;
+    top = p-&gt;next;                       // 只剩一个元素时，top 自然变成 nullptr
     delete p;
     --cnt;
     return true;
@@ -1009,7 +996,7 @@ bool Pop(int &amp;e) {
 
 bool GetTop(int &amp;e) {
     if (StackEmpty()) return false;
-    e = head-&gt;val;                       // 不带头结点时，栈顶就是 head 自己
+    e = top-&gt;data;                       // 不带头结点时，栈顶就是 top 自己
     return true;
 }
 
@@ -1021,7 +1008,7 @@ void ClearStack() {
 
 void PrintStack(const char *title = "") {
     printf("%s（栈顶→栈底）：", title);
-    for (Node *p = head; p; p = p-&gt;nxt) printf("%d ", p-&gt;val);
+    for (Node *p = top; p; p = p-&gt;next) printf("%d ", p-&gt;data);
     printf("｜ 个数=%d\n", cnt);
 }
 
@@ -1033,22 +1020,22 @@ int main() {
     PrintStack("压入 1 2 3");             // 3 2 1
     int e = 0;
     GetTop(e);
-    printf("栈顶 = %d（就是 head 自己指向的结点）\n", e);   // 3
+    printf("栈顶 = %d（就是 top 自己指向的结点）\n", e);   // 3
 
     Pop(e); Pop(e);
     PrintStack("弹两次后");              // 1
     Pop(e);
-    printf("弹掉最后一个后，head = %s\n", head == nullptr ? "NULL" : "非空");
+    printf("弹掉最后一个后，top = %s\n", top == nullptr ? "NULL" : "非空");
     printf("空栈再 Pop 返回 %d\n", (int)Pop(e));            // 0
 
     Push(7); Push(8);
     ClearStack();
-    printf("压入 7 8 再 ClearStack，head = %s\n", head == nullptr ? "NULL" : "非空");   // NULL
+    printf("压入 7 8 再 ClearStack，top = %s\n", top == nullptr ? "NULL" : "非空");   // NULL
 
     /* ---------- 两种链栈对比 ----------
-       带头结点：push/pop 不用特判，代码统一；多占一个结点空间
-       不带头结点：省一个结点，但 push/pop 都要考虑"空"这个边界
-       竞赛选择：写链表时统一用带头结点，能少写一堆 if。 */
+       带头结点：多占一个结点；取栈顶要写 head-&gt;next，判空写 head-&gt;next == nullptr
+       不带头结点：top 就是栈顶，判空就是 top == nullptr，入栈出栈都不用特判
+       所以链栈一般写成不带头结点的这种。 */
     return 0;
 }</pre>
 
@@ -1073,7 +1060,7 @@ int main() {
           <tr>
             <td>求长度 StackLength</td>
             <td class="c-ok">O(1)：<code>top + 1</code></td>
-            <td class="c-warn">不带头结点 + 计数器可 O(1)；带头结点或不设计数器为 O(n)</td>
+            <td class="c-ok">用计数器 <code>cnt</code> 记着就是 O(1)（本讲两段代码都这么做）；不设计数器就要从头数，O(n)</td>
           </tr>
           <tr>
             <td>清空 ClearStack</td>
@@ -1087,7 +1074,7 @@ int main() {
           </tr>
           <tr>
             <td>是否有上溢</td>
-            <td class="c-bad">有：<code>top == MaxSize - 1</code> 时 Push 上溢</td>
+            <td class="c-bad">有：栈满（<code>top == N - 1</code>）时再 Push 就上溢</td>
             <td class="c-ok">无容量上溢（除非内存耗尽）</td>
           </tr>
           <tr>
@@ -1112,7 +1099,7 @@ int main() {
           </tr>
           <tr>
             <td>实现难度</td>
-            <td class="c-ok">低（只需当心 <code>++/--</code> 顺序与扩容）</td>
+            <td class="c-ok">低（只需当心 <code>++</code> / <code>--</code> 的先后顺序）</td>
             <td class="c-warn">高（要处理指针和 <code>new</code> / <code>delete</code>）</td>
           </tr>
         </tbody>
@@ -1121,38 +1108,31 @@ int main() {
 
     <div class="note tip">
       <span class="note-title">一句话选型</span>
-      <b>能预估容量就用顺序栈</b>（本讲后面所有应用都这么选），<b>预估不了再用链栈</b>。
+      <b>能预估容量就用顺序栈</b>，<b>预估不了再用链栈</b>。
       做题时也可以直接用 STL 的 <code>std::stack</code>，不用自己写 —— 本讲后面的应用大多就是这么做的。
     </div>
 
-    <pre data-lang="cpp" data-file="stl_stack_demo.cpp">// stl_stack_demo.cpp —— 标准库的 std::stack：容器适配器，底层默认是 std::deque
-// 记住三点：① 它只是「适配器」，不提供迭代器，不能遍历；
-//          ② 默认底层 deque 可以换：stack&lt;int, vector&lt;int&gt;&gt; 就是用 vector 存；
-//          ③ 接口是 push / pop / top / empty / size，pop() 不返回值（要自己先取 top）。
-#include &lt;iostream&gt;
-#include &lt;stack&gt;
-#include &lt;vector&gt;
-#include &lt;string&gt;
+    <pre data-lang="cpp" data-file="stl_stack_demo.cpp">// stl_stack_demo.cpp —— 标准库的 std::stack：做题时可以直接拿来用
+// 记住三点：① 接口是 push / pop / top / empty / size；
+//          ② pop() 不返回值，要先用 top() 取出栈顶再 pop()；
+//          ③ 不能遍历、不能下标访问，只能看栈顶。
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
 int main() {
-    std::stack&lt;int&gt; s;                       // 底层 std::deque&lt;int&gt;
+    stack&lt;int&gt; s;
     for (int v : {12, 7, 25}) s.push(v);
-    std::cout &lt;&lt; "size = " &lt;&lt; s.size() &lt;&lt; "，top = " &lt;&lt; s.top() &lt;&lt; '\n';
+    cout &lt;&lt; "size = " &lt;&lt; s.size() &lt;&lt; "，top = " &lt;&lt; s.top() &lt;&lt; '\n';
     s.top() = 99;                             // top() 返回引用，可以直接改栈顶
-    while (!s.empty()) { std::cout &lt;&lt; s.top() &lt;&lt; ' '; s.pop(); }
-    std::cout &lt;&lt; '\n';
+    while (!s.empty()) { cout &lt;&lt; s.top() &lt;&lt; ' '; s.pop(); }
+    cout &lt;&lt; '\n';
 
-    std::stack&lt;int, std::vector&lt;int&gt;&gt; sv;    // 换成 vector 做底层容器
-    for (int v : {1, 2, 3}) sv.push(v);
-    std::cout &lt;&lt; "vector 版 top = " &lt;&lt; sv.top() &lt;&lt; '\n';
-
-    std::stack&lt;std::string&gt; st;              // 元素类型任意
+    stack&lt;string&gt; st;                         // 元素类型任意
     st.push("出"); st.push("先"); st.push("进"); st.push("后");
-    while (!st.empty()) { std::cout &lt;&lt; st.top(); st.pop(); }
-    std::cout &lt;&lt; "　← 出栈顺序恰好是入栈顺序的逆序\n";
+    while (!st.empty()) { cout &lt;&lt; st.top(); st.pop(); }
+    cout &lt;&lt; "　← 出栈顺序恰好是入栈顺序的逆序\n";
     return 0;
-}
-</pre>
+}</pre>
 
     <h2 id="s5">3.5　经典应用一：括号匹配</h2>
 
